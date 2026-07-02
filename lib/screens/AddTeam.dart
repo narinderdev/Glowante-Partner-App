@@ -93,6 +93,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   bool _isVerifying = false;
   bool _isSubmitting = false;
   bool _isSelectingAddress = false;
+  bool _isSyncingNameFields = false;
 
   final Color _fieldFill = const Color(0xFFFAF9F8);
   final BorderRadius _radius = BorderRadius.circular(12);
@@ -278,6 +279,44 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   void _clearLastNameValidation() {
     if (!mounted) return;
     setState(() => _suppressLastNameError = true);
+  }
+
+  void _splitFullNameAcrossFields(
+    String value, {
+    required bool fromFirstName,
+  }) {
+    if (_isSyncingNameFields) return;
+
+    final text = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (text.isEmpty || !text.contains(' ')) return;
+
+    final parts = text.split(' ');
+    if (parts.length < 2) return;
+
+    final first = parts.first.trim();
+    final last = parts.skip(1).join(' ').trim();
+    if (first.isEmpty || last.isEmpty) return;
+
+    if (fromFirstName && _lastNameCtrl.text.trim().isNotEmpty) return;
+    if (!fromFirstName && _firstNameCtrl.text.trim().isNotEmpty) return;
+
+    _isSyncingNameFields = true;
+    try {
+      setState(() {
+        _firstNameCtrl.text = first;
+        _firstNameCtrl.selection = TextSelection.collapsed(
+          offset: _firstNameCtrl.text.length,
+        );
+        _lastNameCtrl.text = last;
+        _lastNameCtrl.selection = TextSelection.collapsed(
+          offset: _lastNameCtrl.text.length,
+        );
+        _suppressFirstNameError = true;
+        _suppressLastNameError = true;
+      });
+    } finally {
+      _isSyncingNameFields = false;
+    }
   }
 
   void _clearEmailValidation() {
@@ -2073,503 +2112,522 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: LayoutBuilder(
-            builder: (_, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                child: ConstrainedBox(
-                  constraints:
-                      BoxConstraints(minHeight: constraints.maxHeight - 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      MultiStepFlowHeader(
-                        currentStep: 1,
-                        useIcons: true,
-                        activeColor: _teamMemberAccent,
-                        inactiveFillColor: _teamMemberSoftFill,
-                        inactiveBorderColor: _teamMemberSoftBorder,
-                        steps: const [
-                          FlowStepItem(
-                            stepNumber: 1,
-                            label: 'Personal',
-                            icon: Icons.person_outline_rounded,
-                          ),
-                          FlowStepItem(stepNumber: 2, label: 'Schedule'),
-                          FlowStepItem(stepNumber: 3, label: 'Services'),
-                          FlowStepItem(stepNumber: 4, label: 'Availability'),
-                        ],
-                      ),
-                      const SizedBox(height: 34),
-                      Center(
-                        child: GestureDetector(
-                          onTap: _pickImage,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Container(
-                                width: 104,
-                                height: 104,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white,
-                                  border: Border.all(
-                                    color: const Color(0xFFD8C7B3),
-                                    width: 1.4,
-                                  ),
-                                ),
-                                child: ClipOval(
-                                  child: _cameraImage == null
-                                      ? (_existingImageUrl != null
-                                          ? Image.network(
-                                              _existingImageUrl!,
-                                              fit: BoxFit.cover,
-                                              width: 104,
-                                              height: 104,
-                                            )
-                                          : Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                const Icon(
-                                                  Icons.camera_alt_outlined,
-                                                  color: Color(0xFF8D867F),
-                                                  size: 28,
-                                                ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  translateText(
-                                                      'Upload\nPhoto'),
-                                                  textAlign: TextAlign.center,
-                                                  style: const TextStyle(
-                                                    color: Color(0xFF8D867F),
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w700,
-                                                    height: 1.2,
-                                                  ),
-                                                ),
-                                              ],
-                                            ))
-                                      : Image.file(
-                                          _cameraImage!,
-                                          fit: BoxFit.cover,
-                                          width: 104,
-                                          height: 104,
-                                        ),
-                                ),
-                              ),
-                              Positioned(
-                                right: -4,
-                                bottom: 8,
-                                child: Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    color: _teamMemberAccent,
-                                    shape: BoxShape.circle,
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x26000000),
-                                        blurRadius: 10,
-                                        offset: Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.add_rounded,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 34),
-                      _sectionTitle('Personal\nInformation'),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Phone Number')),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _phoneCtrl,
-                        maxLength: AppInputRules.phoneMaxLength,
-                        enabled: widget.isEdit || !_phoneVerified,
-                        keyboardType: TextInputType.phone,
-                        autovalidateMode: _showGlobalErrors
-                            ? AutovalidateMode.onUserInteraction
-                            : AutovalidateMode.disabled,
-                        textCapitalization: TextCapitalization.none,
-                        decoration: _decor(
-                          hint: translateText('Enter phone number'),
-                          prefix: Container(
-                            width: 64,
-                            alignment: Alignment.center,
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                right: BorderSide(color: Color(0xFFE2D3BF)),
-                              ),
+      body: Theme(
+        data: Theme.of(context).copyWith(
+          textSelectionTheme: const TextSelectionThemeData(
+            cursorColor: _teamMemberAccent,
+            selectionColor: Color(0x33D3A94C),
+            selectionHandleColor: _teamMemberAccent,
+          ),
+        ),
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: LayoutBuilder(
+              builder: (_, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight - 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MultiStepFlowHeader(
+                          currentStep: 1,
+                          useIcons: true,
+                          activeColor: _teamMemberAccent,
+                          inactiveFillColor: _teamMemberSoftFill,
+                          inactiveBorderColor: _teamMemberSoftBorder,
+                          steps: const [
+                            FlowStepItem(
+                              stepNumber: 1,
+                              label: 'Personal',
+                              icon: Icons.person_outline_rounded,
                             ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
+                            FlowStepItem(stepNumber: 2, label: 'Schedule'),
+                            FlowStepItem(stepNumber: 3, label: 'Services'),
+                            FlowStepItem(stepNumber: 4, label: 'Availability'),
+                          ],
+                        ),
+                        const SizedBox(height: 34),
+                        Center(
+                          child: GestureDetector(
+                            onTap: _pickImage,
+                            child: Stack(
+                              clipBehavior: Clip.none,
                               children: [
-                                Text(
-                                  '+91',
-                                  style: TextStyle(
-                                    color: Color(0xFF2D2926),
-                                    fontWeight: FontWeight.w600,
+                                Container(
+                                  width: 104,
+                                  height: 104,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                    border: Border.all(
+                                      color: const Color(0xFFD8C7B3),
+                                      width: 1.4,
+                                    ),
+                                  ),
+                                  child: ClipOval(
+                                    child: _cameraImage == null
+                                        ? (_existingImageUrl != null
+                                            ? Image.network(
+                                                _existingImageUrl!,
+                                                fit: BoxFit.cover,
+                                                width: 104,
+                                                height: 104,
+                                              )
+                                            : Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.camera_alt_outlined,
+                                                    color: Color(0xFF8D867F),
+                                                    size: 28,
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    translateText(
+                                                        'Upload\nPhoto'),
+                                                    textAlign: TextAlign.center,
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF8D867F),
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      height: 1.2,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ))
+                                        : Image.file(
+                                            _cameraImage!,
+                                            fit: BoxFit.cover,
+                                            width: 104,
+                                            height: 104,
+                                          ),
                                   ),
                                 ),
-                                SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  size: 16,
-                                  color: Color(0xFF8D867F),
+                                Positioned(
+                                  right: -4,
+                                  bottom: 8,
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      color: _teamMemberAccent,
+                                      shape: BoxShape.circle,
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x26000000),
+                                          blurRadius: 10,
+                                          offset: Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.add_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        validator: _vPhone,
-                        onChanged: (_) {
-                          _clearPhoneValidation();
-                          _refreshValidationIfNeeded();
-                        },
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      if (_phoneVerified && !widget.isEdit)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            translateText('Phone verified'),
-                            style: TextStyle(
-                              color: _successColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        )
-                      else if (_showGlobalErrors)
-                        FormField<bool>(
-                          autovalidateMode: AutovalidateMode.always,
-                          builder: (state) => state.hasError
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    state.errorText!,
+                        const SizedBox(height: 34),
+                        _sectionTitle('Personal\nInformation'),
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Phone Number')),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _phoneCtrl,
+                          maxLength: AppInputRules.phoneMaxLength,
+                          enabled: widget.isEdit || !_phoneVerified,
+                          keyboardType: TextInputType.phone,
+                          autovalidateMode: _showGlobalErrors
+                              ? AutovalidateMode.onUserInteraction
+                              : AutovalidateMode.disabled,
+                          textCapitalization: TextCapitalization.none,
+                          decoration: _decor(
+                            hint: translateText('Enter phone number'),
+                            prefix: Container(
+                              width: 64,
+                              alignment: Alignment.center,
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(color: Color(0xFFE2D3BF)),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '+91',
                                     style: TextStyle(
-                                      color: _verifyWarnColor,
-                                      fontSize: 12,
+                                      color: Color(0xFF2D2926),
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      const SizedBox(height: 8),
-                      _reqLabel(translateText('First Name')),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        focusNode: _firstNameFocus,
-                        controller: _firstNameCtrl,
-                        maxLength: AppInputRules.nameMaxLength,
-                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.sentences,
-                        inputFormatters: AppInputRules.nameFormatters,
-                        autovalidateMode: _showGlobalErrors
-                            ? AutovalidateMode.onUserInteraction
-                            : AutovalidateMode.disabled,
-                        decoration: _decor(
-                          hint: translateText('Enter first name'),
-                        ),
-                        validator: _vFirstName,
-                        onChanged: (_) {
-                          _clearFirstNameValidation();
-                          _refreshValidationIfNeeded();
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Last Name')),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        focusNode: _lastNameFocus,
-                        controller: _lastNameCtrl,
-                        maxLength: AppInputRules.nameMaxLength,
-                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.sentences,
-                        inputFormatters: AppInputRules.nameFormatters,
-                        autovalidateMode: _showGlobalErrors
-                            ? AutovalidateMode.onUserInteraction
-                            : AutovalidateMode.disabled,
-                        decoration: _decor(
-                          hint: translateText('Enter last name'),
-                        ),
-                        validator: _vLastName,
-                        onChanged: (_) {
-                          _clearLastNameValidation();
-                          _refreshValidationIfNeeded();
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Email')),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        focusNode: _emailFocus,
-                        controller: _emailCtrl,
-                        maxLength: AppInputRules.emailMaxLength,
-                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                        keyboardType: TextInputType.emailAddress,
-                        textCapitalization: TextCapitalization.none,
-                        inputFormatters: AppInputRules.emailFormatters,
-                        autovalidateMode: _showGlobalErrors
-                            ? AutovalidateMode.onUserInteraction
-                            : AutovalidateMode.disabled,
-                        decoration: _decor(
-                          hint: translateText('Enter email address'),
-                          suffix: const Icon(
-                            Icons.mail_outline_rounded,
-                            color: Color(0xFF8D867F),
-                          ),
-                        ),
-                        validator: _vEmail,
-                        onChanged: (_) {
-                          _clearEmailValidation();
-                          _refreshValidationIfNeeded();
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _addressField(),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Gender')),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Radio<String>(
-                            value: 'Male',
-                            groupValue: _gender,
-                            activeColor: _teamMemberAccent,
-                            onChanged: (v) => _setGender(v ?? ''),
-                          ),
-                          Text(translateText('Male')),
-                          const SizedBox(width: 16),
-                          Radio<String>(
-                            value: 'Female',
-                            groupValue: _gender,
-                            activeColor: _teamMemberAccent,
-                            onChanged: (v) => _setGender(v ?? ''),
-                          ),
-                          Text(translateText('Female')),
-                          const SizedBox(width: 16),
-                          Radio<String>(
-                            value: 'Other',
-                            groupValue: _gender,
-                            activeColor: _teamMemberAccent,
-                            onChanged: (v) => _setGender(v ?? ''),
-                          ),
-                          Text(translateText('Other')),
-                        ],
-                      ),
-                      if (_showGlobalErrors)
-                        FormField<String>(
-                          autovalidateMode: AutovalidateMode.always,
-                          validator: (_) => _vGender(),
-                          builder: (state) => state.hasError
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    state.errorText!,
-                                    style: TextStyle(
-                                      color: _errorColor,
-                                      fontSize: 12,
-                                    ),
+                                  SizedBox(width: 4),
+                                  Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 16,
+                                    color: Color(0xFF8D867F),
                                   ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      const SizedBox(height: 22),
-                      _sectionTitle('Professional\nRoles'),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Roles')),
-                      const SizedBox(height: 8),
-                      _PickField(
-                        hint: translateText('Select Roles'),
-                        values: _selectedRoles,
-                        hasError: _showGlobalErrors && _vRoles() != null,
-                        onTap: () => _openMultiSelect(
-                          title: translateText('Select Roles'),
-                          source: _allRoles,
-                          target: _selectedRoles,
-                        ),
-                      ),
-                      if (_showGlobalErrors)
-                        FormField<List<String>>(
-                          autovalidateMode: AutovalidateMode.always,
-                          validator: (_) => _vRoles(),
-                          builder: (state) => state.hasError
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    state.errorText!,
-                                    style: TextStyle(
-                                      color: _errorColor,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Specializations')),
-                      const SizedBox(height: 8),
-                      _PickField(
-                        hint: translateText('Select Specializations'),
-                        values: _selectedSpecs,
-                        hasError: _showGlobalErrors && _vSpecs() != null,
-                        onTap: () => _openMultiSelect(
-                          title: translateText('Select Specializations'),
-                          source: _allSpecs,
-                          target: _selectedSpecs,
-                        ),
-                      ),
-                      if (_showGlobalErrors)
-                        FormField<List<String>>(
-                          autovalidateMode: AutovalidateMode.always,
-                          validator: (_) => _vSpecs(),
-                          builder: (state) => state.hasError
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    state.errorText!,
-                                    style: TextStyle(
-                                      color: _errorColor,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Joining Date')),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: _pickJoiningDate,
-                        child: AbsorbPointer(
-                          child: TextFormField(
-                            readOnly: true,
-                            decoration: _decor(
-                              hint: _joiningDate == null
-                                  ? translateText('dd-mm-yyyy')
-                                  : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-                              suffix: const Icon(
-                                Icons.calendar_month_outlined,
-                                color: Color(0xFF8D867F),
+                                ],
                               ),
                             ),
-                            validator: (_) => null,
                           ),
+                          validator: _vPhone,
+                          onChanged: (_) {
+                            _clearPhoneValidation();
+                            _refreshValidationIfNeeded();
+                          },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
+                          ],
                         ),
-                      ),
-                      if (_showGlobalErrors)
-                        FormField<DateTime>(
-                          autovalidateMode: AutovalidateMode.always,
-                          validator: (_) => _vJoiningDate(),
-                          builder: (state) => state.hasError
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    state.errorText!,
-                                    style: TextStyle(
-                                      color: _errorColor,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Experience')),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _experienceCtrl,
-                        keyboardType: TextInputType.number,
-                        maxLength: 2,
-                        buildCounter: (
-                          context, {
-                          required currentLength,
-                          required isFocused,
-                          required maxLength,
-                        }) {
-                          return Text(
-                            '$currentLength/$maxLength',
-                            style: const TextStyle(
-                              color: Color(0xFF8D867F),
-                              fontSize: 12,
-                              height: 1.15,
+                        const SizedBox(height: 8),
+                        if (_phoneVerified && !widget.isEdit)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              translateText('Phone verified'),
+                              style: TextStyle(
+                                color: _successColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          );
-                        },
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(2),
-                        ],
-                        decoration: _decor(
-                          hint: translateText('Enter experience in years'),
-                        ),
-                        validator: _vExperience,
-                        onChanged: (_) {
-                          _clearExperienceValidation();
-                          _refreshValidationIfNeeded();
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _reqLabel(translateText('Brief About Team Member')),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        focusNode: _brieftFocus,
-                        controller: _briefCtrl,
-                        maxLines: 4,
-                        maxLength: AppInputRules.mediumTextMaxLength,
-                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.sentences,
-                        inputFormatters: AppInputRules.generalTextFormatters(),
-                        decoration: _decor(
-                          hint: translateText(
-                            "Tell us about the team member's experience and expertise...",
+                          )
+                        else if (_showGlobalErrors)
+                          FormField<bool>(
+                            autovalidateMode: AutovalidateMode.always,
+                            builder: (state) => state.hasError
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      state.errorText!,
+                                      style: TextStyle(
+                                        color: _verifyWarnColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
                           ),
-                        ).copyWith(
-                          contentPadding: const EdgeInsets.all(14),
+                        const SizedBox(height: 8),
+                        _reqLabel(translateText('First Name')),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          focusNode: _firstNameFocus,
+                          controller: _firstNameCtrl,
+                          maxLength: AppInputRules.nameMaxLength,
+                          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                          keyboardType: TextInputType.text,
+                          textCapitalization: TextCapitalization.sentences,
+                          inputFormatters: AppInputRules.nameFormatters,
+                          autovalidateMode: _showGlobalErrors
+                              ? AutovalidateMode.onUserInteraction
+                              : AutovalidateMode.disabled,
+                          decoration: _decor(
+                            hint: translateText('Enter first name'),
+                          ),
+                          validator: _vFirstName,
+                          onChanged: (value) {
+                            _splitFullNameAcrossFields(
+                              value,
+                              fromFirstName: true,
+                            );
+                            _clearFirstNameValidation();
+                            _refreshValidationIfNeeded();
+                          },
                         ),
-                        validator: _vBrief,
-                        onChanged: (_) {
-                          _clearBriefValidation();
-                          _refreshValidationIfNeeded();
-                        },
-                      ),
-                      const SizedBox(height: 34),
-                      _promoCard(),
-                      const SizedBox(height: 28),
-                      _PrimaryButton(
-                        text: '${translateText('Next Step')}  →',
-                        height: 54,
-                        flowStyle: true,
-                        isLoading: _isSubmitting,
-                        onPressed: _goToScheduleStep,
-                      ),
-                      const SizedBox(height: 20),
-                    ],
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Last Name')),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          focusNode: _lastNameFocus,
+                          controller: _lastNameCtrl,
+                          maxLength: AppInputRules.nameMaxLength,
+                          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                          keyboardType: TextInputType.text,
+                          textCapitalization: TextCapitalization.sentences,
+                          inputFormatters: AppInputRules.nameFormatters,
+                          autovalidateMode: _showGlobalErrors
+                              ? AutovalidateMode.onUserInteraction
+                              : AutovalidateMode.disabled,
+                          decoration: _decor(
+                            hint: translateText('Enter last name'),
+                          ),
+                          validator: _vLastName,
+                          onChanged: (value) {
+                            _splitFullNameAcrossFields(
+                              value,
+                              fromFirstName: false,
+                            );
+                            _clearLastNameValidation();
+                            _refreshValidationIfNeeded();
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Email')),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          focusNode: _emailFocus,
+                          controller: _emailCtrl,
+                          maxLength: AppInputRules.emailMaxLength,
+                          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                          keyboardType: TextInputType.emailAddress,
+                          textCapitalization: TextCapitalization.none,
+                          inputFormatters: AppInputRules.emailFormatters,
+                          autovalidateMode: _showGlobalErrors
+                              ? AutovalidateMode.onUserInteraction
+                              : AutovalidateMode.disabled,
+                          decoration: _decor(
+                            hint: translateText('Enter email address'),
+                            suffix: const Icon(
+                              Icons.mail_outline_rounded,
+                              color: Color(0xFF8D867F),
+                            ),
+                          ),
+                          validator: _vEmail,
+                          onChanged: (_) {
+                            _clearEmailValidation();
+                            _refreshValidationIfNeeded();
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _addressField(),
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Gender')),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Radio<String>(
+                              value: 'Male',
+                              groupValue: _gender,
+                              activeColor: _teamMemberAccent,
+                              onChanged: (v) => _setGender(v ?? ''),
+                            ),
+                            Text(translateText('Male')),
+                            const SizedBox(width: 16),
+                            Radio<String>(
+                              value: 'Female',
+                              groupValue: _gender,
+                              activeColor: _teamMemberAccent,
+                              onChanged: (v) => _setGender(v ?? ''),
+                            ),
+                            Text(translateText('Female')),
+                            const SizedBox(width: 16),
+                            Radio<String>(
+                              value: 'Other',
+                              groupValue: _gender,
+                              activeColor: _teamMemberAccent,
+                              onChanged: (v) => _setGender(v ?? ''),
+                            ),
+                            Text(translateText('Other')),
+                          ],
+                        ),
+                        if (_showGlobalErrors)
+                          FormField<String>(
+                            autovalidateMode: AutovalidateMode.always,
+                            validator: (_) => _vGender(),
+                            builder: (state) => state.hasError
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      state.errorText!,
+                                      style: TextStyle(
+                                        color: _errorColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        const SizedBox(height: 22),
+                        _sectionTitle('Professional\nRoles'),
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Roles')),
+                        const SizedBox(height: 8),
+                        _PickField(
+                          hint: translateText('Select Roles'),
+                          values: _selectedRoles,
+                          hasError: _showGlobalErrors && _vRoles() != null,
+                          onTap: () => _openMultiSelect(
+                            title: translateText('Select Roles'),
+                            source: _allRoles,
+                            target: _selectedRoles,
+                          ),
+                        ),
+                        if (_showGlobalErrors)
+                          FormField<List<String>>(
+                            autovalidateMode: AutovalidateMode.always,
+                            validator: (_) => _vRoles(),
+                            builder: (state) => state.hasError
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      state.errorText!,
+                                      style: TextStyle(
+                                        color: _errorColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Specializations')),
+                        const SizedBox(height: 8),
+                        _PickField(
+                          hint: translateText('Select Specializations'),
+                          values: _selectedSpecs,
+                          hasError: _showGlobalErrors && _vSpecs() != null,
+                          onTap: () => _openMultiSelect(
+                            title: translateText('Select Specializations'),
+                            source: _allSpecs,
+                            target: _selectedSpecs,
+                          ),
+                        ),
+                        if (_showGlobalErrors)
+                          FormField<List<String>>(
+                            autovalidateMode: AutovalidateMode.always,
+                            validator: (_) => _vSpecs(),
+                            builder: (state) => state.hasError
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      state.errorText!,
+                                      style: TextStyle(
+                                        color: _errorColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Joining Date')),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: _pickJoiningDate,
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              readOnly: true,
+                              decoration: _decor(
+                                hint: _joiningDate == null
+                                    ? translateText('dd-mm-yyyy')
+                                    : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
+                                suffix: const Icon(
+                                  Icons.calendar_month_outlined,
+                                  color: Color(0xFF8D867F),
+                                ),
+                              ),
+                              validator: (_) => null,
+                            ),
+                          ),
+                        ),
+                        if (_showGlobalErrors)
+                          FormField<DateTime>(
+                            autovalidateMode: AutovalidateMode.always,
+                            validator: (_) => _vJoiningDate(),
+                            builder: (state) => state.hasError
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      state.errorText!,
+                                      style: TextStyle(
+                                        color: _errorColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Experience')),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _experienceCtrl,
+                          keyboardType: TextInputType.number,
+                          maxLength: 2,
+                          buildCounter: (
+                            context, {
+                            required currentLength,
+                            required isFocused,
+                            required maxLength,
+                          }) {
+                            return Text(
+                              '$currentLength/$maxLength',
+                              style: const TextStyle(
+                                color: Color(0xFF8D867F),
+                                fontSize: 12,
+                                height: 1.15,
+                              ),
+                            );
+                          },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(2),
+                          ],
+                          decoration: _decor(
+                            hint: translateText('Enter experience in years'),
+                          ),
+                          validator: _vExperience,
+                          onChanged: (_) {
+                            _clearExperienceValidation();
+                            _refreshValidationIfNeeded();
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _reqLabel(translateText('Brief About Team Member')),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          focusNode: _brieftFocus,
+                          controller: _briefCtrl,
+                          maxLines: 4,
+                          maxLength: AppInputRules.mediumTextMaxLength,
+                          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                          keyboardType: TextInputType.text,
+                          textCapitalization: TextCapitalization.sentences,
+                          inputFormatters:
+                              AppInputRules.generalTextFormatters(),
+                          decoration: _decor(
+                            hint: translateText(
+                              "Tell us about the team member's experience and expertise...",
+                            ),
+                          ).copyWith(
+                            contentPadding: const EdgeInsets.all(14),
+                          ),
+                          validator: _vBrief,
+                          onChanged: (_) {
+                            _clearBriefValidation();
+                            _refreshValidationIfNeeded();
+                          },
+                        ),
+                        const SizedBox(height: 34),
+                        _promoCard(),
+                        const SizedBox(height: 28),
+                        _PrimaryButton(
+                          text: '${translateText('Next Step')}  →',
+                          height: 54,
+                          flowStyle: true,
+                          isLoading: _isSubmitting,
+                          onPressed: _goToScheduleStep,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

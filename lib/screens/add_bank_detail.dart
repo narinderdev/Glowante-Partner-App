@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../utils/input_validation.dart';
 
 String _cleanText(dynamic value) => value?.toString().trim() ?? '';
 
@@ -183,55 +184,94 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(translateText('Delete bank account?')),
-        content: Text(
-          translateText(
-            'Are you sure you want to delete this payout account?',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(translateText('Cancel')),
-          ),
-          FilledButton.tonal(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(translateText('Delete')),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (ctx) {
+        var isDeleting = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> handleDelete() async {
+              if (isDeleting) return;
+
+              setDialogState(() => isDeleting = true);
+
+              final response = await _apiService.deleteSalonPayoutAccount(
+                salonId: _salonId!,
+                payoutAccountId: payoutAccountId,
+              );
+
+              if (!mounted || !context.mounted) {
+                return;
+              }
+
+              setDialogState(() => isDeleting = false);
+
+              if (response['success'] == true) {
+                Navigator.pop(context, true);
+                Fluttertoast.showToast(
+                  msg: response['message']?.toString() ??
+                      translateText('Bank account deleted successfully'),
+                );
+                await _loadAccounts(silent: true);
+              } else {
+                Fluttertoast.showToast(
+                  msg: response['message']?.toString() ??
+                      translateText('Failed to delete bank details'),
+                );
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                translateText('Delete Account'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.starColor,
+                ),
+              ),
+              content: Text(
+                translateText(
+                  'Are you sure you want to delete this payout account?',
+                ),
+                style: const TextStyle(fontSize: 15),
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      isDeleting ? null : () => Navigator.pop(context, false),
+                  child: Text(translateText('Cancel')),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: isDeleting ? null : handleDelete,
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(translateText('Delete')),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
     if (confirmed != true) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final response = await _apiService.deleteSalonPayoutAccount(
-        salonId: _salonId!,
-        payoutAccountId: payoutAccountId,
-      );
-
-      if (response['success'] != true) {
-        throw Exception(
-          response['message']?.toString() ??
-              translateText('Failed to delete bank details'),
-        );
-      }
-
-      Fluttertoast.showToast(
-        msg: response['message']?.toString() ??
-            translateText('Bank account deleted successfully'),
-      );
-      await _loadAccounts(silent: true);
-    } catch (error) {
-      if (!mounted) return;
-      Fluttertoast.showToast(msg: _friendlyError(error));
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
   }
 
   @override
@@ -675,6 +715,7 @@ class _SalonPayoutAccountFormScreenState
 
   bool _isSaving = false;
   bool _isDefault = false;
+  bool _submitted = false;
   String _provider = 'RAZORPAY';
 
   static const List<String> _providers = <String>['RAZORPAY'];
@@ -737,6 +778,11 @@ class _SalonPayoutAccountFormScreenState
     return null;
   }
 
+  String? _requiredAfterSubmit(String? value, String field) {
+    if (!_submitted) return null;
+    return _required(value, field);
+  }
+
   String? _validateIfsc(String? value) {
     final text = _cleanText(value).toUpperCase();
     if (text.isEmpty) {
@@ -749,6 +795,7 @@ class _SalonPayoutAccountFormScreenState
   }
 
   Future<void> _submit() async {
+    setState(() => _submitted = true);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
@@ -823,192 +870,231 @@ class _SalonPayoutAccountFormScreenState
         title:
             translateText(isEditing ? 'Edit Bank Details' : 'Add Bank Details'),
       ),
-      body: SafeArea(
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-            child: Form(
-              key: _formKey,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE8DED6)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      translateText(
-                        'Create a salon payout account reference',
-                      ),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF201B17),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      translateText(
-                        'This account will be used for salon settlement payouts.',
-                      ),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.45,
-                        color: Color(0xFF6F665E),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _field(
-                      controller: _displayNameController,
-                      label: 'Display Name *',
-                      hint: 'Enter display name',
-                      textCapitalization: TextCapitalization.words,
-                      validator: (value) =>
-                          _required(value, translateText('Display Name')),
-                    ),
-                    _field(
-                      controller: _accountHolderNameController,
-                      label: 'Account Holder Name *',
-                      hint: 'Enter account holder name',
-                      textCapitalization: TextCapitalization.words,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
-                        LengthLimitingTextInputFormatter(60),
-                      ],
-                      validator: (value) => _required(
-                          value, translateText('Account Holder Name')),
-                    ),
-                    _field(
-                      controller: _maskedAccountNumberController,
-                      label: 'Masked Account Number *',
-                      hint: 'Enter masked account number',
-                      keyboardType: TextInputType.text,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[0-9Xx* -]'),
+      body: Theme(
+        data: Theme.of(context).copyWith(
+          textSelectionTheme: const TextSelectionThemeData(
+            cursorColor: AppColors.starColor,
+            selectionColor: Color(0x33D3A94C),
+            selectionHandleColor: AppColors.starColor,
+          ),
+        ),
+        child: SafeArea(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+              child: Form(
+                key: _formKey,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE8DED6)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        translateText(
+                          'Create a salon payout account reference',
                         ),
-                        LengthLimitingTextInputFormatter(24),
-                      ],
-                      validator: (value) => _required(
-                          value, translateText('Masked Account Number')),
-                    ),
-                    _field(
-                      controller: _bankNameController,
-                      label: 'Bank Name *',
-                      hint: 'Enter bank name',
-                      textCapitalization: TextCapitalization.words,
-                      validator: (value) =>
-                          _required(value, translateText('Bank Name')),
-                    ),
-                    _field(
-                      controller: _ifscController,
-                      label: 'IFSC *',
-                      hint: 'Enter IFSC code',
-                      textCapitalization: TextCapitalization.characters,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                            RegExp(r'[A-Za-z0-9]')),
-                        LengthLimitingTextInputFormatter(11),
-                      ],
-                      validator: _validateIfsc,
-                    ),
-                    DropdownButtonFormField<String>(
-                      value: _providers.contains(_provider)
-                          ? _provider
-                          : _providers.first,
-                      decoration: InputDecoration(
-                        labelText: translateText('Provider'),
-                        filled: true,
-                        fillColor: const Color(0xFFFAF8F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE2D3BF)),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF201B17),
                         ),
                       ),
-                      items: _providers
-                          .map(
-                            (provider) => DropdownMenuItem<String>(
-                              value: provider,
-                              child: Text(provider),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _provider = value);
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    _field(
-                      controller: _razorpayContactIdController,
-                      label: 'Razorpay Contact ID',
-                      hint: 'Enter Razorpay contact id',
-                    ),
-                    _field(
-                      controller: _razorpayFundAccountIdController,
-                      label: 'Razorpay Fund Account ID',
-                      hint: 'Enter Razorpay fund account id',
-                    ),
-                    _field(
-                      controller: _notesController,
-                      label: 'Notes',
-                      hint: 'Enter notes',
-                      maxLines: 3,
-                      bottomSpacing: 14,
-                    ),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: _isDefault,
-                      onChanged: (value) => setState(() => _isDefault = value),
-                      title: Text(translateText('Set as default')),
-                      subtitle: Text(
-                        translateText('Use this payout account by default.'),
+                      const SizedBox(height: 8),
+                      Text(
+                        translateText(
+                          'This account will be used for salon settlement payouts.',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.45,
+                          color: Color(0xFF6F665E),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isSaving ? null : _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.starColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
+                      const SizedBox(height: 18),
+                      _field(
+                        controller: _displayNameController,
+                        label: 'Display Name *',
+                        hint: 'Enter display name',
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: AppInputRules.nameMaxLength,
+                        validator: (value) => _requiredAfterSubmit(
+                          value,
+                          translateText('Display Name'),
+                        ),
+                      ),
+                      _field(
+                        controller: _accountHolderNameController,
+                        label: 'Account Holder Name *',
+                        hint: 'Enter account holder name',
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: AppInputRules.nameMaxLength,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z ]')),
+                          LengthLimitingTextInputFormatter(
+                            AppInputRules.nameMaxLength,
+                          ),
+                        ],
+                        validator: (value) => _requiredAfterSubmit(
+                          value,
+                          translateText('Account Holder Name'),
+                        ),
+                      ),
+                      _field(
+                        controller: _maskedAccountNumberController,
+                        label: 'Account Number *',
+                        hint: 'Enter account number',
+                        keyboardType: TextInputType.number,
+                        maxLength: AppInputRules.shortTextMaxLength,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(
+                            AppInputRules.shortTextMaxLength,
+                          ),
+                        ],
+                        validator: (value) => _requiredAfterSubmit(
+                          value,
+                          translateText('Account Number'),
+                        ),
+                      ),
+                      _field(
+                        controller: _bankNameController,
+                        label: 'Bank Name *',
+                        hint: 'Enter bank name',
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: AppInputRules.nameMaxLength,
+                        validator: (value) => _requiredAfterSubmit(
+                            value, translateText('Bank Name')),
+                      ),
+                      _field(
+                        controller: _ifscController,
+                        label: 'IFSC *',
+                        hint: 'Enter IFSC code',
+                        textCapitalization: TextCapitalization.characters,
+                        maxLength: 11,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z0-9]')),
+                          LengthLimitingTextInputFormatter(11),
+                        ],
+                        validator: (value) =>
+                            _submitted ? _validateIfsc(value) : null,
+                      ),
+                      DropdownButtonFormField<String>(
+                        initialValue: _providers.contains(_provider)
+                            ? _provider
+                            : _providers.first,
+                        decoration: InputDecoration(
+                          labelText: translateText('Provider'),
+                          filled: true,
+                          fillColor: const Color(0xFFFAF8F6),
+                          border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE2D3BF)),
                           ),
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                translateText(
-                                  isEditing
-                                      ? 'Update Bank Details'
-                                      : 'Save Bank Details',
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                        items: _providers
+                            .map(
+                              (provider) => DropdownMenuItem<String>(
+                                value: provider,
+                                child: Text(provider),
                               ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _provider = value);
+                        },
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      _field(
+                        controller: _razorpayContactIdController,
+                        label: 'Razorpay Contact ID',
+                        hint: 'Enter Razorpay contact id',
+                        maxLength: AppInputRules.emailMaxLength,
+                        validator: (_) => null,
+                      ),
+                      _field(
+                        controller: _razorpayFundAccountIdController,
+                        label: 'Razorpay Fund Account ID',
+                        hint: 'Enter Razorpay fund account id',
+                        maxLength: AppInputRules.emailMaxLength,
+                        validator: (_) => null,
+                      ),
+                      _field(
+                        controller: _notesController,
+                        label: 'Notes',
+                        hint: 'Enter notes',
+                        maxLines: 1,
+                        maxLength: AppInputRules.longTextMaxLength,
+                        bottomSpacing: 14,
+                        validator: (_) => null,
+                      ),
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        value: _isDefault,
+                        onChanged: (value) =>
+                            setState(() => _isDefault = value),
+                        activeTrackColor:
+                            AppColors.starColor.withValues(alpha: 0.32),
+                        activeThumbColor: AppColors.starColor,
+                        thumbColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? AppColors.starColor
+                              : const Color(0xFFBDB4AA),
+                        ),
+                        title: Text(translateText('Set as default')),
+                        subtitle: Text(
+                          translateText('Use this payout account by default.'),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.starColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  translateText(
+                                    isEditing
+                                        ? 'Update Bank Details'
+                                        : 'Save Bank Details',
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1026,7 +1112,9 @@ class _SalonPayoutAccountFormScreenState
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
+    void Function(String)? onChanged,
     int maxLines = 1,
+    int? maxLength,
     double bottomSpacing = 14,
   }) {
     return Padding(
@@ -1037,6 +1125,13 @@ class _SalonPayoutAccountFormScreenState
         textCapitalization: textCapitalization,
         inputFormatters: inputFormatters,
         maxLines: maxLines,
+        maxLength: maxLength,
+        onChanged: (value) {
+          onChanged?.call(value);
+          if (_submitted) {
+            _formKey.currentState?.validate();
+          }
+        },
         decoration: InputDecoration(
           labelText: translateText(label.replaceAll('*', '').trim()),
           hintText: translateText(hint),
@@ -1059,8 +1154,10 @@ class _SalonPayoutAccountFormScreenState
           ),
         ),
         validator: validator ??
-            (value) => _required(
-                value, translateText(label.replaceAll('*', '').trim())),
+            (value) => _requiredAfterSubmit(
+                  value,
+                  translateText(label.replaceAll('*', '').trim()),
+                ),
       ),
     );
   }
