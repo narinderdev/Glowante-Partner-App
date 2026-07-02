@@ -56,6 +56,7 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[OTP Autofill] initState phone=${widget.phoneNumber}');
     otpControllers = List<TextEditingController>.generate(
       6,
       (_) => TextEditingController(),
@@ -98,6 +99,12 @@ class _OtpScreenState extends State<OtpScreen> {
 
     _otpTextEditController.startListenRetriever((sms) {
       final text = sms ?? '';
+      debugPrint('[OTP Autofill] sms received=${text.isNotEmpty}');
+      if (text.isNotEmpty) {
+        debugPrint('[OTP Autofill] sms text: $text');
+      } else {
+        debugPrint('[OTP Autofill] sms text is empty or null');
+      }
 
       // Example SMS:
       // Your Glowante login OTP is 908751. Valid for 10 min. Do not share.
@@ -105,13 +112,22 @@ class _OtpScreenState extends State<OtpScreen> {
       // LfDtnM4puKz
 
       final match = RegExp(r'\b\d{6}\b').firstMatch(text);
-      return match?.group(0) ?? '';
+      final code = match?.group(0) ?? '';
+      debugPrint(
+        '[OTP Autofill] extracted code="$code" matchFound=${match != null}',
+      );
+      return code;
     });
 
     _otpTextEditController.addListener(() {
       final currentText = _otpTextEditController.text;
+      debugPrint(
+        '[OTP Autofill] controller changed text="$currentText" '
+        'selection=${_otpTextEditController.selection.baseOffset}',
+      );
 
       if (_isProgrammaticFill) {
+        debugPrint('[OTP Autofill] ignoring programmatic change');
         _lastOtpText = currentText;
         return;
       }
@@ -322,6 +338,10 @@ class _OtpScreenState extends State<OtpScreen> {
     final limited = digitsOnly.length > otpControllers.length
         ? digitsOnly.substring(0, otpControllers.length)
         : digitsOnly;
+    debugPrint(
+      '[OTP Autofill] applying code="$code" digitsOnly="$digitsOnly" '
+      'limited="$limited" updateInputController=$updateInputController',
+    );
     _isProgrammaticFill = true;
     for (int i = 0; i < otpControllers.length; i++) {
       if (i < limited.length) {
@@ -398,6 +418,7 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void _fillFromCode(String code) {
+    debugPrint('[OTP Autofill] onCodeReceive code="$code"');
     if (code.replaceAll(RegExp(r'\D'), '').isEmpty) return;
     _setOtpDigits(code, updateInputController: true);
   }
@@ -513,6 +534,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   void dispose() {
+    debugPrint('[OTP Autofill] dispose stopListen');
     for (final controller in otpControllers) {
       controller.dispose();
     }

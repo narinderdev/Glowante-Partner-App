@@ -46,6 +46,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   String emailError = '';
 
   bool isLoading = false; // Flag to show loader while updating profile
+  bool _isSyncingNameFields = false;
 
   // API service instance
   final ApiService apiService = ApiService();
@@ -237,6 +238,35 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
         .join(' ');
   }
 
+  void _applySplitNameResult({
+    required String firstName,
+    required String lastName,
+    required bool fromFirstName,
+  }) {
+    if (_isSyncingNameFields) return;
+
+    _isSyncingNameFields = true;
+    try {
+      setState(() {
+        if (fromFirstName) {
+          lastNameController.text = lastName;
+          lastNameController.selection = TextSelection.collapsed(
+            offset: lastNameController.text.length,
+          );
+        } else {
+          firstNameController.text = firstName;
+          firstNameController.selection = TextSelection.collapsed(
+            offset: firstNameController.text.length,
+          );
+        }
+        firstNameError = '';
+        lastNameError = '';
+      });
+    } finally {
+      _isSyncingNameFields = false;
+    }
+  }
+
   void _goBackToLogin() {
     Navigator.pushAndRemoveUntil(
       context,
@@ -298,173 +328,185 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(
-            20,
-            24,
-            20,
-            24 + MediaQuery.of(context).viewInsets.bottom,
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: _profileGold,
+                ),
+            textSelectionTheme: const TextSelectionThemeData(
+              cursorColor: _profileGold,
+              selectionColor: Color(0x33D0A244),
+              selectionHandleColor: _profileGold,
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _profileBorder),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 22,
-                      offset: Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF5EAD2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.person_add_alt_1_rounded,
-                          color: _profileGold,
-                          size: 29,
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              24,
+              20,
+              24 + MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _profileBorder),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 22,
+                        offset: Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF5EAD2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.person_add_alt_1_rounded,
+                            color: _profileGold,
+                            size: 29,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Text(
-                        translateText('Create Profile'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _profileInk,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
+                      const SizedBox(height: 16),
+                      Center(
+                        child: Text(
+                          translateText('Create Profile'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: _profileInk,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 7),
-                    Center(
-                      child: Text(
-                        translateText(
-                          'Complete your profile details to continue onboarding.',
-                        ),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _profileMuted,
-                          fontSize: 12,
-                          height: 1.35,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildTextField(
-                      firstNameController,
-                      'First Name',
-                      'Enter your first name',
-                      'firstName',
-                      firstNameError,
-                    ),
-                    const SizedBox(height: 14),
-                    _buildTextField(
-                      lastNameController,
-                      'Last Name',
-                      'Enter your last name',
-                      'lastName',
-                      lastNameError,
-                    ),
-                    const SizedBox(height: 14),
-                    _buildTextField(
-                      emailController,
-                      'Email',
-                      'Enter your email',
-                      'email',
-                      emailError,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: isLoading ? null : _updateProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _profileGold,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                            _profileGold.withValues(alpha: 0.55),
-                        elevation: 8,
-                        shadowColor: const Color(0x338B6500),
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7),
+                      const SizedBox(height: 7),
+                      Center(
+                        child: Text(
+                          translateText(
+                            'Complete your profile details to continue onboarding.',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: _profileMuted,
+                            fontSize: 12,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                      child: isLoading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                      const SizedBox(height: 24),
+                      _buildTextField(
+                        firstNameController,
+                        'First Name',
+                        'Enter your first name',
+                        'firstName',
+                        firstNameError,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildTextField(
+                        lastNameController,
+                        'Last Name',
+                        'Enter your last name',
+                        'lastName',
+                        lastNameError,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildTextField(
+                        emailController,
+                        'Email',
+                        'Enter your email',
+                        'email',
+                        emailError,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: isLoading ? null : _updateProfile,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _profileGold,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor:
+                              _profileGold.withValues(alpha: 0.55),
+                          elevation: 8,
+                          shadowColor: const Color(0x338B6500),
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                        ),
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                translateText('Continue').toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
-                            )
-                          : Text(
-                              translateText('Continue').toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: isLoading ? null : _goBackToLogin,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _profileGold,
-                        disabledForegroundColor:
-                            _profileGold.withValues(alpha: 0.45),
-                        side: const BorderSide(color: _profileGoldLight),
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: isLoading ? null : _goBackToLogin,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _profileGold,
+                          disabledForegroundColor:
+                              _profileGold.withValues(alpha: 0.45),
+                          side: const BorderSide(color: _profileGoldLight),
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                        ),
+                        child: Text(
+                          translateText('Go back to login').toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        translateText('Go back to login').toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 22),
-              Text(
-                translateText(
-                  '"Excellence begins with understanding our guests."',
+                const SizedBox(height: 22),
+                Text(
+                  translateText(
+                    '"Excellence begins with understanding our guests."',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFB9A999),
+                    fontSize: 12,
+                    height: 1.4,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFFB9A999),
-                  fontSize: 12,
-                  height: 1.4,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -525,7 +567,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
               _updateProfile();
             }
           },
-          onChanged: (_) {
+          onChanged: (value) {
             if (fieldType == 'firstName' && firstNameError.isNotEmpty) {
               setState(() => firstNameError = '');
             } else if (fieldType == 'lastName' && lastNameError.isNotEmpty) {
@@ -540,6 +582,24 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           maxLength: maxLength,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           inputFormatters: [
+            if (fieldType == 'firstName')
+              _SplitFullNameInputFormatter(
+                fromFirstName: true,
+                onSplit: (firstName, lastName) => _applySplitNameResult(
+                  firstName: firstName,
+                  lastName: lastName,
+                  fromFirstName: true,
+                ),
+              ),
+            if (fieldType == 'lastName')
+              _SplitFullNameInputFormatter(
+                fromFirstName: false,
+                onSplit: (firstName, lastName) => _applySplitNameResult(
+                  firstName: firstName,
+                  lastName: lastName,
+                  fromFirstName: false,
+                ),
+              ),
             if (isNameField) const _ProfileNameInputFormatter(),
             if (fieldType == 'email')
               FilteringTextInputFormatter.deny(RegExp(r'\s')),
@@ -655,6 +715,49 @@ class _ProfileNameInputFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: filteredText,
       selection: TextSelection.collapsed(offset: selectionOffset),
+      composing: TextRange.empty,
+    );
+  }
+}
+
+class _SplitFullNameInputFormatter extends TextInputFormatter {
+  const _SplitFullNameInputFormatter({
+    required this.fromFirstName,
+    required this.onSplit,
+  });
+
+  final bool fromFirstName;
+  final void Function(String firstName, String lastName) onSplit;
+
+  static final RegExp _spaceLikeCharacters = RegExp(r'[\s\u00A0]+');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text.trim().replaceAll(_spaceLikeCharacters, ' ');
+    if (text.isEmpty || !text.contains(' ')) {
+      return newValue;
+    }
+
+    final parts = text.split(' ');
+    if (parts.length < 2) {
+      return newValue;
+    }
+
+    final firstName = parts.first.trim();
+    final lastName = parts.skip(1).join(' ').trim();
+    if (firstName.isEmpty || lastName.isEmpty) {
+      return newValue;
+    }
+
+    onSplit(firstName, lastName);
+
+    final fieldText = fromFirstName ? firstName : lastName;
+    return TextEditingValue(
+      text: fieldText,
+      selection: TextSelection.collapsed(offset: fieldText.length),
       composing: TextRange.empty,
     );
   }

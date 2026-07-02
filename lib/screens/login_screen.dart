@@ -11,7 +11,6 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 const _loginGold = Color(0xFFB88422);
 const _loginDeepGold = Color(0xFF8B6500);
 const _loginInk = Color(0xFF4B4038);
@@ -128,86 +127,98 @@ class _LoginScreenState extends State<LoginScreen> {
         resizeToAvoidBottomInset: true,
         body: BlocListener<AuthBloc, AuthState>(
           listener: _handleAuthState,
-          child: Stack(
-            children: [
-              const Positioned.fill(child: _LoginBackground()),
-              SafeArea(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final height = constraints.maxHeight;
-                    final keyboardInset =
-                        MediaQuery.viewInsetsOf(context).bottom;
-                    final compact = height < 760;
-                    final topGap = compact ? 2.0 : 8.0;
-                    final heroGap = compact ? 12.0 : 16.0;
-                    final sectionGap = compact ? 13.0 : 18.0;
-                    final inputButtonGap = compact ? 22.0 : 28.0;
-                    final quoteGap = compact ? 12.0 : 16.0;
-                    final verticalPadding = compact ? 10.0 : 16.0;
-                    final topChildren = <Widget>[
-                      SizedBox(height: topGap),
-                      _buildHeroHeader(compact: compact),
-                      SizedBox(height: heroGap),
-                      _LoginFeatureCard(compact: compact),
-                      SizedBox(height: sectionGap),
-                      _buildPhoneSection(compact: compact),
-                      SizedBox(height: inputButtonGap),
-                      _buildLoginButton(compact: compact),
-                    ];
-                    final middleContent = Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildQuote(compact: compact),
-                        SizedBox(height: quoteGap),
-                        _OrnamentDivider(width: compact ? 150 : 168),
-                      ],
-                    );
-                    final scrollChildren = <Widget>[
-                      ...topChildren,
-                      SizedBox(height: quoteGap),
-                      middleContent,
-                    ];
-
-                    final column = Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ...scrollChildren,
-                        SizedBox(height: compact ? 18 : 24),
-                        _buildFooter(compact: compact),
-                      ],
-                    );
-
-                    final content = Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        22,
-                        verticalPadding,
-                        22,
-                        verticalPadding,
-                      ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 430),
-                          child: column,
-                        ),
-                      ),
-                    );
-
-                    return SingleChildScrollView(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.only(bottom: keyboardInset),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
-                        ),
-                        child: content,
-                      ),
-                    );
-                  },
-                ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: Theme.of(context).colorScheme.copyWith(
+                    primary: _loginDeepGold,
+                  ),
+              textSelectionTheme: const TextSelectionThemeData(
+                cursorColor: _loginDeepGold,
+                selectionColor: Color(0x33B88422),
+                selectionHandleColor: _loginDeepGold,
               ),
-            ],
+            ),
+            child: Stack(
+              children: [
+                const Positioned.fill(child: _LoginBackground()),
+                SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final height = constraints.maxHeight;
+                      final keyboardInset =
+                          MediaQuery.viewInsetsOf(context).bottom;
+                      final compact = height < 760;
+                      final topGap = compact ? 2.0 : 8.0;
+                      final heroGap = compact ? 12.0 : 16.0;
+                      final sectionGap = compact ? 13.0 : 18.0;
+                      final inputButtonGap = compact ? 22.0 : 28.0;
+                      final quoteGap = compact ? 12.0 : 16.0;
+                      final verticalPadding = compact ? 10.0 : 16.0;
+                      final topChildren = <Widget>[
+                        SizedBox(height: topGap),
+                        _buildHeroHeader(compact: compact),
+                        SizedBox(height: heroGap),
+                        _LoginFeatureCard(compact: compact),
+                        SizedBox(height: sectionGap),
+                        _buildPhoneSection(compact: compact),
+                        SizedBox(height: inputButtonGap),
+                        _buildLoginButton(compact: compact),
+                      ];
+                      final middleContent = Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildQuote(compact: compact),
+                          SizedBox(height: quoteGap),
+                          _OrnamentDivider(width: compact ? 150 : 168),
+                        ],
+                      );
+                      final scrollChildren = <Widget>[
+                        ...topChildren,
+                        SizedBox(height: quoteGap),
+                        middleContent,
+                      ];
+
+                      final column = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ...scrollChildren,
+                          SizedBox(height: compact ? 18 : 24),
+                          _buildFooter(compact: compact),
+                        ],
+                      );
+
+                      final content = Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          22,
+                          verticalPadding,
+                          22,
+                          verticalPadding,
+                        ),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 430),
+                            child: column,
+                          ),
+                        ),
+                      );
+
+                      return SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.only(bottom: keyboardInset),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: content,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -355,7 +366,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: TextField(
                   controller: phoneController,
                   focusNode: _phoneFocusNode,
-                  cursorColor: const Color(0xFF8B6500),
+                  cursorColor: _loginDeepGold,
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.done,
                   enableInteractiveSelection: true,

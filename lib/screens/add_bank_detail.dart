@@ -872,6 +872,9 @@ class _SalonPayoutAccountFormScreenState
       ),
       body: Theme(
         data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+                primary: AppColors.starColor,
+              ),
           textSelectionTheme: const TextSelectionThemeData(
             cursorColor: AppColors.starColor,
             selectionColor: Color(0x33D3A94C),
@@ -1121,6 +1124,7 @@ class _SalonPayoutAccountFormScreenState
       padding: EdgeInsets.only(bottom: bottomSpacing),
       child: TextFormField(
         controller: controller,
+        cursorColor: AppColors.starColor,
         keyboardType: keyboardType,
         textCapitalization: textCapitalization,
         inputFormatters: inputFormatters,
