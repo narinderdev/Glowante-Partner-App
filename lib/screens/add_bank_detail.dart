@@ -39,6 +39,21 @@ String _firstText(
   return fallback;
 }
 
+String _maskAccountNumberForDisplay(String value) {
+  final text = value.trim();
+  if (text.isEmpty) return '';
+  if (text.contains('*') || text.contains('x') || text.contains('X')) {
+    return text;
+  }
+
+  final digits = text.replaceAll(RegExp(r'\D'), '');
+  if (digits.length <= 4) {
+    return text;
+  }
+
+  return '${'*' * (digits.length - 4)}${digits.substring(digits.length - 4)}';
+}
+
 String _friendlyError(Object error) {
   final text = error.toString().trim();
   if (text.startsWith('Exception: ')) {
@@ -492,27 +507,22 @@ class _PayoutAccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayName = _firstText(account, const [
-      'displayName',
-      'name',
-      'accountName',
-      'label',
-    ]);
-    final provider =
-        _firstText(account, const ['provider'], fallback: 'RAZORPAY');
     final holder = _firstText(account, const [
       'accountHolderName',
       'holderName',
       'beneficiaryName',
     ]);
-    final maskedAccountNumber = _firstText(account, const [
-      'maskedAccountNumber',
-      'accountNumber',
-      'maskedAccountNo',
-    ]);
+    final maskedAccountNumber = _maskAccountNumberForDisplay(
+      _firstText(account, const [
+        'maskedAccountNumber',
+        'accountNumber',
+        'maskedAccountNo',
+      ]),
+    );
     final bankName = _firstText(account, const ['bankName', 'bank']);
     final ifsc = _firstText(account, const ['ifsc', 'ifscCode']).toUpperCase();
-    final notes = _firstText(account, const ['notes', 'remark']);
+    final branchName = _firstText(account, const ['branchName']);
+    final upiId = _firstText(account, const ['upiId']);
     final isDefault = _readBool(account['isDefault'] ?? account['default']);
 
     return Container(
@@ -558,9 +568,9 @@ class _PayoutAccountCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            displayName.isEmpty
-                                ? translateText('Payout Account')
-                                : displayName,
+                            holder.isEmpty
+                                ? translateText('Bank Details')
+                                : holder,
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -591,7 +601,9 @@ class _PayoutAccountCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      provider,
+                      bankName.isEmpty
+                          ? translateText('Payout Account')
+                          : bankName,
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -631,10 +643,15 @@ class _PayoutAccountCard extends StatelessWidget {
             label: translateText('IFSC'),
             value: ifsc.isEmpty ? 'N/A' : ifsc,
           ),
-          if (notes.isNotEmpty)
+          if (branchName.isNotEmpty)
             _AccountRow(
-              label: translateText('Notes'),
-              value: notes,
+              label: translateText('Branch Name'),
+              value: branchName,
+            ),
+          if (upiId.isNotEmpty)
+            _AccountRow(
+              label: translateText('UPI ID'),
+              value: upiId,
             ),
         ],
       ),
@@ -702,71 +719,48 @@ class _SalonPayoutAccountFormScreen extends StatefulWidget {
 class _SalonPayoutAccountFormScreenState
     extends State<_SalonPayoutAccountFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _displayNameController = TextEditingController();
   final _accountHolderNameController = TextEditingController();
-  final _maskedAccountNumberController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  final _confirmAccountNumberController = TextEditingController();
   final _bankNameController = TextEditingController();
   final _ifscController = TextEditingController();
-  final _razorpayContactIdController = TextEditingController();
-  final _razorpayFundAccountIdController = TextEditingController();
-  final _notesController = TextEditingController();
+  final _branchNameController = TextEditingController();
+  final _upiIdController = TextEditingController();
 
   final ApiService _apiService = ApiService();
 
   bool _isSaving = false;
   bool _isDefault = false;
   bool _submitted = false;
-  String _provider = 'RAZORPAY';
-
-  static const List<String> _providers = <String>['RAZORPAY'];
 
   @override
   void initState() {
     super.initState();
     final account = widget.existingAccount;
     if (account != null) {
-      _displayNameController.text =
-          _firstText(account, const ['displayName', 'name', 'label']);
       _accountHolderNameController.text = _firstText(account, const [
         'accountHolderName',
         'holderName',
         'beneficiaryName',
       ]);
-      _maskedAccountNumberController.text = _firstText(account, const [
-        'maskedAccountNumber',
-        'accountNumber',
-        'maskedAccountNo',
-      ]);
       _bankNameController.text =
           _firstText(account, const ['bankName', 'bank']);
       _ifscController.text = _firstText(account, const ['ifsc', 'ifscCode']);
-      _razorpayContactIdController.text = _firstText(account, const [
-        'razorpayContactId',
-        'contactId',
-      ]);
-      _razorpayFundAccountIdController.text = _firstText(account, const [
-        'razorpayFundAccountId',
-        'fundAccountId',
-      ]);
-      _notesController.text = _firstText(account, const ['notes', 'remark']);
+      _branchNameController.text = _firstText(account, const ['branchName']);
+      _upiIdController.text = _firstText(account, const ['upiId']);
       _isDefault = _readBool(account['isDefault'] ?? account['default']);
-      final provider = _firstText(account, const ['provider']);
-      if (provider.isNotEmpty) {
-        _provider = provider;
-      }
     }
   }
 
   @override
   void dispose() {
-    _displayNameController.dispose();
     _accountHolderNameController.dispose();
-    _maskedAccountNumberController.dispose();
+    _accountNumberController.dispose();
+    _confirmAccountNumberController.dispose();
     _bankNameController.dispose();
     _ifscController.dispose();
-    _razorpayContactIdController.dispose();
-    _razorpayFundAccountIdController.dispose();
-    _notesController.dispose();
+    _branchNameController.dispose();
+    _upiIdController.dispose();
     super.dispose();
   }
 
@@ -794,6 +788,28 @@ class _SalonPayoutAccountFormScreenState
     return null;
   }
 
+  String? _validateAccountNumber(String? value) {
+    final text = _cleanText(value);
+    if (text.isEmpty) {
+      return translateText('Account Number is required');
+    }
+    if (!RegExp(r'^\d+$').hasMatch(text)) {
+      return translateText('Account number must contain only digits');
+    }
+    return null;
+  }
+
+  String? _validateConfirmAccountNumber(String? value) {
+    final text = _cleanText(value);
+    if (text.isEmpty) {
+      return translateText('Confirm Account Number is required');
+    }
+    if (text != _accountNumberController.text.trim()) {
+      return translateText('Account numbers do not match');
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
     setState(() => _submitted = true);
     if (!_formKey.currentState!.validate()) return;
@@ -812,18 +828,15 @@ class _SalonPayoutAccountFormScreenState
       }
 
       final payload = <String, dynamic>{
-        'provider': _provider,
-        'displayName': _displayNameController.text.trim(),
         'accountHolderName': _accountHolderNameController.text.trim(),
-        'maskedAccountNumber': _maskedAccountNumberController.text.trim(),
         'bankName': _bankNameController.text.trim(),
-        'ifsc': _ifscController.text.trim().toUpperCase(),
-        if (_razorpayContactIdController.text.trim().isNotEmpty)
-          'razorpayContactId': _razorpayContactIdController.text.trim(),
-        if (_razorpayFundAccountIdController.text.trim().isNotEmpty)
-          'razorpayFundAccountId': _razorpayFundAccountIdController.text.trim(),
-        if (_notesController.text.trim().isNotEmpty)
-          'notes': _notesController.text.trim(),
+        'accountNumber': _accountNumberController.text.trim(),
+        'confirmAccountNumber': _confirmAccountNumberController.text.trim(),
+        'ifscCode': _ifscController.text.trim().toUpperCase(),
+        if (_branchNameController.text.trim().isNotEmpty)
+          'branchName': _branchNameController.text.trim(),
+        if (_upiIdController.text.trim().isNotEmpty)
+          'upiId': _upiIdController.text.trim(),
         'isDefault': _isDefault,
       };
 
@@ -922,18 +935,21 @@ class _SalonPayoutAccountFormScreenState
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      _field(
-                        controller: _displayNameController,
-                        label: 'Display Name *',
-                        hint: 'Enter display name',
-                        textCapitalization: TextCapitalization.words,
-                        maxLength: AppInputRules.nameMaxLength,
-                        validator: (value) => _requiredAfterSubmit(
-                          value,
-                          translateText('Display Name'),
+                      if (isEditing) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          translateText(
+                            'The backend returns only the masked account number. Re-enter the full account number to update bank details.',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            height: 1.45,
+                            color: Color(0xFF8A7C6A),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                      ],
+                      const SizedBox(height: 18),
                       _field(
                         controller: _accountHolderNameController,
                         label: 'Account Holder Name *',
@@ -953,34 +969,46 @@ class _SalonPayoutAccountFormScreenState
                         ),
                       ),
                       _field(
-                        controller: _maskedAccountNumberController,
-                        label: 'Account Number *',
-                        hint: 'Enter account number',
-                        keyboardType: TextInputType.number,
-                        maxLength: AppInputRules.shortTextMaxLength,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(
-                            AppInputRules.shortTextMaxLength,
-                          ),
-                        ],
-                        validator: (value) => _requiredAfterSubmit(
-                          value,
-                          translateText('Account Number'),
-                        ),
-                      ),
-                      _field(
                         controller: _bankNameController,
                         label: 'Bank Name *',
                         hint: 'Enter bank name',
                         textCapitalization: TextCapitalization.words,
                         maxLength: AppInputRules.nameMaxLength,
                         validator: (value) => _requiredAfterSubmit(
-                            value, translateText('Bank Name')),
+                          value,
+                          translateText('Bank Name'),
+                        ),
+                      ),
+                      _field(
+                        controller: _accountNumberController,
+                        label: 'Account Number *',
+                        hint: 'Enter full account number',
+                        keyboardType: TextInputType.number,
+                        maxLength: 20,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(20),
+                        ],
+                        validator: (value) =>
+                            _submitted ? _validateAccountNumber(value) : null,
+                      ),
+                      _field(
+                        controller: _confirmAccountNumberController,
+                        label: 'Confirm Account Number *',
+                        hint: 'Re-enter account number',
+                        keyboardType: TextInputType.number,
+                        maxLength: 20,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(20),
+                        ],
+                        validator: (value) => _submitted
+                            ? _validateConfirmAccountNumber(value)
+                            : null,
                       ),
                       _field(
                         controller: _ifscController,
-                        label: 'IFSC *',
+                        label: 'IFSC Code *',
                         hint: 'Enter IFSC code',
                         textCapitalization: TextCapitalization.characters,
                         maxLength: 11,
@@ -992,55 +1020,19 @@ class _SalonPayoutAccountFormScreenState
                         validator: (value) =>
                             _submitted ? _validateIfsc(value) : null,
                       ),
-                      DropdownButtonFormField<String>(
-                        initialValue: _providers.contains(_provider)
-                            ? _provider
-                            : _providers.first,
-                        decoration: InputDecoration(
-                          labelText: translateText('Provider'),
-                          filled: true,
-                          fillColor: const Color(0xFFFAF8F6),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE2D3BF)),
-                          ),
-                        ),
-                        items: _providers
-                            .map(
-                              (provider) => DropdownMenuItem<String>(
-                                value: provider,
-                                child: Text(provider),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _provider = value);
-                        },
-                      ),
-                      const SizedBox(height: 14),
                       _field(
-                        controller: _razorpayContactIdController,
-                        label: 'Razorpay Contact ID',
-                        hint: 'Enter Razorpay contact id',
-                        maxLength: AppInputRules.emailMaxLength,
+                        controller: _branchNameController,
+                        label: 'Branch Name',
+                        hint: 'Enter branch name',
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: AppInputRules.nameMaxLength,
                         validator: (_) => null,
                       ),
                       _field(
-                        controller: _razorpayFundAccountIdController,
-                        label: 'Razorpay Fund Account ID',
-                        hint: 'Enter Razorpay fund account id',
+                        controller: _upiIdController,
+                        label: 'UPI ID',
+                        hint: 'Enter UPI ID',
                         maxLength: AppInputRules.emailMaxLength,
-                        validator: (_) => null,
-                      ),
-                      _field(
-                        controller: _notesController,
-                        label: 'Notes',
-                        hint: 'Enter notes',
-                        maxLines: 1,
-                        maxLength: AppInputRules.longTextMaxLength,
-                        bottomSpacing: 14,
                         validator: (_) => null,
                       ),
                       SwitchListTile.adaptive(

@@ -135,6 +135,12 @@ class ApiService {
   static String salonPayoutAccountAPI(int salonId, int payoutAccountId) =>
       "salons/$salonId/payout-accounts/$payoutAccountId";
 
+  static String salonPayoutAccountUpdateBankAPI(
+    int salonId,
+    int payoutAccountId,
+  ) =>
+      "salons/$salonId/payout-accounts/$payoutAccountId/update-bank";
+
   static String activateBranchAPI(int branchId) {
     return "branches/$branchId/activate";
   }
@@ -5181,8 +5187,9 @@ class ApiService {
     required Map<String, dynamic> payload,
   }) async {
     final token = await getAuthToken();
-    final url =
-        Uri.parse(baseUrl + salonPayoutAccountAPI(salonId, payoutAccountId));
+    final url = Uri.parse(
+      baseUrl + salonPayoutAccountUpdateBankAPI(salonId, payoutAccountId),
+    );
 
     print("➡️ Calling Update Salon Payout Account API");
     print("➡️ URL: $url");
