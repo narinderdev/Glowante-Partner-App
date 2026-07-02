@@ -35,6 +35,14 @@ String _formatCurrency(num minorAmount) {
   return '₹${(minorAmount / 100).toStringAsFixed(2)}';
 }
 
+String _formatSalaryRupees(num minorAmount) {
+  final rupees = minorAmount / 100;
+  var text = rupees.toStringAsFixed(2);
+  text = text.replaceFirst(RegExp(r'0+$'), '');
+  text = text.replaceFirst(RegExp(r'\.$'), '');
+  return '₹$text';
+}
+
 String _formatCommissionPercentText(double value) {
   if (value == value.roundToDouble()) {
     return value.toStringAsFixed(0);
@@ -2213,7 +2221,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                         const SizedBox(height: 14),
                                         _SummaryLine(
                                           label: 'Base Salary',
-                                          value: _formatCurrency(
+                                          value: _formatSalaryRupees(
                                             currentEmployee.salaryMinor,
                                           ),
                                         ),
@@ -3040,7 +3048,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                       SizedBox(
                         width: 90,
                         child: Text(
-                          _formatCurrency(setup?.salaryMinor ?? 0),
+                          _formatSalaryRupees(setup?.salaryMinor ?? 0),
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                             fontSize: 11,
@@ -3071,7 +3079,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                     ),
                   ),
                   Text(
-                    _formatCurrency(
+                    _formatSalaryRupees(
                       members.fold<int>(0, (sum, member) {
                         final setup = _setupByUserId[member.id];
                         return sum + (setup?.salaryMinor ?? 0);

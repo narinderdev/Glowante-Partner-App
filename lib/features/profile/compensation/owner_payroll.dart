@@ -753,10 +753,12 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                     final payType = setup == null
                                         ? 'Not configured'
                                         : PayrollTypes.label(setup.payrollType);
-                                    final salaryText = setup == null ||
-                                            setup.salaryMinor == 0
-                                        ? '-'
-                                        : _formatCurrency(setup.salaryMinor);
+                                    final salaryText =
+                                        setup == null || setup.salaryMinor == 0
+                                            ? '-'
+                                            : _formatSalaryRupees(
+                                                setup.salaryMinor,
+                                              );
                                     final commissionText = setup == null ||
                                             setup.commissionPercent == 0
                                         ? '-'
