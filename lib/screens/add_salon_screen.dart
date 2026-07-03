@@ -93,6 +93,8 @@ class AddSalonScreen extends StatefulWidget {
 }
 
 class _AddSalonScreenState extends State<AddSalonScreen> {
+  static const int _timeMinuteStep = 10;
+
   final _formKey = GlobalKey<FormState>();
   final _salonNameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -401,6 +403,37 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return fallback.isNotEmpty ? fallback : text;
   }
 
+  int _snapMinuteToStep(int minute) {
+    final snapped =
+        ((minute.clamp(0, 59) + (_timeMinuteStep ~/ 2)) ~/ _timeMinuteStep) *
+            _timeMinuteStep;
+    return snapped > 59 ? 50 : snapped;
+  }
+
+  TimeOfDay _snapTimeToStep(TimeOfDay time) {
+    return TimeOfDay(
+      hour: time.hour.clamp(0, 23),
+      minute: _snapMinuteToStep(time.minute),
+    );
+  }
+
+  TimeOfDay _ensureTenMinuteGap(TimeOfDay time) {
+    final total = _timeToMinutesOfDay(time) + 10;
+    return _snapTimeToStep(
+      TimeOfDay(
+        hour: (total ~/ 60).clamp(0, 23),
+        minute: total % 60,
+      ),
+    );
+  }
+
+  String _normalizeDisplayTime(dynamic value, {String fallback = ''}) {
+    final display = _formatDisplayTime(value, fallback: fallback);
+    final parsed = _parseTimeOfDay(display);
+    if (parsed == null) return display;
+    return _snapTimeToStep(parsed).format(context);
+  }
+
   double _readDoubleValue(List<dynamic> values) {
     for (final value in values) {
       if (value is num) return value.toDouble();
@@ -642,14 +675,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       ]);
 
       if (startTime.isNotEmpty) {
-        _startTimeController.text = _formatDisplayTime(
+        _startTimeController.text = _normalizeDisplayTime(
           startTime,
           fallback: _startTimeController.text,
         );
       }
 
       if (endTime.isNotEmpty) {
-        _endTimeController.text = _formatDisplayTime(
+        _endTimeController.text = _normalizeDisplayTime(
           endTime,
           fallback: _endTimeController.text,
         );
@@ -964,12 +997,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   int _timeToMinutesOfDay(TimeOfDay time) => time.hour * 60 + time.minute;
 
-  TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
-    final total = _timeToMinutesOfDay(time) + minutes;
-    final safeTotal = total >= 24 * 60 ? 23 * 60 + 50 : total;
-    return TimeOfDay(hour: safeTotal ~/ 60, minute: safeTotal % 60);
-  }
-
   Future<void> _selectTime(
     TextEditingController controller, {
     TextEditingController? pairedController,
@@ -983,24 +1010,36 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     final picked = await showTimePicker(
       context: context,
-      initialTime: initialTime,
+      initialTime: _snapTimeToStep(initialTime),
     );
     if (!mounted) return;
     if (picked != null) {
-      controller.text = picked.format(context);
+      final snapped = _snapTimeToStep(picked);
+      controller.text = snapped.format(context);
 
       if (pairedController != null) {
         if (isStart) {
           final endTime = _parseTimeOfDay(pairedController.text);
           if (endTime == null ||
-              _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(picked)) {
-            pairedController.text = _addMinutes(picked, 10).format(context);
+              _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(snapped)) {
+            pairedController.text =
+                _ensureTenMinuteGap(snapped).format(context);
+            Fluttertoast.showToast(
+              msg: translateText(
+                'End time was adjusted to keep a 10-minute gap.',
+              ),
+            );
           }
         } else {
           final startTime = _parseTimeOfDay(pairedController.text);
           if (startTime != null &&
-              _timeToMinutesOfDay(picked) <= _timeToMinutesOfDay(startTime)) {
-            controller.text = _addMinutes(startTime, 10).format(context);
+              _timeToMinutesOfDay(snapped) <= _timeToMinutesOfDay(startTime)) {
+            controller.text = _ensureTenMinuteGap(startTime).format(context);
+            Fluttertoast.showToast(
+              msg: translateText(
+                'End time was adjusted to keep a 10-minute gap.',
+              ),
+            );
           }
         }
       }

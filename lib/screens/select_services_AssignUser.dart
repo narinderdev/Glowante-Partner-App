@@ -407,6 +407,16 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
       backgroundColor: _assignServicesBackground,
       appBar: buildProfileSubpageAppBar(
         title: translateText("Assign User"),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(
+            context,
+            {
+              'completed': false,
+              'selectedServiceIds': selectedServiceIds,
+            },
+          ),
+        ),
       ),
       body: isLoading
           ? const Center(
@@ -546,7 +556,13 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(
+                    context,
+                    {
+                      'completed': false,
+                      'selectedServiceIds': selectedServiceIds,
+                    },
+                  ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: AppColors.starColor),

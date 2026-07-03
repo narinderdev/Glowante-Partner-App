@@ -6,7 +6,6 @@ import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 const Color _assignUserBackground = Color(0xFFFBFAF8);
 const Color _assignUserBorder = Color(0xFFE8DED6);
 const Color _assignUserText = Color(0xFF2B241D);
@@ -90,6 +89,7 @@ class AssignUserScreen extends StatefulWidget {
 
 class _AssignUserScreenState extends State<AssignUserScreen> {
   int? _selectedBranchId;
+  final Map<int, Set<int>> _rememberedSelectedServiceIdsByBranchId = {};
 
   Set<int> _assignedBranchIds() {
     final assignedBranchIds = <int>{};
@@ -199,14 +199,17 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
         availableBranches.firstWhere((b) => b.id == selectedBranchId);
 
     if (!_memberBelongsToSalon(branch.salonId)) {
-      Fluttertoast.showToast(msg: translateText(
-              'This team member is not part of this salon. Add them to this salon before assigning a branch.',
-            ));
+      Fluttertoast.showToast(
+          msg: translateText(
+        'This team member is not part of this salon. Add them to this salon before assigning a branch.',
+      ));
       return;
     }
 
     final navigator = Navigator.of(context);
-    final assigned = await navigator.push<bool>(
+    final rememberedSelectedServiceIds =
+        _rememberedSelectedServiceIdsByBranchId[selectedBranchId] ?? <int>{};
+    final result = await navigator.push<dynamic>(
       MaterialPageRoute(
         builder: (_) => SelectServicesAssignUser(
           salonId: branch.salonId,
@@ -215,12 +218,35 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
           joinedAt: joinedAt,
           member: widget.member,
           salons: widget.salons,
+          initialSelected: {
+            for (final serviceId in rememberedSelectedServiceIds)
+              serviceId: true,
+          },
         ),
       ),
     );
 
     if (!mounted) return;
-    if (assigned == true) {
+    if (result is Map) {
+      final rawSelected = result['selectedServiceIds'];
+      if (rawSelected is List) {
+        _rememberedSelectedServiceIdsByBranchId[selectedBranchId] =
+            rawSelected.whereType<int>().toSet();
+      }
+
+      if (result['completed'] == true) {
+        navigator.pop(true);
+      }
+      return;
+    }
+
+    if (result is List) {
+      _rememberedSelectedServiceIdsByBranchId[selectedBranchId] =
+          result.whereType<int>().toSet();
+      return;
+    }
+
+    if (result == true) {
       navigator.pop(true);
     }
   }

@@ -33,6 +33,7 @@ class AddTeamChooseTimeSlot extends StatefulWidget {
 
 class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   static const int _maxSlotsPerDay = 3;
+  static const int _timeMinuteStep = 10;
 
   late Map<String, List<Map<String, String>>> weeklySchedule;
   late Map<String, List<Map<String, String>>> mondaySchedule;
@@ -79,6 +80,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   String _dayKey(String day) => day.trim().toLowerCase();
 
   bool _isClosedDay(String day) => _closedDays.contains(_dayKey(day));
+
+  int _roundDownToStep(int minutes) {
+    if (minutes <= 0) return 0;
+    return (minutes ~/ _timeMinuteStep) * _timeMinuteStep;
+  }
 
   List<String> get _weekDays => weeklySchedule.keys.toList();
 
@@ -408,9 +414,18 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     if (start == null || end == null || end <= start) return null;
 
+    final roundedStart = _roundDownToStep(start);
+    var roundedEnd = _roundDownToStep(end);
+
+    if (roundedEnd <= roundedStart) {
+      roundedEnd = roundedStart + _timeMinuteStep;
+    }
+
+    if (roundedEnd <= roundedStart) return null;
+
     return _OperatingSlot(
-      startMinutes: start,
-      endMinutes: end,
+      startMinutes: roundedStart,
+      endMinutes: roundedEnd,
     );
   }
 
@@ -529,9 +544,13 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final values = <String>[];
 
     for (final slot in slots) {
-      for (var minute = slot.startMinutes;
-          minute <= slot.endMinutes;
-          minute += 15) {
+      final start = _roundDownToStep(slot.startMinutes);
+      final end = _roundDownToStep(slot.endMinutes);
+      final effectiveEnd = end <= start ? start + _timeMinuteStep : end;
+
+      for (var minute = start;
+          minute <= effectiveEnd;
+          minute += _timeMinuteStep) {
         values.add(_formatMinutes(minute));
       }
     }
@@ -736,7 +755,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         .toList()
       ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
-    const minimumDuration = 15;
+    const minimumDuration = _timeMinuteStep;
 
     for (final bound in bounds) {
       var cursor = bound.startMinutes;
@@ -1050,28 +1069,44 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                translateText(day),
-                style: TextStyle(
-                  color: _useSalonHours
-                      ? const Color(0xFF8D867F)
-                      : const Color(0xFF1F1B18),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 86,
+                    child: Text(
+                      translateText(day),
+                      style: const TextStyle(
+                        color: Color(0xFF111827),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (isClosed)
+                    Expanded(
+                      child: Container(
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(7),
+                          border: Border.all(color: const Color(0xFFF3E4D2)),
+                        ),
+                        child: Text(
+                          translateText('SALON IS CLOSED'),
+                          style: const TextStyle(
+                            color: Color(0xFFB8A995),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 18),
-              if (isClosed)
-                Text(
-                  translateText('CLOSED'),
-                  style: const TextStyle(
-                    color: Color(0xFFE54848),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                  ),
-                )
-              else ...[
+              if (!isClosed) ...[
                 if (slots.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),

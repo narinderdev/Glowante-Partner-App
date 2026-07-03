@@ -9,7 +9,6 @@ import '../widgets/multi_step_flow_header.dart';
 import 'team_online_availability_screen.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 class _OperatingSlot {
   const _OperatingSlot({
     required this.startMinutes,
@@ -45,6 +44,8 @@ class AssignUserSlot extends StatefulWidget {
 }
 
 class _AssignUserSlotState extends State<AssignUserSlot> {
+  static const int _timeStepMinutes = 10;
+
   late Map<String, List<Map<String, String>>> weeklySchedule;
 
   bool isSubmitting = false;
@@ -82,6 +83,56 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   bool _isClosedDay(String day) => _closedDays.contains(_dayKey(day));
 
   bool _isMarkedOff(String day) => _markedOffDays.contains(_dayKey(day));
+
+  int _slotSortValue(Map<String, String> slot, String key) {
+    return _parseTimeToMinutes(slot[key] ?? '') ?? 0;
+  }
+
+  int _slotComparator(Map<String, String> a, Map<String, String> b) {
+    final startCompare =
+        _slotSortValue(a, 'start').compareTo(_slotSortValue(b, 'start'));
+    if (startCompare != 0) return startCompare;
+    return _slotSortValue(a, 'end').compareTo(_slotSortValue(b, 'end'));
+  }
+
+  void _sortWeeklyScheduleInPlace() {
+    for (final day in _weekDays) {
+      weeklySchedule[day]?.sort(_slotComparator);
+    }
+  }
+
+  int _roundDownToStep(int minutes) {
+    if (minutes <= 0) return 0;
+    return (minutes ~/ _timeStepMinutes) * _timeStepMinutes;
+  }
+
+  void _syncMondayToAllOpenDays() {
+    if (!_copyMondayToAllChecked) return;
+
+    final mondaySlots =
+        (weeklySchedule['Monday'] ?? const <Map<String, String>>[])
+            .map((slot) => Map<String, String>.from(slot))
+            .toList();
+
+    setState(() {
+      for (final day in _weekDays) {
+        if (day == 'Monday' || _isClosedDay(day)) continue;
+
+        _markedOffDays.remove(_dayKey(day));
+
+        final slots = weeklySchedule[day];
+        if (slots == null) continue;
+
+        slots
+          ..clear()
+          ..addAll(
+            mondaySlots.map((slot) => Map<String, String>.from(slot)),
+          );
+      }
+
+      _sortWeeklyScheduleInPlace();
+    });
+  }
 
   Future<void> _loadOperatingSchedule() async {
     setState(() => _isLoadingOperatingSchedule = true);
@@ -286,7 +337,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   }
 
   _OperatingSlot? _slotFromMap(Map value) {
-    final start = _parseTimeToMinutes(
+    final rawStart = _parseTimeToMinutes(
       (value['startTime'] ??
               value['start'] ??
               value['openTime'] ??
@@ -295,7 +346,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
           .toString(),
     );
 
-    final end = _parseTimeToMinutes(
+    final rawEnd = _parseTimeToMinutes(
       (value['endTime'] ??
               value['end'] ??
               value['closeTime'] ??
@@ -304,7 +355,14 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
           .toString(),
     );
 
-    if (start == null || end == null || end <= start) return null;
+    if (rawStart == null || rawEnd == null || rawEnd <= rawStart) return null;
+
+    final start = _roundDownToStep(rawStart);
+    var end = _roundDownToStep(rawEnd);
+    if (end <= start) {
+      end = start + _timeStepMinutes;
+    }
+    if (end <= start) return null;
 
     return _OperatingSlot(
       startMinutes: start,
@@ -401,16 +459,20 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     final values = <String>[];
 
     if (slots == null || slots.isEmpty) {
-      for (var minute = 8 * 60; minute <= 20 * 60; minute += 15) {
+      for (var minute = 8 * 60; minute <= 20 * 60; minute += _timeStepMinutes) {
         values.add(_formatMinutes(minute));
       }
       return values;
     }
 
     for (final slot in slots) {
-      for (var minute = slot.startMinutes;
-          minute <= slot.endMinutes;
-          minute += 15) {
+      final start = _roundDownToStep(slot.startMinutes);
+      final end = _roundDownToStep(slot.endMinutes);
+      final effectiveEnd = end <= start ? start + _timeStepMinutes : end;
+
+      for (var minute = start;
+          minute <= effectiveEnd;
+          minute += _timeStepMinutes) {
         values.add(_formatMinutes(minute));
       }
     }
@@ -447,6 +509,72 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     }).toList();
   }
 
+  _OperatingSlot? _nextAvailableSlotForDay(String day) {
+    final operatingSlots = _operatingSlotsByDay[_dayKey(day)];
+
+    final bounds = operatingSlots == null || operatingSlots.isEmpty
+        ? const [
+            _OperatingSlot(
+              startMinutes: 8 * 60,
+              endMinutes: 20 * 60,
+            ),
+          ]
+        : operatingSlots;
+
+    final existing = (weeklySchedule[day] ?? const <Map<String, String>>[])
+        .map((slot) {
+          final start = _parseTimeToMinutes(slot['start'] ?? '');
+          final end = _parseTimeToMinutes(slot['end'] ?? '');
+
+          if (start == null || end == null || end <= start) return null;
+
+          return _OperatingSlot(
+            startMinutes: start,
+            endMinutes: end,
+          );
+        })
+        .whereType<_OperatingSlot>()
+        .toList()
+      ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+
+    const minimumDuration = _timeStepMinutes;
+
+    for (final bound in bounds) {
+      final daySlots = existing.where((slot) {
+        return slot.endMinutes > bound.startMinutes &&
+            slot.startMinutes < bound.endMinutes;
+      }).toList();
+
+      if (daySlots.isEmpty) {
+        if (bound.endMinutes - bound.startMinutes >= minimumDuration) {
+          return _OperatingSlot(
+            startMinutes: bound.startMinutes,
+            endMinutes: bound.endMinutes,
+          );
+        }
+        continue;
+      }
+
+      final latestEnd = daySlots
+          .map(
+            (slot) => slot.endMinutes.clamp(
+              bound.startMinutes,
+              bound.endMinutes,
+            ),
+          )
+          .reduce((a, b) => a > b ? a : b);
+
+      if (bound.endMinutes - latestEnd >= minimumDuration) {
+        return _OperatingSlot(
+          startMinutes: latestEnd,
+          endMinutes: bound.endMinutes,
+        );
+      }
+    }
+
+    return null;
+  }
+
   void _addSlot(String day) {
     if (_sameAsBranchTimings) return;
 
@@ -455,24 +583,25 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       return;
     }
 
+    final nextSlot = _nextAvailableSlotForDay(day);
+
+    if (nextSlot == null) {
+      _showNoAvailableSlotMessage(day);
+      return;
+    }
+
     setState(() {
       _markedOffDays.remove(_dayKey(day));
 
-      final operatingSlots = _operatingSlotsByDay[_dayKey(day)];
-
-      final start = operatingSlots?.isNotEmpty == true
-          ? _formatMinutes(operatingSlots!.first.startMinutes)
-          : '08:00 AM';
-
-      final end = operatingSlots?.isNotEmpty == true
-          ? _formatMinutes(operatingSlots!.first.endMinutes)
-          : '08:00 PM';
-
       weeklySchedule[day]?.add({
-        'start': start,
-        'end': end,
+        'start': _formatMinutes(nextSlot.startMinutes),
+        'end': _formatMinutes(nextSlot.endMinutes),
       });
     });
+
+    if (day == 'Monday') {
+      _syncMondayToAllOpenDays();
+    }
   }
 
   void _deleteSlot(String day, int index) {
@@ -481,6 +610,10 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     setState(() {
       weeklySchedule[day]?.removeAt(index);
     });
+
+    if (day == 'Monday') {
+      _syncMondayToAllOpenDays();
+    }
   }
 
   void _updateTime(String day, int index, String timeType, String newTime) {
@@ -516,6 +649,10 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
         slot['start'] = previousStart;
       }
     });
+
+    if (day == 'Monday' && _copyMondayToAllChecked) {
+      _syncMondayToAllOpenDays();
+    }
   }
 
   void _markOff(String day) {
@@ -525,6 +662,10 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       weeklySchedule[day]?.clear();
       _markedOffDays.add(_dayKey(day));
     });
+
+    if (day == 'Monday' && _copyMondayToAllChecked) {
+      _syncMondayToAllOpenDays();
+    }
   }
 
   void _markWorking(String day) {
@@ -547,32 +688,12 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     if ((weeklySchedule['Monday'] ?? const []).isEmpty) {
       setState(() => _copyMondayToAllChecked = false);
 
-      Fluttertoast.showToast(msg: translateText('Please add time slots for Monday first.'));
+      Fluttertoast.showToast(
+          msg: translateText('Please add time slots for Monday first.'));
       return;
     }
 
-    setState(() {
-      final mondaySlots = weeklySchedule['Monday']!
-          .map((slot) => Map<String, String>.from(slot))
-          .toList();
-
-      for (final day in _weekDays) {
-        if (day == 'Monday' || _isClosedDay(day)) continue;
-
-        _markedOffDays.remove(_dayKey(day));
-
-        final daySlots = weeklySchedule[day];
-        if (daySlots == null) continue;
-
-        daySlots
-          ..clear()
-          ..addAll(
-            mondaySlots.map(
-              (slot) => Map<String, String>.from(slot),
-            ),
-          );
-      }
-    });
+    _syncMondayToAllOpenDays();
   }
 
   void _applySameAsBranchTimings(bool value) {
@@ -618,7 +739,17 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   }
 
   void _showClosedDayMessage(String day) {
-    Fluttertoast.showToast(msg: translateText('$day is closed for appointments.'));
+    Fluttertoast.showToast(
+      msg: translateText('Salon is closed on $day.'),
+    );
+  }
+
+  void _showNoAvailableSlotMessage(String day) {
+    Fluttertoast.showToast(
+      msg: translateText(
+        'Salon time is over for $day. Please adjust the existing slots.',
+      ),
+    );
   }
 
   List<Map<String, dynamic>> _buildSchedulePayload() {
@@ -670,7 +801,13 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       );
 
       if (assigned == true && mounted) {
-        Navigator.pop(context, true);
+        Navigator.pop(
+          context,
+          {
+            'completed': true,
+            'selectedServiceIds': widget.selectedServiceIds,
+          },
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -690,7 +827,53 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   ) {
     final currentValue = weeklySchedule[day]?[index][timeType];
     final options = _timeOptionsForField(day, index, timeType);
-    final safeValue = options.contains(currentValue) ? currentValue : null;
+    String? safeValue;
+
+    if (currentValue != null && currentValue.trim().isNotEmpty) {
+      final currentMinutes = _parseTimeToMinutes(currentValue);
+      if (currentMinutes != null) {
+        for (final option in options) {
+          if (_parseTimeToMinutes(option) == currentMinutes) {
+            safeValue = option;
+            break;
+          }
+        }
+      }
+
+      if (safeValue == null && options.contains(currentValue)) {
+        safeValue = currentValue;
+      }
+    }
+
+    if (safeValue == null && options.isNotEmpty) {
+      if (timeType == 'start') {
+        safeValue = options.first;
+      } else {
+        final startValue = weeklySchedule[day]?[index]['start'] ?? '';
+        final startMinutes = _parseTimeToMinutes(startValue);
+
+        if (startMinutes != null) {
+          safeValue = options.firstWhere(
+            (option) => (_parseTimeToMinutes(option) ?? 0) > startMinutes,
+            orElse: () => options.last,
+          );
+        } else {
+          safeValue = options.first;
+        }
+      }
+    }
+
+    if (safeValue != null && safeValue != currentValue) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final slot = weeklySchedule[day]?[index];
+        if (slot == null) return;
+        if (slot[timeType] == safeValue) return;
+        setState(() {
+          slot[timeType] = safeValue!;
+        });
+      });
+    }
 
     return SizedBox(
       height: 34,
@@ -769,31 +952,38 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     required VoidCallback onPressed,
     bool filled = false,
     IconData? icon,
+    bool enabled = true,
   }) {
     return SizedBox(
       height: 34,
       child: OutlinedButton.icon(
-        onPressed: onPressed,
+        onPressed: enabled ? onPressed : null,
         icon: icon == null
             ? const SizedBox.shrink()
             : Icon(
                 icon,
                 size: 13,
-                color: const Color(0xFFD98A00),
+                color:
+                    enabled ? const Color(0xFFD98A00) : const Color(0xFFBDBDBD),
               ),
         label: Text(
           translateText(text),
           style: TextStyle(
-            color: filled ? const Color(0xFF7C5600) : const Color(0xFF6B7280),
+            color: enabled
+                ? (filled ? const Color(0xFF7C5600) : const Color(0xFF6B7280))
+                : const Color(0xFFBDBDBD),
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
         ),
         style: OutlinedButton.styleFrom(
-          backgroundColor:
-              filled ? const Color(0xFFFFF4DC) : const Color(0xFFF9FAFB),
+          backgroundColor: enabled
+              ? (filled ? const Color(0xFFFFF4DC) : const Color(0xFFF9FAFB))
+              : const Color(0xFFF3F4F6),
           side: BorderSide(
-            color: filled ? const Color(0xFFFFE1A8) : Colors.transparent,
+            color: enabled
+                ? (filled ? const Color(0xFFFFE1A8) : Colors.transparent)
+                : const Color(0xFFE5E7EB),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           minimumSize: const Size(0, 34),
@@ -874,30 +1064,22 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _addSlotButton(day),
-              const SizedBox(width: 10),
-              _smallPillButton(
-                text: 'Mark Off',
-                onPressed: () => _markOff(day),
-              ),
-              if ((weeklySchedule[day] ?? const []).length > 1) ...[
-                const Spacer(),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(
-                    Icons.delete_outline_rounded,
-                    color: Color(0xFFE54848),
-                    size: 18,
-                  ),
-                  onPressed: () => _deleteSlot(day, index),
+          if ((weeklySchedule[day] ?? const []).length > 1) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFFE54848),
+                  size: 18,
                 ),
-              ],
-            ],
-          ),
+                onPressed: () => _deleteSlot(day, index),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -906,6 +1088,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   Widget _dayScheduleCard(String day) {
     final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
     final markedOff = _isMarkedOff(day) || _isClosedDay(day);
+    final closedDay = _isClosedDay(day);
 
     return Container(
       width: double.infinity,
@@ -934,7 +1117,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                   ),
                 ),
               ),
-              if (markedOff)
+              if (closedDay)
                 Expanded(
                   child: Container(
                     height: 36,
@@ -945,7 +1128,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                       border: Border.all(color: const Color(0xFFF3E4D2)),
                     ),
                     child: Text(
-                      translateText('TEAM MEMBER IS OFF'),
+                      translateText('SALON IS CLOSED'),
                       style: const TextStyle(
                         color: Color(0xFFB8A995),
                         fontSize: 9,
@@ -955,8 +1138,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                     ),
                   ),
                 ),
-              if (markedOff) const SizedBox(width: 10),
-              if (markedOff)
+              if (closedDay) const SizedBox(width: 10),
+              if (!closedDay && markedOff)
                 _smallPillButton(
                   text: 'Mark Working',
                   filled: true,
@@ -967,14 +1150,31 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
           if (!markedOff) ...[
             const SizedBox(height: 10),
             if (slots.isEmpty)
-              _smallPillButton(
-                text: 'Add Slot',
-                icon: Icons.add_circle_rounded,
-                onPressed: () => _addSlot(day),
+              Row(
+                children: [
+                  _addSlotButton(day),
+                  const SizedBox(width: 10),
+                  _smallPillButton(
+                    text: 'Mark Off',
+                    onPressed: () => _markOff(day),
+                  ),
+                ],
               )
-            else
+            else ...[
               for (var index = 0; index < slots.length; index++)
                 _workingSlotBlock(day, index),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _addSlotButton(day),
+                  const SizedBox(width: 10),
+                  _smallPillButton(
+                    text: 'Mark Off',
+                    onPressed: () => _markOff(day),
+                  ),
+                ],
+              )
+            ],
           ],
         ],
       ),
