@@ -200,6 +200,13 @@ class _AddServicesState extends State<AddServices> {
     return null;
   }
 
+  String _formatMoneyInput(num? value) {
+    if (value == null) return '';
+    return value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(2);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -249,10 +256,9 @@ class _AddServicesState extends State<AddServices> {
     final type = (service['commissionType'] ?? '').toString().toLowerCase();
     _commissionType = type == 'fixed' ? 'fixed' : 'percentage';
     if (_commissionEnabled && _commissionType == 'fixed') {
-      commissionValueController.text =
-          (minorAmountToRupees(service['commissionFixedAmountMinor'])
-                  ?.toStringAsFixed(0) ??
-              '');
+      commissionValueController.text = _formatMoneyInput(
+        minorAmountToRupees(service['commissionFixedAmountMinor']),
+      );
     } else if (_commissionEnabled) {
       final percentage = _asDouble(service['commissionPercentage']);
       commissionValueController.text = percentage == null
@@ -260,10 +266,9 @@ class _AddServicesState extends State<AddServices> {
           : percentage.toStringAsFixed(
               percentage.truncateToDouble() == percentage ? 0 : 2,
             );
-      commissionMaxController.text =
-          (minorAmountToRupees(service['commissionMaxAmountMinor'])
-                  ?.toStringAsFixed(0) ??
-              '');
+      commissionMaxController.text = _formatMoneyInput(
+        minorAmountToRupees(service['commissionMaxAmountMinor']),
+      );
     }
   }
 
@@ -665,7 +670,7 @@ class _AddServicesState extends State<AddServices> {
       return translateText("Max commission amount is required");
     }
 
-    final parsed = int.tryParse(v);
+    final parsed = num.tryParse(v);
     if (parsed == null || parsed <= 0) {
       return translateText("Enter a valid max commission amount");
     }
@@ -1243,7 +1248,8 @@ class _AddServicesState extends State<AddServices> {
                                   keyboardType: _commissionType == 'percentage'
                                       ? const TextInputType.numberWithOptions(
                                           decimal: true)
-                                      : TextInputType.number,
+                                      : const TextInputType.numberWithOptions(
+                                          decimal: true),
                                   onChanged: (_) => setState(() {}),
                                   textInputAction:
                                       _commissionType == 'percentage'
@@ -1258,8 +1264,9 @@ class _AddServicesState extends State<AddServices> {
                                           LengthLimitingTextInputFormatter(3),
                                         ]
                                       : [
-                                          FilteringTextInputFormatter
-                                              .digitsOnly,
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'[0-9.]'),
+                                          ),
                                           LengthLimitingTextInputFormatter(6),
                                         ],
                                   decoration: _inputDecoration(
@@ -1291,11 +1298,16 @@ class _AddServicesState extends State<AddServices> {
                                     maxLength: 6,
                                     maxLengthEnforcement:
                                         MaxLengthEnforcement.enforced,
-                                    keyboardType: TextInputType.number,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                     textInputAction: TextInputAction.done,
                                     onChanged: (_) => setState(() {}),
                                     inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'[0-9.]'),
+                                      ),
                                       LengthLimitingTextInputFormatter(6),
                                     ],
                                     decoration: _inputDecoration(
