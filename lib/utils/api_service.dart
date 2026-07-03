@@ -1103,19 +1103,58 @@ class ApiService {
     _debugPrintChunked("VerifyOTP body", response.body);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final decoded = json.decode(response.body);
-      _debugPrintChunked("VerifyOTP decoded", decoded);
-      return decoded;
+      try {
+        final decoded = jsonDecode(response.body);
+        _debugPrintChunked("VerifyOTP decoded", decoded);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        return {
+          'success': true,
+          'data': decoded,
+        };
+      } catch (error) {
+        return {
+          'success': false,
+          'message': extractErrorMessage(
+            error,
+            fallback: 'OTP verification failed',
+          ),
+          'statusCode': response.statusCode,
+        };
+      }
     }
 
-    final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+    dynamic decoded;
+    if (response.body.isNotEmpty) {
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = response.body;
+      }
+    } else {
+      decoded = {};
+    }
 
     if (decoded is Map<String, dynamic>) {
       return {
         'success': false,
-        'message': decoded['message']?.toString() ?? 'Invalid OTP',
+        'message': decoded['message']?.toString().trim().isNotEmpty == true
+            ? decoded['message'].toString()
+            : 'Invalid OTP',
         'statusCode': response.statusCode,
       };
+    }
+
+    if (decoded is String) {
+      final cleaned = extractErrorMessage(decoded, fallback: 'Invalid OTP');
+      if (cleaned.isNotEmpty && cleaned != decoded.trim()) {
+        return {
+          'success': false,
+          'message': cleaned,
+          'statusCode': response.statusCode,
+        };
+      }
     }
 
     return {
