@@ -1108,11 +1108,6 @@ class _AssignedBranchRow extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: _memberDetailMuted,
-            size: 22,
-          ),
         ],
       ),
     );

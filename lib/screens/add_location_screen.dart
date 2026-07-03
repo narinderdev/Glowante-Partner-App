@@ -1040,16 +1040,16 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            translateText('Manually Enter Address'),
-            style: const TextStyle(
-              color: Color(0xFF161616),
-              fontSize: 22,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 22),
+          // Text(
+          //   translateText('Manually Enter Address'),
+          //   style: const TextStyle(
+          //     color: Color(0xFF161616),
+          //     fontSize: 22,
+          //     fontWeight: FontWeight.w500,
+          //     height: 1.2,
+          //   ),
+          // ),
+          // const SizedBox(height: 22),
           _buildTextField(
             controller: scoFlatHouseController,
             label: 'House/Flat No',

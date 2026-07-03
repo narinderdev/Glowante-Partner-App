@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../utils/api_service.dart';
 import 'AssignUserSlots.dart'; // 👈 NEW: Step 3 screen
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -42,6 +43,11 @@ class SelectServicesAssignUser extends StatefulWidget {
 class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
   List categories = [];
   final Map<int, bool> selected = {};
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  String _searchQuery = '';
+  final Map<int, bool> _expandedCategories = {};
+  final Map<int, bool> _expandedSubcategories = {};
   bool isLoading = true;
 
   @override
@@ -51,6 +57,13 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
       selected.addAll(widget.initialSelected!);
     }
     _fetchServices();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchServices() async {
@@ -85,6 +98,87 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
     setState(() {});
   }
 
+  bool _matchesServiceQuery(Map<String, dynamic> item, String query) {
+    if (query.isEmpty) return true;
+    return [
+      item['displayName'],
+      item['name'],
+      item['serviceName'],
+      item['title'],
+      item['description'],
+      item['code'],
+    ].any((value) =>
+        (value ?? '').toString().toLowerCase().contains(query.toLowerCase()));
+  }
+
+  List<Map<String, dynamic>> _visibleCategories() {
+    final query = _searchQuery.trim().toLowerCase();
+    final visibleCategories = <Map<String, dynamic>>[];
+
+    for (final rawCategory in categories) {
+      if (rawCategory is! Map) continue;
+      final category = Map<String, dynamic>.from(rawCategory);
+
+      final visibleCategoryServices = <Map<String, dynamic>>[];
+      final rawCategoryServices = category['services'];
+      if (rawCategoryServices is List) {
+        for (final rawService in rawCategoryServices) {
+          if (rawService is! Map) continue;
+          final service = Map<String, dynamic>.from(rawService);
+          if (_matchesServiceQuery(service, query)) {
+            visibleCategoryServices.add(service);
+          }
+        }
+      }
+
+      final visibleSubCategories = <Map<String, dynamic>>[];
+      final rawSubCategories = category['subCategories'];
+      if (rawSubCategories is List) {
+        for (final rawSubCategory in rawSubCategories) {
+          if (rawSubCategory is! Map) continue;
+          final subCategory = Map<String, dynamic>.from(rawSubCategory);
+          final visibleSubServices = <Map<String, dynamic>>[];
+          final rawSubServices = subCategory['services'];
+          if (rawSubServices is List) {
+            for (final rawService in rawSubServices) {
+              if (rawService is! Map) continue;
+              final service = Map<String, dynamic>.from(rawService);
+              if (_matchesServiceQuery(service, query)) {
+                visibleSubServices.add(service);
+              }
+            }
+          }
+
+          if (query.isNotEmpty && visibleSubServices.isEmpty) continue;
+          if (query.isNotEmpty) {
+            visibleSubCategories.add({
+              ...subCategory,
+              'services': visibleSubServices,
+            });
+          } else if (visibleSubServices.isNotEmpty) {
+            visibleSubCategories.add({
+              ...subCategory,
+              'services': visibleSubServices,
+            });
+          }
+        }
+      }
+
+      final hasVisibleContent =
+          visibleCategoryServices.isNotEmpty || visibleSubCategories.isNotEmpty;
+      if (query.isEmpty && !hasVisibleContent) continue;
+      if (query.isNotEmpty && !hasVisibleContent) continue;
+
+      visibleCategories.add({
+        ...category,
+        'services': visibleCategoryServices,
+        'subCategories': visibleSubCategories,
+      });
+    }
+
+    return visibleCategories;
+  }
+
   List<int> _allServiceIds() {
     final ids = <int>[];
     for (final cat in _visibleCategories()) {
@@ -100,20 +194,6 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
     return ids;
   }
 
-  List<Map<String, dynamic>> _visibleCategories() {
-    return categories
-        .whereType<Map>()
-        .map((cat) => Map<String, dynamic>.from(cat))
-        .where(_categoryHasServices)
-        .toList();
-  }
-
-  bool _categoryHasServices(Map<String, dynamic> cat) {
-    final services = cat['services'] as List? ?? const [];
-    if (services.isNotEmpty) return true;
-    return _visibleSubCategories(cat).isNotEmpty;
-  }
-
   List<Map<String, dynamic>> _visibleSubCategories(Map<String, dynamic> cat) {
     final subs = cat['subCategories'] as List? ?? const [];
     return subs
@@ -121,6 +201,12 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
         .map((sub) => Map<String, dynamic>.from(sub))
         .where((sub) => ((sub['services'] as List?) ?? const []).isNotEmpty)
         .toList();
+  }
+
+  void _setSearchQuery(String value) {
+    setState(() {
+      _searchQuery = value;
+    });
   }
 
   Widget _buildServiceItem(Map<String, dynamic> s) {
@@ -182,6 +268,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
   }
 
   Widget _buildCategory(Map<String, dynamic> cat) {
+    final int? categoryId = cat['id'] as int?;
     final List services = cat['services'] as List? ?? [];
     final List<Map<String, dynamic>> subs = _visibleSubCategories(cat);
 
@@ -191,6 +278,9 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
           .map((s) => (s as Map)['id'] as int)),
     ];
     final int selCount = allIds.where((id) => selected[id] == true).length;
+    final bool searchActive = _searchQuery.trim().isNotEmpty;
+    final bool catExpanded = searchActive ||
+        (categoryId != null && _expandedCategories[categoryId] == true);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -200,6 +290,14 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          key: ValueKey(
+            'assign-cat-${categoryId ?? 0}-${searchActive ? 'search-${_searchQuery.trim().toLowerCase()}' : 'base'}',
+          ),
+          initiallyExpanded: catExpanded,
+          onExpansionChanged: (expanded) {
+            if (categoryId == null) return;
+            setState(() => _expandedCategories[categoryId] = expanded);
+          },
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           iconColor: AppColors.starColor,
@@ -241,6 +339,10 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
               (s) => _buildServiceItem((s as Map).cast<String, dynamic>()),
             ),
             ...subs.map<Widget>((subMap) {
+              final int? subCategoryId = subMap['id'] as int?;
+              final bool subExpanded = searchActive ||
+                  (subCategoryId != null &&
+                      _expandedSubcategories[subCategoryId] == true);
               final List subServices = subMap['services'] as List? ?? [];
               return Container(
                 margin: const EdgeInsets.only(top: 4),
@@ -253,6 +355,16 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                   data: Theme.of(context)
                       .copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
+                    key: ValueKey(
+                      'assign-sub-${subCategoryId ?? 0}-${searchActive ? 'search-${_searchQuery.trim().toLowerCase()}' : 'base'}',
+                    ),
+                    initiallyExpanded: subExpanded,
+                    onExpansionChanged: (expanded) {
+                      if (subCategoryId == null) return;
+                      setState(
+                        () => _expandedSubcategories[subCategoryId] = expanded,
+                      );
+                    },
                     tilePadding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 2,
@@ -290,6 +402,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
 
   @override
   Widget build(BuildContext context) {
+    final visibleCategories = _visibleCategories();
     return Scaffold(
       backgroundColor: _assignServicesBackground,
       appBar: buildProfileSubpageAppBar(
@@ -353,6 +466,8 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                           color: _assignServicesMuted,
                         ),
                       ),
+                      const SizedBox(height: 14),
+                      _buildSearchBar(),
                     ],
                   ),
                 ),
@@ -411,13 +526,15 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
 
                 // Categories
                 Expanded(
-                  child: _visibleCategories().isEmpty
-                      ? const _EmptyServicesState()
+                  child: visibleCategories.isEmpty
+                      ? _EmptyServicesState(
+                          isSearchActive: _searchQuery.trim().isNotEmpty,
+                        )
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          itemCount: _visibleCategories().length,
+                          itemCount: visibleCategories.length,
                           itemBuilder: (ctx, i) =>
-                              _buildCategory(_visibleCategories()[i]),
+                              _buildCategory(visibleCategories[i]),
                         ),
                 ),
               ],
@@ -504,6 +621,51 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD9CBBB)),
+      ),
+      child: TextField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        cursorColor: AppColors.starColor,
+        textInputAction: TextInputAction.search,
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+        inputFormatters: [LengthLimitingTextInputFormatter(60)],
+        onChanged: _setSearchQuery,
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.starColor,
+            size: 24,
+          ),
+          suffixIcon: _searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close_rounded,
+                      color: _assignServicesMuted),
+                  onPressed: () {
+                    _searchController.clear();
+                    _setSearchQuery('');
+                  },
+                ),
+          hintText: translateText('Find services...'),
+          hintStyle: const TextStyle(
+            color: Color(0xFF34302C),
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 16),
         ),
       ),
     );
@@ -648,7 +810,9 @@ class _CountPill extends StatelessWidget {
 }
 
 class _EmptyServicesState extends StatelessWidget {
-  const _EmptyServicesState();
+  const _EmptyServicesState({this.isSearchActive = false});
+
+  final bool isSearchActive;
 
   @override
   Widget build(BuildContext context) {
@@ -675,7 +839,11 @@ class _EmptyServicesState extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                translateText('No services available'),
+                translateText(
+                  isSearchActive
+                      ? 'No matching services found'
+                      : 'No services available',
+                ),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontFamily: 'Manrope',
@@ -687,7 +855,9 @@ class _EmptyServicesState extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 translateText(
-                  'No services are available for this branch to assign.',
+                  isSearchActive
+                      ? 'Try a different search term.'
+                      : 'No services are available for this branch to assign.',
                 ),
                 textAlign: TextAlign.center,
                 style: const TextStyle(

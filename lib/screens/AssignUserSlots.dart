@@ -1052,28 +1052,28 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                         Flexible(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Checkbox(
-                                value: _sameAsBranchTimings,
-                                onChanged: (value) {
-                                  _applySameAsBranchTimings(value ?? false);
-                                },
-                                visualDensity: VisualDensity.compact,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              Flexible(
-                                child: Text(
-                                  translateText('Same as branch timings'),
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xFF374151),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            // children: [
+                            //   Checkbox(
+                            //     value: _sameAsBranchTimings,
+                            //     onChanged: (value) {
+                            //       _applySameAsBranchTimings(value ?? false);
+                            //     },
+                            //     visualDensity: VisualDensity.compact,
+                            //     materialTapTargetSize:
+                            //         MaterialTapTargetSize.shrinkWrap,
+                            //   ),
+                            //   Flexible(
+                            //     child: Text(
+                            //       translateText('Same as branch timings'),
+                            //       overflow: TextOverflow.ellipsis,
+                            //       style: const TextStyle(
+                            //         color: Color(0xFF374151),
+                            //         fontSize: 11,
+                            //         fontWeight: FontWeight.w500,
+                            //       ),
+                            //     ),
+                            //   ),
+                            // ],
                           ),
                         ),
                       ],

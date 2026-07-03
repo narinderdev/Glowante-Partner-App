@@ -1456,6 +1456,24 @@ class CategoryScreenState extends State<CategoryScreen> {
     List<Map<String, dynamic>> salons,
   ) {
     final visibleCategories = _visibleCategories(catState.categories);
+    final searchQuery = _catalogQuery.trim();
+    final searchCategoryExpanded = <int, bool>{};
+    final searchSubcategoryExpanded = <int, bool>{};
+    if (searchQuery.isNotEmpty) {
+      _seedSearchExpansionMaps(
+        visibleCategories,
+        searchCategoryExpanded,
+        searchSubcategoryExpanded,
+      );
+    }
+    final categoryExpanded = {
+      ..._expandedCategories,
+      ...searchCategoryExpanded,
+    };
+    final subcategoryExpanded = {
+      ..._expandedSubcategories,
+      ...searchSubcategoryExpanded,
+    };
     final isInitialLoading = catState.isLoading && catState.categories.isEmpty;
 
     return RefreshIndicator(
@@ -1513,10 +1531,10 @@ class CategoryScreenState extends State<CategoryScreen> {
                   onDeleteSubcategory: _confirmDeleteSubCategory,
                   onEditService: _showUpdateServiceSheet,
                   onDeleteService: _confirmDeleteService,
-                  categoryExpanded: _expandedCategories,
+                  categoryExpanded: categoryExpanded,
                   categoryKeys: _categoryItemKeys,
                   selectedFilterCategoryId: _selectedFilterCategoryId,
-                  expanded: _expandedSubcategories,
+                  expanded: subcategoryExpanded,
                   subcategoryKeys: _subcategoryItemKeys,
                   toggleCategoryExpanded: (id) => setState(() {
                     _expandedCategories[id] =
@@ -1539,73 +1557,6 @@ class CategoryScreenState extends State<CategoryScreen> {
         ],
       ),
     );
-  }
-
-  List<dynamic> _visibleCategories(List<dynamic> categories) {
-    final query = _catalogQuery.trim().toLowerCase();
-
-    final visibleCategories = categories.where((rawCategory) {
-      final category = Map<String, dynamic>.from(rawCategory as Map);
-      final categoryId = _asInt(category['id']);
-      if (_selectedFilterCategoryId != null &&
-          categoryId != _selectedFilterCategoryId) {
-        return false;
-      }
-
-      if (query.isEmpty) return true;
-
-      bool matchesText(dynamic value) {
-        return (value ?? '').toString().toLowerCase().contains(query);
-      }
-
-      if (matchesText(category['displayName']) ||
-          matchesText(category['name'])) {
-        return true;
-      }
-
-      final subCategories = category['subCategories'];
-      if (subCategories is List) {
-        for (final subCategory in subCategories) {
-          if (subCategory is! Map) continue;
-          if (matchesText(subCategory['displayName']) ||
-              matchesText(subCategory['name'])) {
-            return true;
-          }
-          final services = subCategory['services'];
-          if (services is List && _servicesContainQuery(services, query)) {
-            return true;
-          }
-        }
-      }
-
-      final services = category['services'];
-      return services is List && _servicesContainQuery(services, query);
-    }).toList()
-      ..sort((first, second) {
-        if (first is! Map || second is! Map) return 0;
-        return _compareCatalogItems(
-          Map<String, dynamic>.from(first),
-          Map<String, dynamic>.from(second),
-        );
-      });
-
-    return visibleCategories;
-  }
-
-  bool _servicesContainQuery(List<dynamic> services, String query) {
-    for (final service in services) {
-      if (service is! Map) continue;
-      final values = [
-        service['displayName'],
-        service['name'],
-        service['description'],
-      ];
-      if (values.any(
-          (value) => (value ?? '').toString().toLowerCase().contains(query))) {
-        return true;
-      }
-    }
-    return false;
   }
 
   Widget _buildCatalogIntroActions(CategoryState catState) {
@@ -2061,6 +2012,123 @@ class CategoryScreenState extends State<CategoryScreen> {
     final categoryCubit = context.read<CategoryCubit>();
     categoryCubit.resetCategories();
     categoryCubit.loadCategories(branchId);
+  }
+
+  bool _catalogItemMatchesQuery(Map<String, dynamic> item, String query) {
+    if (query.isEmpty) return true;
+    return [
+      item['displayName'],
+      item['name'],
+      item['serviceName'],
+      item['title'],
+      item['description'],
+      item['code'],
+    ].any((value) => _matchesCatalogQuery(value, query));
+  }
+
+  bool _matchesCatalogQuery(dynamic value, String query) {
+    return (value ?? '').toString().toLowerCase().contains(query);
+  }
+
+  List<Map<String, dynamic>> _visibleCategories(List<dynamic> categories) {
+    final query = _catalogQuery.trim().toLowerCase();
+    final visibleCategories = <Map<String, dynamic>>[];
+
+    for (final rawCategory in categories) {
+      if (rawCategory is! Map) continue;
+      final category = Map<String, dynamic>.from(rawCategory);
+      final categoryId = _asInt(category['id']);
+      if (_selectedFilterCategoryId != null &&
+          categoryId != _selectedFilterCategoryId) {
+        continue;
+      }
+
+      final categoryServices = _uniqueCatalogServices(
+        _sortedCatalogItems(
+          (category['services'] as List? ?? const [])
+              .whereType<Map>()
+              .map((entry) => Map<String, dynamic>.from(entry))
+              .where(_isCatalogItemActive),
+        ),
+      );
+
+      final filteredCategoryServices = query.isEmpty
+          ? categoryServices
+          : categoryServices
+              .where((service) => _catalogItemMatchesQuery(service, query))
+              .toList();
+
+      final rawSubCategories = category['subCategories'];
+      final filteredSubCategories = <Map<String, dynamic>>[];
+      if (rawSubCategories is List) {
+        for (final rawSubCategory in rawSubCategories) {
+          if (rawSubCategory is! Map) continue;
+          final subCategory = Map<String, dynamic>.from(rawSubCategory);
+
+          final subServices = _uniqueCatalogServices(
+            _sortedCatalogItems(
+              (subCategory['services'] as List? ?? const [])
+                  .whereType<Map>()
+                  .map((entry) => Map<String, dynamic>.from(entry))
+                  .where(_isCatalogItemActive),
+            ),
+          );
+          final filteredSubServices = query.isEmpty
+              ? subServices
+              : subServices
+                  .where((service) => _catalogItemMatchesQuery(service, query))
+                  .toList();
+
+          if (query.isNotEmpty && filteredSubServices.isEmpty) {
+            continue;
+          }
+
+          filteredSubCategories.add({
+            ...subCategory,
+            'services': filteredSubServices,
+          });
+        }
+      }
+
+      final shouldKeepCategory = query.isEmpty ||
+          filteredCategoryServices.isNotEmpty ||
+          filteredSubCategories.isNotEmpty;
+
+      if (!shouldKeepCategory) continue;
+
+      visibleCategories.add({
+        ...category,
+        'services': filteredCategoryServices,
+        'subCategories': filteredSubCategories,
+      });
+    }
+
+    visibleCategories.sort(_compareCatalogItems);
+
+    return visibleCategories;
+  }
+
+  void _seedSearchExpansionMaps(
+    List<Map<String, dynamic>> categories,
+    Map<int, bool> categoryExpanded,
+    Map<int, bool> subcategoryExpanded,
+  ) {
+    for (final category in categories) {
+      final categoryId = _asInt(category['id']);
+      if (categoryId != null) {
+        categoryExpanded[categoryId] = true;
+      }
+
+      final subCategories = category['subCategories'];
+      if (subCategories is! List) continue;
+      for (final rawSubCategory in subCategories) {
+        if (rawSubCategory is! Map) continue;
+        final subCategoryId = _asInt(rawSubCategory['id']);
+        if (subCategoryId != null) {
+          subcategoryExpanded[subCategoryId] = true;
+        }
+      }
+    }
   }
 
   // Future<void> _refreshData() async {
