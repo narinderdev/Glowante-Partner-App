@@ -1,15 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/api_service.dart';
-import 'dart:convert';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 import '../bloc/category/category_cubit.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/error_parser.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 const Color _serviceGold = Color(0xFF8B6500);
 const Color _serviceGoldLight = Color(0xFFD0A244);
@@ -115,26 +115,47 @@ class _AddServicesState extends State<AddServices> {
 
   void _setDefaultPassiveWaitForDuration(int duration) {
     if (duration <= 0) return;
+    if (duration < 3) {
+      _initialBusyMinutes = duration > 0 ? 1 : 0;
+      _passiveWaitMinutes = duration > 1 ? 1 : 0;
+      _finalBusyMinutes = duration - _initialBusyMinutes - _passiveWaitMinutes;
+      return;
+    }
+
     final busyStart =
-        duration >= 20 ? 10 : _clampInt(duration ~/ 3, 0, duration);
-    final remainingAfterStart = duration - busyStart;
-    final busyEnd = duration >= 20
-        ? _clampInt(10, 0, remainingAfterStart)
-        : _clampInt(remainingAfterStart ~/ 2, 0, remainingAfterStart);
+        duration >= 20 ? 10 : _clampInt(duration ~/ 3, 1, duration - 2);
+    final busyEnd = 1;
+    final passiveWait = duration - busyStart - busyEnd;
+
     _initialBusyMinutes = busyStart;
-    _finalBusyMinutes = busyEnd;
-    _passiveWaitMinutes = duration - busyStart - busyEnd;
+    _passiveWaitMinutes = passiveWait < 1 ? 1 : passiveWait;
+    _finalBusyMinutes = duration - _initialBusyMinutes - _passiveWaitMinutes;
   }
 
   void _normalizePassiveWaitForDuration(int duration) {
     if (duration <= 0) return;
+    if (!_passiveWaitEnabled) {
+      _initialBusyMinutes = _clampInt(_initialBusyMinutes, 0, duration);
+      _passiveWaitMinutes = 0;
+      _finalBusyMinutes = duration - _initialBusyMinutes;
+      return;
+    }
+
+    if (duration < 3) {
+      _initialBusyMinutes = _clampInt(_initialBusyMinutes, 0, duration);
+      _passiveWaitMinutes = 0;
+      _finalBusyMinutes = duration - _initialBusyMinutes;
+      return;
+    }
+
     final minPassive =
         _passiveWaitEnabled ? _minimumPassiveWaitForDuration(duration) : 0;
-    final initial = _clampInt(_initialBusyMinutes, 0, duration - minPassive);
+    final initial =
+        _clampInt(_initialBusyMinutes, 1, duration - minPassive - 1);
     final passive = _clampInt(
       _passiveWaitMinutes,
       minPassive,
-      duration - initial,
+      duration - initial - 1,
     );
     _initialBusyMinutes = initial;
     _passiveWaitMinutes = passive;
@@ -145,15 +166,18 @@ class _AddServicesState extends State<AddServices> {
     final minPassive = _minimumPassiveWaitForDuration(duration);
     final oldStart = _initialBusyMinutes;
     final oldEnd = _initialBusyMinutes + _passiveWaitMinutes;
-    var start = _clampInt(values.start.round(), 0, duration - minPassive);
-    var end = _clampInt(values.end.round(), start + minPassive, duration);
+    final maxStart = _passiveWaitEnabled ? duration - minPassive - 1 : duration;
+    final minStart = _passiveWaitEnabled ? 1 : 0;
+    final maxEnd = _passiveWaitEnabled ? duration - 1 : duration;
+    var start = _clampInt(values.start.round(), minStart, maxStart);
+    var end = _clampInt(values.end.round(), start + minPassive, maxEnd);
 
     if (end - start < minPassive) {
       final startMoved = (start - oldStart).abs() > (end - oldEnd).abs();
       if (startMoved) {
-        start = _clampInt(end - minPassive, 0, duration - minPassive);
+        start = _clampInt(end - minPassive, minStart, maxStart);
       } else {
-        end = _clampInt(start + minPassive, minPassive, duration);
+        end = _clampInt(start + minPassive, start + minPassive, maxEnd);
       }
     }
 
@@ -309,7 +333,8 @@ class _AddServicesState extends State<AddServices> {
       }
     } catch (e) {
       if (!mounted) return;
-      Fluttertoast.showToast(msg: translateText("Failed to fetch service catalog"));
+      Fluttertoast.showToast(
+          msg: translateText("Failed to fetch service catalog"));
     }
   }
 
@@ -343,6 +368,11 @@ class _AddServicesState extends State<AddServices> {
       final int? price = priceText.isEmpty ? null : int.tryParse(priceText);
       final int? priceMinor = price == null ? null : rupeesToMinorAmount(price);
       final duration = int.parse(durationController.text.trim());
+      if (_passiveWaitEnabled && duration < 3) {
+        throw Exception(
+          '{"message":"Passive wait needs at least 3 minutes of duration"}',
+        );
+      }
       _normalizePassiveWaitForDuration(duration);
       final initialBusyMinutes =
           _passiveWaitEnabled ? _initialBusyMinutes : duration;
@@ -441,11 +471,12 @@ class _AddServicesState extends State<AddServices> {
       if (!mounted) return;
 
       FocusManager.instance.primaryFocus?.unfocus();
-      Fluttertoast.showToast(msg: translateText(
-              _isEditMode
-                  ? "Service updated successfully"
-                  : "Service added successfully!",
-            ));
+      Fluttertoast.showToast(
+          msg: translateText(
+        _isEditMode
+            ? "Service updated successfully"
+            : "Service added successfully!",
+      ));
       Navigator.pop(context, {
         'updated': true,
         'categoryId': savedCategoryId,
@@ -454,32 +485,13 @@ class _AddServicesState extends State<AddServices> {
     } catch (e) {
       if (!mounted) return;
       FocusManager.instance.primaryFocus?.unfocus();
-      String errorMessage = translateText(
-        _isEditMode ? "Failed to update service" : "Failed to add service",
-      );
-      try {
-        String errorStr = e.toString();
-        errorStr = errorStr.replaceFirst("Exception: ", "");
-        final errorJson = jsonDecode(errorStr);
-        if (errorJson['message'] is List && errorJson['message'].isNotEmpty) {
-          errorMessage = errorJson['message'][0];
-        } else if (errorJson['message'] is String) {
-          errorMessage = errorJson['message'];
-        }
-      } catch (_) {}
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(translateText("Alert")),
-          content: Text(errorMessage),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(translateText("OK")),
-            ),
-          ],
+      final errorMessage = extractErrorMessage(
+        e,
+        fallback: translateText(
+          _isEditMode ? "Failed to update service" : "Failed to add service",
         ),
       );
+      _showWrappedToast(errorMessage);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -500,6 +512,44 @@ class _AddServicesState extends State<AddServices> {
       }
     }
     return null;
+  }
+
+  void _showWrappedToast(String message) {
+    final toast = FToast()..init(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    toast.showToast(
+      gravity: ToastGravity.BOTTOM,
+      toastDuration: const Duration(seconds: 4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: screenWidth - 32),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF4B4B4B),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 12,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            softWrap: true,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // ------------------- Validators -------------------
@@ -557,7 +607,7 @@ class _AddServicesState extends State<AddServices> {
       return translateText("Enter a valid commission value");
     }
     if (_commissionType == 'percentage' && parsed > 100) {
-      return translateText("Commission percentage cannot exceed 100");
+      return translateText("Commission percentage should be between 0 and 100");
     }
     if (_commissionType == 'fixed' && parsed > price) {
       return translateText("Commission amount cannot exceed price");
@@ -640,14 +690,32 @@ class _AddServicesState extends State<AddServices> {
   }
 
   Widget _buildPassiveWaitSection(int duration) {
-    final safeDuration = duration <= 0 ? 60 : duration;
+    final hasDuration = duration > 0;
+    final safeDuration = hasDuration ? duration : 60;
+    final canConfigure =
+        hasDuration && (!_passiveWaitEnabled || safeDuration >= 3);
+    final sliderEnabled = _passiveWaitEnabled && canConfigure;
+    final headerMessage = !hasDuration
+        ? translateText(
+            'Enter duration to configure busy start, passive wait, and busy end.',
+          )
+        : (_passiveWaitEnabled && safeDuration < 3
+            ? translateText(
+                'Passive wait needs at least 3 minutes of service duration.',
+              )
+            : translateText(
+                'Split duration into busy start, passive wait, and busy end.',
+              ));
+
     final minPassive =
         _passiveWaitEnabled ? _minimumPassiveWaitForDuration(safeDuration) : 0;
-    final start = _clampInt(_initialBusyMinutes, 0, safeDuration - minPassive);
+    final minStart = sliderEnabled ? 1 : 0;
+    final maxStart = sliderEnabled ? safeDuration - 2 : safeDuration;
+    final start = _clampInt(_initialBusyMinutes, minStart, maxStart);
     final end = _clampInt(
       _initialBusyMinutes + _passiveWaitMinutes,
       start + minPassive,
-      safeDuration,
+      sliderEnabled ? safeDuration - 1 : safeDuration,
     );
     final passive = end - start;
     final finalBusy = safeDuration - end;
@@ -663,6 +731,7 @@ class _AddServicesState extends State<AddServices> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Column(
@@ -678,9 +747,7 @@ class _AddServicesState extends State<AddServices> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      translateText(
-                        'Split duration into busy start, passive wait, and busy end.',
-                      ),
+                      headerMessage,
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
@@ -690,22 +757,43 @@ class _AddServicesState extends State<AddServices> {
                   ],
                 ),
               ),
-              Checkbox(
-                value: _passiveWaitEnabled,
-                activeColor: _serviceGold,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: (value) {
-                  setState(() {
-                    _passiveWaitEnabled = value ?? false;
-                  });
-                },
-              ),
-              Text(
-                translateText('Enabled'),
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: _serviceInk,
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 28,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Checkbox(
+                      value: _passiveWaitEnabled,
+                      activeColor: _serviceGold,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      onChanged: (value) {
+                        setState(() {
+                          _passiveWaitEnabled = value ?? false;
+                          final duration = _selectedDuration;
+                          if (duration != null && duration > 0) {
+                            if (_passiveWaitEnabled) {
+                              _normalizePassiveWaitForDuration(duration);
+                            } else {
+                              _initialBusyMinutes = duration;
+                              _passiveWaitMinutes = 0;
+                              _finalBusyMinutes = 0;
+                            }
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      translateText('Enabled'),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _serviceInk,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -716,18 +804,20 @@ class _AddServicesState extends State<AddServices> {
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 rangeTrackShape: const _PassiveWaitRangeTrackShape(),
-                activeTrackColor: _serviceGold,
+                activeTrackColor: sliderEnabled ? _serviceGold : _serviceBorder,
                 inactiveTrackColor: _serviceBorder,
+                thumbColor: sliderEnabled ? _serviceGold : _serviceBorder,
+                disabledThumbColor: _serviceBorder,
               ),
               child: RangeSlider(
                 values: RangeValues(start.toDouble(), end.toDouble()),
-                min: 0,
-                max: safeDuration.toDouble(),
-                divisions: safeDuration,
-                activeColor: _serviceGold,
-                inactiveColor: _serviceBorder,
+                min: sliderEnabled ? 1 : 0,
+                max: sliderEnabled
+                    ? (safeDuration - 1).toDouble()
+                    : safeDuration.toDouble(),
+                divisions: sliderEnabled ? safeDuration - 2 : safeDuration,
                 labels: RangeLabels('${start}m', '${end}m'),
-                onChanged: _passiveWaitEnabled
+                onChanged: sliderEnabled
                     ? (values) {
                         setState(() {
                           _updatePassiveWaitFromRange(safeDuration, values);
@@ -1023,10 +1113,8 @@ class _AddServicesState extends State<AddServices> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          if ((selectedDuration ?? 0) > 0) ...[
-                            _buildPassiveWaitSection(selectedDuration!),
-                            const SizedBox(height: 22),
-                          ],
+                          _buildPassiveWaitSection(selectedDuration ?? 0),
+                          const SizedBox(height: 22),
                           const Divider(height: 1, color: _serviceBorder),
                           const SizedBox(height: 18),
                           Column(
@@ -1066,8 +1154,9 @@ class _AddServicesState extends State<AddServices> {
                                     activeThumbColor: _serviceGold,
                                     onChanged: (value) {
                                       if (value && !_hasValidPrice) {
-                                        Fluttertoast.showToast(msg: translateText(
-                                                  "Enter a valid price before enabling commission"));
+                                        Fluttertoast.showToast(
+                                            msg: translateText(
+                                                "Enter a valid price before enabling commission"));
                                         return;
                                       }
                                       setState(() {

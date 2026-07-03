@@ -2133,7 +2133,41 @@ class CategoryScreenState extends State<CategoryScreen> {
   // ---------- HELPERS ----------
   void _toast(String msg) {
     if (!mounted) return;
-    Fluttertoast.showToast(msg: msg);
+    final toast = FToast()..init(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    toast.showToast(
+      gravity: ToastGravity.BOTTOM,
+      toastDuration: const Duration(seconds: 4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: screenWidth - 32),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF4B4B4B),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 12,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Text(
+            msg,
+            textAlign: TextAlign.center,
+            softWrap: true,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2909,23 +2943,6 @@ class _ServiceCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 18,
-                height: 18,
-                margin: const EdgeInsets.only(top: 18),
-                decoration: BoxDecoration(
-                  color: service['commissionEnabled'] == true
-                      ? _catalogGold
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: const Color(0xFFD8CBBE)),
-                ),
-                child: service['commissionEnabled'] == true
-                    ? const Icon(Icons.check_rounded,
-                        color: Colors.white, size: 14)
-                    : null,
-              ),
-              const SizedBox(width: 14),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 16),
