@@ -21,7 +21,6 @@ import '../utils/api_service.dart';
 import 'bottom_nav.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 enum _BranchField { name, phone, startTime, endTime, description }
 
 class _FirstLetterUpperFormatter extends TextInputFormatter {
@@ -679,9 +678,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   }
 
   void _showImageLimitToast() {
-    Fluttertoast.showToast(msg: translateText(
-            'You can add up to 10 photos. Remove a photo before choosing another.',
-          ));
+    Fluttertoast.showToast(
+        msg: translateText(
+      'You can add up to 10 photos. Remove a photo before choosing another.',
+    ));
   }
 
   Future<List<String>> _uploadSelectedImageUrls(List<File> images) async {
@@ -892,7 +892,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (widget.isEdit &&
         (_startTimeController.text.isEmpty ||
             _endTimeController.text.isEmpty)) {
-      Fluttertoast.showToast(msg: translateText('Please select start and end time.'));
+      Fluttertoast.showToast(
+          msg: translateText('Please select start and end time.'));
       return;
     }
     debugPrint('BRANCH ADDRESS = ${state.address?.toJson()}');
@@ -900,7 +901,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     debugPrint('LNG = ${state.address?.longitude}');
     // 🟢 Require address completeness based on new flow
     if (!_isAddressComplete(state.address)) {
-      Fluttertoast.showToast(msg: translateText('Please choose a branch location.'));
+      Fluttertoast.showToast(
+          msg: translateText('Please choose a branch location.'));
       return;
     }
 
@@ -1098,11 +1100,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         }
 
         if (state.status == BranchFormStatus.success) {
-          Fluttertoast.showToast(msg: translateText(
-                  widget.isEdit
-                      ? 'Branch updated successfully'
-                      : 'Branch added successfully',
-                ));
+          Fluttertoast.showToast(
+              msg: translateText(
+            widget.isEdit
+                ? 'Branch updated successfully'
+                : 'Branch added successfully',
+          ));
           if (widget.isEdit) {
             Navigator.pop(context, true);
             return;
@@ -1761,6 +1764,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         sanitizedField.isEmpty ? localizedLabel : translateText(sanitizedField);
     final hasInsideCounter = maxLength != null;
     final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
+    final effectiveInputFormatters = <TextInputFormatter>[
+      if (inputFormatters != null) ...inputFormatters,
+      if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
+    ];
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),
@@ -1777,6 +1784,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                     controller: controller,
                     maxLines: maxLines,
                     maxLength: maxLength,
+                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
                     enabled: enabled,
                     readOnly: false,
                     showCursor: true,
@@ -1788,7 +1796,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                     keyboardType: keyboardType,
-                    inputFormatters: inputFormatters,
+                    inputFormatters: effectiveInputFormatters,
                     textCapitalization: textCapitalization,
                     autovalidateMode: _submitted
                         ? AutovalidateMode.always
@@ -1916,7 +1924,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       bottom: 8,
                       child: IgnorePointer(
                         child: Text(
-                          '${value.text.length} / $maxLength',
+                          '${value.text.characters.length} / $maxLength',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF8A8178),

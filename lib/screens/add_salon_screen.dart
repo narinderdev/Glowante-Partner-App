@@ -2227,6 +2227,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final String cleanLabel = localizedLabel.trim();
     final hasInsideCounter = maxLength != null;
     final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
+    final effectiveInputFormatters = <TextInputFormatter>[
+      if (inputFormatters != null) ...inputFormatters,
+      if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
+    ];
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),
@@ -2243,6 +2247,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                     controller: controller,
                     maxLines: maxLines,
                     maxLength: maxLength,
+                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
                     enabled: enabled,
                     readOnly: false,
                     showCursor: true,
@@ -2255,7 +2260,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                     ),
                     textCapitalization: textCapitalization,
                     keyboardType: keyboardType,
-                    inputFormatters: inputFormatters,
+                    inputFormatters: effectiveInputFormatters,
                     autovalidateMode: _submitted
                         ? AutovalidateMode.always
                         : AutovalidateMode.disabled,
@@ -2274,9 +2279,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                           return translateText(
                             'Phone number must be 10 digits',
                           );
-                        }
-                        if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
-                          return translateText('Invalid phone number');
                         }
                       }
 
@@ -2394,7 +2396,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                       bottom: 8,
                       child: IgnorePointer(
                         child: Text(
-                          '${value.text.length} / $maxLength',
+                          '${value.text.characters.length} / $maxLength',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF8A8178),

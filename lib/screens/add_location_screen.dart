@@ -246,6 +246,44 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     );
   }
 
+  void _showWrappedToast(String message) {
+    final toast = FToast()..init(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    toast.showToast(
+      gravity: ToastGravity.BOTTOM,
+      toastDuration: const Duration(seconds: 4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: screenWidth - 32),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF4B4B4B),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 12,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            softWrap: true,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _cleanAddressText(String value) {
     final cleaned = value
         .replaceAll('\u00A0', ' ')
@@ -1239,12 +1277,15 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         finalLongitude == null ||
         finalLatitude == 0.0 ||
         finalLongitude == 0.0) {
-      Fluttertoast.showToast(
-          msg: translateText(
-        'Could not get coordinates. Please use current location or select a more specific suggestion.',
-      ));
+      _showWrappedToast(
+        translateText(
+          'Could not get coordinates. Please use current location or select a more specific suggestion.',
+        ),
+      );
       return;
     }
+
+    if (!mounted) return;
 
     Navigator.pop(context, {
       'completeAddress': composedAddress,

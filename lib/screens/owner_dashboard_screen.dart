@@ -326,8 +326,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   void _openBookingsTab() {
+    final hasSalon = _branchOptions.isNotEmpty && _selectedBranchId != null;
+    final targetTabIndex = hasSalon ? 1 : 2;
+
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 1)),
+      MaterialPageRoute(builder: (_) => BottomNav(tabIndex: targetTabIndex)),
       (route) => false,
     );
   }

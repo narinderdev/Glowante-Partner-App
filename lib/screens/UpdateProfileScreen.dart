@@ -40,6 +40,9 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
+  final FocusNode firstNameFocusNode = FocusNode();
+  final FocusNode lastNameFocusNode = FocusNode();
+  final FocusNode emailFocusNode = FocusNode();
 
   String firstNameError = '';
   String lastNameError = '';
@@ -56,6 +59,9 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
     firstNameController.dispose();
     lastNameController.dispose();
     emailController.dispose();
+    firstNameFocusNode.dispose();
+    lastNameFocusNode.dispose();
+    emailFocusNode.dispose();
     super.dispose();
   }
 
@@ -380,28 +386,40 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      _buildTextField(
-                        firstNameController,
-                        'First Name',
-                        'Enter your first name',
-                        'firstName',
-                        firstNameError,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildTextField(
-                        lastNameController,
-                        'Last Name',
-                        'Enter your last name',
-                        'lastName',
-                        lastNameError,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildTextField(
-                        emailController,
-                        'Email',
-                        'Enter your email',
-                        'email',
-                        emailError,
+                      AutofillGroup(
+                        child: Column(
+                          children: [
+                            _buildTextField(
+                              controller: firstNameController,
+                              focusNode: firstNameFocusNode,
+                              nextFocusNode: lastNameFocusNode,
+                              label: 'First Name',
+                              hint: 'Enter your first name',
+                              fieldType: 'firstName',
+                              fieldError: firstNameError,
+                            ),
+                            const SizedBox(height: 14),
+                            _buildTextField(
+                              controller: lastNameController,
+                              focusNode: lastNameFocusNode,
+                              nextFocusNode: emailFocusNode,
+                              label: 'Last Name',
+                              hint: 'Enter your last name',
+                              fieldType: 'lastName',
+                              fieldError: lastNameError,
+                            ),
+                            const SizedBox(height: 14),
+                            _buildTextField(
+                              controller: emailController,
+                              focusNode: emailFocusNode,
+                              label: 'Email',
+                              hint: 'Enter your email',
+                              fieldType: 'email',
+                              fieldError: emailError,
+                              autofillHints: const [AutofillHints.email],
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton(
@@ -509,14 +527,16 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
     );
   }
 
-// Custom method to build text fields with consistent stylingWidget
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    String hint,
-    String fieldType,
-    String fieldError,
-  ) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    FocusNode? nextFocusNode,
+    required String label,
+    required String hint,
+    required String fieldType,
+    required String fieldError,
+    List<String>? autofillHints,
+  }) {
     final bool isNameField =
         fieldType == 'firstName' || fieldType == 'lastName';
     final maxLength = fieldType == 'email' ? 100 : 50;
@@ -528,6 +548,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
         TextField(
           key: ValueKey('create_profile_$fieldType'),
           controller: controller,
+          focusNode: focusNode,
           cursorColor: _profileGold,
           textInputAction: fieldType == 'email'
               ? TextInputAction.done
@@ -535,6 +556,10 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           onSubmitted: (_) {
             if (fieldType == 'email') {
               _updateProfile();
+            } else {
+              FocusScope.of(context).requestFocus(
+                nextFocusNode ?? emailFocusNode,
+              );
             }
           },
           onChanged: (value) {
@@ -549,6 +574,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           keyboardType: fieldType == 'email'
               ? TextInputType.emailAddress
               : TextInputType.text,
+          autofillHints: autofillHints,
           maxLength: maxLength,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           inputFormatters: [
