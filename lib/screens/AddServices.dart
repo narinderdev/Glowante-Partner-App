@@ -18,7 +18,7 @@ const Color _serviceMuted = Color(0xFF6F665E);
 const Color _serviceBorder = Color(0xFFE3DCD7);
 const Color _serviceFieldFill = Colors.white;
 const Color _serviceSurface = Color(0xFFFBFAF8);
-const bool _defaultPassiveWaitEnabled = true;
+const bool _defaultPassiveWaitEnabled = false;
 const int _defaultInitialBusyMinutes = 10;
 const int _defaultPassiveWaitMinutes = 40;
 const int _defaultFinalBusyMinutes = 10;
@@ -115,6 +115,13 @@ class _AddServicesState extends State<AddServices> {
 
   void _setDefaultPassiveWaitForDuration(int duration) {
     if (duration <= 0) return;
+    if (!_passiveWaitEnabled) {
+      _initialBusyMinutes = duration;
+      _passiveWaitMinutes = 0;
+      _finalBusyMinutes = 0;
+      return;
+    }
+
     if (duration < 3) {
       _initialBusyMinutes = duration > 0 ? 1 : 0;
       _passiveWaitMinutes = duration > 1 ? 1 : 0;
@@ -670,8 +677,13 @@ class _AddServicesState extends State<AddServices> {
 
       if (maxMinor > allowedMaxMinor) {
         final allowedMaxRupee = minorAmountToRupees(allowedMaxMinor);
+        final allowedMaxText = allowedMaxRupee == null
+            ? allowedMaxMinor.toString()
+            : (allowedMaxRupee.truncateToDouble() == allowedMaxRupee
+                ? allowedMaxRupee.toStringAsFixed(0)
+                : allowedMaxRupee.toStringAsFixed(2));
         return translateText(
-          "Max commission cannot exceed ${allowedMaxRupee?.toStringAsFixed(0) ?? allowedMaxMinor}",
+          "Max commission cannot exceed $allowedMaxText",
         );
       }
     }
@@ -711,12 +723,16 @@ class _AddServicesState extends State<AddServices> {
         _passiveWaitEnabled ? _minimumPassiveWaitForDuration(safeDuration) : 0;
     final minStart = sliderEnabled ? 1 : 0;
     final maxStart = sliderEnabled ? safeDuration - 2 : safeDuration;
-    final start = _clampInt(_initialBusyMinutes, minStart, maxStart);
-    final end = _clampInt(
-      _initialBusyMinutes + _passiveWaitMinutes,
-      start + minPassive,
-      sliderEnabled ? safeDuration - 1 : safeDuration,
-    );
+    final start = sliderEnabled
+        ? _clampInt(_initialBusyMinutes, minStart, maxStart)
+        : safeDuration;
+    final end = sliderEnabled
+        ? _clampInt(
+            _initialBusyMinutes + _passiveWaitMinutes,
+            start + minPassive,
+            safeDuration - 1,
+          )
+        : safeDuration;
     final passive = end - start;
     final finalBusy = safeDuration - end;
 
@@ -769,9 +785,16 @@ class _AddServicesState extends State<AddServices> {
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
                       onChanged: (value) {
+                        final duration = _selectedDuration;
+                        if ((value ?? false) &&
+                            (duration == null || duration <= 0)) {
+                          Fluttertoast.showToast(
+                            msg: translateText('Please enter duration first'),
+                          );
+                          return;
+                        }
                         setState(() {
                           _passiveWaitEnabled = value ?? false;
-                          final duration = _selectedDuration;
                           if (duration != null && duration > 0) {
                             if (_passiveWaitEnabled) {
                               _normalizePassiveWaitForDuration(duration);
@@ -1090,8 +1113,14 @@ class _AddServicesState extends State<AddServices> {
                                         setState(() {
                                           if (duration != null &&
                                               duration > 0) {
+                                            _passiveWaitEnabled = true;
                                             _setDefaultPassiveWaitForDuration(
                                                 duration);
+                                          } else {
+                                            _passiveWaitEnabled = false;
+                                            _initialBusyMinutes = 0;
+                                            _passiveWaitMinutes = 0;
+                                            _finalBusyMinutes = 0;
                                           }
                                         });
                                       },
