@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -6,6 +7,13 @@ import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'team_online_availability_screen.dart';
+
+const Color _assignServicesBackground = Color(0xFFFBFAF8);
+const Color _assignServicesBorder = Color(0xFFE8DED6);
+const Color _assignServicesText = Color(0xFF2B241D);
+const Color _assignServicesMuted = Color(0xFF8C7A66);
+const Color _assignServicesSurface = Colors.white;
+const Color _assignServicesSoftGold = Color(0xFFFFF3D5);
 
 class AddTeamSelectServices extends StatefulWidget {
   final Map<String, dynamic> teamMemberData;
@@ -21,10 +29,15 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   bool _submitting = false;
 
   // API response (categories with nested subCategories & services)
-  List _categories = [];
+  List<Map<String, dynamic>> _categories = [];
 
   // Track selections by branch service id
   final Map<int, bool> _selected = {};
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  String _searchQuery = '';
+  final Map<int, bool> _expandedCategories = {};
+  final Map<int, bool> _expandedSubcategories = {};
 
   @override
   void initState() {
@@ -33,6 +46,13 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       _selected[serviceId] = true;
     }
     _fetchServices();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   List<int> _initialSelectedServiceIds() {
@@ -78,7 +98,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       final resp = await ApiService().getBranchService(branchId: branchId);
       if (resp['success'] == true) {
         setState(() {
-          _categories = resp['data']?['categories'] ?? [];
+          _categories = (resp['data']?['categories'] as List? ?? const [])
+              .whereType<Map>()
+              .map((cat) => Map<String, dynamic>.from(cat))
+              .toList();
           _loading = false;
         });
       } else {
@@ -89,6 +112,25 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       setState(() => _loading = false);
       _showError('Unable to load services. Please try again.');
     }
+  }
+
+  bool _matchesServiceQuery(Map<String, dynamic> item, String query) {
+    if (query.isEmpty) return true;
+    return [
+      item['displayName'],
+      item['name'],
+      item['serviceName'],
+      item['title'],
+      item['description'],
+      item['code'],
+    ].any((value) =>
+        (value ?? '').toString().toLowerCase().contains(query.toLowerCase()));
+  }
+
+  void _setSearchQuery(String value) {
+    setState(() {
+      _searchQuery = value;
+    });
   }
 // ---------- Helpers: put inside _AddTeamSelectServicesState ----------
 
@@ -296,17 +338,68 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   }
 
   List<Map<String, dynamic>> _visibleCategories() {
-    return _categories
-        .whereType<Map>()
-        .map((cat) => Map<String, dynamic>.from(cat))
-        .where(_categoryHasServices)
-        .toList();
-  }
+    final query = _searchQuery.trim().toLowerCase();
+    final visibleCategories = <Map<String, dynamic>>[];
 
-  bool _categoryHasServices(Map<String, dynamic> cat) {
-    final services = cat['services'] as List? ?? const [];
-    if (services.isNotEmpty) return true;
-    return _visibleSubCategories(cat).isNotEmpty;
+    for (final category in _categories) {
+      final visibleCategoryServices = <Map<String, dynamic>>[];
+      final rawCategoryServices = category['services'];
+      if (rawCategoryServices is List) {
+        for (final rawService in rawCategoryServices) {
+          if (rawService is! Map) continue;
+          final service = Map<String, dynamic>.from(rawService);
+          if (_matchesServiceQuery(service, query)) {
+            visibleCategoryServices.add(service);
+          }
+        }
+      }
+
+      final visibleSubCategories = <Map<String, dynamic>>[];
+      final rawSubCategories = category['subCategories'];
+      if (rawSubCategories is List) {
+        for (final rawSubCategory in rawSubCategories) {
+          if (rawSubCategory is! Map) continue;
+          final subCategory = Map<String, dynamic>.from(rawSubCategory);
+          final visibleSubServices = <Map<String, dynamic>>[];
+          final rawSubServices = subCategory['services'];
+          if (rawSubServices is List) {
+            for (final rawService in rawSubServices) {
+              if (rawService is! Map) continue;
+              final service = Map<String, dynamic>.from(rawService);
+              if (_matchesServiceQuery(service, query)) {
+                visibleSubServices.add(service);
+              }
+            }
+          }
+
+          if (query.isNotEmpty && visibleSubServices.isEmpty) continue;
+
+          if (query.isNotEmpty) {
+            visibleSubCategories.add({
+              ...subCategory,
+              'services': visibleSubServices,
+            });
+          } else if (visibleSubServices.isNotEmpty) {
+            visibleSubCategories.add({
+              ...subCategory,
+              'services': visibleSubServices,
+            });
+          }
+        }
+      }
+
+      final hasVisibleContent =
+          visibleCategoryServices.isNotEmpty || visibleSubCategories.isNotEmpty;
+      if (!hasVisibleContent) continue;
+
+      visibleCategories.add({
+        ...category,
+        'services': visibleCategoryServices,
+        'subCategories': visibleSubCategories,
+      });
+    }
+
+    return visibleCategories;
   }
 
   List<Map<String, dynamic>> _visibleSubCategories(Map<String, dynamic> cat) {
@@ -338,21 +431,6 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
   bool get _hasAssignableServices => _allServiceIds().isNotEmpty;
 
-  bool? _selectionValue(List<int> ids) {
-    if (ids.isEmpty) return false;
-    final selectedCount = ids.where((id) => _selected[id] == true).length;
-    if (selectedCount == 0) return false;
-    if (selectedCount == ids.length) return true;
-    return null;
-  }
-
-  void _setServiceIds(List<int> ids, bool selected) {
-    for (final id in ids) {
-      _selected[id] = selected;
-    }
-    setState(() {});
-  }
-
   void _toggleAll(bool? value) {
     for (final id in _allServiceIds()) {
       _selected[id] = value == true;
@@ -367,31 +445,59 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     final int durationMin = (s['durationMin'] ?? 0) as int;
     final bool checked = _selected[id] ?? false;
 
-    return CheckboxListTile(
-      value: checked,
-      activeColor: AppColors.starColor,
-      checkboxShape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      onChanged: (val) => setState(() => _selected[id] = val ?? false),
-      title: Text(
-        name,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF1F1B18),
+    return InkWell(
+      onTap: () => setState(() => _selected[id] = !checked),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: checked ? const Color(0xFFFFFAF1) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: checked ? AppColors.starColor : _assignServicesBorder,
+          ),
+        ),
+        child: Row(
+          children: [
+            _ServiceSelectionMark(selected: checked),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name.isEmpty ? translateText('Service') : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: _assignServicesText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "${formatMinorAmount(priceMinor)} • $durationMin ${translateText('mins')}",
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _assignServicesMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-      subtitle: Text(
-        "${formatMinorAmount(priceMinor)} • $durationMin mins",
-        style: const TextStyle(color: Color(0xFF6F665E)),
-      ),
-      controlAffinity: ListTileControlAffinity.leading,
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
     );
   }
 
   Widget _buildCategory(Map<String, dynamic> cat) {
+    final int? categoryId = cat['id'] as int?;
     final List services = cat['services'] as List? ?? [];
     final visibleSubs = _visibleSubCategories(cat);
 
@@ -406,102 +512,119 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     ];
 
     final int selCount = allIds.where((id) => _selected[id] == true).length;
+    final bool searchActive = _searchQuery.trim().isNotEmpty;
+    final bool catExpanded = searchActive ||
+        (categoryId != null && _expandedCategories[categoryId] == true);
 
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE8DED6)),
-      ),
-      child: ExpansionTile(
-        iconColor: AppColors.starColor,
-        collapsedIconColor: const Color(0xFF756A61),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        collapsedShape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        initiallyExpanded: true,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        title: Row(
-          children: [
-            Checkbox(
-              value: _selectionValue(allIds),
-              tristate: true,
-              activeColor: AppColors.starColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-              onChanged: (value) => _setServiceIds(allIds, value == true),
-              visualDensity: VisualDensity.compact,
-            ),
-            Expanded(
-              child: Text(
-                (cat['displayName'] ?? '').toString(),
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1F1B18),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: _assignServicesCardDecoration(highlighted: selCount > 0),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: ValueKey(
+            'add-team-cat-${categoryId ?? 0}-${searchActive ? 'search-${_searchQuery.trim().toLowerCase()}' : 'base'}',
+          ),
+          initiallyExpanded: catExpanded,
+          onExpansionChanged: (expanded) {
+            if (categoryId == null) return;
+            setState(() => _expandedCategories[categoryId] = expanded);
+          },
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          iconColor: AppColors.starColor,
+          collapsedIconColor: _assignServicesMuted,
+          title: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: _assignServicesSoftGold,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.spa_outlined,
+                  size: 16,
+                  color: AppColors.starColor,
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text("$selCount/${allIds.length}",
-                style: const TextStyle(
-                  color: AppColors.starColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                )),
-          ],
-        ),
-        children: [
-          // top-level services
-          ...services.map<Widget>(
-            (s) => _buildServiceItem((s as Map).cast<String, dynamic>()),
-          ),
-
-          // subcategories
-          ...visibleSubs.map<Widget>((subMap) {
-            final List subServices = subMap['services'] as List? ?? [];
-            final subIds = subServices
-                .map((s) => (s as Map)['id'])
-                .whereType<int>()
-                .toList();
-            return ExpansionTile(
-              iconColor: AppColors.starColor,
-              collapsedIconColor: const Color(0xFF756A61),
-              initiallyExpanded: true,
-              tilePadding: const EdgeInsets.only(left: 24, right: 12),
-              title: Row(
-                children: [
-                  Checkbox(
-                    value: _selectionValue(subIds),
-                    tristate: true,
-                    activeColor: AppColors.starColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    onChanged: (value) => _setServiceIds(subIds, value == true),
-                    visualDensity: VisualDensity.compact,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  (cat['displayName'] ?? '').toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: _assignServicesText,
                   ),
-                  Expanded(
-                    child: Text(
+                ),
+              ),
+              _CountPill(selected: selCount, total: allIds.length),
+            ],
+          ),
+          children: [
+            ...services.map<Widget>(
+              (s) => _buildServiceItem((s as Map).cast<String, dynamic>()),
+            ),
+            ...visibleSubs.map<Widget>((subMap) {
+              final int? subCategoryId = subMap['id'] as int?;
+              final bool subExpanded = searchActive ||
+                  (subCategoryId != null &&
+                      _expandedSubcategories[subCategoryId] == true);
+              final List subServices = subMap['services'] as List? ?? [];
+              return Container(
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBFAF8),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _assignServicesBorder),
+                ),
+                child: Theme(
+                  data: Theme.of(context)
+                      .copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    key: ValueKey(
+                      'add-team-sub-${subCategoryId ?? 0}-${searchActive ? 'search-${_searchQuery.trim().toLowerCase()}' : 'base'}',
+                    ),
+                    initiallyExpanded: subExpanded,
+                    onExpansionChanged: (expanded) {
+                      if (subCategoryId == null) return;
+                      setState(
+                        () => _expandedSubcategories[subCategoryId] = expanded,
+                      );
+                    },
+                    tilePadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 2,
+                    ),
+                    childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    iconColor: AppColors.starColor,
+                    collapsedIconColor: _assignServicesMuted,
+                    title: Text(
                       (subMap['displayName'] ?? '').toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF2D2926),
+                        fontFamily: 'Manrope',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _assignServicesText,
                       ),
                     ),
+                    children: subServices
+                        .map<Widget>((s) => _buildServiceItem(
+                            (s as Map).cast<String, dynamic>()))
+                        .toList(),
                   ),
-                ],
-              ),
-              children: subServices
-                  .map<Widget>((s) =>
-                      _buildServiceItem((s as Map).cast<String, dynamic>()))
-                  .toList(),
-            );
-          }),
-        ],
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -606,12 +729,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
   @override
   Widget build(BuildContext context) {
-    final fullName =
-        '${widget.teamMemberData["firstName"] ?? ""} ${widget.teamMemberData["lastName"] ?? ""}'
-            .trim();
+    final visibleCategories = _visibleCategories();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFBFAF8),
+      backgroundColor: _assignServicesBackground,
       appBar: buildProfileSubpageAppBar(
         title: translateText('Select Services'),
         leading: IconButton(
@@ -624,7 +745,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   child: MultiStepFlowHeader(
                     currentStep: 3,
                     steps: const [
@@ -635,60 +756,63 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                     ],
                   ),
                 ),
-                // Summary
-                if (fullName.isNotEmpty && _hasAssignableServices)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        // translateText('Assign services to') + ' $fullName', // Only translate the static part
-                        translateText(
-                            'Assign services'), // Only translate the static part
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        translateText('Choose Services'),
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontFamily: 'Manrope',
+                          fontSize: 22,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF1F1B18),
+                          color: AppColors.starColor,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 4),
+                      Text(
+                        translateText(
+                          'Select services this team member can perform at the branch.',
+                        ),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          color: _assignServicesMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildSearchBar(),
+                    ],
                   ),
-
-                // Select All
+                ),
                 if (_hasAssignableServices)
-                  Card(
-                    elevation: 0,
-                    color: Colors.white,
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: const BorderSide(color: Color(0xFFE8DED6)),
-                    ),
-                    child: CheckboxListTile(
-                      value: _allSelected,
-                      onChanged: _toggleAll,
-                      title: Text(translateText('Select All Services')),
-                      activeColor: AppColors.starColor,
-                      controlAffinity: ListTileControlAffinity.trailing,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: _SelectionSummaryCard(
+                      selectedCount: _selectedServiceIds.length,
+                      totalCount: _allServiceIds().length,
+                      allSelected: _allSelected,
+                      onSelectAll: () => _toggleAll(!_allSelected),
                     ),
                   ),
-
-                // Categories
                 Expanded(
-                  child: _hasAssignableServices
-                      ? ListView.builder(
-                          itemCount: _visibleCategories().length,
-                          itemBuilder: (ctx, i) =>
-                              _buildCategory(_visibleCategories()[i]),
+                  child: visibleCategories.isEmpty
+                      ? _EmptyServicesState(
+                          isSearchActive: _searchQuery.trim().isNotEmpty,
                         )
-                      : const _NoAssignableServicesState(),
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          itemCount: visibleCategories.length,
+                          itemBuilder: (ctx, i) =>
+                              _buildCategory(visibleCategories[i]),
+                        ),
                 ),
               ],
             ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
           child: Row(
             children: [
               Expanded(
@@ -745,60 +869,276 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       ),
     );
   }
-}
 
-class _NoAssignableServicesState extends StatelessWidget {
-  const _NoAssignableServicesState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF6EFE3),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.design_services_outlined,
-                color: AppColors.starColor,
-                size: 30,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              translateText(
-                'No services are available for this branch to assign.',
-              ),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF1F2937),
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              translateText(
-                'Please select a different branch or add branch services.',
-              ),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 13,
-                height: 1.4,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+  Widget _buildSearchBar() {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _assignServicesBorder),
+      ),
+      child: TextField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        cursorColor: AppColors.starColor,
+        textInputAction: TextInputAction.search,
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+        inputFormatters: [LengthLimitingTextInputFormatter(60)],
+        onChanged: _setSearchQuery,
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.starColor,
+            size: 24,
+          ),
+          suffixIcon: _searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close_rounded,
+                      color: _assignServicesMuted),
+                  onPressed: () {
+                    _searchController.clear();
+                    _setSearchQuery('');
+                  },
+                ),
+          hintText: translateText('Find services...'),
+          hintStyle: const TextStyle(
+            color: Color(0xFF34302C),
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 16),
         ),
       ),
     );
   }
+}
+
+class _SelectionSummaryCard extends StatelessWidget {
+  const _SelectionSummaryCard({
+    required this.selectedCount,
+    required this.totalCount,
+    required this.allSelected,
+    required this.onSelectAll,
+  });
+
+  final int selectedCount;
+  final int totalCount;
+  final bool allSelected;
+  final VoidCallback onSelectAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _assignServicesCardDecoration(highlighted: selectedCount > 0),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: _assignServicesSoftGold,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.handyman_outlined,
+              size: 18,
+              color: AppColors.starColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  translateText('Services selected'),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: _assignServicesText,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$selectedCount/$totalCount',
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _assignServicesMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: onSelectAll,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.starColor,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              textStyle: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            child: Text(
+              translateText(allSelected ? 'Clear all' : 'Select all'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceSelectionMark extends StatelessWidget {
+  const _ServiceSelectionMark({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: selected ? AppColors.starColor : Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: selected ? AppColors.starColor : _assignServicesBorder,
+          width: 1.3,
+        ),
+      ),
+      child: selected
+          ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+          : null,
+    );
+  }
+}
+
+class _CountPill extends StatelessWidget {
+  const _CountPill({required this.selected, required this.total});
+
+  final int selected;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = selected > 0;
+    final color = active ? AppColors.starColor : _assignServicesMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        '$selected/$total',
+        style: TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyServicesState extends StatelessWidget {
+  const _EmptyServicesState({this.isSearchActive = false});
+
+  final bool isSearchActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: _assignServicesCardDecoration(),
+          child: Column(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _assignServicesSoftGold,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.handyman_outlined,
+                  color: AppColors.starColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                translateText(
+                  isSearchActive
+                      ? 'No matching services found'
+                      : 'No services are available for this branch to assign.',
+                ),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF1F2937),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                translateText(
+                  isSearchActive
+                      ? 'Try a different keyword.'
+                      : 'Please select a different branch or add branch services.',
+                ),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontSize: 13,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+BoxDecoration _assignServicesCardDecoration({bool highlighted = false}) {
+  return BoxDecoration(
+    color: _assignServicesSurface,
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(
+      color: highlighted ? AppColors.starColor : _assignServicesBorder,
+    ),
+    boxShadow: highlighted
+        ? [
+            BoxShadow(
+              color: AppColors.starColor.withValues(alpha: 0.05),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ]
+        : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+  );
 }
