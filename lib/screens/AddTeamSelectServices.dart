@@ -321,6 +321,16 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   List<int> get _selectedServiceIds =>
       _selected.entries.where((e) => e.value).map((e) => e.key).toList();
 
+  void _popWithSelectedServices({required bool completed}) {
+    Navigator.pop(
+      context,
+      {
+        'completed': completed,
+        'selectedServiceIds': _selectedServiceIds,
+      },
+    );
+  }
+
   bool get _allSelected {
     final all = _allServiceIds();
     return all.isNotEmpty && all.every((id) => _selected[id] == true);
@@ -548,7 +558,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         'isEdit=${widget.teamMemberData['isEdit'] == true} '
         'branchId=$branchId selectedServices=$_selectedServiceIds',
       );
-      final response = await Navigator.push<bool>(
+      final response = await Navigator.push<dynamic>(
         context,
         MaterialPageRoute(
           builder: (_) => widget.teamMemberData['isEdit'] == true
@@ -565,7 +575,13 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       );
       if (!mounted) return;
       if (response == true) {
-        Navigator.pop(context, true);
+        Navigator.pop(
+          context,
+          {
+            'completed': true,
+            'selectedServiceIds': _selectedServiceIds,
+          },
+        );
       }
     } catch (e) {
       _showError('An unexpected error occurred.');
@@ -598,6 +614,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
         title: translateText('Select Services'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => _popWithSelectedServices(completed: false),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -673,8 +693,9 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed:
-                      _submitting ? null : () => Navigator.pop(context, false),
+                  onPressed: _submitting
+                      ? null
+                      : () => _popWithSelectedServices(completed: false),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                     backgroundColor: Colors.white,

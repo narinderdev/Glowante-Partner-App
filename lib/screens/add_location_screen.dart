@@ -1102,6 +1102,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                   ),
                 ],
               ),
+              suffixInsideField: true,
             ),
           ),
           const SizedBox(height: 12),
@@ -1327,6 +1328,7 @@ Widget _buildTextField({
   List<TextInputFormatter>? inputFormatters,
   TextCapitalization textCapitalization = TextCapitalization.words,
   Widget? suffix,
+  bool suffixInsideField = false,
 }) {
   final baseLabel = label.replaceAll('*', '').trim();
   final translatedLabel = translateText(baseLabel);
@@ -1386,7 +1388,7 @@ Widget _buildTextField({
       contentPadding: EdgeInsets.fromLTRB(
         12,
         isMultiLine ? 12 : 0,
-        12,
+        suffixInsideField ? 92 : 12,
         isMultiLine ? 12 : 0,
       ),
       constraints: BoxConstraints(
@@ -1445,70 +1447,49 @@ Widget _buildTextField({
           isRequired ? '$translatedLabel *' : translatedLabel,
         ),
         const SizedBox(height: 8),
-        if (suffix != null ||
-            (showScrollbar && isMultiLine) ||
-            maxLength != null)
+        Stack(
+          children: [
+            fieldWidget,
+            if (suffix != null && suffixInsideField)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: IgnorePointer(child: suffix),
+              ),
+          ],
+        ),
+        if (suffix != null && !suffixInsideField)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                if (showScrollbar && isMultiLine)
-                  Expanded(
-                    child: IgnorePointer(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 15,
-                            color: _AddLocationScreenState._gold,
-                          ),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              translateText('Scroll down to view full address'),
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: _AddLocationScreenState._gold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  const Spacer(),
-                if (suffix != null) ...[
-                  IgnorePointer(
-                    child: suffix,
-                  ),
-                  if (maxLength != null) const SizedBox(width: 10),
-                ],
-                if (maxLength != null)
-                  IgnorePointer(
-                    child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: controller,
-                      builder: (context, value, _) {
-                        return Text(
-                          '${value.text.length} / $maxLength',
-                          style: TextStyle(
-                            color: value.text.length >= maxLength
-                                ? AppColors.red
-                                : const Color(0xFF8B8178),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
+            padding: const EdgeInsets.only(top: 8, bottom: 4),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: IgnorePointer(child: suffix),
             ),
           ),
-        fieldWidget,
+        if (maxLength != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: IgnorePointer(
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (context, value, _) {
+                    return Text(
+                      '${value.text.length} / $maxLength',
+                      style: TextStyle(
+                        color: value.text.length >= maxLength
+                            ? AppColors.red
+                            : const Color(0xFF8B8178),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
       ],
     ),
   );

@@ -44,8 +44,30 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   bool _useSalonHours = false;
   bool _isLoadingOperatingSchedule = false;
   bool _hasPrefilledMemberSchedule = false;
+  final Map<int, Set<int>> _rememberedSelectedServiceIdsByBranchId = {};
 
   bool get _isEditFlow => widget.formData['isEdit'] == true;
+
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? ''}');
+  }
+
+  Set<int> _normalizeServiceIds(dynamic rawSelected) {
+    final ids = <int>{};
+
+    if (rawSelected is List) {
+      for (final item in rawSelected) {
+        final parsed = _toInt(item);
+        if (parsed != null) {
+          ids.add(parsed);
+        }
+      }
+    }
+
+    return ids;
+  }
 
   final Set<String> _closedDays = <String>{};
 
@@ -808,6 +830,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   void updateTime(String day, int index, String timeType, String newTime) {
     if (_useSalonHours) return;
 
+    String? toastMessage;
+
     setState(() {
       weeklySchedule[day]?[index][timeType] = newTime;
 
@@ -820,6 +844,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       final options = _timeOptionsForDay(day);
 
       if (start == null || end == null || options.isEmpty || end > start) {
+        if (timeType == 'end') {
+          toastMessage = translateText(
+            'End time updated. Only 10-minute steps are allowed.',
+          );
+        }
         return;
       }
 
@@ -830,6 +859,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         );
 
         slot['end'] = nextEnd;
+        toastMessage = translateText(
+          'End time was adjusted to keep a 10-minute gap.',
+        );
       } else {
         final previousStart = options.lastWhere(
           (option) => (_parseTimeToMinutes(option) ?? 0) < end,
@@ -837,10 +869,17 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         );
 
         slot['start'] = previousStart;
+        toastMessage = translateText(
+          'Start time was adjusted to keep a 10-minute gap.',
+        );
       }
 
       _sortWeeklyScheduleInPlace();
     });
+
+    if (toastMessage != null) {
+      Fluttertoast.showToast(msg: toastMessage!);
+    }
   }
 
   void copyMondayScheduleToAll() {
@@ -1355,6 +1394,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         return;
       }
 
+      widget.formData['schedules'] = scheduleData;
+
       final dynamic rawJoiningDate = widget.formData['joiningDate'];
       String? formattedJoiningDate;
 
@@ -1370,6 +1411,15 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       final List<dynamic> rawSpecs = (widget.formData['specialities'] ??
               widget.formData['specializations']) as List? ??
           const [];
+
+      final int? branchId = _toInt(widget.formData['branchId']);
+      final Set<int> rememberedServiceIds = branchId == null
+          ? _normalizeServiceIds(widget.formData['branchServiceIds'])
+          : (_rememberedSelectedServiceIdsByBranchId[branchId] ??
+              _normalizeServiceIds(widget.formData['branchServiceIds']));
+
+      final branchServiceIds = rememberedServiceIds.toList();
+      widget.formData['branchServiceIds'] = branchServiceIds;
 
       final Map<String, dynamic> teamMemberData = {
         "isEdit": widget.formData['isEdit'] == true,
@@ -1387,10 +1437,10 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "useSalonHours": _useSalonHours,
         "otp": widget.formData['otp']?.toString(),
         "allowOnlineBooking": widget.formData['allowOnlineBooking'] ?? true,
-        "branchServiceIds": widget.formData['branchServiceIds'] ?? const [],
+        "branchServiceIds": branchServiceIds,
         "userBranchServices": widget.formData['userBranchServices'] ?? const [],
         "address": widget.formData['address'],
-        "branchId": widget.formData['branchId'],
+        "branchId": branchId,
         "experience": int.tryParse(
               widget.formData['experience']?.toString() ?? '',
             ) ??
@@ -1420,8 +1470,43 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
       if (!mounted) return;
 
-      if (refresh == true) {
-        Navigator.pop(context, true);
+      if (refresh is Map) {
+        final cachedIds = _normalizeServiceIds(refresh['selectedServiceIds']);
+        if (branchId != null) {
+          _rememberedSelectedServiceIdsByBranchId[branchId] = cachedIds;
+        }
+        widget.formData['branchServiceIds'] = cachedIds.toList();
+        if (refresh['schedules'] is List) {
+          widget.formData['schedules'] =
+              List<Map<String, String>>.from(refresh['schedules'] as List);
+        }
+
+        if (refresh['completed'] == true) {
+          Navigator.pop(
+            context,
+            {
+              'completed': true,
+              'selectedServiceIds': cachedIds.toList(),
+              'schedules': scheduleData,
+            },
+          );
+          return;
+        }
+      } else if (refresh is List) {
+        final cachedIds = _normalizeServiceIds(refresh);
+        if (branchId != null) {
+          _rememberedSelectedServiceIdsByBranchId[branchId] = cachedIds;
+        }
+        widget.formData['branchServiceIds'] = cachedIds.toList();
+      } else if (refresh == true) {
+        Navigator.pop(
+          context,
+          {
+            'completed': true,
+            'selectedServiceIds': branchServiceIds,
+            'schedules': scheduleData,
+          },
+        );
         return;
       }
     } catch (e) {
@@ -1454,18 +1539,41 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     );
   }
 
+  Map<String, dynamic> _currentStateResult({
+    required bool completed,
+  }) {
+    final branchId = _toInt(widget.formData['branchId']);
+    final branchServiceIds = branchId == null
+        ? _normalizeServiceIds(widget.formData['branchServiceIds']).toList()
+        : (_rememberedSelectedServiceIdsByBranchId[branchId]?.toList() ??
+            _normalizeServiceIds(widget.formData['branchServiceIds']).toList());
+
+    return {
+      'completed': completed,
+      'selectedServiceIds': branchServiceIds,
+      'schedules': _buildScheduleData(),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
         FocusManager.instance.primaryFocus?.unfocus();
-        Navigator.pop(context);
+        Navigator.pop(context, _currentStateResult(completed: false));
         return false;
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF7F4F1),
         appBar: buildProfileSubpageAppBar(
           title: translateText('Add TimeSlots'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              Navigator.pop(context, _currentStateResult(completed: false));
+            },
+          ),
         ),
         body: SingleChildScrollView(
           child: Padding(
@@ -1630,7 +1738,12 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                         child: OutlinedButton(
                           onPressed: _isSubmitting
                               ? null
-                              : () => Navigator.pop(context, false),
+                              : () {
+                                  Navigator.pop(
+                                    context,
+                                    _currentStateResult(completed: false),
+                                  );
+                                },
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 50),
                             backgroundColor: Colors.white,

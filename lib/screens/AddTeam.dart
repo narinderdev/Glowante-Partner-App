@@ -88,6 +88,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   final List<String> _selectedRoles = [];
   final List<String> _selectedSpecs = [];
+  List<Map<String, String>>? _rememberedSchedules;
+  List<int>? _rememberedBranchServiceIds;
 
   bool _phoneVerified = false;
   bool _isVerifying = false;
@@ -107,6 +109,34 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   List<AutocompletePrediction> _addressPredictions = [];
   Map<String, dynamic>? _selectedAddress;
+
+  List<int> _normalizeServiceIds(dynamic rawSelected) {
+    final ids = <int>[];
+
+    if (rawSelected is List) {
+      for (final item in rawSelected) {
+        final parsed = item is int
+            ? item
+            : item is num
+                ? item.toInt()
+                : int.tryParse('${item ?? ''}');
+        if (parsed != null) {
+          ids.add(parsed);
+        }
+      }
+    }
+
+    return ids;
+  }
+
+  List<Map<String, String>> _normalizeSchedules(dynamic rawSchedules) {
+    if (rawSchedules is! List) return const [];
+
+    return rawSchedules
+        .whereType<Map>()
+        .map((item) => Map<String, String>.from(item))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -1668,9 +1698,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     final branchAssignment =
         _branchAssignment(widget.initialMember ?? const {});
 
-    final branchServiceIds = _branchServiceIdsFromAssignment(
-      branchAssignment ?? widget.initialMember,
-    );
+    final branchServiceIds = _rememberedBranchServiceIds ??
+        _branchServiceIdsFromAssignment(
+          branchAssignment ?? widget.initialMember,
+        );
+
+    final schedules = _rememberedSchedules ??
+        _normalizeSchedules(
+          branchAssignment?['schedules'] ?? widget.initialMember?['schedules'],
+        );
 
     final userId = (widget.initialMember?['id'] as num?)?.toInt();
 
@@ -1702,9 +1738,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       'userBranchServices': branchAssignment?['userBranchServices'] ??
           widget.initialMember?['userBranchServices'] ??
           const [],
-      'schedules': branchAssignment?['schedules'] ??
-          widget.initialMember?['schedules'] ??
-          const [],
+      'schedules': schedules,
       if (_teamAddressPayload() != null) 'address': _teamAddressPayload(),
     };
 
@@ -1712,7 +1746,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
     debugPrint('Sending to Choose time slots: $payload');
 
-    final refresh = await Navigator.push(
+    final refresh = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute(
         builder: (_) => AddTeamChooseTimeSlot(
@@ -1726,7 +1760,25 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       ),
     );
 
-    if (refresh == true && mounted) {
+    if (!mounted) return;
+
+    if (refresh is Map) {
+      _rememberedBranchServiceIds =
+          _normalizeServiceIds(refresh['selectedServiceIds']);
+      _rememberedSchedules = _normalizeSchedules(refresh['schedules']);
+
+      if (refresh['completed'] == true) {
+        Navigator.pop(context, true);
+      }
+      return;
+    }
+
+    if (refresh is List) {
+      _rememberedSchedules = _normalizeSchedules(refresh);
+      return;
+    }
+
+    if (refresh == true) {
       Navigator.pop(context, true);
     }
   }

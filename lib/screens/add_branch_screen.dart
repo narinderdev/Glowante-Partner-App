@@ -793,11 +793,18 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     );
   }
 
+  String _formatTimeOfDayDisplay(TimeOfDay time) {
+    final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final suffix = time.hour >= 12 ? 'PM' : 'AM';
+    return '${hour.toString().padLeft(2, '0')}:$minute $suffix';
+  }
+
   String _normalizeDisplayTime(dynamic value, {String fallback = ''}) {
     final display = _formatDisplayTime(value, fallback: fallback);
     final parsed = _parseTimeOfDay(display);
     if (parsed == null) return display;
-    return _snapTimeToStep(parsed).format(context);
+    return _formatTimeOfDayDisplay(_snapTimeToStep(parsed));
   }
 
   int _timeToMinutesOfDay(TimeOfDay time) => time.hour * 60 + time.minute;
@@ -821,7 +828,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (picked != null) {
       if (!mounted) return;
       final snapped = _snapTimeToStep(picked);
-      controller.text = snapped.format(context);
+      controller.text = _formatTimeOfDayDisplay(snapped);
+      String? toastMessage;
 
       if (pairedController != null) {
         if (field == _BranchField.startTime) {
@@ -829,25 +837,30 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           if (endTime == null ||
               _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(snapped)) {
             pairedController.text =
-                _ensureTenMinuteGap(snapped).format(context);
-            Fluttertoast.showToast(
-              msg: translateText(
-                'End time was adjusted to keep a 10-minute gap.',
-              ),
+                _formatTimeOfDayDisplay(_ensureTenMinuteGap(snapped));
+            toastMessage = translateText(
+              'End time was adjusted to keep a 10-minute gap.',
             );
           }
         } else {
           final startTime = _parseTimeOfDay(pairedController.text);
           if (startTime != null &&
               _timeToMinutesOfDay(snapped) <= _timeToMinutesOfDay(startTime)) {
-            controller.text = _ensureTenMinuteGap(startTime).format(context);
-            Fluttertoast.showToast(
-              msg: translateText(
-                'End time was adjusted to keep a 10-minute gap.',
-              ),
+            controller.text =
+                _formatTimeOfDayDisplay(_ensureTenMinuteGap(startTime));
+            toastMessage = translateText(
+              'End time was adjusted to keep a 10-minute gap.',
             );
           }
         }
+      }
+
+      if (field == _BranchField.endTime && toastMessage == null) {
+        toastMessage = translateText('End time uses 10-minute intervals.');
+      }
+
+      if (toastMessage != null) {
+        Fluttertoast.showToast(msg: toastMessage);
       }
 
       _resetFieldError(field);
