@@ -88,16 +88,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       scoFlatHouseController.text = widget.initialScoFlatHouse!;
     }
 
-    if (widget.initialStreetSectorArea?.isNotEmpty == true) {
-      streetSectorAreaController.text = widget.initialStreetSectorArea!;
-    } else if (widget.initialCompleteAddress?.isNotEmpty == true) {
-      final derivedStreet = _deriveStreetSectorArea(
-        _cleanAddressText(widget.initialCompleteAddress!),
-      );
-      if (derivedStreet.isNotEmpty) {
-        streetSectorAreaController.text = derivedStreet;
-      }
-    }
+   if (widget.initialStreetSectorArea?.isNotEmpty == true) {
+  streetSectorAreaController.text = widget.initialStreetSectorArea!;
+}
 
     if (widget.initialCompleteAddress?.isNotEmpty == true) {
       _baseCompleteAddress = _addressWithoutManualParts(

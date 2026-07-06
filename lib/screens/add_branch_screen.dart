@@ -420,23 +420,11 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
 
     final line2Parts = _splitAddressParts((address['line2'] ?? '').toString());
-    final scoFlatHouse = _firstNonEmptyValue([
-      line2Parts.isNotEmpty ? line2Parts.first : '',
-      address['line2'],
-      address['village'],
-    ]);
-    final streetSectorArea = _firstNonEmptyValue([
-      line2Parts.length > 1 ? line2Parts.skip(1).join(', ') : '',
-      address['district'],
-      address['city'],
-      address['state'],
-      address['postalCode'],
-      _deriveStreetSectorArea(
-        completeAddress.join(', '),
-        line2: address['line2']?.toString(),
-        scoFlatHouse: scoFlatHouse,
-      ),
-    ]);
+   final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
+
+final streetSectorArea = line2Parts.length > 1
+    ? line2Parts.skip(1).join(', ')
+    : '';
 
     if (completeAddress.isEmpty &&
         scoFlatHouse.isEmpty &&
