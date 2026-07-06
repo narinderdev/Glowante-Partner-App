@@ -983,19 +983,19 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
       )
           case final tile?)
         tile,
-      // if (drawerTile(
-      //   id: 'membership',
-      //   item: _DashboardDrawerItem(
-      //     icon: Icons.workspace_premium_outlined,
-      //     label: context.t('Membership'),
-      //     permissions: const ['membership.view'],
-      //     screen: const OwnerMembershipScreen(),
-      //   ),
-      //   onTap: () =>
-      //       _openDrawerItem('membership', const OwnerMembershipScreen()),
-      // )
-      //     case final tile?)
-      //   tile,
+      if (drawerTile(
+        id: 'membership',
+        item: _DashboardDrawerItem(
+          icon: Icons.workspace_premium_outlined,
+          label: context.t('Membership'),
+          permissions: const ['membership.view'],
+          screen: const OwnerMembershipScreen(),
+        ),
+        onTap: () =>
+            _openDrawerItem('membership', const OwnerMembershipScreen()),
+      )
+          case final tile?)
+        tile,
       if (drawerTile(
         id: 'roles',
         item: _DashboardDrawerItem(

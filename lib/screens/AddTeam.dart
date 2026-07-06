@@ -95,7 +95,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   bool _isVerifying = false;
   bool _isSubmitting = false;
   bool _isSelectingAddress = false;
-  bool _isSyncingNameFields = false;
 
   final Color _fieldFill = const Color(0xFFFAF9F8);
   final BorderRadius _radius = BorderRadius.circular(12);
@@ -178,6 +177,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     if (phone.isEmpty) return translateText('Phone number is required');
     if (phone.length != 10) {
       return translateText('Phone number must be 10 digits.');
+    }
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(phone)) {
+      return translateText('Enter a valid mobile number.');
     }
 
     return null;
@@ -309,44 +311,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   void _clearLastNameValidation() {
     if (!mounted) return;
     setState(() => _suppressLastNameError = true);
-  }
-
-  void _splitFullNameAcrossFields(
-    String value, {
-    required bool fromFirstName,
-  }) {
-    if (_isSyncingNameFields) return;
-
-    final text = value.trim().replaceAll(RegExp(r'\s+'), ' ');
-    if (text.isEmpty || !text.contains(' ')) return;
-
-    final parts = text.split(' ');
-    if (parts.length < 2) return;
-
-    final first = parts.first.trim();
-    final last = parts.skip(1).join(' ').trim();
-    if (first.isEmpty || last.isEmpty) return;
-
-    if (fromFirstName && _lastNameCtrl.text.trim().isNotEmpty) return;
-    if (!fromFirstName && _firstNameCtrl.text.trim().isNotEmpty) return;
-
-    _isSyncingNameFields = true;
-    try {
-      setState(() {
-        _firstNameCtrl.text = first;
-        _firstNameCtrl.selection = TextSelection.collapsed(
-          offset: _firstNameCtrl.text.length,
-        );
-        _lastNameCtrl.text = last;
-        _lastNameCtrl.selection = TextSelection.collapsed(
-          offset: _lastNameCtrl.text.length,
-        );
-        _suppressFirstNameError = true;
-        _suppressLastNameError = true;
-      });
-    } finally {
-      _isSyncingNameFields = false;
-    }
   }
 
   void _clearEmailValidation() {
@@ -1171,6 +1135,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       firstDate: firstDate,
       lastDate: lastDate,
       initialDate: initialDate,
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (ctx, child) {
         return Theme(
           data: Theme.of(ctx).copyWith(
@@ -2406,10 +2371,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           ),
                           validator: _vFirstName,
                           onChanged: (value) {
-                            _splitFullNameAcrossFields(
-                              value,
-                              fromFirstName: true,
-                            );
                             _clearFirstNameValidation();
                             _refreshValidationIfNeeded();
                           },
@@ -2433,10 +2394,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           ),
                           validator: _vLastName,
                           onChanged: (value) {
-                            _splitFullNameAcrossFields(
-                              value,
-                              fromFirstName: false,
-                            );
                             _clearLastNameValidation();
                             _refreshValidationIfNeeded();
                           },
@@ -2586,18 +2543,26 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           onTap: _pickJoiningDate,
                           child: AbsorbPointer(
                             child: TextFormField(
-                              readOnly: true,
-                              decoration: _decor(
-                                hint: _joiningDate == null
-                                    ? translateText('dd-mm-yyyy')
-                                    : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-                                suffix: const Icon(
-                                  Icons.calendar_month_outlined,
-                                  color: Color(0xFF8D867F),
-                                ),
-                              ),
-                              validator: (_) => null,
-                            ),
+  readOnly: true,
+  controller: TextEditingController(
+    text: _joiningDate == null
+        ? ''
+        : '${_joiningDate!.day.toString().padLeft(2, '0')}/${_joiningDate!.month.toString().padLeft(2, '0')}/${_joiningDate!.year}',
+  ),
+  style: const TextStyle(
+    color: Colors.black,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  ),
+  decoration: _decor(
+    hint: translateText('dd/mm/yyyy'),
+    suffix: const Icon(
+      Icons.calendar_month_outlined,
+      color: Color(0xFF8D867F),
+    ),
+  ),
+  validator: (_) => null,
+)
                           ),
                         ),
                         if (_showGlobalErrors)
@@ -2718,17 +2683,29 @@ class _PickField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = values.isEmpty ? hint : values.join(', ');
-
+    final hasValue = values.isNotEmpty;
+final controller = TextEditingController(text: text);
     return GestureDetector(
       onTap: onTap,
       child: AbsorbPointer(
         child: TextFormField(
-          readOnly: true,
-          decoration: InputDecoration(
-            hintText: text,
+  readOnly: true,
+  controller: controller,
+  style: const TextStyle(
+    color: Colors.black,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  ),
+  decoration: InputDecoration(
+            hintText: hint,
             filled: true,
             fillColor: const Color(0xFFFAF9F8),
-            hintStyle: const TextStyle(color: Color(0xFF2D2926), fontSize: 14),
+            hintStyle: TextStyle(
+              color:
+                  hasValue ? const Color(0xFF2D2926) : const Color(0xFF8D867F),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
             suffixIcon: const Icon(
               Icons.unfold_more_rounded,
               color: Color(0xFF8D867F),

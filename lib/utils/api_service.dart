@@ -217,6 +217,8 @@ class ApiService {
       "admin/salons/$salonId/subscription";
   static String salonSubscriptionsAPI(int salonId) =>
       "admin/salons/$salonId/subscriptions";
+  static String salonUpcomingSubscriptionActivateNowAPI(int salonId) =>
+      "salons/$salonId/subscriptions/upcoming/activate-now";
   static String salonSubscriptionPaymentOrderAPI(int salonId) =>
       "salons/$salonId/subscriptions/payment-order";
   static String salonSubscriptionPaymentVerifyAPI(int salonId) =>
@@ -694,6 +696,7 @@ class ApiService {
     required int salonId,
     required int planId,
     required String billingCycle,
+    required int amountMinor,
     DateTime? startDate,
     bool replaceCurrentPlan = false,
   }) {
@@ -702,6 +705,7 @@ class ApiService {
     final payload = <String, dynamic>{
       'planId': planId,
       'billingCycle': normalizedBillingCycle,
+      'amountMinor': amountMinor,
       if (startDate != null)
         'startDate': DateFormat('yyyy-MM-dd').format(startDate),
       if (replaceCurrentPlan) 'replaceCurrentPlan': true,
@@ -737,30 +741,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> activateSalonSubscriptionNow({
     required int salonId,
-    required int planId,
-    required String billingCycle,
-    int? upcomingMembershipId,
-  }) async {
-    final normalizedBillingCycle =
-        billingCycle.toUpperCase() == 'YEARLY' ? 'ANNUAL' : billingCycle;
-    final payload = <String, dynamic>{
-      'planId': planId,
-      'billingCycle': normalizedBillingCycle,
-      'replaceCurrentPlan': true,
-      if (upcomingMembershipId != null) ...{
-        'upcomingMembershipId': upcomingMembershipId,
-        'subscriptionId': upcomingMembershipId,
-        'membershipId': upcomingMembershipId,
-      },
-    };
-
-    final response = await _authorizedJsonRequest(
+  }) {
+    return _authorizedJsonRequest(
       method: 'POST',
-      endpoint: salonSubscriptionsAPI(salonId),
+      endpoint: salonUpcomingSubscriptionActivateNowAPI(salonId),
       debugTag: 'ActivateSalonSubscriptionNow',
-      body: payload,
     );
-    return response;
   }
 
   Future<Map<String, dynamic>> getBranchRoles(int branchId) {

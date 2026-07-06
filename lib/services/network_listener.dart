@@ -172,9 +172,19 @@ class _NetworkListenerState extends State<NetworkListener> {
   bool _hasBeenOffline = false;
   bool _showWelcomeBack = false;
   Timer? _welcomeBackTimer;
+  StreamSubscription<bool>? _networkSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _networkSubscription = NetworkManager.networkStatusStream.listen(
+      _handleConnectionChanged,
+    );
+  }
 
   @override
   void dispose() {
+    _networkSubscription?.cancel();
     _welcomeBackTimer?.cancel();
     super.dispose();
   }
@@ -203,27 +213,15 @@ class _NetworkListenerState extends State<NetworkListener> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<bool>(
-      stream: NetworkManager.networkStatusStream,
-      builder: (context, snapshot) {
-        final isConnected = snapshot.data ?? true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _handleConnectionChanged(isConnected);
-        });
+    return Stack(
+      children: [
+        widget.child, // 👈 your actual screen
 
-        return Stack(
-          children: [
-            widget.child, // 👈 your actual screen
-
-            // 🔴 Overlay when no internet
-            if (!_isConnected)
-              const Positioned.fill(child: _NoInternetOverlay()),
-            if (_showWelcomeBack)
-              const Positioned.fill(child: _WelcomeBackOverlay()),
-          ],
-        );
-      },
+        // 🔴 Overlay when no internet
+        if (!_isConnected) const Positioned.fill(child: _NoInternetOverlay()),
+        if (_showWelcomeBack)
+          const Positioned.fill(child: _WelcomeBackOverlay()),
+      ],
     );
   }
 }

@@ -11,7 +11,6 @@ import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 const String _razorpayKeyId = 'rzp_test_KtuXq3FhhX7j5e';
 const Color _membershipBackground = Color(0xFFFBFAF8);
 const Color _membershipBorder = Color(0xFFE8DED6);
@@ -295,7 +294,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         .whereType<Map>()
         .map(
             (plan) => _MembershipPlan.fromJson(Map<String, dynamic>.from(plan)))
-        .where((plan) => plan.id != null)
+        .where((plan) => plan.id != null && plan.isActive)
         .toList();
   }
 
@@ -407,21 +406,9 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
           'upcomingPlanId=${upcoming.planId ?? 'none'}, subscriptionDays=${subscription.daysRemaining}',
     );
 
-    final planId = upcoming.planId ?? _planIdForUpcoming(upcoming);
-    if (planId == null) {
-      _logMembership('activate_upcoming_blocked', details: 'plan_not_found');
-      _showSnack('Unable to find upcoming membership plan.');
-      return;
-    }
-
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => _ImmediateReplaceDialog(
-        planName: upcoming.planName,
-        billingCycle: _cycleLabel(upcoming.billingCycle),
-        remainingDays:
-            subscription.daysRemaining < 0 ? 0 : subscription.daysRemaining,
-      ),
+      builder: (context) => const _ImmediateReplaceDialog(),
     );
     if (confirmed != true || !mounted) return;
 
@@ -429,9 +416,6 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     try {
       final response = await _apiService.activateSalonSubscriptionNow(
         salonId: salonId,
-        planId: planId,
-        billingCycle: upcoming.billingCycle,
-        upcomingMembershipId: upcoming.id,
       );
       _logMembership(
         'activate_upcoming_response',
@@ -460,21 +444,6 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     } finally {
       if (mounted) setState(() => _isPaying = false);
     }
-  }
-
-  int? _planIdForUpcoming(_UpcomingMembership upcoming) {
-    final targetName = upcoming.planName.trim().toLowerCase();
-    final targetCycle = _isYearlyCycle(upcoming.billingCycle);
-    for (final plan in _plans) {
-      if (plan.name.trim().toLowerCase() != targetName) continue;
-      if (plan.amountFor(targetCycle) == upcoming.amountMinor) {
-        return plan.id;
-      }
-    }
-    for (final plan in _plans) {
-      if (plan.name.trim().toLowerCase() == targetName) return plan.id;
-    }
-    return null;
   }
 
   Future<void> _startPayment({
@@ -514,6 +483,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         salonId: salonId,
         planId: selection.plan.id!,
         billingCycle: selection.billingCycle,
+        amountMinor: selection.amountMinor,
         startDate: selection.startDate,
         replaceCurrentPlan: selection.replaceCurrentPlan,
       );
@@ -692,20 +662,13 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
   }
 
   Future<bool> _confirmImmediateReplace(_PurchaseSelection selection) async {
-    final subscription = _subscription;
-    final remainingDays = subscription?.daysRemaining ?? 0;
-    final positiveDays = remainingDays < 0 ? 0 : remainingDays;
     _logMembership(
       'confirm_replace_open',
       details: _purchaseSelectionSummary(selection),
     );
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => _ImmediateReplaceDialog(
-        planName: selection.plan.name,
-        billingCycle: _cycleLabel(selection.billingCycle),
-        remainingDays: positiveDays,
-      ),
+      builder: (context) => const _ImmediateReplaceDialog(),
     );
     _logMembership(
       'confirm_replace_result',
@@ -965,7 +928,8 @@ class _PlansHeader extends StatelessWidget {
               inactiveTrackColor: const Color(0xFFE9E1D7),
               onChanged: (value) {
                 if (!value && !allowMonthly) {
-                  Fluttertoast.showToast(msg: context.t(_monthlyBlockedMessage));
+                  Fluttertoast.showToast(
+                      msg: context.t(_monthlyBlockedMessage));
                   return;
                 }
                 onBillingChanged(value);
@@ -1212,9 +1176,8 @@ class _PlanCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: isCurrent ? null : onChoose,
               style: ElevatedButton.styleFrom(
-                backgroundColor: isCurrent
-                    ? const Color(0xFFE7DED6)
-                    : AppColors.starColor,
+                backgroundColor:
+                    isCurrent ? const Color(0xFFE7DED6) : AppColors.starColor,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: const Color(0xFFE7DED6),
                 disabledForegroundColor: const Color(0xFF8C7A66),
@@ -2505,7 +2468,8 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                         onSelectionChanged: (values) {
                           final nextValue = values.first;
                           if (!nextValue && !widget.allowMonthly) {
-                            Fluttertoast.showToast(msg: context.t(_monthlyBlockedMessage));
+                            Fluttertoast.showToast(
+                                msg: context.t(_monthlyBlockedMessage));
                             return;
                           }
                           setState(() => _yearlyBilling = nextValue);
@@ -2807,7 +2771,8 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                 onSelectionChanged: (values) {
                   final nextValue = values.first;
                   if (!nextValue && _isMonthlyBlocked) {
-                    Fluttertoast.showToast(msg: context.t(_monthlyBlockedMessage));
+                    Fluttertoast.showToast(
+                        msg: context.t(_monthlyBlockedMessage));
                     return;
                   }
                   setState(() => _yearlyBilling = nextValue);
@@ -2900,15 +2865,7 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
 }
 
 class _ImmediateReplaceDialog extends StatelessWidget {
-  const _ImmediateReplaceDialog({
-    required this.planName,
-    required this.billingCycle,
-    required this.remainingDays,
-  });
-
-  final String planName;
-  final String billingCycle;
-  final int remainingDays;
+  const _ImmediateReplaceDialog();
 
   @override
   Widget build(BuildContext context) {
@@ -2916,7 +2873,7 @@ class _ImmediateReplaceDialog extends StatelessWidget {
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: Text(
-        context.t('Replace current plan now?'),
+        context.t('Activate upcoming membership now?'),
         style: const TextStyle(
           fontFamily: 'Manrope',
           fontSize: 18,
@@ -2926,7 +2883,7 @@ class _ImmediateReplaceDialog extends StatelessWidget {
       ),
       content: Text(
         context.t(
-          'This will activate $planName ($billingCycle) immediately and discard $remainingDays remaining days from your current plan.',
+          'Your current membership will be terminated immediately, and any remaining validity will be lost. The new membership will become active instantly. No refund or credit will be provided for unused days. Do you want to continue?',
         ),
         style: const TextStyle(
           fontFamily: 'Manrope',
@@ -3183,6 +3140,8 @@ class _MembershipPlan {
     required this.includedFeatures,
     required this.currency,
     required this.isRecommended,
+    required this.status,
+    required this.isActive,
   });
 
   factory _MembershipPlan.fromJson(Map<String, dynamic> json) {
@@ -3206,6 +3165,8 @@ class _MembershipPlan {
           ? 'INR'
           : _cleanText(json['currency']),
       isRecommended: json['isRecommended'] == true,
+      status: _cleanText(json['status']),
+      isActive: _planIsActive(json),
     );
   }
 
@@ -3220,11 +3181,25 @@ class _MembershipPlan {
   final List<String> includedFeatures;
   final String currency;
   final bool isRecommended;
+  final String status;
+  final bool isActive;
 
   int amountFor(bool yearlyBilling) {
     if (yearlyBilling && annualPriceMinor > 0) return annualPriceMinor;
     return monthlyPriceMinor;
   }
+}
+
+bool _planIsActive(Map<String, dynamic> json) {
+  final isActive = _readBool(json['isActive']);
+  if (isActive != null) return isActive;
+
+  final status = _cleanText(json['status']).trim().toLowerCase();
+  if (status.isEmpty) return true;
+  return status != 'inactive' &&
+      status != 'archived' &&
+      status != 'disabled' &&
+      status != 'draft';
 }
 
 class _SalonSubscription {

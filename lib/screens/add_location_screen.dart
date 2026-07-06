@@ -363,18 +363,25 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             .map((value) => value.trim())
             .join(', '),
       );
-
+      // final derivedStreet = _deriveStreetSectorArea(formattedAddress);
+final derivedStreet = '';
       _removeOverlay();
 
+      _isSyncingCompleteAddress = true;
       setState(() {
-        _baseCompleteAddress = _addressWithoutManualParts(formattedAddress);
+    _baseCompleteAddress = formattedAddress;
+
+        scoFlatHouseController.clear();
+        streetSectorAreaController.value = TextEditingValue(
+          text: derivedStreet,
+          selection: TextSelection.collapsed(offset: derivedStreet.length),
+        );
 
         completeAddressController.value = TextEditingValue(
-          text: _composeAddressFromParts(),
-          selection: TextSelection.collapsed(
-            offset: _composeAddressFromParts().length,
-          ),
-        );
+  text: formattedAddress,
+  selection: TextSelection.collapsed(offset: formattedAddress.length),
+);
+     
 
         // Keep search location empty when using current location
         searchLocationController.clear();
@@ -383,6 +390,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         latitude = lat;
         longitude = lng;
       });
+      _isSyncingCompleteAddress = false;
 
       debugPrint('CURRENT LOCATION ADDRESS=$formattedAddress');
       debugPrint('CURRENT LOCATION COMPLETE=${completeAddressController.text}');
@@ -503,14 +511,14 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                           ),
                         );
 
-                        _baseCompleteAddress = suggestionText;
+                        // _baseCompleteAddress = suggestionText;
 
-                        completeAddressController.value = TextEditingValue(
-                          text: suggestionText,
-                          selection: TextSelection.collapsed(
-                            offset: suggestionText.length,
-                          ),
-                        );
+                        // completeAddressController.value = TextEditingValue(
+                        //   text: suggestionText,
+                        //   selection: TextSelection.collapsed(
+                        //     offset: suggestionText.length,
+                        //   ),
+                        // );
 
                         predictions = [];
                       });
@@ -582,12 +590,14 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       final placeName = (place?.name ?? '').trim();
 
       final address = _cleanAddressText(
-        placeAddress.isNotEmpty
-            ? placeAddress
-            : placeName.isNotEmpty
-                ? placeName
-                : fallbackSuggestionText,
-      );
+  placeName.isNotEmpty && placeAddress.isNotEmpty
+      ? '$placeName, $placeAddress'
+      : fallbackSuggestionText.isNotEmpty && placeAddress.isNotEmpty
+          ? '$fallbackSuggestionText, $placeAddress'
+          : placeAddress.isNotEmpty
+              ? placeAddress
+              : fallbackSuggestionText,
+);
 
       double? lat = place?.latLng?.lat;
       double? lng = place?.latLng?.lng;
@@ -621,6 +631,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
       if (!mounted) return;
 
+   final derivedStreet = '';
+
+      _isSyncingCompleteAddress = true;
       setState(() {
         searchLocationController.value = TextEditingValue(
           text: address,
@@ -628,6 +641,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
         _baseCompleteAddress = address;
+
+        scoFlatHouseController.clear();
+        streetSectorAreaController.value = TextEditingValue(
+          text: derivedStreet,
+          selection: TextSelection.collapsed(offset: derivedStreet.length),
+        );
 
         completeAddressController.value = TextEditingValue(
           text: address,
@@ -638,6 +657,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         longitude = lng;
         predictions = [];
       });
+      _isSyncingCompleteAddress = false;
 
       debugPrint('STATE latitude = $latitude');
       debugPrint('STATE longitude = $longitude');
@@ -675,6 +695,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
       if (!mounted) return;
 
+      final derivedStreet = _deriveStreetSectorArea(cleanFallback);
+
+      _isSyncingCompleteAddress = true;
       setState(() {
         searchLocationController.value = TextEditingValue(
           text: cleanFallback,
@@ -682,6 +705,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
         _baseCompleteAddress = cleanFallback;
+
+        scoFlatHouseController.clear();
+        streetSectorAreaController.value = TextEditingValue(
+          text: derivedStreet,
+          selection: TextSelection.collapsed(offset: derivedStreet.length),
+        );
 
         completeAddressController.value = TextEditingValue(
           text: cleanFallback,
@@ -692,6 +721,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         longitude = lng;
         predictions = [];
       });
+      _isSyncingCompleteAddress = false;
 
       debugPrint('ERROR STATE latitude = $latitude');
       debugPrint('ERROR STATE longitude = $longitude');
@@ -733,11 +763,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 
   String _addressPartKey(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    return value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   String _dedupeAddressParts(String address) {
@@ -1301,15 +1327,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 }
 
-final RegExp _addressAllowedRegex =
-    RegExp(r"^[a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']+$");
+final RegExp _addressAllowedRegex = RegExp(r'^[^\u0000-\u001F\u007F]+$');
 
-final RegExp _addressDisallowedRegex =
-    RegExp(r"[^a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']");
+final RegExp _addressDisallowedRegex = RegExp(r'[\u0000-\u001F\u007F]');
 
 final List<TextInputFormatter> _addressInputFormatters = [
   FilteringTextInputFormatter.allow(
-    RegExp(r"[a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']"),
+    RegExp(r'[^\u0000-\u001F\u007F]'),
   ),
 ];
 Widget _buildTextField({

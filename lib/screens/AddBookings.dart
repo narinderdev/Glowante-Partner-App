@@ -3292,6 +3292,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       "date": DateFormat('yyyy-MM-dd').format(_selectedDate!),
       "startAt": _formatAppointmentUtc(_selectedDate!, _startTime!),
       "endAt": _formatAppointmentUtc(_selectedDate!, _endTime!),
+      "amountMinor": _selectedTotalPrice().round(),
       "services": _selectedServices.expand((s) {
         final serviceId = s['id'] as int;
         final selectedProId = _resolveSelectedProId(serviceId);

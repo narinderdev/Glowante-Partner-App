@@ -9,7 +9,6 @@ import '../utils/localization_helper.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 class TeamOnlineAvailabilityScreen extends StatefulWidget {
   const TeamOnlineAvailabilityScreen.addMember({
     super.key,
@@ -382,6 +381,7 @@ class _TeamOnlineAvailabilityScreenState
       initialDate: _joiningDate ?? today,
       firstDate: DateTime(today.year - 2),
       lastDate: DateTime(today.year + 5),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
     );
     if (picked != null) {
       setState(() => _joiningDate = picked);
@@ -400,7 +400,8 @@ class _TeamOnlineAvailabilityScreenState
       debugPrint(
         '[TeamOnlineAvailability] Save blocked: joining date missing',
       );
-      Fluttertoast.showToast(msg: translateText('Please select a joining date'));
+      Fluttertoast.showToast(
+          msg: translateText('Please select a joining date'));
       return;
     }
 
@@ -445,7 +446,8 @@ class _TeamOnlineAvailabilityScreenState
         if (!mounted) return;
 
         if (response['success'] == true) {
-          Fluttertoast.showToast(msg: translateText('Team member added successfully'));
+          Fluttertoast.showToast(
+              msg: translateText('Team member added successfully'));
 
           await Future.delayed(const Duration(milliseconds: 700));
 
@@ -480,7 +482,8 @@ class _TeamOnlineAvailabilityScreenState
         if (!mounted) return;
 
         if (response['success'] == true) {
-          Fluttertoast.showToast(msg: translateText('Team member updated successfully'));
+          Fluttertoast.showToast(
+              msg: translateText('Team member updated successfully'));
 
           await Future.delayed(const Duration(milliseconds: 700));
 
@@ -530,7 +533,8 @@ class _TeamOnlineAvailabilityScreenState
       );
       if (!mounted) return;
       if (response['success'] == true) {
-        Fluttertoast.showToast(msg: translateText('User assigned successfully'));
+        Fluttertoast.showToast(
+            msg: translateText('User assigned successfully'));
 
         await Future.delayed(const Duration(milliseconds: 700));
 

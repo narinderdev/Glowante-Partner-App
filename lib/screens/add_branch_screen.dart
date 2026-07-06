@@ -216,7 +216,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     Map<String, dynamic>? branch,
   ) {
     final result = <String, List<Map<String, String>>>{};
-    final rawSchedule = branch?['schedule'];
+    final rawSchedule = _extractScheduleSource(branch);
     const days = [
       'monday',
       'tuesday',
@@ -285,6 +285,26 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     return result;
   }
 
+  dynamic _extractScheduleSource(dynamic value) {
+    if (value is! Map) return value;
+
+    final map = Map<String, dynamic>.from(value);
+
+    for (final key in const ['schedule', 'schedules', 'workingHours']) {
+      if (map[key] != null) return map[key];
+    }
+
+    for (final key in const ['data', 'branch', 'salon']) {
+      final nested = map[key];
+      if (nested is Map) {
+        final schedule = _extractScheduleSource(nested);
+        if (schedule != null) return schedule;
+      }
+    }
+
+    return null;
+  }
+
   String _normalizePhone(dynamic value) {
     final digits =
         value == null ? '' : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
@@ -293,6 +313,20 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       return digits.substring(2);
     }
     return digits.substring(digits.length - 10);
+  }
+
+  String? _validatePhoneNumber(String? value) {
+    final phone = _normalizePhone(value);
+    if (phone.isEmpty) {
+      return translateText('Phone number is required');
+    }
+    if (phone.length != 10) {
+      return translateText('Phone number must be 10 digits.');
+    }
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(phone)) {
+      return translateText('Enter a valid mobile number.');
+    }
+    return null;
   }
 
   String _addressWithoutManualParts(String address, List<String> manualParts) {
@@ -827,7 +861,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     if (picked != null) {
       if (!mounted) return;
-      final snapped = _snapTimeToStep(picked);
+      final snappedMinute = _snapMinuteToStep(picked.minute);
+      final wasSnapped = snappedMinute != picked.minute;
+      final snapped = TimeOfDay(hour: picked.hour, minute: snappedMinute);
       controller.text = _formatTimeOfDayDisplay(snapped);
       String? toastMessage;
 
@@ -855,8 +891,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         }
       }
 
-      if (field == _BranchField.endTime && toastMessage == null) {
-        toastMessage = translateText('End time uses 10-minute intervals.');
+      if (wasSnapped) {
+        toastMessage = translateText(
+          'Please select time in 10-minute intervals.',
+        );
       }
 
       if (toastMessage != null) {
@@ -1247,6 +1285,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                 enabled: true,
                                 keyboardType: TextInputType.phone,
                                 prefixText: '+91',
+                                validator: _validatePhoneNumber,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(10),
@@ -1794,6 +1833,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged,
+    String? Function(String?)? validator,
     String? prefixText,
     IconData? prefixIconData,
     IconData? suffixIconData,
@@ -1867,7 +1907,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                           params: {'field': fieldForMessage},
                         );
                       }
-                      return null;
+                      return validator?.call(inputValue);
                     },
                     decoration: InputDecoration(
                       counterText: '',
