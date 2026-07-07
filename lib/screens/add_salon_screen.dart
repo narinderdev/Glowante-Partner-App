@@ -2376,84 +2376,68 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
             builder: (context, _, __) {
-              return Stack(
-                children: [
-                  TextFormField(
-                    controller: controller,
-                    maxLines: maxLines,
-                    maxLength: maxLength,
-                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                    enabled: enabled,
-                    readOnly: false,
-                    showCursor: true,
-                    cursorColor: const Color(0xFF7A4A09),
-                    cursorWidth: 1.6,
-                    style: const TextStyle(
-                      color: Color(0xFF201A16),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textCapitalization: textCapitalization,
-                    keyboardType: keyboardType,
-                    inputFormatters: effectiveInputFormatters,
-                    autovalidateMode: _submitted
-                        ? AutovalidateMode.always
-                        : AutovalidateMode.disabled,
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
+              return FormField<String>(
+                initialValue: controller.text,
+                autovalidateMode: _submitted
+                    ? AutovalidateMode.always
+                    : AutovalidateMode.disabled,
+                validator: (value) {
+                  final text = (value ?? '').trim();
 
-                      if (text.isEmpty) {
-                        return translateText(
-                          '{field} is required',
-                        ).replaceAll('{field}', cleanLabel);
-                      }
+                  if (text.isEmpty) {
+                    return translateText(
+                      '{field} is required',
+                    ).replaceAll('{field}', cleanLabel);
+                  }
 
-                      if (label.toLowerCase().contains('phone') ||
-                          label.toLowerCase().contains('mobile')) {
-                        if (text.length != 10) {
-                          return translateText(
-                            'Phone number must be 10 digits',
-                          );
-                        }
-                      }
+                  if (label.toLowerCase().contains('phone') ||
+                      label.toLowerCase().contains('mobile')) {
+                    if (text.length != 10) {
+                      return translateText('Phone number must be 10 digits');
+                    }
+                  }
 
-                      if (maxWords != null &&
-                          text.split(RegExp(r'\s+')).length > maxWords) {
-                        return translateText('Maximum $maxWords words allowed');
-                      }
+                  if (maxWords != null &&
+                      text.split(RegExp(r'\s+')).length > maxWords) {
+                    return translateText('Maximum $maxWords words allowed');
+                  }
 
-                      return null;
-                    },
-                    decoration: InputDecoration(
-                      counterText: '',
-                      hintText: localizedHint,
-                      hintStyle: const TextStyle(
-                        color: Color(0xFF948C84),
-                        fontSize: 13,
-                        height: 1.6,
-                      ),
-                      prefixIcon: prefixText != null
-                          ? Container(
-                              width: 48,
-                              alignment: Alignment.center,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Color(0xFFE4DDD8)),
-                                ),
-                              ),
-                              child: Text(
-                                prefixText,
-                                style: const TextStyle(
-                                  color: Color(0xFF5B5149),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            )
-                          : prefixIconData == null
-                              ? null
-                              : Container(
+                  return null;
+                },
+                builder: (field) {
+                  final errorText = field.errorText;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: controller,
+                        maxLines: maxLines,
+                        maxLength: maxLength,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        enabled: enabled,
+                        readOnly: false,
+                        showCursor: true,
+                        cursorColor: const Color(0xFF7A4A09),
+                        cursorWidth: 1.6,
+                        style: const TextStyle(
+                          color: Color(0xFF201A16),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textCapitalization: textCapitalization,
+                        keyboardType: keyboardType,
+                        inputFormatters: effectiveInputFormatters,
+                        onChanged: field.didChange,
+                        decoration: InputDecoration(
+                          counterText: '',
+                          hintText: localizedHint,
+                          hintStyle: const TextStyle(
+                            color: Color(0xFF948C84),
+                            fontSize: 13,
+                            height: 1.6,
+                          ),
+                          prefixIcon: prefixText != null
+                              ? Container(
                                   width: 48,
                                   alignment: Alignment.center,
                                   margin: const EdgeInsets.only(right: 8),
@@ -2463,84 +2447,126 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                           BorderSide(color: Color(0xFFE4DDD8)),
                                     ),
                                   ),
-                                  child: Icon(
-                                    prefixIconData,
-                                    color: const Color(0xFF8B6500),
-                                    size: 19,
+                                  child: Text(
+                                    prefixText,
+                                    style: const TextStyle(
+                                      color: Color(0xFF5B5149),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
+                                )
+                              : prefixIconData == null
+                                  ? null
+                                  : Container(
+                                      width: 48,
+                                      alignment: Alignment.center,
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: const BoxDecoration(
+                                        border: Border(
+                                          right: BorderSide(
+                                            color: Color(0xFFE4DDD8),
+                                          ),
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        prefixIconData,
+                                        color: const Color(0xFF8B6500),
+                                        size: 19,
+                                      ),
+                                    ),
+                          suffixIcon: suffixIconData == null
+                              ? null
+                              : Icon(
+                                  suffixIconData,
+                                  color: const Color(0xFF8B6500),
+                                  size: 19,
                                 ),
-                      suffixIcon: suffixIconData == null
-                          ? null
-                          : Icon(
-                              suffixIconData,
-                              color: const Color(0xFF8B6500),
-                              size: 19,
+                          filled: true,
+                          fillColor:
+                              enabled ? Colors.white : const Color(0xFFF1EEEE),
+                          contentPadding: EdgeInsets.fromLTRB(
+                            16,
+                            14,
+                            suffixIconData == null ? 16 : 4,
+                            14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE3DCD7)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: Color(0xFFD1A24A),
+                              width: 1.2,
                             ),
-                      filled: true,
-                      fillColor:
-                          enabled ? Colors.white : const Color(0xFFF1EEEE),
-                      contentPadding: EdgeInsets.fromLTRB(
-                        16,
-                        14,
-                        suffixIconData == null ? 16 : 4,
-                        14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(
-                          color: Color(0xFFD1A24A),
-                          width: 1.2,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE3DCD7)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          disabledBorder: OutlineInputBorder(
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE3DCD7)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: AppColors.red,
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: AppColors.red,
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          errorStyle: const TextStyle(height: 0, fontSize: 0),
                         ),
-                        borderRadius: BorderRadius.circular(8),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      disabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(
-                          color: AppColors.red,
-                          width: 1,
+                      if (errorText != null || hasInsideCounter) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: errorText == null
+                                  ? const SizedBox.shrink()
+                                  : Text(
+                                      errorText,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.red,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                            ),
+                            if (hasInsideCounter)
+                              Text(
+                                '${controller.text.characters.length} / $maxLength',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF8A8178),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                          ],
                         ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(
-                          color: AppColors.red,
-                          width: 1,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      errorStyle: const TextStyle(color: AppColors.red),
-                    ),
-                  ),
-                ],
+                      ],
+                    ],
+                  );
+                },
               );
             },
           ),
-          if (hasInsideCounter) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: IgnorePointer(
-                child: Text(
-                  '${controller.text.characters.length} / $maxLength',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF8A8178),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
