@@ -1,4 +1,5 @@
 part of 'owner_profile_operations_screen.dart';
+
 class _PurchaseOrderFormView extends StatefulWidget {
   const _PurchaseOrderFormView({
     required this.branchId,
@@ -48,8 +49,8 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
     if (!mounted) return;
     final itemsPayload = results[2]['data'];
     setState(() {
-      _vendors = _recordList(results[0]);
-      _stores = _recordList(results[1]);
+      _vendors = _recordList(results[0]).where(_isActiveRecord).toList();
+      _stores = _recordList(results[1]).where(_isActiveRecord).toList();
       _items = itemsPayload is Map<String, dynamic>
           ? _recordList(itemsPayload['items'] ?? itemsPayload)
           : _recordList(itemsPayload);
@@ -69,6 +70,12 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
   }
 
   void _addLine() {
+    if (!_canAddLine) {
+      Fluttertoast.showToast(
+        msg: context.t('Each line must use a different item'),
+      );
+      return;
+    }
     setState(() {
       _lines = <_PurchaseOrderLineInput>[..._lines, _PurchaseOrderLineInput()];
     });
@@ -94,8 +101,32 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
       line.unitPriceController.text = price == null
           ? ''
           : (minorAmountToRupees(price) ?? 0).toStringAsFixed(0);
+    } else {
+      line.unitPriceController.clear();
     }
   }
+
+  Set<int> _selectedItemIds({int? excludeIndex}) {
+    final ids = <int>{};
+    for (var index = 0; index < _lines.length; index++) {
+      if (excludeIndex != null && index == excludeIndex) continue;
+      final itemId = _lines[index].itemId;
+      if (itemId != null) ids.add(itemId);
+    }
+    return ids;
+  }
+
+  List<Map<String, dynamic>> _availableItemsForLine(int index) {
+    final selectedElsewhere = _selectedItemIds(excludeIndex: index);
+    return _items.where((item) {
+      final itemId = _toInt(item['id']);
+      if (itemId == null) return false;
+      return !selectedElsewhere.contains(itemId) ||
+          _lines[index].itemId == itemId;
+    }).toList();
+  }
+
+  bool get _canAddLine => _items.isNotEmpty && _lines.length < _items.length;
 
   Future<void> _submit() async {
     final vendorRequired = translateText('Vendor is required');
@@ -122,6 +153,12 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
         Fluttertoast.showToast(msg: lineRequired);
         return;
       }
+    }
+    if (_selectedItemIds().length != _lines.length) {
+      Fluttertoast.showToast(
+        msg: context.t('Each line must use a different item'),
+      );
+      return;
     }
 
     setState(() => _isSaving = true);
@@ -181,11 +218,13 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                     key: ValueKey<String>('po-vendor-$_selectedVendorId'),
                     initialValue: _selectedVendorId,
                     decoration: InputDecoration(labelText: context.t('Vendor')),
+                    isExpanded: true,
+                    menuMaxHeight: 260,
                     items: _vendors
                         .map(
                           (vendor) => DropdownMenuItem<int>(
                             value: _toInt(vendor['id']),
-                            child: Text(
+                            child: _dropdownMenuText(
                               _firstText(
                                 vendor,
                                 const ['name', 'vendorName'],
@@ -206,11 +245,13 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                     decoration: InputDecoration(
                       labelText: context.t('Delivery Address (Store)'),
                     ),
+                    isExpanded: true,
+                    menuMaxHeight: 260,
                     items: _stores
                         .map(
                           (store) => DropdownMenuItem<int>(
                             value: _toInt(store['id']),
-                            child: Text(
+                            child: _dropdownMenuText(
                               _firstText(
                                 store,
                                 const ['name', 'storeName'],
@@ -227,7 +268,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 50,
                     controller: _createdByController,
                     decoration:
                         InputDecoration(labelText: context.t('Created By')),
@@ -264,6 +305,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                             firstDate: DateTime.now(),
                             lastDate:
                                 DateTime.now().add(const Duration(days: 365)),
+                          initialEntryMode: DatePickerEntryMode.calendarOnly,
                           );
                           if (selected == null) return;
                           setState(() => _requiredDate = selected);
@@ -290,14 +332,14 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 50,
                     controller: _departmentController,
                     decoration:
                         InputDecoration(labelText: context.t('Department')),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 100,
                     controller: _remarksController,
                     maxLines: 1,
                     decoration:
@@ -315,11 +357,12 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: _addLine,
-                        icon: const Icon(Icons.add),
-                        label: Text(context.t('Add Line')),
-                      ),
+                      if (_canAddLine)
+                        TextButton.icon(
+                          onPressed: _addLine,
+                          icon: const Icon(Icons.add),
+                          label: Text(context.t('Add Line')),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -341,11 +384,13 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                             initialValue: line.itemId,
                             decoration:
                                 InputDecoration(labelText: context.t('Item')),
-                            items: _items
+                            isExpanded: true,
+                            menuMaxHeight: 260,
+                            items: _availableItemsForLine(index)
                                 .map(
                                   (item) => DropdownMenuItem<int>(
                                     value: _toInt(item['id']),
-                                    child: Text(
+                                    child: _dropdownMenuText(
                                       _firstText(
                                         item,
                                         const ['itemName', 'name', 'title'],
@@ -355,8 +400,16 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                                   ),
                                 )
                                 .toList(),
-                            validator: (value) =>
-                                value == null ? itemRequired : null,
+                            validator: (value) {
+                              if (value == null) return itemRequired;
+                              if (_selectedItemIds(excludeIndex: index)
+                                  .contains(value)) {
+                                return context.t(
+                                  'Item already selected in another line',
+                                );
+                              }
+                              return null;
+                            },
                             onChanged: (value) => setState(() {
                               _syncLinePrice(line, value);
                               if (_autoValidateMode !=
@@ -367,14 +420,19 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
-                            maxLength: 120,
+                            maxLength: 15,
                             controller: line.qtyController,
+                            inputFormatters: _integerInputFormatters(),
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               labelText: context.t('Ordered Qty'),
                             ),
                             validator: (value) {
-                              final qty = _toInt(value);
+                              final text = _stringValue(value);
+                              if (text.isEmpty) {
+                                return orderedQtyRequired;
+                              }
+                              final qty = _toInt(text);
                               if (qty == null || qty <= 0) {
                                 return orderedQtyRequired;
                               }
@@ -389,8 +447,10 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
-                            maxLength: 120,
+                            maxLength: 15,
                             controller: line.unitPriceController,
+                            enabled: false,
+                            inputFormatters: _decimalInputFormatters(),
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
@@ -400,7 +460,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
-                            maxLength: 120,
+                            maxLength: 15,
                             controller: line.remarksController,
                             decoration: InputDecoration(
                                 labelText: context.t('Remarks')),

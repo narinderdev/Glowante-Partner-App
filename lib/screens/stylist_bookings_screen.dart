@@ -1376,7 +1376,7 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
                         dialogNavigator.pop(resp);
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _bookingsAccent,
+                  backgroundColor: _bookingsGold,
                   foregroundColor: Colors.white,
                 ),
                 child: isSubmitting
@@ -1396,6 +1396,46 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
       );
     },
   );
+}
+
+Future<bool> _showNoShowConfirmationDialog(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogCtx) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          translateText('Mark No Show?'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          translateText(
+            'This will mark the appointment as no show. This cannot be undone.',
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(translateText('Cancel')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _bookingsDark,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(translateText('Mark No Show')),
+          ),
+        ],
+      );
+    },
+  );
+
+  return confirmed == true;
 }
 
 // Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
@@ -1551,6 +1591,8 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (ctx, setDialogState) {
+          final canSubmit = selectedRating > 0 && commentText.trim().isNotEmpty;
+
           return Dialog(
             backgroundColor: Colors.transparent,
             insetPadding: const EdgeInsets.symmetric(horizontal: 22),
@@ -1687,7 +1729,11 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                       maxLength: 120,
                       minLines: 3,
                       maxLines: 4,
-                      onChanged: (value) => commentText = value,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          commentText = value;
+                        });
+                      },
                       decoration: InputDecoration(
                         hintText: context.t('Write comment'),
                         filled: true,
@@ -1719,15 +1765,19 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(ctx, {
-                            'rating': selectedRating,
-                            'comment': commentText.trim(),
-                          });
-                        },
+                        onPressed: canSubmit
+                            ? () {
+                                Navigator.pop(ctx, {
+                                  'rating': selectedRating,
+                                  'comment': commentText.trim(),
+                                });
+                              }
+                            : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _bookingsDark,
                           foregroundColor: Colors.white,
+                          disabledBackgroundColor: const Color(0xFFE5E7EB),
+                          disabledForegroundColor: const Color(0xFF9CA3AF),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -6898,6 +6948,8 @@ class _BookingListCard extends StatelessWidget {
     final finishLabel = _showsFinishAction(status)
         ? context.t('Finish Job').toUpperCase()
         : null;
+    final isStartAction = _showsStartAction(status);
+    final isFinishAction = _showsFinishAction(status);
     final customer = _customerName(context, booking);
     final service = _serviceLabel(context, booking);
 
@@ -7118,7 +7170,9 @@ class _BookingListCard extends StatelessWidget {
                           child: ElevatedButton(
                             onPressed: isProcessing ? null : onPrimaryActionTap,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: visuals.primaryButtonColor,
+                              backgroundColor: isStartAction || isFinishAction
+                                  ? _bookingsGold
+                                  : visuals.primaryButtonColor,
                               foregroundColor: visuals.primaryTextColor,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               elevation: 0,
@@ -7406,6 +7460,9 @@ class _StylistBookingDetailScreenState
       return;
     }
 
+    final confirmed = await _showNoShowConfirmationDialog(context);
+    if (!confirmed || !mounted) return;
+
     final appointmentId = _asInt(_booking['id']);
     final branchId = _bookingBranchId(_booking) ?? widget.branchId;
     if (appointmentId == null) {
@@ -7452,6 +7509,55 @@ class _StylistBookingDetailScreenState
   }
 
   List<int> _completionServiceIds() => _addedServiceIds.toList();
+
+  Set<int> _bookedServiceIds() {
+    final ids = <int>{};
+
+    void collectFromNode(
+      dynamic node, {
+      required bool includeDirectId,
+    }) {
+      if (node is List) {
+        for (final item in node) {
+          collectFromNode(
+            item,
+            includeDirectId: includeDirectId,
+          );
+        }
+        return;
+      }
+      if (node is! Map) return;
+
+      final map = Map<String, dynamic>.from(node);
+      final directId = _asInt(map['branchServiceId'] ?? map['serviceId']);
+      if (directId != null) {
+        ids.add(directId);
+      }
+      if (includeDirectId) {
+        final nestedDirectId = _asInt(map['id']);
+        if (nestedDirectId != null) {
+          ids.add(nestedDirectId);
+        }
+      }
+
+      for (final key in const [
+        'branchService',
+        'service',
+        'masterService',
+        'cartItem',
+        'item',
+      ]) {
+        final nested = map[key];
+        if (nested is Map) {
+          collectFromNode(nested, includeDirectId: true);
+        }
+      }
+    }
+
+    collectFromNode(_bookingItems(_booking), includeDirectId: false);
+    collectFromNode(_bookingServices(_booking), includeDirectId: true);
+    return ids;
+  }
 
   List<_BookingServiceOption> _extractServiceOptions(dynamic raw) {
     final options = <_BookingServiceOption>[];
@@ -7515,14 +7621,83 @@ class _StylistBookingDetailScreenState
   }
 
   Future<void> _showAddServicesDialog() async {
+    if (_statusUpper != 'IN_PROGRESS') {
+      Fluttertoast.showToast(
+        msg: translateText('Add Services is available only for active jobs'),
+      );
+      return;
+    }
+
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    bool loaderShown = false;
+
+    Future<void> showLoader() async {
+      if (loaderShown || !mounted) return;
+      loaderShown = true;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (loaderContext) {
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+              content: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: _bookingsGold,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Flexible(
+                    child: Text(
+                      translateText('Loading services...'),
+                      style: _bookingTextStyle(
+                        size: 14,
+                        weight: FontWeight.w700,
+                        color: _bookingsPrimaryText,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    showLoader();
+
     try {
       final response = await ApiService().getBranchService(
         branchId: widget.branchId,
       );
       if (!mounted) return;
+
+      if (loaderShown && rootNavigator.canPop()) {
+        rootNavigator.pop();
+      }
+
+      final bookedIds = _bookedServiceIds();
       final services = _extractServiceOptions(response['data'] ?? response)
-          .where((service) => !_addedServiceIds.contains(service.id))
+          .where(
+            (service) =>
+                !bookedIds.contains(service.id) &&
+                !_addedServiceIds.contains(service.id),
+          )
           .toList();
+
       if (services.isEmpty) {
         Fluttertoast.showToast(
           msg: translateText('No more services available to add'),
@@ -7533,121 +7708,274 @@ class _StylistBookingDetailScreenState
       final selected = <int>{};
       final picked = await showDialog<List<_BookingServiceOption>>(
         context: context,
+        useRootNavigator: true,
         builder: (dialogContext) => StatefulBuilder(
           builder: (context, setDialogState) {
-            return Dialog(
-              insetPadding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: ColorScheme.light(
+                  primary: _bookingsGold,
+                  secondary: _bookingsAccent,
+                  surface: Colors.white,
+                ),
               ),
-              child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(maxWidth: 520, maxHeight: 620),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 10, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              translateText('Add Services'),
-                              style: _bookingTextStyle(
-                                size: 18,
-                                weight: FontWeight.w800,
+              child: Dialog(
+                insetPadding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                child: Container(
+                  constraints: const BoxConstraints(
+                    maxWidth: 520,
+                    maxHeight: 640,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: _bookingsBorder),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x16000000),
+                        blurRadius: 22,
+                        offset: Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                translateText('Add Services'),
+                                style: _bookingTextStyle(
+                                  size: 20,
+                                  weight: FontWeight.w800,
+                                  color: _bookingsPrimaryText,
+                                ),
                               ),
                             ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    Expanded(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: services.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final service = services[index];
-                          final isSelected = selected.contains(service.id);
-                          return CheckboxListTile(
-                            value: isSelected,
-                            onChanged: (value) {
-                              setDialogState(() {
-                                if (value == true) {
-                                  selected.add(service.id);
-                                } else {
-                                  selected.remove(service.id);
-                                }
-                              });
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
-                            title: Text(
-                              service.name,
-                              style: _bookingTextStyle(
-                                size: 14,
-                                weight: FontWeight.w700,
-                              ),
-                            ),
-                            subtitle: Text(
-                              [
-                                if (service.path.isNotEmpty) service.path,
-                                if (service.durationMin > 0)
-                                  '${service.durationMin} min',
-                                if (service.priceMinor > 0)
-                                  formatMinorAmount(service.priceMinor),
-                              ].join(' • '),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
+                            IconButton(
                               onPressed: () => Navigator.pop(dialogContext),
-                              child: Text(translateText('Cancel')),
+                              icon: const Icon(Icons.close_rounded),
+                              color: _bookingsSecondaryText,
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: selected.isEmpty
-                                  ? null
-                                  : () {
-                                      Navigator.pop(
-                                        dialogContext,
-                                        services
-                                            .where((service) =>
-                                                selected.contains(service.id))
-                                            .toList(),
-                                      );
-                                    },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _bookingsGold,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: Text(translateText('Add')),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const Divider(height: 1, color: _bookingsBorder),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF7F1E3),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.content_cut_rounded,
+                                color: _bookingsGold,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                translateText(
+                                  'Select services not already booked for this appointment.',
+                                ),
+                                style: _bookingTextStyle(
+                                  size: 12,
+                                  weight: FontWeight.w600,
+                                  color: _bookingsSecondaryText,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          itemCount: services.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final service = services[index];
+                            final isSelected = selected.contains(service.id);
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                setDialogState(() {
+                                  if (isSelected) {
+                                    selected.remove(service.id);
+                                  } else {
+                                    selected.add(service.id);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFFFEF8EA)
+                                      : const Color(0xFFFCFBF9),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? _bookingsGold.withValues(alpha: 0.55)
+                                        : _bookingsBorder,
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 22,
+                                      height: 22,
+                                      margin: const EdgeInsets.only(top: 2),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? _bookingsGold
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? _bookingsGold
+                                              : _bookingsSecondaryText,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: isSelected
+                                          ? const Icon(
+                                              Icons.check_rounded,
+                                              size: 14,
+                                              color: Colors.white,
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            service.name,
+                                            style: _bookingTextStyle(
+                                              size: 15,
+                                              weight: FontWeight.w800,
+                                              color: _bookingsPrimaryText,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            [
+                                              if (service.path.isNotEmpty)
+                                                service.path,
+                                              if (service.durationMin > 0)
+                                                '${service.durationMin} min',
+                                              if (service.priceMinor > 0)
+                                                formatMinorAmount(
+                                                  service.priceMinor,
+                                                ),
+                                            ].join(' • '),
+                                            style: _bookingTextStyle(
+                                              size: 12,
+                                              weight: FontWeight.w600,
+                                              color: _bookingsSecondaryText,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(dialogContext),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(48),
+                                  foregroundColor: _bookingsGold,
+                                  side: const BorderSide(color: _bookingsGold),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: Text(
+                                  translateText('Cancel'),
+                                  style: _bookingTextStyle(
+                                    size: 14,
+                                    weight: FontWeight.w700,
+                                    color: _bookingsGold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: selected.isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.pop(
+                                          dialogContext,
+                                          services
+                                              .where((service) =>
+                                                  selected.contains(service.id))
+                                              .toList(),
+                                        );
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _bookingsGold,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      const Color(0xFFE5E7EB),
+                                  disabledForegroundColor:
+                                      const Color(0xFF9CA3AF),
+                                  minimumSize: const Size.fromHeight(48),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: Text(
+                                  translateText('Add'),
+                                  style: _bookingTextStyle(
+                                    size: 14,
+                                    weight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
           },
         ),
       );
+
       if (!mounted || picked == null || picked.isEmpty) return;
       setState(() {
         for (final service in picked) {
@@ -7669,6 +7997,9 @@ class _StylistBookingDetailScreenState
         _didChange = true;
       });
     } catch (error) {
+      if (loaderShown && rootNavigator.canPop()) {
+        rootNavigator.pop();
+      }
       if (!mounted) return;
       Fluttertoast.showToast(msg: error.toString());
     }
@@ -7825,8 +8156,11 @@ class _StylistBookingDetailScreenState
                 : null));
 
     final primaryColor =
-        _showsFinishAction(_statusUpper) ? _bookingsDark : _bookingsAccent;
+        (_showsFinishAction(_statusUpper) || _showsStartAction(_statusUpper))
+            ? _bookingsGold
+            : _bookingsAccent;
     final showNoShowAction = _showsNoShowAction(_statusUpper);
+    final canAddServices = _statusUpper == 'IN_PROGRESS';
     final isPrimaryProcessing =
         _loadingConfirm || _loadingStart || _loadingComplete;
     final isAnyActionProcessing = isPrimaryProcessing || _loadingNoShow;
@@ -7894,6 +8228,7 @@ class _StylistBookingDetailScreenState
         addedItems: _addedItems,
         onAddItems: _showAddItemsInfo,
         onAddServices: _showAddServicesDialog,
+        canAddServices: canAddServices,
         onRefresh: _refreshBookingDetails,
       ),
     );

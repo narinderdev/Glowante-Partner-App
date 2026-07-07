@@ -1009,25 +1009,6 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
       )
           case final tile?)
         tile,
-      if (drawerTile(
-        id: 'vendor',
-        item: _DashboardDrawerItem(
-          icon: Icons.badge_outlined,
-          label: context.t('Vendor'),
-          permissions: const ['vendor.view'],
-          screen: const OwnerProfileOperationsScreen(
-            initialModule: OwnerOperationsModule.vendor,
-          ),
-        ),
-        onTap: () => _openDrawerItem(
-          'vendor',
-          const OwnerProfileOperationsScreen(
-            initialModule: OwnerOperationsModule.vendor,
-          ),
-        ),
-      )
-          case final tile?)
-        tile,
       if (drawerGroup(
         id: 'inventory',
         icon: Icons.inventory_2_outlined,
@@ -1041,6 +1022,14 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
               initialModule: OwnerOperationsModule.inventory,
               initialInventorySection: OwnerInventorySection.store,
               showInventoryTabs: false,
+            ),
+          ),
+          _DashboardDrawerChildItem(
+            id: 'inventory.vendor',
+            label: context.t('Vendor'),
+            permissions: const ['vendor.view'],
+            screen: const OwnerProfileOperationsScreen(
+              initialModule: OwnerOperationsModule.vendor,
             ),
           ),
           _DashboardDrawerChildItem(

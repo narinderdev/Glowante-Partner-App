@@ -67,8 +67,11 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
       text: _firstText(initial, const ['itemName', 'name', 'title']),
     );
     _brandController = TextEditingController(
-      text: _firstText(initial, const ['brand']),
-    );
+  text: _firstText(
+    initial,
+    const ['manufacturer', 'brand'],
+  ),
+);
     _stockController = TextEditingController(
       text: _firstText(
         initial,
@@ -122,8 +125,8 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
     if (!mounted) return;
     setState(() {
       _categories = _stringOptions(results[0]['data'] ?? results[0]);
-      _vendors = _recordList(results[1]);
-      _stores = _recordList(results[2]);
+      _vendors = _recordList(results[1]).where(_isActiveRecord).toList();
+      _stores = _recordList(results[2]).where(_isActiveRecord).toList();
       if (_selectedCategory != null &&
           !_categories.contains(_selectedCategory)) {
         _selectedCategory = null;
@@ -226,7 +229,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   // ),
                   // const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 50,
                     controller: _skuController,
                     onChanged: (_) {
                       if (_autoValidateMode != AutovalidateMode.disabled) {
@@ -240,7 +243,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 50,
                     controller: _nameController,
                     onChanged: (_) {
                       if (_autoValidateMode != AutovalidateMode.disabled) {
@@ -278,11 +281,13 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                     initialValue: _selectedCategory,
                     decoration:
                         InputDecoration(labelText: context.t('Category')),
+                    isExpanded: true,
+                    menuMaxHeight: 260,
                     items: _categories
                         .map(
                           (category) => DropdownMenuItem<String>(
                             value: category,
-                            child: Text(category),
+                            child: _dropdownMenuText(category),
                           ),
                         )
                         .toList(),
@@ -295,40 +300,16 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                     },
                   ),
                   const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey<String>(
-                      'inventory-unit-$_selectedUnitOfMeasure',
-                    ),
-                    initialValue: _selectedUnitOfMeasure,
-                    decoration: InputDecoration(
-                      labelText: context.t('Unit of Measure'),
-                    ),
-                    items: _unitOptions
-                        .map(
-                          (unit) => DropdownMenuItem<String>(
-                            value: unit,
-                            child: Text(unit),
-                          ),
-                        )
-                        .toList(),
-                    validator: (value) => _stringValue(value).isEmpty
-                        ? context.t('Unit of Measure is required')
-                        : null,
-                    onChanged: (value) {
-                      setState(() => _selectedUnitOfMeasure = value);
-                      _validateOnlyAfterSubmit();
-                    },
-                  ),
-                  const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 50,
                     controller: _brandController,
                     decoration: InputDecoration(labelText: context.t('Brand')),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 10,
                     controller: _stockController,
+                    inputFormatters: _integerInputFormatters(),
                     keyboardType: TextInputType.number,
                     decoration:
                         InputDecoration(labelText: context.t('Stock Level')),
@@ -337,16 +318,18 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   _FormSectionTitle(context.t('Stock & Vendor Details')),
                   const SizedBox(height: 12),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 10,
                     controller: _reorderPointController,
+                    inputFormatters: _integerInputFormatters(),
                     keyboardType: TextInputType.number,
                     decoration:
                         InputDecoration(labelText: context.t('Reorder Point')),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 10,
                     controller: _reorderQtyController,
+                    inputFormatters: _integerInputFormatters(),
                     onChanged: (_) {
                       if (_autoValidateMode != AutovalidateMode.disabled) {
                         _formKey.currentState?.validate();
@@ -356,7 +339,11 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                     decoration:
                         InputDecoration(labelText: context.t('Reorder Qty')),
                     validator: (value) {
-                      final qty = _toInt(value);
+                      final text = _stringValue(value);
+                      if (text.isEmpty) {
+                        return context.t('Reorder Qty is required');
+                      }
+                      final qty = _toInt(text);
                       if (qty == null || qty < 1) {
                         return context.t('Reorder Qty must be at least 1');
                       }
@@ -365,8 +352,9 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 10,
                     controller: _costController,
+                    inputFormatters: _decimalInputFormatters(),
                     onChanged: (_) {
                       if (_autoValidateMode != AutovalidateMode.disabled) {
                         _formKey.currentState?.validate();
@@ -387,16 +375,18 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 15,
                     controller: _minStockController,
+                    inputFormatters: _integerInputFormatters(),
                     keyboardType: TextInputType.number,
                     decoration:
                         InputDecoration(labelText: context.t('Min Stock')),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    maxLength: 120,
+                    maxLength: 15,
                     controller: _maxStockController,
+                    inputFormatters: _integerInputFormatters(),
                     onChanged: (_) {
                       if (_autoValidateMode != AutovalidateMode.disabled) {
                         _formKey.currentState?.validate();
@@ -406,12 +396,14 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                     decoration:
                         InputDecoration(labelText: context.t('Max Stock')),
                     validator: (value) {
-                      final maxStock = _toInt(value);
-
-                      if (maxStock == null) {
+                      final text = _stringValue(value);
+                      if (text.isEmpty) {
                         return context.t('Max Stock is required');
                       }
-
+                      final maxStock = _toInt(text);
+                      if (maxStock == null) {
+                        return context.t('Max Stock must be a number');
+                      }
                       if (maxStock < 1) {
                         return context.t('Max Stock must be at least 1');
                       }
@@ -420,12 +412,13 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                     },
                   ),
                   const SizedBox(height: 14),
-
                   DropdownButtonFormField<int>(
                     key:
                         ValueKey<String>('inventory-vendor-$_selectedVendorId'),
                     initialValue: _selectedVendorId,
                     decoration: InputDecoration(labelText: context.t('Vendor')),
+                    isExpanded: true,
+                    menuMaxHeight: 260,
                     hint: Text(
                       _vendors.isEmpty
                           ? context.t('No vendors found')
@@ -440,7 +433,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
 
                       return DropdownMenuItem<int>(
                         value: vendorId,
-                        child: Text(
+                        child: _dropdownMenuText(
                           _firstText(
                             vendor,
                             const ['name', 'vendorName', 'primaryVendorName'],
@@ -479,10 +472,12 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                     key: ValueKey<String>('inventory-store-$_selectedStoreId'),
                     initialValue: _selectedStoreId,
                     decoration: InputDecoration(labelText: context.t('Store')),
+                    isExpanded: true,
+                    menuMaxHeight: 260,
                     items: _stores.map((store) {
                       return DropdownMenuItem<int>(
                         value: _toInt(store['id']),
-                        child: Text(
+                        child: _dropdownMenuText(
                           _firstText(
                             store,
                             const ['name', 'storeName'],
@@ -646,13 +641,17 @@ class _PurchaseOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final poId = _firstText(order, const ['poId', 'id'], fallback: 'N/A');
+    final poNumber = _firstText(
+      order,
+      const ['poNumber', 'poId', 'id'],
+      fallback: 'N/A',
+    );
     final requiredDate = _formatDateValue(
       order['requiredDeliveryDate'] ?? order['requiredDate'],
     );
 
     return _InventoryRecordCard(
-      title: '${context.t('PO ID')} $poId',
+      title: '${context.t('PO Number')} $poNumber',
       subtitle: _vendorDisplayLabel(order, vendors),
       icon: Icons.receipt_long_outlined,
       status: _statusLabel(order),
@@ -688,15 +687,15 @@ class _GoodsReceiptNoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final grnId = _firstText(note, const ['grnId', 'id'], fallback: 'N/A');
-    final poId = _firstText(
+    final poNumber = _firstText(
       note,
-      const ['poId', 'purchaseOrderId'],
+      const ['poNumber', 'poId', 'purchaseOrderId'],
       fallback: 'N/A',
     );
 
     return _InventoryRecordCard(
       title: '${context.t('GRN ID')} $grnId',
-      subtitle: '${context.t('PO ID')}: $poId',
+      subtitle: '${context.t('PO Number')}: $poNumber',
       icon: Icons.assignment_turned_in_outlined,
       status: _statusLabel(note),
       onTap: onView,
@@ -704,7 +703,7 @@ class _GoodsReceiptNoteCard extends StatelessWidget {
         _InventoryFactData(
           icon: Icons.receipt_long_outlined,
           label: context.t('Purchase Order'),
-          value: poId,
+          value: poNumber,
         ),
         _InventoryFactData(
           icon: Icons.local_shipping_outlined,

@@ -164,8 +164,39 @@ String _statusLabel(Map<String, dynamic> record) {
     record,
     const <String>['status', 'state', 'inventoryStatus', 'orderStatus'],
   );
-  if (explicit.isNotEmpty) return explicit.toUpperCase();
+  if (explicit.isNotEmpty) {
+    return explicit
+        .replaceAll('_', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toUpperCase();
+  }
   return _boolValue(record['active'], fallback: true) ? 'ACTIVE' : 'INACTIVE';
+}
+
+bool _isActiveRecord(Map<String, dynamic> record) =>
+    _statusLabel(record) == 'ACTIVE';
+
+Widget _dropdownMenuText(String text) {
+  return Text(
+    text,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+  );
+}
+
+List<TextInputFormatter> _integerInputFormatters({int maxLength = 15}) {
+  return <TextInputFormatter>[
+    FilteringTextInputFormatter.digitsOnly,
+    LengthLimitingTextInputFormatter(maxLength),
+  ];
+}
+
+List<TextInputFormatter> _decimalInputFormatters({int maxLength = 15}) {
+  return <TextInputFormatter>[
+    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+    LengthLimitingTextInputFormatter(maxLength),
+  ];
 }
 
 String _formatDateValue(dynamic value, {String pattern = 'dd MMM yyyy'}) {
@@ -208,16 +239,33 @@ String _vendorDisplayLabel(
   return 'N/A';
 }
 
-bool _purchaseOrderFullyReceived(List<Map<String, dynamic>> lines) {
-  if (lines.isEmpty) return false;
-  for (final line in lines) {
-    final orderedQty = _toInt(line['orderedQty'] ?? line['quantity']) ?? 0;
-    final receivedQty = _toInt(line['receivedQty']) ?? 0;
-    if (receivedQty < orderedQty) {
-      return false;
+String _storeDisplayLabel(
+  Map<String, dynamic> record,
+  List<Map<String, dynamic>> stores,
+) {
+  final direct = _firstText(
+    record,
+    const <String>[
+      'storeName',
+      'store',
+      'primaryStoreName',
+      'deliveryStoreName'
+    ],
+  );
+  if (direct.isNotEmpty) return direct;
+
+  final storeId = _toInt(record['storeId'] ?? record['deliveryStoreId']);
+  if (storeId != null) {
+    for (final store in stores) {
+      if (_toInt(store['id']) == storeId) {
+        final label = _firstText(store, const <String>['name', 'storeName']);
+        if (label.isNotEmpty) return label;
+      }
     }
   }
-  return true;
+
+  return _firstText(record, const <String>['storeId', 'deliveryStoreId'],
+      fallback: 'N/A');
 }
 
 class OwnerProfileOperationsScreen extends StatefulWidget {
@@ -590,7 +638,12 @@ class _OwnerProfileOperationsScreenState
 
   void _showToast(String message) {
     _logOperations('toast', details: message);
-    Fluttertoast.showToast(msg: message);
+    Fluttertoast.showToast(
+      msg: message,
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+      timeInSecForIosWeb: 3,
+    );
   }
 
   Future<void> _showFormDialog({
@@ -766,6 +819,7 @@ class _OwnerProfileOperationsScreenState
       'save_grn_success',
       details: 'branchId=$branchId',
     );
+    await _loadPurchaseOrders(branchId);
     await _loadGoodsReceiptNotes(branchId);
     _showToast(_t('Goods receipt note saved successfully'));
   }
@@ -1180,7 +1234,7 @@ class _OwnerProfileOperationsScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _DetailLine(
-                  label: 'ID',
+                  label: 'Item ID',
                   value: _firstText(detail, const ['id', 'itemId'],
                       fallback: 'N/A')),
               _DetailLine(
@@ -1199,6 +1253,11 @@ class _OwnerProfileOperationsScreenState
                   label: 'Stock Level',
                   value: _firstText(detail,
                       const ['stockLevel', 'availableStock', 'currentStock'],
+                      fallback: 'N/A')),
+                       _DetailLine(
+                  label: 'Max Stock Level',
+                  value: _firstText(detail,
+                      const ['maxStockLevel', 'maximumStock'],
                       fallback: 'N/A')),
               _DetailLine(
                   label: 'Reorder Point',
@@ -1226,9 +1285,7 @@ class _OwnerProfileOperationsScreenState
                       ],
                       fallback: 'N/A')),
               _DetailLine(
-                  label: 'Store ID',
-                  value:
-                      _firstText(detail, const ['storeId'], fallback: 'N/A')),
+                  label: 'Store', value: _storeDisplayLabel(detail, _stores)),
               _DetailLine(label: 'Status', value: _statusLabel(detail)),
               const SizedBox(height: 18),
               Align(
@@ -1268,7 +1325,7 @@ class _OwnerProfileOperationsScreenState
       context: context,
       builder: (dialogContext) {
         return _AsyncDetailsDialog(
-          title: _firstText(order, const ['poId', 'id'],
+          title: _firstText(order, const ['poNumber', 'poId', 'id'],
               fallback: 'Purchase Order'),
           future: _apiService.getPurchaseOrderDetails(
               branchId: branchId, poId: poId),
@@ -1279,16 +1336,32 @@ class _OwnerProfileOperationsScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _DetailLine(
-                    label: 'PO ID',
-                    value: _firstText(detail, const ['poId', 'id'],
+                    label: 'PO Number',
+                    value: _firstText(detail, const ['poNumber', 'poId', 'id'],
                         fallback: 'N/A')),
                 _DetailLine(
                     label: 'Vendor',
                     value: _vendorDisplayLabel(detail, _vendors)),
                 _DetailLine(
+                    label: 'Delivery Address',
+                    value: _storeDisplayLabel(detail, _stores)),
+                _DetailLine(
                     label: 'Required Date',
                     value: _formatDateValue(detail['requiredDeliveryDate'] ??
                         detail['requiredDate'])),
+                _DetailLine(
+                    label: 'Created By',
+                    value: _firstText(
+                        detail, const ['createdBy', 'createdByUserId'],
+                        fallback: 'N/A')),
+                _DetailLine(
+                    label: 'Department',
+                    value: _firstText(detail, const ['department'],
+                        fallback: 'N/A')),
+                _DetailLine(
+                    label: 'Remarks',
+                    value:
+                        _firstText(detail, const ['remarks'], fallback: 'N/A')),
                 _DetailLine(label: 'Status', value: status),
                 const SizedBox(height: 12),
                 const Text(
@@ -1299,179 +1372,74 @@ class _OwnerProfileOperationsScreenState
                 if (lines.isEmpty)
                   const Text('No lines found')
                 else
-                  _LinesTable(
-                    rows: lines
-                        .map(
-                          (line) => <String>[
-                            _firstText(
-                                line, const ['itemName', 'name', 'title'],
-                                fallback: 'Item'),
-                            _firstText(line, const ['orderedQty', 'quantity'],
-                                fallback: '0'),
-                            _formatCurrency(
-                                line['unitPrice'] ?? line['costPerUnit']),
-                          ],
-                        )
-                        .toList(),
-                    headers: const <String>['Item', 'Qty', 'Unit Price'],
+                  Builder(
+                    builder: (context) {
+                      final showReceivedQty = status.contains('PARTIAL') ||
+                          status.contains('RECEIVED');
+                      final headers = <String>[
+                        'Item Number',
+                        'Item',
+                        'Qty',
+                        if (showReceivedQty) 'Received Quantity',
+                        'Unit Price',
+                      ];
+                      final rows = lines
+                          .map(
+                            (line) => <String>[
+                              _firstText(
+                                line,
+                                const [
+                                  'itemNumber',
+                                  'itemNo',
+                                  'skuNumber',
+                                  'sku',
+                                  'itemId',
+                                  'id',
+                                ],
+                                fallback: '-',
+                              ),
+                              _firstText(
+                                  line, const ['itemName', 'name', 'title'],
+                                  fallback: 'Item'),
+                              _firstText(line, const ['orderedQty', 'quantity'],
+                                  fallback: '0'),
+                              if (showReceivedQty)
+                                _firstText(
+                                  line,
+                                  const ['receivedQty', 'receivedQuantity'],
+                                  fallback: '0',
+                                ),
+                              _formatCurrency(
+                                  line['unitPrice'] ?? line['costPerUnit']),
+                            ],
+                          )
+                          .toList();
+                      return _LinesTable(headers: headers, rows: rows);
+                    },
                   ),
                 const SizedBox(height: 18),
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    if (status != 'CONVERTED_TO_GRN')
-                      OutlinedButton(
-                        onPressed: () async {
-                          Navigator.of(dialogContext).pop();
-                          _logOperations(
-                            'purchase_order_status_dialog_from_details',
-                            details:
-                                'branchId=$branchId, poId=$poId, status=$status',
-                          );
-                          await _showPurchaseOrderStatusDialog(
-                            poId: poId,
-                            currentStatus: status,
-                            lines: lines,
-                          );
-                        },
-                        child: const Text('Update Status'),
-                      ),
-                    if (status == 'ISSUED' ||
-                        status == 'ACCEPTED' ||
-                        status == 'DELIVERED' ||
-                        status == 'PARTIALLY_RECEIVED')
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          _logOperations(
-                            'purchase_order_convert_to_grn',
-                            details: 'branchId=$branchId, poId=$poId',
-                          );
-                          _openGoodsReceiptNoteFormDialog(prefilledPoId: poId);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.starColor,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Convert to GRN'),
-                      ),
-                  ],
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _showPurchaseOrderStatusDialog({
-    required int poId,
-    required String currentStatus,
-    List<Map<String, dynamic>> lines = const <Map<String, dynamic>>[],
-  }) async {
-    final branchId = _selectedBranch?.branchId;
-    if (branchId == null) return;
-    _logOperations(
-      'purchase_order_status_dialog_open',
-      details: 'branchId=$branchId, poId=$poId, currentStatus=$currentStatus',
-    );
-    final canClose =
-        currentStatus == 'CLOSED' || _purchaseOrderFullyReceived(lines);
-    final statuses = <String>[
-      'ISSUED',
-      'ACCEPTED',
-      'DELIVERED',
-      'PARTIALLY_RECEIVED',
-      'CANCELLED',
-      if (canClose) 'CLOSED',
-    ];
-    String selected =
-        statuses.contains(currentStatus) ? currentStatus : statuses.first;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        bool isUpdating = false;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> handleUpdate() async {
-              setDialogState(() => isUpdating = true);
-              try {
-                _logOperations(
-                  'purchase_order_status_update_start',
-                  details: 'branchId=$branchId, poId=$poId, status=$selected',
-                );
-                final response = await _apiService.updatePurchaseOrderStatus(
-                  branchId: branchId,
-                  poId: poId,
-                  payload: <String, dynamic>{
-                    'newStatus': selected,
-                    'status': selected,
-                    'orderStatus': selected,
-                  },
-                );
-                _ensureSuccess(
-                  response,
-                  fallback: 'Failed to update purchase order status',
-                );
-                _logOperations(
-                  'purchase_order_status_update_success',
-                  details: 'branchId=$branchId, poId=$poId, status=$selected',
-                );
-                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-                await _loadPurchaseOrders(branchId);
-                _showToast('Purchase order status updated successfully');
-              } catch (error) {
-                _logOperations(
-                  'purchase_order_status_update_failure',
-                  details: error,
-                );
-                _showToast(error.toString());
-                if (dialogContext.mounted) {
-                  setDialogState(() => isUpdating = false);
-                }
-              }
-            }
-
-            return AlertDialog(
-              title: const Text('Update PO Status'),
-              content: DropdownButtonFormField<String>(
-                key: ValueKey<String>(selected),
-                initialValue: selected,
-                decoration: const InputDecoration(
-                  labelText: 'Status',
-                  border: OutlineInputBorder(),
-                ),
-                items: statuses
-                    .map(
-                      (status) => DropdownMenuItem<String>(
-                        value: status,
-                        child: Text(status),
-                      ),
-                    )
-                    .toList(),
-                onChanged: isUpdating
-                    ? null
-                    : (value) {
-                        if (value != null) selected = value;
+                if (status == 'ISSUED' ||
+                    status == 'ACCEPTED' ||
+                    status == 'DELIVERED' ||
+                    status == 'PARTIALLY_RECEIVED')
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        _logOperations(
+                          'purchase_order_convert_to_grn',
+                          details: 'branchId=$branchId, poId=$poId',
+                        );
+                        _openGoodsReceiptNoteFormDialog(prefilledPoId: poId);
                       },
-              ),
-              actions: [
-                TextButton(
-                  onPressed:
-                      isUpdating ? null : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: isUpdating ? null : handleUpdate,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.starColor,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Convert to GRN'),
+                    ),
                   ),
-                  child: Text(isUpdating ? 'Updating...' : 'Update'),
-                ),
               ],
             );
           },
@@ -1508,8 +1476,9 @@ class _OwnerProfileOperationsScreenState
                     value: _firstText(detail, const ['grnId', 'id'],
                         fallback: 'N/A')),
                 _DetailLine(
-                    label: 'PO ID',
-                    value: _firstText(detail, const ['poId', 'purchaseOrderId'],
+                    label: 'PO Number',
+                    value: _firstText(
+                        detail, const ['poNumber', 'poId', 'purchaseOrderId'],
                         fallback: 'N/A')),
                 _DetailLine(
                     label: 'Vendor',
@@ -1528,28 +1497,47 @@ class _OwnerProfileOperationsScreenState
                 if (lines.isEmpty)
                   const Text('No lines found')
                 else
-                  _LinesTable(
-                    rows: lines
-                        .map(
-                          (line) => <String>[
-                            _firstText(
-                                line, const ['itemName', 'name', 'title'],
-                                fallback: 'Item'),
-                            _firstText(line, const ['orderedQty'],
-                                fallback: '0'),
-                            _firstText(line, const ['receivedQty'],
-                                fallback: '0'),
-                            _firstText(line, const ['returnQty'],
-                                fallback: '0'),
-                          ],
-                        )
-                        .toList(),
-                    headers: const <String>[
-                      'Item',
-                      'Ordered',
-                      'Received',
-                      'Return'
-                    ],
+                  Builder(
+                    builder: (context) {
+                      final showReceivedQty =
+                          _statusLabel(detail).contains('PARTIAL');
+                      final headers = <String>[
+                        'Item Number',
+                        'Item',
+                        'Ordered',
+                        if (showReceivedQty) 'Received Quantity',
+                        'Return',
+                      ];
+                      final rows = lines
+                          .map(
+                            (line) => <String>[
+                              _firstText(
+                                line,
+                                const [
+                                  'itemNumber',
+                                  'itemNo',
+                                  'skuNumber',
+                                  'sku',
+                                  'itemId',
+                                  'id',
+                                ],
+                                fallback: '-',
+                              ),
+                              _firstText(
+                                  line, const ['itemName', 'name', 'title'],
+                                  fallback: 'Item'),
+                              _firstText(line, const ['orderedQty'],
+                                  fallback: '0'),
+                              if (showReceivedQty)
+                                _firstText(line, const ['receivedQty'],
+                                    fallback: '0'),
+                              _firstText(line, const ['returnQty'],
+                                  fallback: '0'),
+                            ],
+                          )
+                          .toList();
+                      return _LinesTable(headers: headers, rows: rows);
+                    },
                   ),
               ],
             );

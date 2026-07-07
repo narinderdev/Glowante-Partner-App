@@ -224,7 +224,7 @@ class _StoreFormViewState extends State<_StoreFormView> {
             // ),
 
 TextFormField(
-  maxLength: 120,
+  maxLength: 50,
   controller: _nameController,
   decoration: InputDecoration(
     labelText: context.t('Store Name'),
@@ -241,7 +241,7 @@ TextFormField(
             const SizedBox(height: 14),
 
             TextFormField(
-              maxLength: 120,
+              maxLength: 50,
               controller: _addressController,
               maxLines: 1,
               decoration: InputDecoration(
@@ -252,7 +252,7 @@ TextFormField(
             const SizedBox(height: 14),
 
             TextFormField(
-              maxLength: 120,
+              maxLength: 100,
               controller: _binController,
               decoration: InputDecoration(
                 labelText: context.t('Bin Description'),

@@ -20,6 +20,8 @@ const Color _dealBorder = Color(0xFFE8DED6);
 const Color _dealFieldFill = Color(0xFFF7F4F3);
 const Color _dealSurface = Color(0xFFFBFAF8);
 const Color _dealSoftGold = Color(0xFFF5EAD2);
+const int _currencyInputMaxLength = 15;
+const int _percentageInputMaxLength = 3;
 
 class AddDealsScreen extends StatefulWidget {
   final int branchId;
@@ -375,6 +377,7 @@ String formatInputAmount(num value) {
       initialDate: now.isBefore(firstDate) ? firstDate : now,
       firstDate: firstDate,
       lastDate: DateTime(now.year + 5),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
@@ -417,6 +420,10 @@ String formatInputAmount(num value) {
   }
 
   double _parseNum(String s) => double.tryParse(s.trim()) ?? 0.0;
+
+  bool get _usesFlatAmountOff =>
+      pricingMode == 'Fixed' ||
+      (pricingMode == 'Discount' && discountType == 'Flat');
 
   double? _parseCurrency(String value) {
     final sanitized = value.replaceAll(RegExp(r'[^0-9.]'), '');
@@ -634,8 +641,11 @@ originalPriceController.text =
 
     double discounted = original;
 
-    if (pricingMode == 'Fixed') {
+    if (_usesFlatAmountOff) {
       final off = _parseNum(amountOffController.text).clamp(0, original);
+      if (_parseNum(amountOffController.text) > original) {
+        _setTextSafe(amountOffController, formatInputAmount(original));
+      }
       discounted = original - off;
     } else {
       if (discountType == 'Flat') {
@@ -725,12 +735,22 @@ originalPriceController.text =
       if (a == null || a <= 0) {
         return translateText('Enter a valid amount off.');
       }
+
+      final original = _parseNum(originalPriceController.text);
+      if (original > 0 && a > original) {
+        return translateText('Amount off cannot exceed original price.');
+      }
     } else {
       if (discountType == 'Flat') {
         final a = _parseCurrency(x);
 
         if (a == null || a <= 0) {
           return translateText('Enter a valid discount amount.');
+        }
+
+        final original = _parseNum(originalPriceController.text);
+        if (original > 0 && a > original) {
+          return translateText('Amount off cannot exceed original price.');
         }
       } else {
         final p = double.tryParse(x);
@@ -748,20 +768,40 @@ originalPriceController.text =
     return null;
   }
 
+  // String? _vMaxDiscount(String? v) {
+  //   if (_sMaxDiscount) return null;
+
+  //   if (pricingMode == 'Discount' && discountType == 'Percent') {
+  //     final m = _parseCurrency(v ?? '');
+
+  //     if (m == null || m <= 0) {
+  //       return translateText('Enter the maximum discount amount.');
+  //     }
+  //   }
+
+  //   return null;
+  // }
   String? _vMaxDiscount(String? v) {
-    if (_sMaxDiscount) return null;
+  if (_sMaxDiscount) return null;
 
-    if (pricingMode == 'Discount' && discountType == 'Percent') {
-      final m = _parseCurrency(v ?? '');
+  if (pricingMode == 'Discount' && discountType == 'Percent') {
+    final m = _parseCurrency(v ?? '');
 
-      if (m == null || m <= 0) {
-        return translateText('Enter the maximum discount amount.');
-      }
+    if (m == null || m <= 0) {
+      return translateText('Enter the maximum discount amount.');
     }
 
-    return null;
+    final original = _parseNum(originalPriceController.text);
+
+    if (original > 0 && m > original) {
+      return translateText(
+        'Maximum discount amount cannot exceed the original price.',
+      );
+    }
   }
 
+  return null;
+}
   String? _vDiscounted() {
     if (_sDiscounted) return null;
 
@@ -995,36 +1035,81 @@ Future<void> _showValidationDialog(List<String> errors) async {
     return true;
   }
 
+  // Future<void> _openReviewSummary() async {
+  //   if (!await _validateFormAndShowAlert()) return;
+
+  //   if (!mounted) return;
+
+  //   await Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (_) => OfferReviewSummaryScreen(
+  //         isPackage: _isPackage,
+  //         isEdit: widget.isEdit,
+  //         title: dealTitleController.text.trim(),
+  //         pricingMode: pricingMode,
+  //         discountType: discountType,
+  //         amountOff: amountOffController.text.trim(),
+  //         maxDiscount: maxDiscountController.text.trim(),
+  //         originalPrice: originalPriceController.text.trim(),
+  //         discountedPrice: discountedPriceController.text.trim(),
+  //         terms: termsController.text.trim(),
+  //         durationValue: durationValueController.text.trim(),
+  //         durationUnit: durationUnit,
+  //         validFrom: validFromController.text.trim(),
+  //         validTill: validTillController.text.trim(),
+  //         selectedServices: _selectedServices,
+  //         isSubmitting: _isSubmitting,
+  //         onSubmit: _submitOffer,
+  //       ),
+  //     ),
+  //   );
+  // }
   Future<void> _openReviewSummary() async {
-    if (!await _validateFormAndShowAlert()) return;
+  final original = _parseNum(originalPriceController.text);
+  final maxDiscount = _parseCurrency(maxDiscountController.text) ?? 0;
 
-    if (!mounted) return;
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OfferReviewSummaryScreen(
-          isPackage: _isPackage,
-          isEdit: widget.isEdit,
-          title: dealTitleController.text.trim(),
-          pricingMode: pricingMode,
-          discountType: discountType,
-          amountOff: amountOffController.text.trim(),
-          maxDiscount: maxDiscountController.text.trim(),
-          originalPrice: originalPriceController.text.trim(),
-          discountedPrice: discountedPriceController.text.trim(),
-          terms: termsController.text.trim(),
-          durationValue: durationValueController.text.trim(),
-          durationUnit: durationUnit,
-          validFrom: validFromController.text.trim(),
-          validTill: validTillController.text.trim(),
-          selectedServices: _selectedServices,
-          isSubmitting: _isSubmitting,
-          onSubmit: _submitOffer,
-        ),
+  if (pricingMode == 'Discount' &&
+      discountType == 'Percent' &&
+      original > 0 &&
+      maxDiscount > original) {
+    Fluttertoast.showToast(
+      msg: translateText(
+        'Maximum discount amount cannot exceed the original price.',
       ),
     );
+    return;
   }
+
+  if (!await _validateFormAndShowAlert()) return;
+
+  if (!mounted) return;
+
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => OfferReviewSummaryScreen(
+        isPackage: _isPackage,
+        isEdit: widget.isEdit,
+        title: dealTitleController.text.trim(),
+        pricingMode: pricingMode,
+        discountType: discountType,
+        amountOff: amountOffController.text.trim(),
+        maxDiscount: maxDiscountController.text.trim(),
+        originalPrice: originalPriceController.text.trim(),
+        discountedPrice: discountedPriceController.text.trim(),
+        terms: termsController.text.trim(),
+        durationValue: durationValueController.text.trim(),
+        durationUnit: durationUnit,
+        validFrom: validFromController.text.trim(),
+        validTill: validTillController.text.trim(),
+        selectedServices: _selectedServices,
+        isSubmitting: _isSubmitting,
+        onSubmit: _submitOffer,
+      ),
+    ),
+  );
+}
 String? getApiGender(String? gender) {
   switch (gender?.toUpperCase()) {
     case 'MALE':
@@ -1180,10 +1265,10 @@ String? getApiGender(String? gender) {
       suffixIcon: suffix,
       filled: true,
       fillColor: _dealFieldFill,
-      helperText: ' ',
-      helperStyle: const TextStyle(height: 1),
-      errorStyle: const TextStyle(height: 1.1),
-      contentPadding: const EdgeInsets.fromLTRB(14, 14, 70, 28),
+      isDense: true,
+helperText: null,
+errorStyle: const TextStyle(height: 0, fontSize: 0),
+contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
       border: OutlineInputBorder(borderRadius: _radius),
       enabledBorder: OutlineInputBorder(
         borderRadius: _radius,
@@ -1478,9 +1563,6 @@ String? getApiGender(String? gender) {
             setState(() {
               pricingMode = v ?? 'Fixed';
               _autoSetMaxFromPercent = true;
-              amountOffController.clear();
-              maxDiscountController.clear();
-              discountedPriceController.clear();
 
               if (pricingMode == 'Fixed') {
                 discountType = 'Flat';
@@ -1654,9 +1736,6 @@ String? getApiGender(String? gender) {
         setState(() {
           discountType = v ?? 'Flat';
           _autoSetMaxFromPercent = true;
-          amountOffController.clear();
-          maxDiscountController.clear();
-          discountedPriceController.clear();
         });
 
         _recalcDiscounted();
@@ -1677,14 +1756,14 @@ String? getApiGender(String? gender) {
     if (showFlatField) {
       return _fieldWithBottomCounter(
         controller: amountOffController,
-        maxLength: 120,
+        maxLength: _currencyInputMaxLength,
         child: TextFormField(
-          maxLength: 120,
+          maxLength: _currencyInputMaxLength,
           controller: amountOffController,
           keyboardType: TextInputType.number,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(120),
+            LengthLimitingTextInputFormatter(_currencyInputMaxLength),
           ],
           autovalidateMode: _showErrors
               ? AutovalidateMode.onUserInteraction
@@ -1711,14 +1790,14 @@ String? getApiGender(String? gender) {
           Expanded(
             child: _fieldWithBottomCounter(
               controller: amountOffController,
-              maxLength: 120,
+              maxLength: _percentageInputMaxLength,
               child: TextFormField(
-                maxLength: 120,
+                maxLength: _percentageInputMaxLength,
                 controller: amountOffController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(120),
+                  LengthLimitingTextInputFormatter(_percentageInputMaxLength),
                 ],
                 autovalidateMode: _showErrors
                     ? AutovalidateMode.onUserInteraction
@@ -1742,14 +1821,14 @@ String? getApiGender(String? gender) {
           Expanded(
             child: _fieldWithBottomCounter(
               controller: maxDiscountController,
-              maxLength: 120,
+              maxLength: _currencyInputMaxLength,
               child: TextFormField(
-                maxLength: 120,
+                maxLength: _currencyInputMaxLength,
                 controller: maxDiscountController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(120),
+                  LengthLimitingTextInputFormatter(_currencyInputMaxLength),
                 ],
                 autovalidateMode: _showErrors
                     ? AutovalidateMode.onUserInteraction
@@ -1832,6 +1911,15 @@ String? getApiGender(String? gender) {
   }
 
   Widget _buildPackageDurationFields() {
+    void clampDurationForUnit(String unit) {
+      if (unit == 'MONTH') {
+        final current = int.tryParse(durationValueController.text.trim()) ?? 0;
+        if (current > 12) {
+          _setTextSafe(durationValueController, '12');
+        }
+      }
+    }
+
     return Column(
       children: [
         DropdownButtonFormField<String>(
@@ -1881,7 +1969,15 @@ String? getApiGender(String? gender) {
                     hint: translateText('e.g. 3'),
                   ),
                   validator: (_) => _vPackageDuration(),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (value) {
+                    if (durationUnit == 'MONTH') {
+                      final parsed = int.tryParse(value.trim()) ?? 0;
+                      if (parsed > 12) {
+                        _setTextSafe(durationValueController, '12');
+                      }
+                    }
+                    setState(() {});
+                  },
                 ),
               ),
             ),
@@ -1905,6 +2001,7 @@ String? getApiGender(String? gender) {
                   setState(() {
                     durationUnit = value ?? 'MONTH';
                   });
+                  clampDurationForUnit(durationUnit);
                 },
                 decoration: _decor(
                   label: '${translateText('Unit')} *',

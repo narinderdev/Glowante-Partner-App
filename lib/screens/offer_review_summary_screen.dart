@@ -4,7 +4,7 @@ import '../utils/price_formatter.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
-class OfferReviewSummaryScreen extends StatelessWidget {
+class OfferReviewSummaryScreen extends StatefulWidget {
   const OfferReviewSummaryScreen({
     super.key,
     required this.isPackage,
@@ -44,6 +44,14 @@ class OfferReviewSummaryScreen extends StatelessWidget {
   final Future<void> Function() onSubmit;
   final bool isSubmitting;
 
+  @override
+  State<OfferReviewSummaryScreen> createState() =>
+      _OfferReviewSummaryScreenState();
+}
+
+class _OfferReviewSummaryScreenState extends State<OfferReviewSummaryScreen> {
+  bool _localSubmitting = false;
+
   static const Color _gold = Color(0xFF8B6500);
   static const Color _ink = Color(0xFF1F1B18);
   static const Color _muted = Color(0xFF6F665E);
@@ -53,15 +61,15 @@ class OfferReviewSummaryScreen extends StatelessWidget {
   static const Color _softGold = Color(0xFFF5EAD2);
 
   String get _discountLabel {
-    if (pricingMode == 'Fixed') return 'Amount Off';
-    if (discountType == 'Percent') return 'Percentage Off';
+    if (widget.pricingMode == 'Fixed') return 'Amount Off';
+    if (widget.discountType == 'Percent') return 'Percentage Off';
     return 'Amount Off';
   }
 
   String get _discountValue {
-    if (pricingMode == 'Fixed') return _rupeeInputLabel(amountOff);
-    if (discountType == 'Percent') return '$amountOff%';
-    return _rupeeInputLabel(amountOff);
+    if (widget.pricingMode == 'Fixed') return _rupeeInputLabel(widget.amountOff);
+    if (widget.discountType == 'Percent') return '${widget.amountOff}%';
+    return _rupeeInputLabel(widget.amountOff);
   }
 
   String _rupeeInputLabel(String value) {
@@ -151,7 +159,9 @@ class OfferReviewSummaryScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: primary ? _softGold : _fieldFill,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: primary ? _gold.withOpacity(.25) : _border),
+          border: Border.all(
+            color: primary ? _gold.withValues(alpha: .25) : _border,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,17 +236,18 @@ class OfferReviewSummaryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pageTitle = isPackage
+    final pageTitle = widget.isPackage
         ? translateText('Package Summary')
         : translateText('Deal Summary');
 
-    final submitLabel = isEdit
-        ? isPackage
+    final submitLabel = widget.isEdit
+        ? widget.isPackage
             ? translateText('Update Package')
             : translateText('Update Deal')
-        : isPackage
+        : widget.isPackage
             ? translateText('Create Package')
             : translateText('Create Deal');
+    final submitting = widget.isSubmitting || _localSubmitting;
 
     return Scaffold(
       backgroundColor: _surface,
@@ -265,7 +276,7 @@ class OfferReviewSummaryScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        isPackage
+                        widget.isPackage
                             ? Icons.inventory_2_rounded
                             : Icons.local_offer_rounded,
                         color: _gold,
@@ -302,24 +313,24 @@ class OfferReviewSummaryScreen extends StatelessWidget {
               const SizedBox(height: 18),
 
               _sectionTitle(
-                isPackage ? 'Package Information' : 'Deal Information',
+                widget.isPackage ? 'Package Information' : 'Deal Information',
                 Icons.info_outline_rounded,
               ),
               _infoCard(
                 children: [
-                  _row(isPackage ? 'Package Title' : 'Deal Title', title),
-                  _row('Pricing Option', pricingMode),
-                  if (pricingMode == 'Discount')
-                    _row('Discount Type', discountType),
+                  _row(widget.isPackage ? 'Package Title' : 'Deal Title', widget.title),
+                  _row('Pricing Option', widget.pricingMode),
+                  if (widget.pricingMode == 'Discount')
+                    _row('Discount Type', widget.discountType),
                   _row(_discountLabel, _discountValue, highlight: true),
-                  if (pricingMode == 'Discount' && discountType == 'Percent')
-                    _row('Max Discount', _rupeeInputLabel(maxDiscount)),
-                  _row('Terms', terms),
-                  if (isPackage)
-                    _row('Duration', '$durationValue $durationUnit')
+                  if (widget.pricingMode == 'Discount' && widget.discountType == 'Percent')
+                    _row('Max Discount', _rupeeInputLabel(widget.maxDiscount)),
+                  _row('Terms', widget.terms),
+                  if (widget.isPackage)
+                    _row('Duration', '${widget.durationValue} ${widget.durationUnit}')
                   else ...[
-                    _row('Start Date', validFrom),
-                    _row('End Date', validTill),
+                    _row('Start Date', widget.validFrom),
+                    _row('End Date', widget.validTill),
                   ],
                 ],
               ),
@@ -328,15 +339,15 @@ class OfferReviewSummaryScreen extends StatelessWidget {
               _sectionTitle('Price Summary', Icons.payments_outlined),
               Row(
                 children: [
-                  _priceBox('Original Price', originalPrice),
+                  _priceBox('Original Price', widget.originalPrice),
                   const SizedBox(width: 12),
-                  _priceBox('Discounted Price', discountedPrice, primary: true),
+                  _priceBox('Discounted Price', widget.discountedPrice, primary: true),
                 ],
               ),
 
               const SizedBox(height: 18),
               _sectionTitle('Selected Services', Icons.spa_outlined),
-              if (selectedServices.isEmpty)
+              if (widget.selectedServices.isEmpty)
                 _infoCard(
                   children: [
                     Text(
@@ -350,7 +361,7 @@ class OfferReviewSummaryScreen extends StatelessWidget {
                 )
               else
                 _infoCard(
-                  children: selectedServices.map(_serviceCard).toList(),
+                  children: widget.selectedServices.map(_serviceCard).toList(),
                 ),
             ],
           ),
@@ -367,7 +378,7 @@ class OfferReviewSummaryScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                  onPressed: submitting ? null : () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _gold,
                     side: const BorderSide(color: _gold),
@@ -385,7 +396,18 @@ class OfferReviewSummaryScreen extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: isSubmitting ? null : onSubmit,
+                  onPressed: submitting
+                      ? null
+                      : () async {
+                          setState(() => _localSubmitting = true);
+                          try {
+                            await widget.onSubmit();
+                          } finally {
+                            if (mounted) {
+                              setState(() => _localSubmitting = false);
+                            }
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.starColor,
                     foregroundColor: Colors.white,
@@ -395,7 +417,7 @@ class OfferReviewSummaryScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: isSubmitting
+                  child: submitting
                       ? const SizedBox(
                           width: 20,
                           height: 20,

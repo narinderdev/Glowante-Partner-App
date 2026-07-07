@@ -1,4 +1,5 @@
 part of 'owner_profile_operations_screen.dart';
+
 class _GoodsReceiptNoteFormView extends StatefulWidget {
   const _GoodsReceiptNoteFormView({
     required this.branchId,
@@ -23,6 +24,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
   final TextEditingController _receivedByController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   List<Map<String, dynamic>> _purchaseOrders = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _poLineOptions = const <Map<String, dynamic>>[];
   List<_GrnLineInput> _lines = <_GrnLineInput>[_GrnLineInput()];
   int? _selectedPoId;
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
@@ -30,7 +32,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
   bool _isLoadingOptions = true;
   bool _isLoadingLines = false;
   bool _isSaving = false;
-
+List<Map<String, dynamic>> _vendors = const <Map<String, dynamic>>[];
   bool get _isPoLocked => widget.prefilledPoId != null;
 
   @override
@@ -39,19 +41,47 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
     _selectedPoId = widget.prefilledPoId;
     _loadPurchaseOrders();
   }
+  String _poDropdownLabel(Map<String, dynamic> po) {
+  final poNumber = _firstText(
+    po,
+    const ['poNumber', 'poId', 'id'],
+    fallback: context.t('Purchase Order'),
+  );
 
-  Future<void> _loadPurchaseOrders() async {
-    final response = await _apiService.getPurchaseOrders(widget.branchId);
-    if (!mounted) return;
-    setState(() {
-      _purchaseOrders = _recordList(response);
-      _isLoadingOptions = false;
-    });
-    if (_selectedPoId != null) {
-      await _loadPoLines(_selectedPoId!);
-    }
+  final vendor = _vendorDisplayLabel(po, _vendors);
+
+  return vendor == 'N/A' ? poNumber : '$poNumber - $vendor';
+}
+  // Future<void> _loadPurchaseOrders() async {
+  //   final response = await _apiService.getPurchaseOrders(widget.branchId);
+  //   if (!mounted) return;
+  //   setState(() {
+  //     _purchaseOrders = _recordList(response);
+  //     _isLoadingOptions = false;
+  //   });
+  //   if (_selectedPoId != null) {
+  //     await _loadPoLines(_selectedPoId!);
+  //   }
+  // }
+
+Future<void> _loadPurchaseOrders() async {
+  final results = await Future.wait<Map<String, dynamic>>([
+    _apiService.getPurchaseOrders(widget.branchId),
+    _apiService.getBranchVendors(widget.branchId),
+  ]);
+
+  if (!mounted) return;
+
+  setState(() {
+    _purchaseOrders = _recordList(results[0]);
+    _vendors = _recordList(results[1]);
+    _isLoadingOptions = false;
+  });
+
+  if (_selectedPoId != null) {
+    await _loadPoLines(_selectedPoId!);
   }
-
+}
   Future<void> _loadPoLines(int poId) async {
     setState(() => _isLoadingLines = true);
     final response = await _apiService.getPurchaseOrderDetails(
@@ -59,19 +89,48 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
       poId: poId,
     );
     final detail = _detailMap(response);
-    final lines = _recordList(detail['lines'] ?? detail['items'])
+    final lineOptions = _recordList(detail['lines'] ?? detail['items']);
+    final lines = lineOptions
         .map((line) => _GrnLineInput.fromPurchaseOrderLine(line))
         .toList();
     if (!mounted) return;
+    for (final line in _lines) {
+      line.dispose();
+    }
     setState(() {
+      _poLineOptions = lineOptions;
       _lines = lines.isEmpty ? <_GrnLineInput>[_GrnLineInput()] : lines;
       _isLoadingLines = false;
     });
   }
 
   void _addLine() {
+    if (!_canAddLine) {
+      Fluttertoast.showToast(
+        msg: context.t('All purchase order items are already added'),
+      );
+      return;
+    }
+    final selectedPoLineIds = _selectedPoLineIds();
+    Map<String, dynamic>? nextOption;
+    for (final option in _poLineOptions) {
+      final poLineId = _toInt(option['id'] ?? option['poLineId']);
+      if (poLineId != null && !selectedPoLineIds.contains(poLineId)) {
+        nextOption = option;
+        break;
+      }
+    }
+    if (nextOption == null) {
+      Fluttertoast.showToast(
+        msg: context.t('All purchase order items are already added'),
+      );
+      return;
+    }
     setState(() {
-      _lines = <_GrnLineInput>[..._lines, _GrnLineInput()];
+      _lines = <_GrnLineInput>[
+        ..._lines,
+        _GrnLineInput.fromPurchaseOrderLine(nextOption!),
+      ];
     });
   }
 
@@ -87,13 +146,31 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
     return remaining < 0 ? 0 : remaining;
   }
 
+  Set<int> _selectedPoLineIds({int? excludeIndex}) {
+    final ids = <int>{};
+    for (var index = 0; index < _lines.length; index++) {
+      if (excludeIndex != null && index == excludeIndex) continue;
+      final poLineId = _lines[index].poLineId;
+      if (poLineId != null) ids.add(poLineId);
+    }
+    return ids;
+  }
+
+  bool get _canAddLine =>
+      _poLineOptions.isNotEmpty && _lines.length < _poLineOptions.length;
+
   Future<void> _submit() async {
     setState(() {
       _autoValidateMode = AutovalidateMode.onUserInteraction;
       _submitError = null;
     });
 
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      Fluttertoast.showToast(
+        msg: context.t('Please fix the highlighted fields'),
+      );
+      return;
+    }
     if (_selectedPoId == null) {
       Fluttertoast.showToast(msg: context.t('PO is required'));
       return;
@@ -101,7 +178,8 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
     for (final line in _lines) {
       if ((line.poLineId == null && line.itemId == null) ||
           (_toInt(line.receivedQtyController.text) ?? 0) <= 0) {
-        Fluttertoast.showToast(msg: context.t('Each line requires poLine/item and received qty'));
+        Fluttertoast.showToast(
+            msg: context.t('Each line requires poLine/item and received qty'));
         return;
       }
     }
@@ -128,12 +206,14 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
       });
     } catch (error) {
       if (!mounted) return;
+      final message = extractErrorMessage(
+        error,
+        fallback: context.t('Unable to save GRN. Please try again.'),
+      );
       setState(() {
-        _submitError = extractErrorMessage(
-          error,
-          fallback: context.t('Unable to save GRN. Please try again.'),
-        );
+        _submitError = message;
       });
+      Fluttertoast.showToast(msg: message);
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -152,7 +232,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
   @override
   Widget build(BuildContext context) {
     return _FormCard(
-      title: context.t('Add GRN'),
+      title: context.t('Create GRN'),
       onBack: widget.onBack,
       child: _isLoadingOptions
           ? const Center(child: CircularProgressIndicator())
@@ -167,17 +247,20 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                     initialValue: _selectedPoId,
                     decoration:
                         InputDecoration(labelText: context.t('Purchase Order')),
+                    isExpanded: true,
+                    menuMaxHeight: 260,
                     items: _purchaseOrders
                         .map(
                           (po) => DropdownMenuItem<int>(
                             value: _toInt(po['id'] ?? po['poId']),
-                            child: Text(
-                              _firstText(
-                                po,
-                                const ['poId', 'id'],
-                                fallback: context.t('Purchase Order'),
-                              ),
-                            ),
+                            // child: _dropdownMenuText(
+                            //   _firstText(
+                            //     po,
+                            //     const ['poNumber', 'poId', 'id'],
+                            //     fallback: context.t('Purchase Order'),
+                            //   ),
+                            // ),
+                            child: _dropdownMenuText(_poDropdownLabel(po)),
                           ),
                         )
                         .toList(),
@@ -229,11 +312,12 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                           ),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: _addLine,
-                        icon: const Icon(Icons.add),
-                        label: Text(context.t('Add Line')),
-                      ),
+                      if (_canAddLine)
+                        TextButton.icon(
+                          onPressed: _addLine,
+                          icon: const Icon(Icons.add),
+                          label: Text(context.t('Add Line')),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -271,8 +355,9 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
-                              maxLength: 120,
+                              maxLength: 15,
                               controller: line.receivedQtyController,
+                              inputFormatters: _integerInputFormatters(),
                               keyboardType: TextInputType.number,
                               decoration: InputDecoration(
                                 labelText: context.t('Received Qty'),
@@ -302,8 +387,9 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
-                              maxLength: 120,
+                              maxLength: 15,
                               controller: line.returnQtyController,
+                              inputFormatters: _integerInputFormatters(),
                               keyboardType: TextInputType.number,
                               decoration: InputDecoration(
                                 labelText: context.t('Return Qty'),

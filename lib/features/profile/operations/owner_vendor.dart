@@ -1,4 +1,5 @@
 part of 'owner_profile_operations_screen.dart';
+
 class _VendorFormView extends StatefulWidget {
   const _VendorFormView({
     required this.isEdit,
@@ -77,7 +78,6 @@ class _VendorFormViewState extends State<_VendorFormView> {
   Widget build(BuildContext context) {
     final vendorNameRequired = translateText('Vendor name is required');
     final phoneRequired = translateText('Phone is required');
-    final phoneDigits = translateText('Phone must be exactly 10 digits');
     final emailRequired = translateText('Email is required');
     final emailInvalid = translateText('Enter a valid email');
 
@@ -115,10 +115,12 @@ class _VendorFormViewState extends State<_VendorFormView> {
               ],
               maxLength: 10,
               validator: (value) {
-                final digits = _stringValue(value);
-                if (digits.isEmpty) return phoneRequired;
-                if (digits.length != 10) {
-                  return phoneDigits;
+                final phone = _stringValue(value);
+                if (phone.isEmpty) return phoneRequired;
+                if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(phone)) {
+                  return translateText(
+                    'Enter a valid 10-digit phone number starting with 6, 7, 8, or 9',
+                  );
                 }
                 return null;
               },
@@ -330,6 +332,7 @@ class _VendorTextField extends StatelessWidget {
       autocorrect: autocorrect,
       textCapitalization: textCapitalization,
       validator: validator,
+       autovalidateMode: AutovalidateMode.onUserInteraction,
       style: const TextStyle(
         color: Color(0xFF1C1917),
         fontSize: 13,

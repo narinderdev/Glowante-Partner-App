@@ -251,6 +251,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
     final String name = (s['displayName'] ?? '').toString();
     final int price = _servicePriceMinor(s);
     final int qty = selectedQty[id] ?? 0;
+    final bool canIncrease = qty < 3;
 
     // ❌ DO NOT FILTER HERE.
     // Filtering is already handled inside _buildCategory().
@@ -344,13 +345,39 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
               const SizedBox(width: 6),
               _quantityButton(
                 icon: Icons.add_rounded,
-                onPressed: () => setState(() => selectedQty[id] = qty + 1),
+                onPressed: canIncrease
+                    ? () => setState(() => selectedQty[id] = qty + 1)
+                    : null,
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  bool _categoryMatchesSearch(Map<String, dynamic> cat, String q) {
+    final List services = cat['services'] as List? ?? [];
+    final List subs = cat['subCategories'] as List? ?? [];
+
+    final filteredServices = services.where((s) {
+      final name = (s['displayName'] ?? '').toString().toLowerCase();
+      return q.isEmpty || name.contains(q);
+    }).toList();
+
+    final filteredSubs = subs.where((sub) {
+      final subMap = (sub as Map).cast<String, dynamic>();
+      final subName = (subMap['displayName'] ?? '').toString().toLowerCase();
+      final subServices = (subMap['services'] ?? []) as List;
+      if (subServices.isEmpty) return false;
+
+      final bool hasMatchingService = subServices.any((svc) =>
+          (svc['displayName'] ?? '').toString().toLowerCase().contains(q));
+
+      return q.isEmpty || subName.contains(q) || hasMatchingService;
+    }).toList();
+
+    return filteredServices.isNotEmpty || filteredSubs.isNotEmpty;
   }
 
   Widget _buildCategory(Map<String, dynamic> cat) {
@@ -594,13 +621,24 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
                           title: 'No services available',
                           message: 'Add services before creating deals.',
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          itemCount: categories.length,
-                          itemBuilder: (ctx, i) => _buildCategory(
-                            (categories[i] as Map).cast<String, dynamic>(),
-                          ),
-                        ),
+                      : (searchQuery.isNotEmpty &&
+                              !categories.any((cat) => _categoryMatchesSearch(
+                                    (cat as Map).cast<String, dynamic>(),
+                                    searchQuery.toLowerCase(),
+                                  )))
+                          ? _statePanel(
+                              icon: Icons.search_off_rounded,
+                              title: 'No services found',
+                              message:
+                                  'Try a different search term or clear search.',
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              itemCount: categories.length,
+                              itemBuilder: (ctx, i) => _buildCategory(
+                                (categories[i] as Map).cast<String, dynamic>(),
+                              ),
+                            ),
                 ),
 
                 // Bottom bar

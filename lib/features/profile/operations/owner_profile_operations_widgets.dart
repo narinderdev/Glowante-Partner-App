@@ -382,12 +382,34 @@ class _LinesTable extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        columns:
-            headers.map((header) => DataColumn(label: Text(header))).toList(),
+        columns: headers
+            .map(
+              (header) => DataColumn(
+                label: Text(
+                  header,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
         rows: rows
             .map(
               (row) => DataRow(
-                cells: row.map((cell) => DataCell(Text(cell))).toList(),
+                cells: row
+                    .map(
+                      (cell) => DataCell(
+                        SizedBox(
+                          width: 110,
+                          child: Text(
+                            cell,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
             )
             .toList(),
