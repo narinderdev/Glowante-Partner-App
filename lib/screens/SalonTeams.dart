@@ -7,6 +7,7 @@ import 'Addteam.dart';
 import 'TeamMemberDetails.dart';
 import 'AssignUser.dart';
 import 'assign_user_flow_constants.dart';
+import '../services/stylist_branch_selection.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -121,7 +122,6 @@ class _TeamScreenState extends State<TeamScreen> {
   List<Map<String, dynamic>> _salons = const [];
   Map<int, _TeamRatingSummary> _professionalRatings = const {};
   bool _hasTeamMembers = false;
-  bool _autoPicked = false;
   String _teamStatusFilter = 'all';
   bool? _allowOnlineBookingFilter;
   DateTime? _teamDateFilter;
@@ -152,6 +152,7 @@ class _TeamScreenState extends State<TeamScreen> {
   /// [{branchId, branchName, salonId, salonName}]
   Future<List<Map<String, dynamic>>> _getBranchOptions() async {
     try {
+      final selection = await StylistBranchSelectionStore.load();
       final response = await ApiService().getSalonListApi();
       if (response['success'] == true) {
         final List salons = response['data'] ?? [];
@@ -175,6 +176,18 @@ class _TeamScreenState extends State<TeamScreen> {
             });
           }
         }
+
+        if (mounted && out.isNotEmpty && selectedBranchId == null) {
+          final preferredBranchId = selection.branchId;
+          final branchToSelect = preferredBranchId == null
+              ? out.first
+              : out.firstWhere(
+                  (item) => _asInt(item['branchId']) == preferredBranchId,
+                  orElse: () => out.first,
+                );
+          _pickBranch(branchToSelect);
+        }
+
         return out;
       } else {
         throw Exception("Failed to fetch salon list");
@@ -959,6 +972,23 @@ class _TeamScreenState extends State<TeamScreen> {
     _teamServiceOptions = const <_TeamServiceFilterOption>[];
     _selectedTeamServiceIds.clear();
 
+    final salonId = _asInt(branchOpt['salonId']);
+    final branchId = _asInt(branchOpt['branchId']);
+    final salonName = (branchOpt['salonName'] ?? '').toString().trim();
+    final branchName = (branchOpt['branchName'] ?? '').toString().trim();
+    if (salonId != null && branchId != null) {
+      unawaited(
+        StylistBranchSelectionStore.save(
+          salonId: salonId,
+          branchId: branchId,
+          salonName: salonName.isEmpty ? 'Salon' : salonName,
+          branchName: branchName.isEmpty
+              ? (salonName.isEmpty ? 'Branch' : salonName)
+              : branchName,
+        ),
+      );
+    }
+
     if (selectedBranchId != null) {
       final branchId = selectedBranchId!;
       teamMembersFuture = _getTeamMembersByBranch(branchId);
@@ -1242,12 +1272,6 @@ class _TeamScreenState extends State<TeamScreen> {
               );
             } else {
               final branches = snapshot.data!;
-
-              // ✅ Auto-pick first branch exactly once
-              if (!_autoPicked && branches.isNotEmpty) {
-                _autoPicked = true;
-                _pickBranch(branches.first);
-              }
 
               return RefreshIndicator(
                 color: AppColors.starColor,

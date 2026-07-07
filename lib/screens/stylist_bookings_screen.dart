@@ -5049,6 +5049,16 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
     return '${day.substring(0, 1).toUpperCase()}${day.substring(1)}';
   }
 
+  bool _isSelectedDateClosed() {
+    final dayKey = _weekdayKeyForDate(_selectedScheduleDate);
+    final dayHours = widget.salonWorkingHours
+        .where((item) => item.day.trim().toLowerCase() == dayKey)
+        .toList();
+
+    if (dayHours.isEmpty) return true;
+    return dayHours.every((item) => item.slots.isEmpty);
+  }
+
   @override
   Widget build(BuildContext context) {
     final sortedBookings = [..._scheduleBookings]..sort((first, second) {
@@ -5068,6 +5078,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
     final endLabel = widget.branchEndMinute == null
         ? null
         : _formatMinutesLabel(widget.branchEndMinute!);
+    final isSelectedDateClosed = _isSelectedDateClosed();
 
     return Scaffold(
       backgroundColor: _bookingsPage,
@@ -5429,6 +5440,11 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                 ),
               ),
             )
+          else if (isSelectedDateClosed)
+            _BranchClosedState(
+              branchLabel: 'Salon',
+              selectedDate: _selectedScheduleDate,
+            )
           else
             _TeamMemberTimeline(
               bookings: sortedBookings,
@@ -5437,7 +5453,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
               branchEndMinute: widget.branchEndMinute,
               onBookingTap: widget.onBookingTap,
             ),
-          if (endLabel != null) ...[
+          if (!isSelectedDateClosed && endLabel != null) ...[
             const SizedBox(height: 16),
             Text(
               '${context.t('Salon closes at')} $endLabel',
