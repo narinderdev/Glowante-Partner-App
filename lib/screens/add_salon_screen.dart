@@ -1053,13 +1053,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final endEmpty = _endTimeController.text.trim().isEmpty;
 
     if (isStart) {
-      return startEmpty ? translateText('Please select start time.') : null;
+      return startEmpty ? translateText('Select start time') : null;
     }
 
     if (!endEmpty) return null;
     return startEmpty
-        ? translateText('Please select start time to select end time.')
-        : translateText('Please select end time.');
+        ? translateText('Select start time first')
+        : translateText('Select end time');
   }
 
   Widget _buildTimeDropdownField({
@@ -1145,9 +1145,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             const SizedBox(height: 6),
             Text(
               errorText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
               style: const TextStyle(
                 color: AppColors.red,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),
