@@ -57,6 +57,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
   List<int> _initialSelectedServiceIds() {
     final ids = <int>{};
+    final bool isEditFlow = widget.teamMemberData['isEdit'] == true;
 
     void addId(dynamic value) {
       if (value is int) {
@@ -76,14 +77,16 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       }
     }
 
-    final userBranchServices = widget.teamMemberData['userBranchServices'];
-    if (userBranchServices is List) {
-      for (final item in userBranchServices) {
-        if (item is! Map) continue;
-        addId(item['branchServiceId']);
-        final branchService = item['branchService'];
-        if (branchService is Map) {
-          addId(branchService['id']);
+    if (isEditFlow) {
+      final userBranchServices = widget.teamMemberData['userBranchServices'];
+      if (userBranchServices is List) {
+        for (final item in userBranchServices) {
+          if (item is! Map) continue;
+          addId(item['branchServiceId']);
+          final branchService = item['branchService'];
+          if (branchService is Map) {
+            addId(branchService['id']);
+          }
         }
       }
     }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import 'assign_user_flow_constants.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
@@ -539,7 +540,24 @@ class _TeamOnlineAvailabilityScreenState
         await Future.delayed(const Duration(milliseconds: 700));
 
         if (!mounted) return;
-        Navigator.pop(context, true);
+        final navigator = Navigator.of(context);
+        var foundAssignRoot = false;
+        navigator.popUntil((route) {
+          final isAssignRoot = route.settings.name == kAssignUserRootRouteName;
+          if (isAssignRoot) {
+            foundAssignRoot = true;
+          }
+          return isAssignRoot || route.isFirst;
+        });
+
+        if (foundAssignRoot) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            navigator.pop(true);
+          });
+          return;
+        }
+
+        navigator.pop(true);
         return;
       }
       throw Exception(

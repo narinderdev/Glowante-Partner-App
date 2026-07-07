@@ -1700,9 +1700,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           widget.initialMember?['allowOnlineBooking'] ??
           true,
       'branchServiceIds': branchServiceIds,
-      'userBranchServices': branchAssignment?['userBranchServices'] ??
-          widget.initialMember?['userBranchServices'] ??
-          const [],
+      if (widget.isEdit)
+        'userBranchServices': branchAssignment?['userBranchServices'] ??
+            widget.initialMember?['userBranchServices'] ??
+            const [],
       'schedules': schedules,
       if (_teamAddressPayload() != null) 'address': _teamAddressPayload(),
     };
@@ -2542,28 +2543,27 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         GestureDetector(
                           onTap: _pickJoiningDate,
                           child: AbsorbPointer(
-                            child: TextFormField(
-  readOnly: true,
-  controller: TextEditingController(
-    text: _joiningDate == null
-        ? ''
-        : '${_joiningDate!.day.toString().padLeft(2, '0')}/${_joiningDate!.month.toString().padLeft(2, '0')}/${_joiningDate!.year}',
-  ),
-  style: const TextStyle(
-    color: Colors.black,
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-  ),
-  decoration: _decor(
-    hint: translateText('dd/mm/yyyy'),
-    suffix: const Icon(
-      Icons.calendar_month_outlined,
-      color: Color(0xFF8D867F),
-    ),
-  ),
-  validator: (_) => null,
-)
-                          ),
+                              child: TextFormField(
+                            readOnly: true,
+                            controller: TextEditingController(
+                              text: _joiningDate == null
+                                  ? ''
+                                  : '${_joiningDate!.day.toString().padLeft(2, '0')}/${_joiningDate!.month.toString().padLeft(2, '0')}/${_joiningDate!.year}',
+                            ),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            decoration: _decor(
+                              hint: translateText('dd/mm/yyyy'),
+                              suffix: const Icon(
+                                Icons.calendar_month_outlined,
+                                color: Color(0xFF8D867F),
+                              ),
+                            ),
+                            validator: (_) => null,
+                          )),
                         ),
                         if (_showGlobalErrors)
                           FormField<DateTime>(
@@ -2684,19 +2684,19 @@ class _PickField extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = values.isEmpty ? hint : values.join(', ');
     final hasValue = values.isNotEmpty;
-final controller = TextEditingController(text: text);
+    final controller = TextEditingController(text: text);
     return GestureDetector(
       onTap: onTap,
       child: AbsorbPointer(
         child: TextFormField(
-  readOnly: true,
-  controller: controller,
-  style: const TextStyle(
-    color: Colors.black,
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-  ),
-  decoration: InputDecoration(
+          readOnly: true,
+          controller: controller,
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: InputDecoration(
             hintText: hint,
             filled: true,
             fillColor: const Color(0xFFFAF9F8),

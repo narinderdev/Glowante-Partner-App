@@ -235,7 +235,10 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
       }
 
       if (result['completed'] == true) {
-        navigator.pop(true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          navigator.pop(true);
+        });
       }
       return;
     }
@@ -247,7 +250,10 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
     }
 
     if (result == true) {
-      navigator.pop(true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        navigator.pop(true);
+      });
     }
   }
 

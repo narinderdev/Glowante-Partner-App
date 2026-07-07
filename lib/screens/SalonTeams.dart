@@ -6,6 +6,7 @@ import '../utils/api_service.dart';
 import 'Addteam.dart';
 import 'TeamMemberDetails.dart';
 import 'AssignUser.dart';
+import 'assign_user_flow_constants.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -1173,6 +1174,7 @@ class _TeamScreenState extends State<TeamScreen> {
     final assigned = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
+        settings: const RouteSettings(name: kAssignUserRootRouteName),
         builder: (_) => AssignUserScreen(
           member: Map<String, dynamic>.from(member),
           salons: _salons,

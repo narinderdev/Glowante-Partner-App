@@ -5,7 +5,6 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/salon_flow_step_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 class ScheduleStepResult {
   const ScheduleStepResult({
     required this.startTime,
@@ -78,6 +77,8 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   late final TextEditingController _openingBufferController;
   late final TextEditingController _lastBookingBufferController;
   late final TextEditingController _lastSlotOverflowGraceController;
+  late final List<String> _startTimeOptions;
+  final Map<String, List<String>> _endOptionsCache = <String, List<String>>{};
   bool _copyMondayToAll = false;
   bool _isSubmitting = false;
   bool _isPoppingWithResult = false;
@@ -298,6 +299,12 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
 
     final initialStart = _normalizeDisplayTime(widget.initialStartTime);
     final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
+    _startTimeOptions = _boundedTimeOptions(
+      minMinutes: _displayToMinutes(initialStart),
+      maxMinutes: _displayToMinutes(initialEnd),
+      includeMin: true,
+      includeMax: false,
+    ).where((option) => _endOptionsForStart(option).isNotEmpty).toList();
 
     _scheduleByDay = {
       for (final day in _days)
@@ -451,7 +458,8 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                   const SizedBox(height: 18),
                   _buildScheduleModeDivider(),
                   const SizedBox(height: 18),
-                  for (final day in _days) _buildDayCard(day),
+                  for (final day in _days)
+                    _buildDayCard(day, _startTimeOptions),
                   const SizedBox(height: 54),
                   _buildScheduleQuote(),
                   const SizedBox(height: 38),
@@ -558,20 +566,12 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     });
   }
 
-  Widget _buildDayCard(String day) {
+  Widget _buildDayCard(String day, List<String> startOptions) {
     final config = _scheduleByDay[day]!;
     final followsMondaySchedule = _copyMondayToAll && day != 'monday';
     final canEditDay = !followsMondaySchedule;
     final canEditTime = !config.isClosed && canEditDay;
-
-    final startOptions = _boundedTimeOptions(
-      minMinutes: _salonStartMinutes,
-      maxMinutes: _salonEndMinutes,
-      includeMin: true,
-      includeMax: false,
-    ).where((option) => _endOptionsForStart(option).isNotEmpty).toList();
-
-    final endOptions = _endOptionsForStart(config.startTime);
+    final endOptions = _endOptionsForStartCached(config.startTime);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 17),
@@ -929,7 +929,8 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
         .toList(growable: false);
 
     if (openDays.isEmpty) {
-      Fluttertoast.showToast(msg: translateText('Please enable at least one working day.'));
+      Fluttertoast.showToast(
+          msg: translateText('Please enable at least one working day.'));
       return;
     }
 
@@ -939,18 +940,20 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       final endOptions = _endOptionsForStart(entry.value.startTime);
 
       if (endOptions.isEmpty) {
-        Fluttertoast.showToast(msg: translateText(
-                '{day} end time must be after start time.',
-                params: {'day': _capitalize(entry.key)},
-              ));
+        Fluttertoast.showToast(
+            msg: translateText(
+          '{day} end time must be after start time.',
+          params: {'day': _capitalize(entry.key)},
+        ));
         return;
       }
 
       if (startMinutes >= endMinutes) {
-        Fluttertoast.showToast(msg: translateText(
-                '{day} closing time must be after opening time.',
-                params: {'day': _capitalize(entry.key)},
-              ));
+        Fluttertoast.showToast(
+            msg: translateText(
+          '{day} closing time must be after opening time.',
+          params: {'day': _capitalize(entry.key)},
+        ));
         return;
       }
     }
@@ -1083,10 +1086,6 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
   }
 
-  int get _salonStartMinutes {
-    return _displayToMinutes(_normalizeDisplayTime(widget.initialStartTime));
-  }
-
   int get _salonEndMinutes {
     return _displayToMinutes(_normalizeDisplayTime(widget.initialEndTime));
   }
@@ -1119,6 +1118,13 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       maxMinutes: _salonEndMinutes,
       includeMin: false,
       includeMax: true,
+    );
+  }
+
+  List<String> _endOptionsForStartCached(String startTime) {
+    return _endOptionsCache.putIfAbsent(
+      startTime,
+      () => _endOptionsForStart(startTime),
     );
   }
 
@@ -1340,22 +1346,6 @@ class _TimeDropdown extends StatelessWidget {
                     option,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(),
-          selectedItemBuilder: (context) => items
-              .map(
-                (option) => Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    option,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF2B2520),
-                    ),
                   ),
                 ),
               )

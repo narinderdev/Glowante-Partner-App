@@ -801,13 +801,11 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       );
 
       if (assigned == true && mounted) {
-        Navigator.pop(
-          context,
-          {
-            'completed': true,
-            'selectedServiceIds': widget.selectedServiceIds,
-          },
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.pop(context, true);
+        });
+        return;
       }
     } catch (e) {
       if (!mounted) return;

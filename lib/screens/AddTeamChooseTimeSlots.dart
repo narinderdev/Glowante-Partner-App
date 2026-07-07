@@ -819,69 +819,69 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   //   return null;
   // }
   _OperatingSlot? _nextAvailableSlotForDay(String day) {
-  final operatingSlots = _operatingSlotsByDay[_dayKey(day)];
+    final operatingSlots = _operatingSlotsByDay[_dayKey(day)];
 
-  if (operatingSlots == null || operatingSlots.isEmpty) {
-    return null;
-  }
+    if (operatingSlots == null || operatingSlots.isEmpty) {
+      return null;
+    }
 
-  final existing = (weeklySchedule[day] ?? const <Map<String, String>>[])
-      .map((slot) {
-        final start = _parseTimeToMinutes(slot['start'] ?? '');
-        final end = _parseTimeToMinutes(slot['end'] ?? '');
+    final existing = (weeklySchedule[day] ?? const <Map<String, String>>[])
+        .map((slot) {
+          final start = _parseTimeToMinutes(slot['start'] ?? '');
+          final end = _parseTimeToMinutes(slot['end'] ?? '');
 
-        if (start == null || end == null || end <= start) return null;
+          if (start == null || end == null || end <= start) return null;
 
-        return _OperatingSlot(
-          startMinutes: start,
-          endMinutes: end,
-        );
-      })
-      .whereType<_OperatingSlot>()
-      .toList()
-    ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+          return _OperatingSlot(
+            startMinutes: start,
+            endMinutes: end,
+          );
+        })
+        .whereType<_OperatingSlot>()
+        .toList()
+      ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
-  const minimumDuration = _timeMinuteStep;
+    const minimumDuration = _timeMinuteStep;
 
-  for (final bound in operatingSlots) {
-    var cursor = bound.startMinutes;
+    for (final bound in operatingSlots) {
+      var cursor = bound.startMinutes;
 
-    for (final used in existing) {
-      if (used.endMinutes <= bound.startMinutes ||
-          used.startMinutes >= bound.endMinutes) {
-        continue;
-      }
+      for (final used in existing) {
+        if (used.endMinutes <= bound.startMinutes ||
+            used.startMinutes >= bound.endMinutes) {
+          continue;
+        }
 
-      final usedStart = used.startMinutes.clamp(
-        bound.startMinutes,
-        bound.endMinutes,
-      );
-
-      if (usedStart - cursor >= minimumDuration) {
-        return _OperatingSlot(
-          startMinutes: cursor,
-          endMinutes: usedStart,
-        );
-      }
-
-      if (used.endMinutes >= cursor) {
-        cursor = (used.endMinutes + _timeMinuteStep).clamp(
+        final usedStart = used.startMinutes.clamp(
           bound.startMinutes,
           bound.endMinutes,
         );
+
+        if (usedStart - cursor >= minimumDuration) {
+          return _OperatingSlot(
+            startMinutes: cursor,
+            endMinutes: usedStart,
+          );
+        }
+
+        if (used.endMinutes >= cursor) {
+          cursor = (used.endMinutes + _timeMinuteStep).clamp(
+            bound.startMinutes,
+            bound.endMinutes,
+          );
+        }
+      }
+
+      if (bound.endMinutes - cursor >= minimumDuration) {
+        return _OperatingSlot(
+          startMinutes: cursor,
+          endMinutes: bound.endMinutes,
+        );
       }
     }
 
-    if (bound.endMinutes - cursor >= minimumDuration) {
-      return _OperatingSlot(
-        startMinutes: cursor,
-        endMinutes: bound.endMinutes,
-      );
-    }
+    return null;
   }
-
-  return null;
-}
 
   void deleteSlot(String day, int index) {
     if (_useSalonHours) return;
@@ -908,11 +908,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       final options = _timeOptionsForDay(day);
 
       if (start == null || end == null || options.isEmpty || end > start) {
-        if (timeType == 'end') {
-          toastMessage = translateText(
-            'End time updated. Only 10-minute steps are allowed.',
-          );
-        }
+        // if (timeType == 'end') {
+        //   toastMessage = translateText(
+        //     'End time updated. Only 10-minute steps are allowed.',
+        //   );
+        // }
         return;
       }
 
@@ -1502,7 +1502,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "otp": widget.formData['otp']?.toString(),
         "allowOnlineBooking": widget.formData['allowOnlineBooking'] ?? true,
         "branchServiceIds": branchServiceIds,
-        "userBranchServices": widget.formData['userBranchServices'] ?? const [],
+        if (widget.formData['isEdit'] == true)
+          "userBranchServices":
+              widget.formData['userBranchServices'] ?? const [],
         "address": widget.formData['address'],
         "branchId": branchId,
         "experience": int.tryParse(

@@ -2292,14 +2292,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                 onToggle: (service) {
                                   final id = service['id'];
                                   if (id is! int) return;
-                                  if (pendingIds.contains(id)) {
-                                    _showError(translateText(
-                                      'This item is already present in your cart',
-                                    ));
-                                    return;
-                                  }
                                   setSheetState(() {
-                                    pendingIds.add(id);
+                                    if (pendingIds.contains(id)) {
+                                      pendingIds.remove(id);
+                                    } else {
+                                      pendingIds.add(id);
+                                    }
                                   });
                                 },
                               );

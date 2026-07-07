@@ -614,7 +614,11 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                     );
                     if (!mounted) return;
                     if (assigned == true) {
-                      navigator.pop(true);
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        navigator.pop(true);
+                      });
+                      return;
                     }
                   },
                   style: ElevatedButton.styleFrom(

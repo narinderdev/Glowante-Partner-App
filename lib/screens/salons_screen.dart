@@ -19,7 +19,6 @@ import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 const double _salonHeroImageHeight = 240;
 
 class SalonsScreen extends StatefulWidget {
@@ -325,11 +324,12 @@ class SalonsScreenState extends State<SalonsScreen> {
         await repo.deactivateSalon(salonId);
       }
       if (!mounted) return;
-      Fluttertoast.showToast(msg: translateText(
-              active
-                  ? 'Salon activated successfully'
-                  : 'Salon deactivated successfully',
-            ));
+      Fluttertoast.showToast(
+          msg: translateText(
+        active
+            ? 'Salon activated successfully'
+            : 'Salon deactivated successfully',
+      ));
       await _refreshSalons();
     } catch (error) {
       if (!mounted) return;
@@ -450,11 +450,12 @@ class SalonsScreenState extends State<SalonsScreen> {
         await repo.deactivateBranch(branchId);
       }
       if (!mounted) return;
-      Fluttertoast.showToast(msg: translateText(
-              active
-                  ? 'Branch activated successfully'
-                  : 'Branch deactivated successfully',
-            ));
+      Fluttertoast.showToast(
+          msg: translateText(
+        active
+            ? 'Branch activated successfully'
+            : 'Branch deactivated successfully',
+      ));
       await _refreshSalons();
     } catch (error) {
       if (!mounted) return;
@@ -558,6 +559,7 @@ class SalonsScreenState extends State<SalonsScreen> {
         toolbarHeight: isIos ? 34 : 52,
         logoHeight: isIos ? 34 : 34,
         logoYOffset: isIos ? -6 : -3,
+        onAddSalonTap: widget.readOnly ? null : _goToAddSalon,
         onNotificationTap: () {
           _collapseFab();
           _dismissKeyboard();
@@ -696,13 +698,6 @@ class SalonsScreenState extends State<SalonsScreen> {
                             }, childCount: salons.length),
                           ),
                         ),
-                      if (!widget.readOnly && _searchQuery.isEmpty)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(0, 2, 0, 28),
-                            child: _AddMainSalonCard(onTap: _goToAddSalon),
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -822,6 +817,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.toolbarHeight = 52,
     this.logoHeight = 34,
     this.logoYOffset = 0,
+    this.onAddSalonTap,
     required this.onNotificationTap,
   });
 
@@ -833,6 +829,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final double toolbarHeight;
   final double logoHeight;
   final double logoYOffset;
+  final VoidCallback? onAddSalonTap;
   final VoidCallback onNotificationTap;
 
   @override
@@ -896,6 +893,31 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                       ),
                     ),
                   ),
+                  if (onAddSalonTap != null) ...[
+                    const SizedBox(width: 6),
+                    ElevatedButton(
+                      onPressed: onAddSalonTap,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.starColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      child: Text(translateText('Add Salon')),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -3824,115 +3846,6 @@ class _BranchTileState extends State<_BranchTile> {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AddMainSalonCard extends StatelessWidget {
-  const _AddMainSalonCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.zero,
-        border: Border.all(color: const Color(0xFFE8DED4)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
-                color: const Color(0xFFFBF7F0),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF8B6500),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.add_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      translateText('Add New Main Salon'),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF8B6500),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      translateText('Expand your empire today'),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF8A8178),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFF1EBE6),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.format_quote_rounded,
-                      color: Color(0xFFD0A244),
-                      size: 28,
-                    ),
-                    const SizedBox(height: 10),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        translateText(
-                          '"Scale your vision with precision. Manage every location seamlessly and watch your salon network flourish with each new client."',
-                        ),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          height: 1.45,
-                          color: Color(0xFFD0A244),
-                          fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      width: 44,
-                      height: 1,
-                      color: const Color(0xFFE3D8C7),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
