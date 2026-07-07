@@ -459,8 +459,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   @override
   void initState() {
     super.initState();
-    _startTimeController.text = "08:00 AM";
-    _endTimeController.text = "08:00 PM";
+    _startTimeController.clear();
+    _endTimeController.clear();
     final initialBranch = widget.initialBranch;
     if (initialBranch != null) {
       _branchNameController.text = _firstNonEmptyValue([
@@ -487,13 +487,13 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       if (startTime.isNotEmpty) {
         _startTimeController.text = _normalizeDisplayTime(
           startTime,
-          fallback: _startTimeController.text,
+          fallback: '',
         );
       }
       if (endTime.isNotEmpty) {
         _endTimeController.text = _normalizeDisplayTime(
           endTime,
-          fallback: _endTimeController.text,
+          fallback: '',
         );
       }
       _draftOpeningBufferMinutes =
@@ -888,6 +888,22 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
 
     _resetFieldError(field);
+  }
+
+  String? _timeFieldErrorText(_BranchField field) {
+    if (!_submitted) return null;
+
+    final startEmpty = _startTimeController.text.trim().isEmpty;
+    final endEmpty = _endTimeController.text.trim().isEmpty;
+
+    if (field == _BranchField.startTime) {
+      return startEmpty ? translateText('Please select start time.') : null;
+    }
+
+    if (!endEmpty) return null;
+    return startEmpty
+        ? translateText('Please select start time to select end time.')
+        : translateText('Please select end time.');
   }
 
   // ✅ Minimal back-compat helper: require complete address (stored in buildingName) + coordinates
@@ -2018,6 +2034,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final selectedValue = options.contains(currentValue) ? currentValue : null;
     final isEnabled = field == _BranchField.startTime || options.isNotEmpty;
     final startTime = _parseTimeOfDay(_startTimeController.text);
+    final errorText = _timeFieldErrorText(field);
 
     final dropdown = Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),
@@ -2031,7 +2048,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
             decoration: BoxDecoration(
               color: isEnabled ? Colors.white : const Color(0xFFF1EEEE),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE3DCD7)),
+              border: Border.all(
+                color:
+                    errorText != null ? AppColors.red : const Color(0xFFE3DCD7),
+              ),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -2082,6 +2102,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
               ),
             ),
           ),
+          if (errorText != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              errorText,
+              style: const TextStyle(
+                color: AppColors.red,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ],
       ),
     );

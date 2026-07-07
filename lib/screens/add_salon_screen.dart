@@ -594,8 +594,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   void initState() {
     super.initState();
 
-    _startTimeController.text = "08:00 AM";
-    _endTimeController.text = "08:00 PM";
+    _startTimeController.clear();
+    _endTimeController.clear();
 
     final phone = widget.phoneNumber;
     if (phone != null && phone.isNotEmpty) {
@@ -660,14 +660,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       if (startTime.isNotEmpty) {
         _startTimeController.text = _normalizeDisplayTime(
           startTime,
-          fallback: _startTimeController.text,
+          fallback: '',
         );
       }
 
       if (endTime.isNotEmpty) {
         _endTimeController.text = _normalizeDisplayTime(
           endTime,
-          fallback: _endTimeController.text,
+          fallback: '',
         );
       }
 
@@ -1046,6 +1046,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
   }
 
+  String? _timeFieldErrorText(bool isStart) {
+    if (!_submitted) return null;
+
+    final startEmpty = _startTimeController.text.trim().isEmpty;
+    final endEmpty = _endTimeController.text.trim().isEmpty;
+
+    if (isStart) {
+      return startEmpty ? translateText('Please select start time.') : null;
+    }
+
+    if (!endEmpty) return null;
+    return startEmpty
+        ? translateText('Please select start time to select end time.')
+        : translateText('Please select end time.');
+  }
+
   Widget _buildTimeDropdownField({
     required TextEditingController controller,
     required String label,
@@ -1057,6 +1073,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final selectedValue = options.contains(currentValue) ? currentValue : null;
     final isEnabled = isStart || options.isNotEmpty;
     final startTime = _parseTimeOfDay(_startTimeController.text);
+    final errorText = _timeFieldErrorText(isStart);
 
     final dropdown = Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),
@@ -1070,7 +1087,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             decoration: BoxDecoration(
               color: isEnabled ? Colors.white : const Color(0xFFF1EEEE),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE3DCD7)),
+              border: Border.all(
+                color:
+                    errorText != null ? AppColors.red : const Color(0xFFE3DCD7),
+              ),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -1121,6 +1141,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               ),
             ),
           ),
+          if (errorText != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              errorText,
+              style: const TextStyle(
+                color: AppColors.red,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ],
       ),
     );
