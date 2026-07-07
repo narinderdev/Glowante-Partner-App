@@ -1173,7 +1173,8 @@ bool _canStartJob(Map<String, dynamic> booking) {
   if (start == null) return false;
 
   final now = DateTime.now();
-  return now.isAtSameMomentAs(start) || now.isAfter(start);
+  final allowedAt = start.subtract(const Duration(minutes: 10));
+  return now.isAtSameMomentAs(allowedAt) || now.isAfter(allowedAt);
 }
 
 bool _showsFinishAction(String status) => status == 'IN_PROGRESS';
@@ -3321,7 +3322,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     if (!_canStartJob(booking)) {
       Fluttertoast.showToast(
-          msg: translateText('You can start this job at appointment time'));
+        msg: translateText(
+          'You can start this job 10 minutes before appointment time',
+        ),
+      );
       return;
     }
 
@@ -3575,9 +3579,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       ],
                     ),
                   ),
-                  if (!_isLoading &&
-                      isSelectedDateClosed &&
-                      visibleBookings.isEmpty)
+                  if (!_isLoading && isSelectedDateClosed)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _BranchClosedState(
@@ -3685,7 +3687,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         ],
       ),
       floatingActionButton: widget.isOwnerMode &&
-              selectedBookingView == _BookingViewTab.teamMembers
+              selectedBookingView == _BookingViewTab.teamMembers &&
+              !isSelectedDateClosed
           ? FloatingActionButton(
               heroTag: 'owner_team_add_booking_fab',
               onPressed: _openAddBooking,
@@ -7229,6 +7232,7 @@ class _StylistBookingDetailScreenState
   late String _statusUpper;
   final List<StylistUsedItem> _addedItems = [];
   final List<StylistAppointmentServiceSegment> _addedServiceSegments = [];
+  final Set<int> _addedServiceIds = <int>{};
   bool _loadingConfirm = false;
   bool _loadingStart = false;
   bool _loadingComplete = false;
@@ -7284,7 +7288,10 @@ class _StylistBookingDetailScreenState
   Future<void> _handleStartJob() async {
     if (!_canStartJob(_booking)) {
       Fluttertoast.showToast(
-          msg: translateText('You can start this job at appointment time'));
+        msg: translateText(
+          'You can start this job 10 minutes before appointment time',
+        ),
+      );
       return;
     }
 
@@ -7364,6 +7371,7 @@ class _StylistBookingDetailScreenState
       appointmentId: _booking['id'] as int,
       rating: feedback['rating'] as int,
       comment: feedback['comment'] as String,
+      serviceIds: _completionServiceIds(),
     );
     if (!mounted) return;
 
@@ -7443,6 +7451,8 @@ class _StylistBookingDetailScreenState
     Fluttertoast.showToast(msg: '${item.name} added locally for this booking.');
   }
 
+  List<int> _completionServiceIds() => _addedServiceIds.toList();
+
   List<_BookingServiceOption> _extractServiceOptions(dynamic raw) {
     final options = <_BookingServiceOption>[];
     void visit(dynamic node, [List<String> path = const []]) {
@@ -7510,9 +7520,13 @@ class _StylistBookingDetailScreenState
         branchId: widget.branchId,
       );
       if (!mounted) return;
-      final services = _extractServiceOptions(response['data'] ?? response);
+      final services = _extractServiceOptions(response['data'] ?? response)
+          .where((service) => !_addedServiceIds.contains(service.id))
+          .toList();
       if (services.isEmpty) {
-        Fluttertoast.showToast(msg: translateText('No services found'));
+        Fluttertoast.showToast(
+          msg: translateText('No more services available to add'),
+        );
         return;
       }
 
@@ -7636,6 +7650,9 @@ class _StylistBookingDetailScreenState
       );
       if (!mounted || picked == null || picked.isEmpty) return;
       setState(() {
+        for (final service in picked) {
+          _addedServiceIds.add(service.id);
+        }
         _addedServiceSegments.addAll(
           picked.map(
             (service) => StylistAppointmentServiceSegment(

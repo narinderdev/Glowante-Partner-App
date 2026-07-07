@@ -4648,6 +4648,26 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   late final Map<int, String> _selectedProfessionals;
   Map<int, List<Map<String, dynamic>>> _serviceMembers = {};
 
+  String _slotPeriodLabel(List<TimeOfDay> slots) {
+    if (slots.isEmpty) return '';
+
+    final hasMorning = slots.any((slot) => _toMinutes(slot) < 12 * 60);
+    final hasAfternoon = slots.any(
+      (slot) => _toMinutes(slot) >= 12 * 60 && _toMinutes(slot) < 17 * 60,
+    );
+    final hasEvening = slots.any((slot) => _toMinutes(slot) >= 17 * 60);
+
+    final periods = <String>[];
+    if (hasMorning) periods.add(translateText('Morning'));
+    if (hasAfternoon) periods.add(translateText('Afternoon'));
+    if (hasEvening) periods.add(translateText('Evening'));
+
+    if (periods.isEmpty) return '';
+    if (periods.length == 1) return periods.first;
+    if (periods.length == 2) return '${periods[0]} & ${periods[1]}';
+    return '${periods[0]}, ${periods[1]} & ${periods[2]}';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -5396,6 +5416,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   Widget build(BuildContext context) {
     final hasTeamMemberSelections = _hasTeamMemberSelectionsForAvailability();
     final slots = _availableSlots();
+    final slotPeriodLabel = _slotPeriodLabel(slots);
     final today = _dateOnly(DateTime.now());
     final canGoBack = _visibleWeekStart.isAfter(today);
     final days = List.generate(
@@ -5508,17 +5529,22 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                     ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.wb_sunny_outlined,
-                      size: 13, color: _bookingMuted),
-                  const SizedBox(width: 5),
-                  Text(
-                    translateText('Morning & Afternoon'),
-                    style: const TextStyle(
+                  if (slotPeriodLabel.isNotEmpty) ...[
+                    const Icon(
+                      Icons.wb_sunny_outlined,
+                      size: 13,
                       color: _bookingMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
                     ),
-                  ),
+                    const SizedBox(width: 5),
+                    Text(
+                      slotPeriodLabel,
+                      style: const TextStyle(
+                        color: _bookingMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 12),
