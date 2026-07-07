@@ -3276,6 +3276,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         builder: (_) => AddBookingScreen(
           salonId: selected.salonId,
           branchId: selected.branchId,
+          initialDate: _selectedDate,
         ),
       ),
     );

@@ -420,11 +420,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
 
     final line2Parts = _splitAddressParts((address['line2'] ?? '').toString());
-   final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
+    final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
 
-final streetSectorArea = line2Parts.length > 1
-    ? line2Parts.skip(1).join(', ')
-    : '';
+    final streetSectorArea =
+        line2Parts.length > 1 ? line2Parts.skip(1).join(', ') : '';
 
     if (completeAddress.isEmpty &&
         scoFlatHouse.isEmpty &&
@@ -805,16 +804,6 @@ final streetSectorArea = line2Parts.length > 1
     );
   }
 
-  TimeOfDay _ensureTenMinuteGap(TimeOfDay time) {
-    final total = _timeToMinutesOfDay(time) + 10;
-    return _snapTimeToStep(
-      TimeOfDay(
-        hour: (total ~/ 60).clamp(0, 23),
-        minute: total % 60,
-      ),
-    );
-  }
-
   String _formatTimeOfDayDisplay(TimeOfDay time) {
     final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
     final minute = time.minute.toString().padLeft(2, '0');
@@ -831,66 +820,74 @@ final streetSectorArea = line2Parts.length > 1
 
   int _timeToMinutesOfDay(TimeOfDay time) => time.hour * 60 + time.minute;
 
-  Future<void> _selectTime(
-    _BranchField field,
-    TextEditingController controller, {
-    TextEditingController? pairedController,
-  }) async {
-    final defaultTime = field == _BranchField.startTime
-        ? const TimeOfDay(hour: 8, minute: 0)
-        : const TimeOfDay(hour: 20, minute: 0);
-    final currentTime = _parseTimeOfDay(controller.text);
-
-    final picked = await showTimePicker(
-      context: context,
-      initialTime:
-          currentTime != null ? _snapTimeToStep(currentTime) : defaultTime,
-    );
-
-    if (picked != null) {
-      if (!mounted) return;
-      final snappedMinute = _snapMinuteToStep(picked.minute);
-      final wasSnapped = snappedMinute != picked.minute;
-      final snapped = TimeOfDay(hour: picked.hour, minute: snappedMinute);
-      controller.text = _formatTimeOfDayDisplay(snapped);
-      String? toastMessage;
-
-      if (pairedController != null) {
-        if (field == _BranchField.startTime) {
-          final endTime = _parseTimeOfDay(pairedController.text);
-          if (endTime == null ||
-              _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(snapped)) {
-            pairedController.text =
-                _formatTimeOfDayDisplay(_ensureTenMinuteGap(snapped));
-            toastMessage = translateText(
-              'End time was adjusted to keep a 10-minute gap.',
-            );
-          }
-        } else {
-          final startTime = _parseTimeOfDay(pairedController.text);
-          if (startTime != null &&
-              _timeToMinutesOfDay(snapped) <= _timeToMinutesOfDay(startTime)) {
-            controller.text =
-                _formatTimeOfDayDisplay(_ensureTenMinuteGap(startTime));
-            toastMessage = translateText(
-              'End time was adjusted to keep a 10-minute gap.',
-            );
-          }
-        }
-      }
-
-      if (wasSnapped) {
-        toastMessage = translateText(
-          'Please select time in 10-minute intervals.',
-        );
-      }
-
-      if (toastMessage != null) {
-        Fluttertoast.showToast(msg: toastMessage);
-      }
-
-      _resetFieldError(field);
+  List<String> _timeOptions() {
+    final options = <String>[];
+    for (var minutes = 0; minutes < 24 * 60; minutes += _timeMinuteStep) {
+      options.add(
+        _formatTimeOfDayDisplay(
+          TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60),
+        ),
+      );
     }
+    return options;
+  }
+
+  List<String> _timeOptionsForField(_BranchField field) {
+    final options = _timeOptions();
+    final startTime = _parseTimeOfDay(_startTimeController.text);
+    final endTime = _parseTimeOfDay(_endTimeController.text);
+
+    if (field == _BranchField.endTime) {
+      if (startTime == null) return const <String>[];
+      final startMinutes = _timeToMinutesOfDay(startTime);
+      return options.where((option) {
+        final minutes = _timeToMinutesOfDay(_parseTimeOfDay(option)!);
+        return minutes > startMinutes;
+      }).toList();
+    }
+
+    if (field == _BranchField.startTime && endTime != null) {
+      final endMinutes = _timeToMinutesOfDay(endTime);
+      return options.where((option) {
+        final minutes = _timeToMinutesOfDay(_parseTimeOfDay(option)!);
+        return minutes < endMinutes;
+      }).toList();
+    }
+
+    return options;
+  }
+
+  void _updateTimeSelection(
+    _BranchField field,
+    String value, {
+    required TextEditingController controller,
+    TextEditingController? pairedController,
+  }) {
+    final selectedTime = _parseTimeOfDay(value);
+    if (selectedTime == null) return;
+
+    controller.text = _formatTimeOfDayDisplay(_snapTimeToStep(selectedTime));
+
+    if (pairedController == null) {
+      _resetFieldError(field);
+      return;
+    }
+
+    if (field == _BranchField.startTime) {
+      final endTime = _parseTimeOfDay(pairedController.text);
+      if (endTime != null &&
+          _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(selectedTime)) {
+        pairedController.clear();
+      }
+    } else {
+      final startTime = _parseTimeOfDay(pairedController.text);
+      if (startTime != null &&
+          _timeToMinutesOfDay(selectedTime) <= _timeToMinutesOfDay(startTime)) {
+        pairedController.clear();
+      }
+    }
+
+    _resetFieldError(field);
   }
 
   // ✅ Minimal back-compat helper: require complete address (stored in buildingName) + coordinates
@@ -1284,30 +1281,19 @@ final streetSectorArea = line2Parts.length > 1
                                 child: Row(
                                   children: [
                                     Expanded(
-                                      child: _buildTimePickerField(
+                                      child: _buildTimeDropdownField(
                                         field: _BranchField.startTime,
                                         controller: _startTimeController,
                                         label: 'Start Time *',
-                                        onTap: () => _selectTime(
-                                          _BranchField.startTime,
-                                          _startTimeController,
-                                          pairedController: _endTimeController,
-                                        ),
                                         bottomSpacing: 0,
                                       ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
-                                      child: _buildTimePickerField(
+                                      child: _buildTimeDropdownField(
                                         field: _BranchField.endTime,
                                         controller: _endTimeController,
                                         label: 'End Time *',
-                                        onTap: () => _selectTime(
-                                          _BranchField.endTime,
-                                          _endTimeController,
-                                          pairedController:
-                                              _startTimeController,
-                                        ),
                                         bottomSpacing: 0,
                                       ),
                                     ),
@@ -2021,25 +2007,99 @@ final streetSectorArea = line2Parts.length > 1
     );
   }
 
-  Widget _buildTimePickerField({
+  Widget _buildTimeDropdownField({
     required _BranchField field,
     required TextEditingController controller,
     required String label,
-    required VoidCallback onTap,
     double bottomSpacing = 18,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AbsorbPointer(
-        child: _buildTextField(
-          field: field,
-          controller: controller,
-          label: label,
-          hint: 'Select time',
-          suffixIconData: Icons.access_time_rounded,
-          bottomSpacing: bottomSpacing,
-        ),
+    final options = _timeOptionsForField(field);
+    final currentValue = controller.text.trim();
+    final selectedValue = options.contains(currentValue) ? currentValue : null;
+    final isEnabled = field == _BranchField.startTime || options.isNotEmpty;
+    final startTime = _parseTimeOfDay(_startTimeController.text);
+
+    final dropdown = Padding(
+      padding: EdgeInsets.only(bottom: bottomSpacing),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel(label),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: isEnabled ? Colors.white : const Color(0xFFF1EEEE),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE3DCD7)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: selectedValue,
+                isExpanded: true,
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFF8B6500),
+                ),
+                dropdownColor: Colors.white,
+                hint: Text(
+                  translateText('Select time'),
+                  style: const TextStyle(
+                    color: Color(0xFF948C84),
+                    fontSize: 13,
+                  ),
+                ),
+                items: options
+                    .map(
+                      (option) => DropdownMenuItem<String>(
+                        value: option,
+                        child: Text(
+                          option,
+                          style: const TextStyle(
+                            color: Color(0xFF201A16),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: isEnabled
+                    ? (selected) {
+                        if (selected == null) return;
+                        setState(() {
+                          _updateTimeSelection(
+                            field,
+                            selected,
+                            controller: controller,
+                            pairedController: field == _BranchField.startTime
+                                ? _endTimeController
+                                : _startTimeController,
+                          );
+                        });
+                      }
+                    : null,
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+
+    if (isEnabled) return dropdown;
+
+    return InkWell(
+      onTap: () {
+        Fluttertoast.showToast(
+          msg: translateText(
+            startTime == null
+                ? 'Please select start time to select end time.'
+                : 'No valid end time is available for the selected start time.',
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: AbsorbPointer(child: dropdown),
     );
   }
 

@@ -35,8 +35,14 @@ bool? _bookingReadBool(dynamic value) {
 class AddBookingScreen extends StatefulWidget {
   final int? salonId; // needed for SelectServicesModal
   final int? branchId; // future use when posting appointment
+  final DateTime? initialDate;
 
-  const AddBookingScreen({super.key, this.salonId, this.branchId});
+  const AddBookingScreen({
+    super.key,
+    this.salonId,
+    this.branchId,
+    this.initialDate,
+  });
 
   @override
   State<AddBookingScreen> createState() => _AddBookingScreenState();
@@ -171,7 +177,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   void _resetScheduleDefaults() {
     final now = DateTime.now();
-    _selectedDate = DateTime(now.year, now.month, now.day);
+    final initial =
+        widget.initialDate == null ? now : _dateOnly(widget.initialDate!);
+    _selectedDate = DateTime(initial.year, initial.month, initial.day);
     _startTime = const TimeOfDay(hour: 8, minute: 0);
     _endTime = const TimeOfDay(hour: 8, minute: 30);
   }

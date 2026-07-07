@@ -417,16 +417,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     );
   }
 
-  TimeOfDay _ensureTenMinuteGap(TimeOfDay time) {
-    final total = _timeToMinutesOfDay(time) + 10;
-    return _snapTimeToStep(
-      TimeOfDay(
-        hour: (total ~/ 60).clamp(0, 23),
-        minute: total % 60,
-      ),
-    );
-  }
-
   String _formatTimeOfDayDisplay(TimeOfDay time) {
     final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
     final minute = time.minute.toString().padLeft(2, '0');
@@ -560,10 +550,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
 
     final line2Parts = _splitAddressParts((address['line2'] ?? '').toString());
-   final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
-  final streetSectorArea = line2Parts.length > 1
-    ? line2Parts.skip(1).join(', ')
-    : '';
+    final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
+    final streetSectorArea =
+        line2Parts.length > 1 ? line2Parts.skip(1).join(', ') : '';
 
     if (completeAddress.isEmpty &&
         scoFlatHouse.isEmpty &&
@@ -991,78 +980,165 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   int _timeToMinutesOfDay(TimeOfDay time) => time.hour * 60 + time.minute;
 
-  Future<void> _selectTime(
+  List<String> _timeOptions() {
+    final options = <String>[];
+    for (var minutes = 0; minutes < 24 * 60; minutes += _timeMinuteStep) {
+      options.add(
+        _formatTimeOfDayDisplay(
+          TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60),
+        ),
+      );
+    }
+    return options;
+  }
+
+  List<String> _timeOptionsForField(bool isStart) {
+    final options = _timeOptions();
+    final startTime = _parseTimeOfDay(_startTimeController.text);
+    final endTime = _parseTimeOfDay(_endTimeController.text);
+
+    if (!isStart) {
+      if (startTime == null) return const <String>[];
+      final startMinutes = _timeToMinutesOfDay(startTime);
+      return options.where((option) {
+        final minutes = _timeToMinutesOfDay(_parseTimeOfDay(option)!);
+        return minutes > startMinutes;
+      }).toList();
+    }
+
+    if (endTime != null) {
+      final endMinutes = _timeToMinutesOfDay(endTime);
+      return options.where((option) {
+        final minutes = _timeToMinutesOfDay(_parseTimeOfDay(option)!);
+        return minutes < endMinutes;
+      }).toList();
+    }
+
+    return options;
+  }
+
+  void _updateTimeSelection(
     TextEditingController controller, {
+    required String selected,
     TextEditingController? pairedController,
     required bool isStart,
-  }) async {
-    final currentTime = _parseTimeOfDay(controller.text);
-    final initialTime = currentTime ??
-        (isStart
-            ? const TimeOfDay(hour: 8, minute: 0)
-            : const TimeOfDay(hour: 20, minute: 0));
+  }) {
+    final selectedTime = _parseTimeOfDay(selected);
+    if (selectedTime == null) return;
 
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _snapTimeToStep(initialTime),
-    );
-    if (!mounted) return;
-    if (picked != null) {
-      final snapped = _snapTimeToStep(picked);
-      controller.text = _formatTimeOfDayDisplay(snapped);
-      String? toastMessage;
+    controller.text = _formatTimeOfDayDisplay(_snapTimeToStep(selectedTime));
 
-      if (pairedController != null) {
-        if (isStart) {
-          final endTime = _parseTimeOfDay(pairedController.text);
-          if (endTime == null ||
-              _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(snapped)) {
-            pairedController.text =
-                _formatTimeOfDayDisplay(_ensureTenMinuteGap(snapped));
-            toastMessage = translateText(
-              'End time was adjusted to keep a 10-minute gap.',
-            );
-          }
-        } else {
-          final startTime = _parseTimeOfDay(pairedController.text);
-          if (startTime != null &&
-              _timeToMinutesOfDay(snapped) <= _timeToMinutesOfDay(startTime)) {
-            controller.text =
-                _formatTimeOfDayDisplay(_ensureTenMinuteGap(startTime));
-            toastMessage = translateText(
-              'End time was adjusted to keep a 10-minute gap.',
-            );
-          }
+    if (pairedController != null) {
+      if (isStart) {
+        final endTime = _parseTimeOfDay(pairedController.text);
+        if (endTime != null &&
+            _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(selectedTime)) {
+          pairedController.clear();
         }
-      }
-
-      if (!isStart && toastMessage == null) {
-        toastMessage = translateText('End time uses 10-minute intervals.');
-      }
-
-      if (toastMessage != null) {
-        Fluttertoast.showToast(msg: toastMessage);
+      } else {
+        final startTime = _parseTimeOfDay(pairedController.text);
+        if (startTime != null &&
+            _timeToMinutesOfDay(selectedTime) <=
+                _timeToMinutesOfDay(startTime)) {
+          pairedController.clear();
+        }
       }
     }
   }
 
-  Widget _buildTimePickerField({
+  Widget _buildTimeDropdownField({
     required TextEditingController controller,
     required String label,
-    required VoidCallback onTap,
+    required bool isStart,
     double bottomSpacing = 18,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AbsorbPointer(
-        child: _buildTextField(
-          controller: controller,
-          label: label,
-          hint: 'Select time',
-          suffixIconData: Icons.access_time_rounded,
-          bottomSpacing: bottomSpacing,
-        ),
+    final options = _timeOptionsForField(isStart);
+    final currentValue = controller.text.trim();
+    final selectedValue = options.contains(currentValue) ? currentValue : null;
+    final isEnabled = isStart || options.isNotEmpty;
+    final startTime = _parseTimeOfDay(_startTimeController.text);
+
+    final dropdown = Padding(
+      padding: EdgeInsets.only(bottom: bottomSpacing),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel(label),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: isEnabled ? Colors.white : const Color(0xFFF1EEEE),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE3DCD7)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: selectedValue,
+                isExpanded: true,
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFF8B6500),
+                ),
+                dropdownColor: Colors.white,
+                hint: Text(
+                  translateText('Select time'),
+                  style: const TextStyle(
+                    color: Color(0xFF948C84),
+                    fontSize: 13,
+                  ),
+                ),
+                items: options
+                    .map(
+                      (option) => DropdownMenuItem<String>(
+                        value: option,
+                        child: Text(
+                          option,
+                          style: const TextStyle(
+                            color: Color(0xFF201A16),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: isEnabled
+                    ? (selected) {
+                        if (selected == null) return;
+                        setState(() {
+                          _updateTimeSelection(
+                            controller,
+                            selected: selected,
+                            pairedController: isStart
+                                ? _endTimeController
+                                : _startTimeController,
+                            isStart: isStart,
+                          );
+                        });
+                      }
+                    : null,
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+
+    if (isEnabled) return dropdown;
+
+    return InkWell(
+      onTap: () {
+        Fluttertoast.showToast(
+          msg: translateText(
+            startTime == null
+                ? 'Please select start time to select end time.'
+                : 'No valid end time is available for the selected start time.',
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: AbsorbPointer(child: dropdown),
     );
   }
 
@@ -1551,28 +1627,19 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 child: Row(
                                   children: [
                                     Expanded(
-                                      child: _buildTimePickerField(
+                                      child: _buildTimeDropdownField(
                                         controller: _startTimeController,
                                         label: 'Start Time *',
-                                        onTap: () => _selectTime(
-                                          _startTimeController,
-                                          pairedController: _endTimeController,
-                                          isStart: true,
-                                        ),
+                                        isStart: true,
                                         bottomSpacing: 0,
                                       ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
-                                      child: _buildTimePickerField(
+                                      child: _buildTimeDropdownField(
                                         controller: _endTimeController,
                                         label: 'End Time *',
-                                        onTap: () => _selectTime(
-                                          _endTimeController,
-                                          pairedController:
-                                              _startTimeController,
-                                          isStart: false,
-                                        ),
+                                        isStart: false,
                                         bottomSpacing: 0,
                                       ),
                                     ),
