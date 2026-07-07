@@ -2347,7 +2347,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     String? prefixText,
     IconData? prefixIconData,
     IconData? suffixIconData,
-    bool reserveCounterSpace = false,
     double bottomSpacing = 18,
   }) {
     final normalizedLabel = label.replaceAll('*', '').trim();
@@ -2363,7 +2362,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     final String cleanLabel = localizedLabel.trim();
     final hasInsideCounter = maxLength != null;
-    final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
     final effectiveInputFormatters = <TextInputFormatter>[
       if (inputFormatters != null) ...inputFormatters,
       if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
@@ -2377,7 +2375,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           _buildFieldLabel(label),
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
-            builder: (context, value, _) {
+            builder: (context, _, __) {
               return Stack(
                 children: [
                   TextFormField(
@@ -2484,12 +2482,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                       contentPadding: EdgeInsets.fromLTRB(
                         16,
                         14,
-                        hasInsideCounter
-                            ? 82
-                            : suffixIconData == null
-                                ? 16
-                                : 4,
-                        shouldReserveCounterSpace ? 30 : 14,
+                        suffixIconData == null ? 16 : 4,
+                        14,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -2527,25 +2521,26 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                       errorStyle: const TextStyle(color: AppColors.red),
                     ),
                   ),
-                  if (hasInsideCounter)
-                    Positioned(
-                      right: 12,
-                      bottom: 8,
-                      child: IgnorePointer(
-                        child: Text(
-                          '${value.text.characters.length} / $maxLength',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF8A8178),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               );
             },
           ),
+          if (hasInsideCounter) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: IgnorePointer(
+                child: Text(
+                  '${controller.text.characters.length} / $maxLength',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF8A8178),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
