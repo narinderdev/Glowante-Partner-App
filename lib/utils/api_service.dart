@@ -5392,34 +5392,28 @@ class ApiService {
     int branchId,
     Map<String, dynamic> payload,
   ) async {
-    try {
-      final token = await getAuthToken();
-      final url = Uri.parse('$baseUrl${createManualBookingAPI(branchId)}');
+    final token = await getAuthToken();
+    final url = Uri.parse('$baseUrl${createManualBookingAPI(branchId)}');
 
-      debugPrint('➡️ [CREATE_BOOKING] URL: $url');
-      debugPrint('➡️ [CREATE_BOOKING] Payload: ${jsonEncode(payload)}');
+    debugPrint('➡️ [CREATE_BOOKING] URL: $url');
+    debugPrint('➡️ [CREATE_BOOKING] Payload: ${jsonEncode(payload)}');
 
-      final response = await _sharedClient
-          .post(
-            url,
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": "Bearer $token",
-            },
-            body: jsonEncode(payload),
-          )
-          .timeout(const Duration(seconds: 45));
+    final response = await _sharedClient.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
 
-      debugPrint('⬅️ [CREATE_BOOKING] Status: ${response.statusCode}');
-      debugPrint('⬅️ [CREATE_BOOKING] Body: ${response.body}');
+    debugPrint('⬅️ [CREATE_BOOKING] Status: ${response.statusCode}');
+    debugPrint('⬅️ [CREATE_BOOKING] Body: ${response.body}');
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return json.decode(response.body) as Map<String, dynamic>;
-      }
-      throw Exception("Failed to create manual booking: ${response.body}");
-    } on TimeoutException {
-      throw Exception('Booking request timed out. Please try again.');
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
     }
+    throw Exception("Failed to create manual booking: ${response.body}");
   }
 
   Future<Map<String, dynamic>> assignUserToBranch(
