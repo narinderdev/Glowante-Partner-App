@@ -1077,6 +1077,10 @@ String _statusLabel(BuildContext context, String status) {
   switch (status) {
     case 'PENDING':
       return context.t('Pending');
+    case 'UPCOMING':
+      return context.t('Upcoming');
+    case 'CONFIRMED':
+      return context.t('Confirmed');
     case 'IN_PROGRESS':
       return context.t('In Progress');
     case 'COMPLETED':
@@ -1096,10 +1100,32 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
       return _BookingStatusVisuals(
         label: _statusLabel(context, status),
         leadingColor: const Color(0xFFDCE8F6),
-        cardBorderColor: _bookingsBorder,
+        cardBorderColor: const Color(0xFFBFD4EA),
         pillBackgroundColor: const Color(0xFFF1F5F9),
         pillBorderColor: const Color(0xFFF1F5F9),
         pillTextColor: _bookingsUpcoming,
+        primaryButtonColor: _bookingsAccent,
+        primaryTextColor: Colors.white,
+      );
+    case 'UPCOMING':
+      return _BookingStatusVisuals(
+        label: _statusLabel(context, status),
+        leadingColor: const Color(0xFFD8A04A),
+        cardBorderColor: const Color(0xFFF0D7A8),
+        pillBackgroundColor: const Color(0xFFFFFBEB),
+        pillBorderColor: const Color(0xFFFFFBEB),
+        pillTextColor: const Color(0xFF92400E),
+        primaryButtonColor: _bookingsAccent,
+        primaryTextColor: Colors.white,
+      );
+    case 'CONFIRMED':
+      return _BookingStatusVisuals(
+        label: _statusLabel(context, status),
+        leadingColor: const Color(0xFF93C5FD),
+        cardBorderColor: const Color(0xFF93C5FD),
+        pillBackgroundColor: const Color(0xFFF0F9FF),
+        pillBorderColor: const Color(0xFFF0F9FF),
+        pillTextColor: const Color(0xFF0369A1),
         primaryButtonColor: _bookingsAccent,
         primaryTextColor: Colors.white,
       );
@@ -1107,7 +1133,7 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
       return _BookingStatusVisuals(
         label: _statusLabel(context, status),
         leadingColor: _bookingsAccent,
-        cardBorderColor: _bookingsBorder,
+        cardBorderColor: const Color(0xFFD8A04A),
         pillBackgroundColor: Color(0xFFFFFBEB),
         pillBorderColor: Color(0xFFFFFBEB),
         pillTextColor: Color(0xFF92400E),
@@ -1118,7 +1144,7 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
       return _BookingStatusVisuals(
         label: _statusLabel(context, status),
         leadingColor: Color(0xFFDCE8F6),
-        cardBorderColor: _bookingsBorder,
+        cardBorderColor: const Color(0xFF86CFA3),
         pillBackgroundColor: Color(0xFFF0FDF4),
         pillBorderColor: Color(0xFFF0FDF4),
         pillTextColor: Color(0xFF166534),
@@ -1129,7 +1155,7 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
       return _BookingStatusVisuals(
         label: _statusLabel(context, status),
         leadingColor: Color(0xFFE0B1B1),
-        cardBorderColor: _bookingsBorder,
+        cardBorderColor: const Color(0xFFE0B1B1),
         pillBackgroundColor: Color(0xFFFFF3F3),
         pillBorderColor: Color(0xFFEAB9B9),
         pillTextColor: Color(0xFFB35A5A),
@@ -1140,7 +1166,7 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
       return _BookingStatusVisuals(
         label: _statusLabel(context, status),
         leadingColor: Color(0xFFE5E7EB),
-        cardBorderColor: _bookingsBorder,
+        cardBorderColor: const Color(0xFFD1D5DB),
         pillBackgroundColor: Color(0xFFF3F4F6),
         pillBorderColor: Color(0xFFE5E7EB),
         pillTextColor: Color(0xFF374151),
@@ -1151,7 +1177,7 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
       return _BookingStatusVisuals(
         label: _statusLabel(context, status),
         leadingColor: Color(0xFFDCE8F6),
-        cardBorderColor: _bookingsBorder,
+        cardBorderColor: const Color(0xFFF0D7A8),
         pillBackgroundColor: Color(0xFFF1F5F9),
         pillBorderColor: Color(0xFFF1F5F9),
         pillTextColor: _bookingsUpcoming,
@@ -1159,6 +1185,48 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
         primaryTextColor: Colors.white,
       );
   }
+}
+
+Color _bookingCardBorderColor(
+  BuildContext context,
+  Map<String, dynamic> booking,
+) {
+  final status = _normalizeStatus(booking['status']);
+  final nonFinalStatus = status != 'IN_PROGRESS' &&
+      status != 'COMPLETED' &&
+      status != 'CANCELLED' &&
+      status != 'NO_SHOW';
+  final start = nonFinalStatus ? _bookingStart(booking) : null;
+  if (start != null && DateTime.now().isAfter(start)) {
+    return const Color(0xFFDC2626);
+  }
+  return _statusVisuals(context, status).cardBorderColor;
+}
+
+String _bookingStatusPillLabel(
+  BuildContext context,
+  Map<String, dynamic> booking,
+) {
+  final rawStatus = booking['status']?.toString().trim() ?? '';
+  if (rawStatus.isEmpty) return context.t('Upcoming');
+
+  final parts = rawStatus
+      .replaceAll('-', ' ')
+      .replaceAll('_', ' ')
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase() + part.substring(1).toLowerCase());
+  return parts.join(' ');
+}
+
+bool _isBookingOverdue(Map<String, dynamic> booking) {
+  final status = _normalizeStatus(booking['status']);
+  final nonFinalStatus = status != 'IN_PROGRESS' &&
+      status != 'COMPLETED' &&
+      status != 'CANCELLED' &&
+      status != 'NO_SHOW';
+  final start = nonFinalStatus ? _bookingStart(booking) : null;
+  return start != null && DateTime.now().isAfter(start);
 }
 
 bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>
@@ -4159,7 +4227,9 @@ class _TeamMemberSlotCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: visuals.cardBorderColor),
+            border: Border.all(
+              color: _bookingCardBorderColor(context, booking),
+            ),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x0D000000),
@@ -4173,11 +4243,9 @@ class _TeamMemberSlotCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  _StatusPill(
-                    label: visuals.label,
-                    backgroundColor: visuals.pillBackgroundColor,
-                    borderColor: visuals.pillBorderColor,
-                    textColor: visuals.pillTextColor,
+                  _BookingStatusWithOverdueBadge(
+                    booking: booking,
+                    visuals: visuals,
                   ),
                   const Spacer(),
                   Text(
@@ -4555,31 +4623,30 @@ class _ScheduleBookingSideBar extends StatelessWidget {
   }
 }
 
-class _ScheduleBookingStatusLabel extends StatelessWidget {
-  const _ScheduleBookingStatusLabel({required this.visuals});
+class _BookingStatusWithOverdueBadge extends StatelessWidget {
+  const _BookingStatusWithOverdueBadge({
+    required this.booking,
+    required this.visuals,
+  });
 
+  final Map<String, dynamic> booking;
   final _BookingStatusVisuals visuals;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: visuals.pillBackgroundColor,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: visuals.pillBorderColor),
-      ),
-      child: Text(
-        visuals.label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: _bookingTextStyle(
-          size: 8,
-          weight: FontWeight.w900,
-          color: visuals.pillTextColor,
-          height: 1,
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _StatusPill(
+          label: _bookingStatusPillLabel(context, booking),
+          backgroundColor: visuals.pillBackgroundColor,
+          borderColor: visuals.pillBorderColor,
+          textColor: visuals.pillTextColor,
         ),
-      ),
+        if (_isBookingOverdue(booking)) const _OverdueBadge(),
+      ],
     );
   }
 }
@@ -4617,7 +4684,10 @@ class _ScheduleBookingContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _ScheduleBookingStatusLabel(visuals: visuals),
+              _BookingStatusWithOverdueBadge(
+                booking: booking,
+                visuals: visuals,
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -4699,7 +4769,10 @@ class _ScheduleBookingCompactContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          _ScheduleBookingStatusLabel(visuals: visuals),
+          _BookingStatusWithOverdueBadge(
+            booking: booking,
+            visuals: visuals,
+          ),
           const SizedBox(height: 4),
           Text(
             _serviceCardSummary(context, booking),
@@ -5820,7 +5893,9 @@ class _TeamMemberTimelineBookingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: visuals.cardBorderColor),
+        border: Border.all(
+          color: _bookingCardBorderColor(context, booking),
+        ),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0D000000),
@@ -5881,11 +5956,9 @@ class _TeamMemberTimelineBookingCard extends StatelessWidget {
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.only(left: 52),
-            child: _StatusPill(
-              label: visuals.label,
-              backgroundColor: visuals.pillBackgroundColor,
-              borderColor: visuals.pillBorderColor,
-              textColor: visuals.pillTextColor,
+            child: _BookingStatusWithOverdueBadge(
+              booking: booking,
+              visuals: visuals,
             ),
           ),
           const SizedBox(height: 12),
@@ -6233,7 +6306,9 @@ class _ScheduleBoardAppointmentCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: visuals.cardBorderColor),
+                border: Border.all(
+                  color: _bookingCardBorderColor(context, booking),
+                ),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x0A000000),
@@ -6963,7 +7038,7 @@ class _BookingListCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: visuals.cardBorderColor,
+              color: _bookingCardBorderColor(context, booking),
               width: 1,
             ),
             boxShadow: const [
@@ -7094,11 +7169,9 @@ class _BookingListCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          _StatusPill(
-                            label: visuals.label,
-                            backgroundColor: visuals.pillBackgroundColor,
-                            borderColor: visuals.pillBorderColor,
-                            textColor: visuals.pillTextColor,
+                          _BookingStatusWithOverdueBadge(
+                            booking: booking,
+                            visuals: visuals,
                           ),
                         ],
                       ),
@@ -7242,6 +7315,31 @@ class _StatusPill extends StatelessWidget {
           size: 10,
           weight: FontWeight.w700,
           letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _OverdueBadge extends StatelessWidget {
+  const _OverdueBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F2),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Text(
+        context.t('Overdue'),
+        style: _bookingTextStyle(
+          color: const Color(0xFFB91C1C),
+          size: 9,
+          weight: FontWeight.w800,
+          letterSpacing: 0.2,
         ),
       ),
     );
