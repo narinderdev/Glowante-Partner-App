@@ -460,7 +460,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             color: AppColors.starColor,
             onRefresh: _loadData,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(0, 0, 0, 28),
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 if (_errorMessage != null)
@@ -690,6 +690,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           data: _mapValue('todays_appointments'),
           cleanText: _cleanText,
           asInt: _asInt,
+          selectedDate: _selectedDate,
+          branchId: _selectedBranchId,
+          apiService: _apiService,
           onOpenBookings: _openBookingsTab,
         );
         final staffCard = _StaffLiveStatusCard(
@@ -2089,12 +2092,18 @@ class _TodayAppointmentsCard extends StatefulWidget {
     required this.data,
     required this.cleanText,
     required this.asInt,
+    required this.selectedDate,
+    required this.branchId,
+    required this.apiService,
     required this.onOpenBookings,
   });
 
   final Map<String, dynamic> data;
   final String Function(dynamic value) cleanText;
   final int Function(dynamic value) asInt;
+  final DateTime selectedDate;
+  final int? branchId;
+  final ApiService apiService;
   final VoidCallback onOpenBookings;
 
   @override
@@ -2103,6 +2112,13 @@ class _TodayAppointmentsCard extends StatefulWidget {
 
 class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
   String _selectedFilterKey = 'all';
+
+  int? _asIntOrNull(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? ''}');
+  }
+
   @override
   Widget build(BuildContext context) {
     final filters = widget.data['filters'] is List
@@ -2288,38 +2304,215 @@ class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
     return 'upcoming';
   }
 
-  void _showAppointmentDetails(
+  String _formatAppointmentDate(dynamic value) {
+    final text = widget.cleanText(value);
+    if (text.isEmpty || text == '{}') return '';
+
+    final parsed = DateTime.tryParse(text);
+    if (parsed != null) {
+      return DateFormat('EEEE, MMM d').format(parsed.toLocal());
+    }
+
+    return text;
+  }
+
+  String _normalizeLookupKey(dynamic key) {
+    return key.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  dynamic _findNestedAppointmentValue(
+    dynamic node,
+    Set<String> normalizedKeys,
+  ) {
+    if (node is Map) {
+      final map = Map<dynamic, dynamic>.from(node);
+
+      for (final entry in map.entries) {
+        if (normalizedKeys.contains(_normalizeLookupKey(entry.key))) {
+          return entry.value;
+        }
+      }
+
+      for (final entry in map.entries) {
+        final nested = _findNestedAppointmentValue(
+          entry.value,
+          normalizedKeys,
+        );
+        if (nested != null) return nested;
+      }
+    } else if (node is List) {
+      for (final item in node) {
+        final nested = _findNestedAppointmentValue(item, normalizedKeys);
+        if (nested != null) return nested;
+      }
+    }
+
+    return null;
+  }
+
+  dynamic _firstAppointmentValue(
+    Map<String, dynamic> appointment,
+    List<String> keys,
+  ) {
+    final normalizedKeys = keys.map(_normalizeLookupKey).toSet();
+    return _findNestedAppointmentValue(appointment, normalizedKeys);
+  }
+
+  String _appointmentDateLabel(Map<String, dynamic> appointment) {
+    final candidate = _firstAppointmentValue(appointment, [
+      'date',
+      'appointmentDate',
+      'bookingDate',
+      'scheduledDate',
+      'startAt',
+      'start_at',
+      'createdAt',
+      'created_at',
+      'bookedAt',
+      'booked_at',
+    ]);
+
+    final formatted = _formatAppointmentDate(candidate);
+    if (formatted.isNotEmpty) return formatted;
+
+    return DateFormat('EEEE, MMM d').format(widget.selectedDate);
+  }
+
+  String _appointmentPaymentLabel(Map<String, dynamic> appointment) {
+    final candidate = _firstAppointmentValue(appointment, [
+      'totalPriceMinor',
+      'totalAmountMinor',
+      'amountMinor',
+      'paymentAmountMinor',
+      'paidAmountMinor',
+      'payableAmountMinor',
+      'finalAmountMinor',
+      'subtotalMinor',
+      'total_price_minor',
+      'total_amount_minor',
+      'amount_minor',
+      'payment_amount_minor',
+      'paid_amount_minor',
+      'payable_amount_minor',
+      'final_amount_minor',
+      'subtotal_minor',
+      'totalPrice',
+      'totalAmount',
+      'amount',
+      'paymentAmount',
+      'paidAmount',
+      'payableAmount',
+      'finalAmount',
+      'subtotal',
+      'total_price',
+      'total_amount',
+      'payment_amount',
+      'paid_amount',
+      'payable_amount',
+      'final_amount',
+      'subtotal_amount',
+    ]);
+
+    if (candidate == null) return '';
+
+    final text = widget.cleanText(candidate);
+    if (text.isNotEmpty) {
+      final value = num.tryParse(text.replaceAll(RegExp(r'[^0-9.-]'), ''));
+      if (value != null) return formatMinorAmount(value);
+    }
+
+    if (candidate is num) {
+      return formatMinorAmount(candidate);
+    }
+
+    return text;
+  }
+
+  List<Map<String, dynamic>> _extractAppointmentRecords(dynamic payload) {
+    if (payload is List) {
+      return payload
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    if (payload is Map) {
+      final map = Map<String, dynamic>.from(payload);
+      for (final key in const ['appointments', 'items', 'data']) {
+        final nested = map[key];
+        final records = _extractAppointmentRecords(nested);
+        if (records.isNotEmpty) return records;
+      }
+      return [map];
+    }
+
+    return const [];
+  }
+
+  Map<String, dynamic> _mergeAppointmentRecords(
+    Map<String, dynamic> summary,
+    Map<String, dynamic> detail,
+  ) {
+    final merged = Map<String, dynamic>.from(summary);
+    detail.forEach((key, value) {
+      if (value != null) {
+        merged[key] = value;
+      }
+    });
+    return merged;
+  }
+
+  Future<Map<String, dynamic>> _enrichAppointmentDetails(
+    Map<String, dynamic> appointment,
+  ) async {
+    final appointmentId = _asIntOrNull(
+      appointment['appointment_id'] ??
+          appointment['appointmentId'] ??
+          appointment['id'],
+    );
+    final branchId = widget.branchId;
+    if (appointmentId == null || branchId == null) {
+      return appointment;
+    }
+
+    try {
+      final response = await widget.apiService.fetchAppointments(
+        branchId,
+        DateFormat('yyyy-MM-dd').format(widget.selectedDate),
+      );
+      final records = _extractAppointmentRecords(response['data']);
+
+      for (final record in records) {
+        final recordId = _asIntOrNull(
+          record['appointment_id'] ?? record['appointmentId'] ?? record['id'],
+        );
+        if (recordId == appointmentId) {
+          return _mergeAppointmentRecords(appointment, record);
+        }
+      }
+    } catch (_) {}
+
+    return appointment;
+  }
+
+  Future<void> _showAppointmentDetails(
     BuildContext context,
     Map<String, dynamic> appointment,
-  ) {
-    final appointmentDate = widget.cleanText(
-      appointment['date'] ??
-          appointment['appointmentDate'] ??
-          appointment['bookingDate'] ??
-          appointment['scheduledDate'],
-    );
-    final paymentMinor = appointment['totalPriceMinor'] ??
-        appointment['totalAmountMinor'] ??
-        appointment['amountMinor'] ??
-        appointment['paymentAmountMinor'] ??
-        appointment['payableAmountMinor'] ??
-        appointment['finalAmountMinor'] ??
-        appointment['totalPrice'] ??
-        appointment['totalAmount'] ??
-        appointment['amount'] ??
-        appointment['paymentAmount'] ??
-        appointment['payableAmount'] ??
-        appointment['finalAmount'];
+  ) async {
+    final enriched = await _enrichAppointmentDetails(appointment);
+
+    if (!context.mounted) return;
+
     final details = <String, String>{
-      'Date': appointmentDate,
-      'Time': widget.cleanText(appointment['time_label']),
-      'Customer': widget.cleanText(appointment['customer_name']),
-      'Service': widget.cleanText(appointment['service_name']),
-      'Professional': widget.cleanText(appointment['professional_name']),
-      'Payment': paymentMinor == null ? '' : formatMinorAmount(paymentMinor),
-      'Status': widget.cleanText(appointment['status_label']).isEmpty
-          ? widget.cleanText(appointment['status'])
-          : widget.cleanText(appointment['status_label']),
+      'Date': _appointmentDateLabel(enriched),
+      'Time': widget.cleanText(enriched['time_label']),
+      'Customer': widget.cleanText(enriched['customer_name']),
+      'Service': widget.cleanText(enriched['service_name']),
+      'Professional': widget.cleanText(enriched['professional_name']),
+      'Payment': _appointmentPaymentLabel(enriched),
+      'Status': widget.cleanText(enriched['status_label']).isEmpty
+          ? widget.cleanText(enriched['status'])
+          : widget.cleanText(enriched['status_label']),
     };
     showDialog(
       context: context,

@@ -524,6 +524,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return digits.substring(digits.length - 10);
   }
 
+  String? _validatePhoneNumber(String? value) {
+    final phone = _normalizePhone(value);
+    if (phone.isEmpty) {
+      return translateText('Phone number is required');
+    }
+    if (phone.length != 10) {
+      return translateText('Phone number must be 10 digits.');
+    }
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(phone)) {
+      return translateText('Enter a valid mobile number.');
+    }
+    return null;
+  }
+
   AddSalonAddress? _extractInitialAddress(Map<String, dynamic> salon) {
     final primaryBranch = _resolvePrimaryBranch(salon);
     final address = _asStringKeyedMap(salon['address']) ??
@@ -1228,6 +1242,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
     _syncBufferDraftsFromInputs();
 
+    final phoneError = _validatePhoneNumber(_phoneController.text);
+    if (phoneError != null) {
+      Fluttertoast.showToast(msg: phoneError);
+      return;
+    }
+
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
       Fluttertoast.showToast(
           msg: translateText('Please select start and end time.'));
@@ -1651,6 +1671,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 enabled: true,
                                 keyboardType: TextInputType.phone,
                                 prefixText: '+91',
+                                validator: _validatePhoneNumber,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(10),
@@ -2350,6 +2371,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     String? prefixText,
     IconData? prefixIconData,
     IconData? suffixIconData,
+    String? Function(String?)? validator,
     double bottomSpacing = 18,
   }) {
     final normalizedLabel = label.replaceAll('*', '').trim();
@@ -2398,6 +2420,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                     if (text.length != 10) {
                       return translateText('Phone number must be 10 digits');
                     }
+                    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(text)) {
+                      return translateText('Enter a valid mobile number.');
+                    }
                   }
 
                   if (maxWords != null &&
@@ -2405,7 +2430,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                     return translateText('Maximum $maxWords words allowed');
                   }
 
-                  return null;
+                  return validator?.call(value);
                 },
                 builder: (field) {
                   final errorText = field.errorText;

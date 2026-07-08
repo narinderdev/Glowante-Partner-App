@@ -979,6 +979,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (!isValid) return;
     _syncBufferDraftsFromInputs();
 
+    final phoneError = _validatePhoneNumber(_phoneController.text);
+    if (phoneError != null) {
+      Fluttertoast.showToast(msg: phoneError);
+      return;
+    }
+
     if (widget.isEdit &&
         (_startTimeController.text.isEmpty ||
             _endTimeController.text.isEmpty)) {

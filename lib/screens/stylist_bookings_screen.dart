@@ -7497,6 +7497,7 @@ class _StylistBookingDetailScreenState
   }
 
   Future<void> _showAddItemsInfo() async {
+    if (_statusUpper == 'NO_SHOW') return;
     final item = await showStylistItemEntryFlow(context);
     if (!mounted || item == null) return;
 
@@ -7621,6 +7622,7 @@ class _StylistBookingDetailScreenState
   }
 
   Future<void> _showAddServicesDialog() async {
+    if (_statusUpper == 'NO_SHOW') return;
     if (_statusUpper != 'IN_PROGRESS') {
       Fluttertoast.showToast(
         msg: translateText('Add Services is available only for active jobs'),

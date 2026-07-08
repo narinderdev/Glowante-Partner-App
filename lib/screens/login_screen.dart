@@ -50,8 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handlePhoneChanged() {
     final phone = phoneController.text.trim();
-    final bool isValid = RegExp(r'^[6-9]\d{9}$').hasMatch(phone) &&
-        !RegExp(r'^0+$').hasMatch(phone);
+    final bool isValid = phone.length == 10;
     if (isValid != _isContinueEnabled) {
       setState(() => _isContinueEnabled = isValid);
     }
@@ -74,11 +73,12 @@ class _LoginScreenState extends State<LoginScreen> {
     // ✅ Validation checks
     if (phoneNumber.isEmpty ||
         phoneNumber.length != 10 ||
-        !RegExp(r'^[6-9]\d{9}$').hasMatch(phoneNumber) ||
-        RegExp(r'^0+$').hasMatch(phoneNumber)) {
+        !RegExp(r'^[6-9]\d{9}$').hasMatch(phoneNumber)) {
+      Fluttertoast.showToast(
+        msg: translateText('Please enter valid phone number'),
+      );
       setState(() {
-        _errorMessage =
-            translateText('Please enter a valid 10-digit mobile number');
+        _errorMessage = null;
       });
       return;
     }

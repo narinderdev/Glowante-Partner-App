@@ -312,6 +312,8 @@ class CategoryScreenState extends State<CategoryScreen> {
   int? _selectedFilterCategoryId;
   double? _pendingScrollOffset;
   bool _syncingBookingsSelection = false;
+  bool _isOpeningPredefinedServices = false;
+  bool _isOpeningAddService = false;
 
   int? _asInt(dynamic value) {
     if (value == null) return null;
@@ -817,33 +819,43 @@ class CategoryScreenState extends State<CategoryScreen> {
     Map<String, dynamic> category,
     List<dynamic> categories,
   ) async {
-    if (_selectedSalon == null) return;
+    if (_selectedSalon == null || _isOpeningAddService) return;
 
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddServices(
-          branchId: _selectedSalon!['branchId'] as int,
-          selectedCategory: category,
-          categories: categories,
+    setState(() => _isOpeningAddService = true);
+
+    try {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddServices(
+            branchId: _selectedSalon!['branchId'] as int,
+            selectedCategory: category,
+            categories: categories,
+          ),
         ),
-      ),
-    );
+      );
 
-    final updated =
-        result == true || (result is Map && result['updated'] == true);
-    if (updated) {
-      // Refresh categories/services after adding a service
-      await _refreshData();
-      _focusAddedServiceTarget(result);
+      final updated =
+          result == true || (result is Map && result['updated'] == true);
+      if (updated) {
+        // Refresh categories/services after adding a service
+        await _refreshData();
+        _focusAddedServiceTarget(result);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningAddService = false);
+      }
     }
   }
 
   Future<void> _showPredefinedServicesModal() async {
-    if (_selectedSalon == null) return;
+    if (_selectedSalon == null || _isOpeningPredefinedServices) return;
     final branchId = _asInt(_selectedSalon?['branchId']) ??
         _asInt(_selectedSalon?['salonId']);
     if (branchId == null) return;
+
+    setState(() => _isOpeningPredefinedServices = true);
 
     try {
       final branchServicesResponse =
@@ -1163,6 +1175,10 @@ class CategoryScreenState extends State<CategoryScreen> {
     } catch (error) {
       if (!mounted) return;
       _toast(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningPredefinedServices = false);
+      }
     }
   }
 
@@ -1381,9 +1397,19 @@ class CategoryScreenState extends State<CategoryScreen> {
           ),
           IconButton(
             tooltip: translateText('Add predefined services'),
-            onPressed:
-                _selectedSalon == null ? null : _showPredefinedServicesModal,
-            icon: const Icon(Icons.playlist_add_check_rounded),
+            onPressed: _selectedSalon == null || _isOpeningPredefinedServices
+                ? null
+                : _showPredefinedServicesModal,
+            icon: _isOpeningPredefinedServices
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(_catalogGold),
+                    ),
+                  )
+                : const Icon(Icons.playlist_add_check_rounded),
             color: _catalogGold,
           ),
         ],
@@ -1624,22 +1650,41 @@ class CategoryScreenState extends State<CategoryScreen> {
         SizedBox(
           height: 38,
           child: ElevatedButton.icon(
-            onPressed: _selectedSalon == null
+            onPressed: _selectedSalon == null || _isOpeningAddService
                 ? null
                 : () => _openAddService(
                       const <String, dynamic>{},
                       catState.categories,
                     ),
-            icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-            label: Text(
-              translateText('Add Service'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            icon: _isOpeningAddService
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.add_circle_outline_rounded, size: 16),
+            label: _isOpeningAddService
+                ? Text(
+                    translateText('Opening...'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  )
+                : Text(
+                    translateText('Add Service'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
             style: ElevatedButton.styleFrom(
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,

@@ -142,6 +142,8 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCompleted = statusCode.trim().toUpperCase() == 'COMPLETED';
+    final isNoShow = statusCode.trim().toUpperCase() == 'NO_SHOW';
+    final canManageItemAndServiceActions = !isCompleted && !isNoShow;
 
     Widget actionButton({
       required String label,
@@ -514,7 +516,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 10),
-              if (addedItems.isNotEmpty) ...[
+              if (canManageItemAndServiceActions && addedItems.isNotEmpty) ...[
                 _DetailSectionCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -569,7 +571,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
               //   ),
               // ),
               // const SizedBox(height: 10),
-              if (canAddServices && !isCompleted)
+              if (canManageItemAndServiceActions && canAddServices)
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(

@@ -446,9 +446,14 @@ class _OtpScreenState extends State<OtpScreen> {
     if (isLoading) return;
     final safeIndex = index.clamp(0, otpControllers.length - 1).toInt();
     FocusScope.of(context).requestFocus(otpFocusNodes[safeIndex]);
-    otpControllers[safeIndex].selection = TextSelection.collapsed(
-      offset: otpControllers[safeIndex].text.length,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = otpControllers[safeIndex];
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+    });
     setState(() {});
   }
 
@@ -770,6 +775,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                       : null,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(1),
                                   ],
                                   textAlign: TextAlign.center,
                                   textAlignVertical: TextAlignVertical.center,

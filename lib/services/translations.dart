@@ -37,6 +37,7 @@ class AppTranslations {
       'Add a salon to get started': 'Add a salon to get started',
       'Pick a salon to view bookings': 'Pick a salon to view bookings',
       'Add Service': 'Add Service',
+      'Opening...': 'Opening...',
       'Add Team Member': 'Add Team Member',
       'Add detailed review': 'Add detailed review',
       'Add location': 'Add location',
@@ -163,6 +164,7 @@ class AppTranslations {
       'Enter a valid start date.': 'Enter a valid start date.',
       'Enter mobile number': 'Enter mobile number',
       'Enter phone number': 'Enter phone number',
+      'Please enter valid phone number': 'Please enter valid phone number',
       'Enter the maximum discount amount.':
           'Enter the maximum discount amount.',
       'Enter valid 6-digit OTP': 'Enter valid 6-digit OTP',
@@ -403,6 +405,7 @@ class AppTranslations {
           'Please check your network settings.',
       'Please enter a valid 10-digit mobile number':
           'Please enter a valid 10-digit mobile number',
+      'Enter a valid mobile number.': 'Enter a valid mobile number.',
       'Please enter a valid 6-digit OTP': 'Please enter a valid 6-digit OTP',
       'Please fill all required fields': 'Please fill all required fields',
       'Please fix the following': 'Please fix the following',
@@ -844,6 +847,7 @@ class AppTranslations {
       'Add a salon to get started': 'शुरू करने के लिए सैलून जोड़ें',
       'Pick a salon to view bookings': 'बुकिंग्स देखने के लिए कोई सैलून चुनें',
       'Add Service': 'सेवा जोड़ें',
+      'Opening...': 'खुल रहा है...',
       'Add Team Member': 'टीम सदस्य जोड़ें',
       'Assign services': 'सेवाएँ सौंपें',
       'Add detailed review': 'विस्तृत समीक्षा जोड़ें',
@@ -988,6 +992,7 @@ class AppTranslations {
       'Enter a valid start date.': 'मान्य आरंभ तिथि दर्ज करें।',
       'Enter mobile number': 'मोबाइल नंबर दर्ज करें',
       'Enter phone number': 'फ़ोन नंबर दर्ज करें',
+      'Please enter valid phone number': 'कृपया मान्य फ़ोन नंबर दर्ज करें',
       'Enter the maximum discount amount.': 'अधिकतम छूट राशि दर्ज करें।',
       'Enter valid 6-digit OTP': 'मान्य 6-अंकीय OTP दर्ज करें',
       'Enter valid price & duration': 'मान्य मूल्य और अवधि दर्ज करें',
@@ -1237,6 +1242,7 @@ class AppTranslations {
           'कृपया अपनी नेटवर्क सेटिंग्स जाँचें।',
       'Please enter a valid 10-digit mobile number':
           'कृपया मान्य 10-अंकीय मोबाइल नंबर दर्ज करें',
+      'Enter a valid mobile number.': 'मान्य मोबाइल नंबर दर्ज करें।',
       'Please enter a valid 6-digit OTP': 'कृपया मान्य 6-अंकीय OTP दर्ज करें',
       'Please fill all required fields': 'कृपया सभी आवश्यक फ़ील्ड भरें',
       'Please fix the following': 'कृपया निम्न समस्याएँ ठीक करें',
