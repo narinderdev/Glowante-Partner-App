@@ -662,6 +662,7 @@ class _ProfileUploadOverlay extends StatelessWidget {
               fontSize: 17,
               fontWeight: FontWeight.w800,
               color: Color(0xFF1C1917),
+              decoration: TextDecoration.none,
             ),
           ),
           const SizedBox(height: 6),
@@ -672,6 +673,7 @@ class _ProfileUploadOverlay extends StatelessWidget {
               fontSize: 13,
               height: 1.35,
               color: Color(0xFF6F665E),
+              decoration: TextDecoration.none,
             ),
           ),
           const SizedBox(height: 18),
@@ -690,6 +692,7 @@ class _ProfileUploadOverlay extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               color: Color(0xFF8A8179),
+              decoration: TextDecoration.none,
             ),
           ),
         ],
