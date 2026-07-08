@@ -1173,7 +1173,7 @@ bool _canStartJob(Map<String, dynamic> booking) {
   if (start == null) return false;
 
   final now = DateTime.now();
-  final allowedAt = start.subtract(const Duration(minutes: 10));
+  final allowedAt = start.subtract(const Duration(minutes: 15));
   return now.isAtSameMomentAs(allowedAt) || now.isAfter(allowedAt);
 }
 
@@ -3373,7 +3373,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     if (!_canStartJob(booking)) {
       Fluttertoast.showToast(
         msg: translateText(
-          'You can start this job 10 minutes before appointment time',
+          'You can start this job 15 minutes before appointment time',
         ),
       );
       return;
@@ -7343,7 +7343,7 @@ class _StylistBookingDetailScreenState
     if (!_canStartJob(_booking)) {
       Fluttertoast.showToast(
         msg: translateText(
-          'You can start this job 10 minutes before appointment time',
+          'You can start this job 15 minutes before appointment time',
         ),
       );
       return;
