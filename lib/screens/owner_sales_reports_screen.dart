@@ -1607,7 +1607,18 @@ class _PaymentMethodCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final String Function(dynamic value) cleanText;
   final double Function(dynamic value) asDouble;
+String getPaymentMethod(dynamic value) {
+    final method = (value ?? '').toString().toLowerCase().trim();
 
+    switch (method) {
+      case 'unknown':
+        return 'UPI/Cards';
+      case 'wallet':
+        return 'Wallet';
+      default:
+        return cleanText(value);
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final rows = data['data'] is List
@@ -1713,7 +1724,7 @@ class _PaymentMethodCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        cleanText(row['paymentMethod']),
+                        getPaymentMethod(row['paymentMethod']),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
