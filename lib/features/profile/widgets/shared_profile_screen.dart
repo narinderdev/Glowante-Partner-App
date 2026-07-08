@@ -63,6 +63,8 @@ class SharedProfileScreen extends StatelessWidget {
     required this.onDeleteAccount,
     this.onRefresh,
     this.roleLabel,
+    this.profileImageUrl,
+    this.onEditProfilePicture,
     this.topSections = const <Widget>[],
   });
 
@@ -75,6 +77,8 @@ class SharedProfileScreen extends StatelessWidget {
   final VoidCallback onDeleteAccount;
   final Future<void> Function()? onRefresh;
   final String? roleLabel;
+  final String? profileImageUrl;
+  final VoidCallback? onEditProfilePicture;
   final List<Widget> topSections;
 
   @override
@@ -87,6 +91,8 @@ class SharedProfileScreen extends StatelessWidget {
           userName: userName,
           phoneNumber: phoneNumber,
           roleLabel: roleLabel,
+          profileImageUrl: profileImageUrl,
+          onEditProfilePicture: onEditProfilePicture,
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
@@ -195,11 +201,15 @@ class _ProfileHero extends StatelessWidget {
     required this.userName,
     required this.phoneNumber,
     this.roleLabel,
+    this.profileImageUrl,
+    this.onEditProfilePicture,
   });
 
   final String userName;
   final String phoneNumber;
   final String? roleLabel;
+  final String? profileImageUrl;
+  final VoidCallback? onEditProfilePicture;
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +220,11 @@ class _ProfileHero extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
       child: Column(
         children: [
-          _ProfileAvatar(name: displayName),
+          _ProfileAvatar(
+            name: displayName,
+            imageUrl: profileImageUrl,
+            onEditPressed: onEditProfilePicture,
+          ),
           const SizedBox(height: 16),
           Text(
             displayName,
@@ -259,13 +273,22 @@ class _ProfileHero extends StatelessWidget {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.name});
+  const _ProfileAvatar({
+    required this.name,
+    this.imageUrl,
+    this.onEditPressed,
+  });
 
   final String name;
+  final String? imageUrl;
+  final VoidCallback? onEditPressed;
 
   @override
   Widget build(BuildContext context) {
     final initials = _initialsFromName(name);
+    final resolvedImageUrl = imageUrl?.trim() ?? '';
+    final hasImage =
+        resolvedImageUrl.isNotEmpty && resolvedImageUrl.toLowerCase() != 'null';
 
     return SizedBox(
       width: 120,
@@ -299,36 +322,51 @@ class _ProfileAvatar extends StatelessWidget {
                 ),
               ),
               alignment: Alignment.center,
-              child: Text(
-                initials,
-                style: _profileTextStyle(
-                  size: 32,
-                  weight: FontWeight.w700,
-                  color: Colors.white,
+              child: ClipOval(
+                child: SizedBox.expand(
+                  child: hasImage
+                      ? Image.network(
+                          resolvedImageUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return _AvatarFallback(initials: initials);
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return _AvatarFallback(initials: initials);
+                          },
+                        )
+                      : _AvatarFallback(initials: initials),
                 ),
               ),
             ),
           ),
-          Positioned(
-            right: 4,
-            bottom: 8,
-            child: IgnorePointer(
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFC19A6B),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: const Icon(
-                  Icons.edit_rounded,
-                  color: Colors.white,
-                  size: 14,
+          if (onEditPressed != null)
+            Positioned(
+              right: 4,
+              bottom: 8,
+              child: Material(
+                color: const Color(0xFFC19A6B),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onEditPressed,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.edit_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -349,6 +387,34 @@ class _ProfileAvatar extends StatelessWidget {
     }
     return '${parts.first.characters.first}${parts.last.characters.first}'
         .toUpperCase();
+  }
+}
+
+class _AvatarFallback extends StatelessWidget {
+  const _AvatarFallback({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF334155), Color(0xFF0F172A)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: _profileTextStyle(
+          size: 32,
+          weight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
+    );
   }
 }
 

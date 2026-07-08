@@ -1432,15 +1432,14 @@ class ApiService {
 
   // Update profile
   Future<Map<String, dynamic>> updateUserProfileDetails(
-    String firstName,
-    String lastName,
-    String email,
-    String token,
-  ) async {
+      String firstName, String lastName, String email, String token,
+      {String? profilePictureUrl}) async {
     final updatePayload = {
       "firstName": firstName,
       "lastName": lastName,
       "email": email,
+      if (profilePictureUrl != null && profilePictureUrl.trim().isNotEmpty)
+        "profilePictureUrl": profilePictureUrl.trim(),
     };
 
     // Log the payload being sent in the request
@@ -1483,8 +1482,7 @@ class ApiService {
         // Log the error message if status code isn't 200/201
         print(
             "Failed update profile: ${response.statusCode}, $responseMessage");
-        throw Exception("Failed update profile (${response.statusCode}): "
-            "$responseMessage");
+        throw Exception(responseMessage);
       }
     } catch (e) {
       // Log any errors that occur during the HTTP request
