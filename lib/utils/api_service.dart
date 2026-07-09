@@ -105,10 +105,21 @@ class ApiService {
     }
   }
 
+  static void _logRequest({
+    required String tag,
+    required Uri url,
+    required Map<String, String> headers,
+    required Object body,
+  }) {
+    print('[$tag] URL: $url');
+    print('[$tag] Headers: $headers');
+    print('[$tag] Body: $body');
+  }
+
   // static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
-  // static const String baseUrl = "https://dev-api.glowante.com/";
-  static const String baseUrl = "https://test-api.glowante.com/";
+  static const String baseUrl = "https://dev-api.glowante.com/";
+  // static const String baseUrl = "https://test-api.glowante.com/";
   // static const String baseUrl = "https://b86c-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
@@ -1061,6 +1072,13 @@ class ApiService {
       loginPayload['deviceToken'] = resolvedToken;
     }
 
+    _logRequest(
+      tag: 'LoginAPI Request',
+      url: Uri.parse(baseUrl + userLogin),
+      headers: {"Content-Type": "application/json"},
+      body: json.encode(loginPayload),
+    );
+
     final response = await _sharedClient.post(
       Uri.parse(baseUrl + userLogin),
       headers: {"Content-Type": "application/json"},
@@ -1414,6 +1432,13 @@ class ApiService {
     final url = Uri.parse(baseUrl + resendOtpEndpoint);
     final headers = {"Content-Type": "application/json"};
     final body = json.encode(resendPayload);
+
+    _logRequest(
+      tag: 'ResendOTP Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
 
     print("========== RESEND OTP START ==========");
     print("Request URL: $url");
@@ -2886,6 +2911,13 @@ class ApiService {
       'phoneNumber': phoneNumber,
       'platform': _resolvePlatformValue(),
     });
+
+    _logRequest(
+      tag: 'CheckUserAndSendOTP Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
 
     try {
       final response =
