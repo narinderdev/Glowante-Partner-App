@@ -72,6 +72,21 @@ final http.Client _authorizedHttpClient = _AuthHttpClient();
 class ApiService {
   static http.Client get _sharedClient => _authorizedHttpClient;
 
+  static String _resolvePlatformValue() {
+    if (kIsWeb) {
+      return 'web';
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        return 'ios';
+      case TargetPlatform.android:
+        return 'flutter_android';
+      default:
+        return 'flutter_android';
+    }
+  }
+
   static void _debugPrintChunked(
     String tag,
     Object? message, {
@@ -1034,6 +1049,7 @@ class ApiService {
     final loginPayload = {
       "phoneNumber": phoneNumber,
       "source": "app",
+      "platform": _resolvePlatformValue(),
     };
 
     String? resolvedToken = deviceToken;
@@ -1213,6 +1229,7 @@ class ApiService {
     final payload = <String, dynamic>{
       "phoneNumber": phoneNumber,
       "source": source,
+      "platform": _resolvePlatformValue(),
       "firstName": firstName,
       "lastName": lastName,
       "deviceToken": resolvedToken,
@@ -1390,7 +1407,10 @@ class ApiService {
 
   // Resend OTP
   Future<Map<String, dynamic>> resendOtp(String phoneNumber) async {
-    final resendPayload = {"phoneNumber": phoneNumber};
+    final resendPayload = {
+      "phoneNumber": phoneNumber,
+      "platform": _resolvePlatformValue(),
+    };
     final url = Uri.parse(baseUrl + resendOtpEndpoint);
     final headers = {"Content-Type": "application/json"};
     final body = json.encode(resendPayload);
@@ -2862,7 +2882,10 @@ class ApiService {
 
     print('Headers: { "Authorization": "Bearer $token" }');
 
-    final body = json.encode({'phoneNumber': phoneNumber});
+    final body = json.encode({
+      'phoneNumber': phoneNumber,
+      'platform': _resolvePlatformValue(),
+    });
 
     try {
       final response =
@@ -5366,6 +5389,7 @@ class ApiService {
       body: jsonEncode({
         "countryCode": countryCode,
         "phoneNumber": phoneNumber,
+        "platform": _resolvePlatformValue(),
       }),
     );
 
