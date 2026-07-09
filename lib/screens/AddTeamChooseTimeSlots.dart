@@ -114,6 +114,13 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     return (minutes ~/ _timeMinuteStep) * _timeMinuteStep;
   }
 
+  int _roundUpToStep(int minutes) {
+    if (minutes <= 0) return 0;
+    final remainder = minutes % _timeMinuteStep;
+    if (remainder == 0) return minutes;
+    return minutes + (_timeMinuteStep - remainder);
+  }
+
   List<String> get _weekDays => weeklySchedule.keys.toList();
 
   Map<String, List<Map<String, String>>> _cloneWeeklySchedule(
@@ -909,43 +916,26 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         .toList()
       ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
-    const minimumDuration = _timeMinuteStep;
+    final lastUsed = existing.last;
+    final nextStart = _roundUpToStep(lastUsed.endMinutes + _timeMinuteStep);
 
     for (final bound in operatingSlots) {
-      var cursor = bound.startMinutes;
-
-      for (final used in existing) {
-        if (used.endMinutes <= bound.startMinutes ||
-            used.startMinutes >= bound.endMinutes) {
-          continue;
-        }
-
-        final usedStart = used.startMinutes.clamp(
-          bound.startMinutes,
-          bound.endMinutes,
-        );
-
-        if (usedStart - cursor >= minimumDuration) {
-          return _OperatingSlot(
-            startMinutes: cursor,
-            endMinutes: usedStart,
-          );
-        }
-
-        if (used.endMinutes >= cursor) {
-          cursor = used.endMinutes.clamp(
-            bound.startMinutes,
-            bound.endMinutes,
-          );
-        }
+      if (nextStart < bound.startMinutes) {
+        continue;
       }
 
-      if (bound.endMinutes - cursor >= minimumDuration) {
-        return _OperatingSlot(
-          startMinutes: cursor,
-          endMinutes: bound.endMinutes,
-        );
+      if (nextStart >= bound.endMinutes) {
+        continue;
       }
+
+      if (bound.endMinutes - nextStart < _timeMinuteStep) {
+        continue;
+      }
+
+      return _OperatingSlot(
+        startMinutes: nextStart,
+        endMinutes: bound.endMinutes,
+      );
     }
 
     return null;
