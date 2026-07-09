@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../services/network_listener.dart';
 import '../utils/api_service.dart';
+import '../utils/error_parser.dart';
 import '../Viewmodels/AddCategory.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 
@@ -158,7 +159,10 @@ class SalonRepository {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
-        'createSalon failed (${response.statusCode}): ${response.body}',
+        extractErrorMessage(
+          response.body,
+          fallback: 'Failed to create salon',
+        ),
         uri: endpoint,
       );
     }

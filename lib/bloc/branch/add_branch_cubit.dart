@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../repositories/salon_repository.dart';
+import '../../utils/error_parser.dart';
 
 part 'add_branch_state.dart';
 
@@ -55,7 +56,7 @@ class AddBranchCubit extends Cubit<AddBranchState> {
       emit(
         state.copyWith(
           status: BranchFormStatus.failure,
-          errorMessage: error.toString(),
+          errorMessage: extractErrorMessage(error),
         ),
       );
     }
@@ -129,7 +130,7 @@ class AddBranchCubit extends Cubit<AddBranchState> {
       emit(
         state.copyWith(
           status: BranchFormStatus.failure,
-          errorMessage: error.toString(),
+          errorMessage: extractErrorMessage(error),
         ),
       );
     }

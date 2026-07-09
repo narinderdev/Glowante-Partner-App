@@ -18,6 +18,7 @@ import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/api_service.dart';
+import '../utils/error_parser.dart';
 import 'bottom_nav.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -1188,11 +1189,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
         if (state.status == BranchFormStatus.failure &&
             state.errorMessage != null) {
-          final message = state.errorMessage!
-              .replaceAll('Failed to add branch:', '')
-              .replaceAll('Exception:', '')
-              .trim();
-          Fluttertoast.showToast(msg: message);
+          Fluttertoast.showToast(
+            msg: extractErrorMessage(state.errorMessage!),
+          );
         }
 
         if (state.status == BranchFormStatus.success) {

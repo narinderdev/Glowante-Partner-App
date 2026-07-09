@@ -1006,62 +1006,11 @@ class _TeamScreenState extends State<TeamScreen> {
     return rawAssignments is List && rawAssignments.isNotEmpty;
   }
 
-  String? _salonNameForBranchId(int branchId) {
-    for (final salon in _salons) {
-      final salonName = (salon['name'] ?? '').toString().trim();
-      final branches = salon['branches'] as List? ?? const [];
-      for (final branch in branches) {
-        if (branch is! Map) continue;
-        final rawId = branch['id'];
-        final id = rawId is int
-            ? rawId
-            : rawId is num
-                ? rawId.toInt()
-                : int.tryParse('${rawId ?? ''}');
-        if (id == branchId) {
-          return salonName;
-        }
-      }
-    }
-    return null;
-  }
-
-  String _memberAssignedSalonLabel(Map<String, dynamic> member) {
-    final rawAssignments = member['userBranches'];
-    if (rawAssignments is! List || rawAssignments.isEmpty) {
-      return '';
-    }
-
-    final salonNames = <String>{};
-    for (final assignment in rawAssignments) {
-      if (assignment is! Map) continue;
-      final branch = assignment['branch'];
-      final rawBranchId = branch is Map ? branch['id'] : assignment['branchId'];
-      final branchId = rawBranchId is int
-          ? rawBranchId
-          : rawBranchId is num
-              ? rawBranchId.toInt()
-              : int.tryParse('${rawBranchId ?? ''}');
-      if (branchId == null) continue;
-      final salonName = _salonNameForBranchId(branchId);
-      if (salonName != null && salonName.isNotEmpty) {
-        salonNames.add(salonName);
-      }
-    }
-
-    if (salonNames.isNotEmpty) {
-      return salonNames.join(', ');
-    }
-
-    return (selectedBranch?['salonName'] ?? '').toString().trim();
-  }
-
   Widget _buildAssignButtonChild(Map<String, dynamic> member) {
     if (!_memberHasAssignments(member)) {
       return Text(translateText("Assign"));
     }
 
-    final assignedSalonLabel = _memberAssignedSalonLabel(member);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2532,6 +2481,28 @@ class _TeamMemberCard extends StatelessWidget {
     return '${translateText('Complete setup')} • ${missing.join(', ')}';
   }
 
+  String get _assignedBranchesLabel {
+    final rawAssignments = member['userBranches'];
+    if (rawAssignments is! List || rawAssignments.isEmpty) {
+      return '';
+    }
+
+    final labels = <String>[];
+    for (final assignment in rawAssignments) {
+      if (assignment is! Map) continue;
+      final branch = assignment['branch'];
+      final branchName = branch is Map
+          ? (branch['name'] ?? branch['branchName'] ?? '')
+          : assignment['branchName'];
+      final text = _cleanText(branchName);
+      if (text.isNotEmpty && !labels.contains(text)) {
+        labels.add(text);
+      }
+    }
+
+    return labels.join(', ');
+  }
+
   String get _initials {
     final parts = name
         .split(RegExp(r'\s+'))
@@ -2713,6 +2684,20 @@ class _TeamMemberCard extends StatelessWidget {
               ),
             ],
           ),
+          if (_assignedBranchesLabel.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              '${translateText('Assigned branches')}: $_assignedBranchesLabel',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _teamMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+              ),
+            ),
+          ],
           const Spacer(),
           Row(
             children: [

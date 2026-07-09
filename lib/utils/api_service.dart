@@ -14,6 +14,13 @@ import '../Viewmodels/AddSalonServiceRequest.dart';
 import 'error_parser.dart';
 import 'dart:async';
 
+String _apiErrorMessage(
+  dynamic body, {
+  required String fallback,
+}) {
+  return extractErrorMessage(body, fallback: fallback);
+}
+
 class _AuthHttpClient extends http.BaseClient {
   _AuthHttpClient();
 
@@ -85,8 +92,8 @@ class ApiService {
 
   // static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
-  // static const String baseUrl = "https://dev-api.glowante.com/";
-  static const String baseUrl = "https://test-api.glowante.com/";
+  static const String baseUrl = "https://dev-api.glowante.com/";
+  // static const String baseUrl = "https://test-api.glowante.com/";
   // static const String baseUrl = "https://b86c-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
@@ -2352,14 +2359,18 @@ class ApiService {
       body: jsonEncode(branchData),
     );
 
-    final decodedBody = jsonDecode(response.body);
-
     if (response.statusCode == 200 || response.statusCode == 201) {
+      final decodedBody = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : <String, dynamic>{};
       return decodedBody;
     } else {
-      final message = decodedBody["message"] ?? "Failed to add branch";
-
-      throw Exception(message);
+      throw Exception(
+        _apiErrorMessage(
+          response.body,
+          fallback: 'Failed to add branch',
+        ),
+      );
     }
   }
 
@@ -2385,7 +2396,12 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to update salon: ${response.body}");
+    throw Exception(
+      _apiErrorMessage(
+        response.body,
+        fallback: 'Failed to update salon',
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> activateSalon(int salonId) async {
@@ -2473,7 +2489,12 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to update branch: ${response.body}");
+    throw Exception(
+      _apiErrorMessage(
+        response.body,
+        fallback: 'Failed to update branch',
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> activateBranch(int branchId) async {
@@ -2926,14 +2947,15 @@ class ApiService {
         // If successful, parse the response JSON
         return json.decode(response.body);
       } else {
-        final decoded = json.decode(response.body);
-        if (decoded is Map<String, dynamic>) {
-          return decoded;
-        }
+        final decoded =
+            response.body.isNotEmpty ? json.decode(response.body) : null;
+        final message = extractErrorMessage(
+          decoded ?? response.body,
+          fallback: 'Failed to add user',
+        );
         return {
           'success': false,
-          'message':
-              response.body.isNotEmpty ? response.body : 'Failed to add user',
+          'message': message,
         };
       }
     } catch (e) {
@@ -2984,8 +3006,12 @@ class ApiService {
         // If successful, parse the response JSON
         return json.decode(response.body);
       } else {
-        // If request fails, throw an error
-        throw Exception('Failed to add salon user');
+        throw Exception(
+          extractErrorMessage(
+            response.body,
+            fallback: 'Failed to add salon user',
+          ),
+        );
       }
     } catch (e) {
       // Handle errors (e.g., network issues)
@@ -5494,7 +5520,12 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to update team member: ${response.body}");
+    throw Exception(
+      extractErrorMessage(
+        response.body,
+        fallback: 'Failed to update team member',
+      ),
+    );
   }
 
   // Future<Map<String, dynamic>> setTeamMemberActive({

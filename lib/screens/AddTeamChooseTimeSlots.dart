@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'SalonTeams.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/api_service.dart';
+import '../utils/error_parser.dart';
 import '../utils/colors.dart';
 import 'AddTeamSelectServices.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -39,6 +40,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   late Map<String, List<Map<String, String>>> mondaySchedule;
 
   Map<String, List<Map<String, String>>>? _manualWeeklyScheduleSnapshot;
+  Set<String>? _manualMemberOffDaysSnapshot;
+  Map<String, List<Map<String, String>>>? _manualMemberOffDaySnapshots;
 
   bool _isSubmitting = false;
   bool _useSalonHours = false;
@@ -70,6 +73,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   }
 
   final Set<String> _closedDays = <String>{};
+  final Set<String> _memberOffDays = <String>{};
+  final Map<String, List<Map<String, String>>> _memberOffDaySnapshots =
+      <String, List<Map<String, String>>>{};
 
   final Map<String, List<_OperatingSlot>> _operatingSlotsByDay =
       <String, List<_OperatingSlot>>{};
@@ -159,10 +165,29 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       weeklySchedule = _cloneWeeklySchedule(snapshot);
       _sortWeeklyScheduleInPlace();
       _manualWeeklyScheduleSnapshot = null;
+
+      _memberOffDays
+        ..clear()
+        ..addAll(_manualMemberOffDaysSnapshot ?? const <String>{});
+      _memberOffDaySnapshots
+        ..clear()
+        ..addAll(
+          _manualMemberOffDaySnapshots?.map(
+                (day, slots) => MapEntry(
+                  day,
+                  slots.map((slot) => Map<String, String>.from(slot)).toList(),
+                ),
+              ) ??
+              const <String, List<Map<String, String>>>{},
+        );
+      _manualMemberOffDaysSnapshot = null;
+      _manualMemberOffDaySnapshots = null;
       return;
     }
 
     _clearWeeklySchedule();
+    _memberOffDays.clear();
+    _memberOffDaySnapshots.clear();
   }
 
   Future<void> _loadOperatingSchedule() async {
@@ -397,6 +422,44 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     return merged;
   }
 
+  String _to24h(String input) {
+    final text = input.trim();
+    if (text.isEmpty) return text;
+
+    final reg24 = RegExp(r'^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$');
+    final match24 = reg24.firstMatch(text);
+    if (match24 != null) {
+      final hour = int.tryParse(match24.group(1) ?? '');
+      final minute = int.tryParse(match24.group(2) ?? '');
+      final second = int.tryParse(match24.group(3) ?? '') ?? 0;
+      if (hour == null ||
+          minute == null ||
+          hour < 0 ||
+          hour > 23 ||
+          minute < 0 ||
+          minute > 59 ||
+          second < 0 ||
+          second > 59) {
+        return text;
+      }
+
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:${second.toString().padLeft(2, '0')}';
+    }
+
+    final reg12 = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
+    final match12 = reg12.firstMatch(text);
+    if (match12 != null) {
+      var hour = int.parse(match12.group(1)!);
+      final minute = int.parse(match12.group(2)!);
+      final meridiem = match12.group(3)!.toUpperCase();
+      if (hour == 12) hour = 0;
+      if (meridiem == 'PM') hour += 12;
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:00';
+    }
+
+    return text;
+  }
+
   List<_OperatingSlot> _slotsFromValue(dynamic value) {
     if (value is List) {
       return value
@@ -456,6 +519,10 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   ) {
     for (final entry in operatingSlots.entries) {
       final displayDay = _displayDay(entry.key);
+
+      if (_memberOffDays.contains(_dayKey(displayDay))) {
+        continue;
+      }
 
       if ((weeklySchedule[displayDay] ?? const []).isNotEmpty) {
         weeklySchedule[displayDay] = weeklySchedule[displayDay]!
@@ -668,7 +735,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final List<Map<String, String>> scheduleData = [];
 
     weeklySchedule.forEach((day, slots) {
-      if (_isClosedDay(day)) return;
+      if (_isClosedDay(day) || _isMemberOffDay(day)) return;
 
       final normalizedSlots = slots
           .map((slot) {
@@ -708,8 +775,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       for (final slot in mergedSlots) {
         scheduleData.add({
           'day': day.toLowerCase(),
-          'startTime': _formatMinutes(slot.startMinutes),
-          'endTime': _formatMinutes(slot.endMinutes),
+          'startTime': _to24h(_formatMinutes(slot.startMinutes)),
+          'endTime': _to24h(_formatMinutes(slot.endMinutes)),
         });
       }
     });
@@ -719,6 +786,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   void addSlot(String day) {
     if (_useSalonHours) return;
+    if (_isMemberOffDay(day)) return;
 
     if (_isClosedDay(day)) {
       _showClosedDayMessage(day);
@@ -865,7 +933,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         }
 
         if (used.endMinutes >= cursor) {
-          cursor = (used.endMinutes + _timeMinuteStep).clamp(
+          cursor = used.endMinutes.clamp(
             bound.startMinutes,
             bound.endMinutes,
           );
@@ -972,7 +1040,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
             .toList();
 
         weeklySchedule.forEach((day, slots) {
-          if (day != 'Monday' && !_isClosedDay(day)) {
+          if (day != 'Monday' && !_isClosedDay(day) && !_isMemberOffDay(day)) {
             slots
               ..clear()
               ..addAll(
@@ -996,8 +1064,62 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   }
 
   void _showNoAvailableSlotMessage(String day) {
-    Fluttertoast.showToast(
-        msg: translateText('No available time left for $day.'));
+    Fluttertoast.showToast(msg: translateText('No time left for that day.'));
+  }
+
+  List<Map<String, String>> _cloneSlotList(
+    List<Map<String, String>> slots,
+  ) {
+    return slots
+        .map((slot) => Map<String, String>.from(slot))
+        .toList(growable: true);
+  }
+
+  List<Map<String, String>> _defaultOperatingSlotsForDay(String day) {
+    final operatingSlots = _operatingSlotsByDay[_dayKey(day)];
+    if (operatingSlots == null || operatingSlots.isEmpty) {
+      return const [];
+    }
+
+    return operatingSlots
+        .map(
+          (slot) => {
+            'start': _formatMinutes(slot.startMinutes),
+            'end': _formatMinutes(slot.endMinutes),
+          },
+        )
+        .toList(growable: true);
+  }
+
+  bool _isMemberOffDay(String day) => _memberOffDays.contains(_dayKey(day));
+
+  void _toggleMarkOff(String day) {
+    if (_useSalonHours || _isClosedDay(day)) return;
+
+    final key = _dayKey(day);
+
+    setState(() {
+      if (_memberOffDays.contains(key)) {
+        _memberOffDays.remove(key);
+        final snapshot = _memberOffDaySnapshots.remove(key);
+
+        if (snapshot != null && snapshot.isNotEmpty) {
+          weeklySchedule[day] = _cloneSlotList(snapshot);
+        } else {
+          weeklySchedule[day] = _defaultOperatingSlotsForDay(day);
+        }
+      } else {
+        final currentSlots =
+            weeklySchedule[day] ?? const <Map<String, String>>[];
+        if (currentSlots.isNotEmpty) {
+          _memberOffDaySnapshots[key] = _cloneSlotList(currentSlots);
+        }
+        weeklySchedule[day] = [];
+        _memberOffDays.add(key);
+      }
+
+      _sortWeeklyScheduleInPlace();
+    });
   }
 
   Widget _timeDropdownField(
@@ -1142,6 +1264,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   Widget _weeklyHoursCard(String day) {
     final slots = _sortedDaySlots(day);
     final isClosed = _isClosedDay(day);
+    final isOff = _isMemberOffDay(day);
 
     return Opacity(
       opacity: _useSalonHours ? 0.55 : 1,
@@ -1205,11 +1328,66 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                           ),
                         ),
                       ),
+                    )
+                  else
+                    const Spacer(),
+                  if (!isClosed && !isOff)
+                    TextButton(
+                      onPressed: () => _toggleMarkOff(day),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFB00020),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 30),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        translateText('MARK OFF'),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  if (isOff)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: GestureDetector(
+                          onTap: () => _toggleMarkOff(day),
+                          child: Container(
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                            ),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF1F1),
+                              borderRadius: BorderRadius.circular(7),
+                              border: Border.all(
+                                color: const Color(0xFFF1A7A7),
+                              ),
+                            ),
+                            child: Text(
+                              translateText('MARKED OFF'),
+                              style: const TextStyle(
+                                color: Color(0xFFC23939),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2.0,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                 ],
               ),
               const SizedBox(height: 18),
-              if (!isClosed) ...[
+              if (!isClosed && !isOff) ...[
                 if (slots.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -1230,6 +1408,20 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                     child: _addSlotButton(day),
                   ),
               ],
+              if (isOff)
+                Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: Text(
+                    translateText(
+                      'This day is marked off. Tap MARKED OFF to restore.',
+                    ),
+                    style: const TextStyle(
+                      color: Color(0xFF9A928B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1434,11 +1626,16 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
           (route) => false,
         );
       } else {
-        _showErrorDialog(response['message'] ?? 'Failed to add team member');
+        _showErrorDialog(
+          extractErrorMessage(
+            response['message'],
+            fallback: 'Failed to add team member',
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Unexpected error: $e');
-      _showErrorDialog('An unexpected error occurred.');
+      _showErrorDialog(extractErrorMessage(e));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -1577,7 +1774,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       }
     } catch (e) {
       debugPrint('Failed to prepare team member data: $e');
-      _showErrorDialog('Something went wrong while preparing data.');
+      _showErrorDialog(extractErrorMessage(e));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -1711,8 +1908,19 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                       if (nextValue) {
                         _manualWeeklyScheduleSnapshot =
                             _cloneWeeklySchedule(weeklySchedule);
+                        _manualMemberOffDaysSnapshot =
+                            Set<String>.from(_memberOffDays);
+                        _manualMemberOffDaySnapshots =
+                            _memberOffDaySnapshots.map(
+                          (day, slots) => MapEntry(
+                            day,
+                            _cloneSlotList(slots),
+                          ),
+                        );
 
                         _clearWeeklySchedule();
+                        _memberOffDays.clear();
+                        _memberOffDaySnapshots.clear();
 
                         // Fill schedule immediately from salon/branch hours.
                         _fillEmptyDaysFromOperatingSlots(

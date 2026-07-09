@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'assign_user_flow_constants.dart';
 import '../utils/api_service.dart';
+import '../utils/error_parser.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../widgets/multi_step_flow_header.dart';
@@ -458,7 +459,10 @@ class _TeamOnlineAvailabilityScreenState
         }
 
         throw Exception(
-          response['message']?.toString() ?? 'Failed to add team member',
+          extractErrorMessage(
+            response['message'],
+            fallback: 'Failed to add team member',
+          ),
         );
       }
 
@@ -494,7 +498,10 @@ class _TeamOnlineAvailabilityScreenState
         }
 
         throw Exception(
-          response['message']?.toString() ?? 'Failed to update team member',
+          extractErrorMessage(
+            response['message'],
+            fallback: 'Failed to update team member',
+          ),
         );
       }
 

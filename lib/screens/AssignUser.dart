@@ -149,6 +149,13 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
         .toList();
   }
 
+  List<Branch> get _assignedBranches {
+    final assignedBranchIds = _assignedBranchIds();
+    return widget.branches
+        .where((branch) => assignedBranchIds.contains(branch.id))
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -265,6 +272,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
         ? (userSalons[0]['joinedAt'] ?? '').toString()
         : 'N/A';
     final availableBranches = _availableBranches;
+    final assignedBranches = _assignedBranches;
     final noBranchesLeft = availableBranches.isEmpty;
     final selectedBranchId = availableBranches.any(
       (branch) => branch.id == _selectedBranchId,
@@ -336,6 +344,61 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
               availableCount: availableBranches.length,
               totalCount: widget.branches.length,
             ),
+            if (assignedBranches.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: _assignUserCardDecoration(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      translateText('Assigned branches'),
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: _assignUserText,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: assignedBranches
+                          .map(
+                            (branch) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF7EFE1),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: const Color(0xFFE0C285),
+                                ),
+                              ),
+                              child: Text(
+                                branch.name.isEmpty
+                                    ? translateText('Branch')
+                                    : branch.name,
+                                style: const TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.starColor,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             Expanded(
               child: widget.branches.isEmpty

@@ -17,6 +17,7 @@ import 'set_weekly_schedule_screen.dart';
 import '../widgets/salon_flow_step_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
+import '../utils/error_parser.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 
 class _FirstLetterUpperFormatter extends TextInputFormatter {
@@ -1554,7 +1555,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         if (state.status == AddSalonStatus.failure &&
             state.errorMessage != null &&
             isCurrent) {
-          Fluttertoast.showToast(msg: state.errorMessage!);
+          Fluttertoast.showToast(
+            msg: extractErrorMessage(state.errorMessage!),
+          );
         }
 
         if (state.status == AddSalonStatus.success && isCurrent) {

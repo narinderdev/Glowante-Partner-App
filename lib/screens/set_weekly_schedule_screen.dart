@@ -3,6 +3,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/salon_flow_step_header.dart';
+import '../utils/error_parser.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class ScheduleStepResult {
@@ -1015,7 +1016,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
         await onContinue(result);
       } catch (error) {
         if (!mounted) return;
-        Fluttertoast.showToast(msg: translateText('Failed: $error'));
+        Fluttertoast.showToast(msg: extractErrorMessage(error));
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
       }
@@ -1035,7 +1036,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
-      Fluttertoast.showToast(msg: translateText('Failed: $error'));
+      Fluttertoast.showToast(msg: extractErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

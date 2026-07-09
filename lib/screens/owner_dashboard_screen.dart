@@ -64,6 +64,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Map<String, dynamic> _dashboard = const {};
   String _profileImageUrl = '';
   bool _isLoadingDashboard = false;
+  bool _staffLiveStatusExpanded = true;
   String? _errorMessage;
 
   @override
@@ -76,6 +77,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     setState(() {
       _isLoadingDashboard = true;
       _errorMessage = null;
+      _staffLiveStatusExpanded = true;
     });
 
     try {
@@ -136,6 +138,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       _selectedBranchId = branchId;
       _isLoadingDashboard = true;
       _errorMessage = null;
+      _staffLiveStatusExpanded = true;
     });
 
     try {
@@ -698,7 +701,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         final staffCard = _StaffLiveStatusCard(
           data: _mapValue('staff_live_status'),
           cleanText: _cleanText,
-          onOpenBookings: _openBookingsTab,
+          isExpanded: _staffLiveStatusExpanded,
+          onToggleExpanded: () {
+            setState(() {
+              _staffLiveStatusExpanded = !_staffLiveStatusExpanded;
+            });
+          },
         );
 
         if (!isWide) {
@@ -2741,12 +2749,14 @@ class _StaffLiveStatusCard extends StatelessWidget {
   const _StaffLiveStatusCard({
     required this.data,
     required this.cleanText,
-    required this.onOpenBookings,
+    required this.isExpanded,
+    required this.onToggleExpanded,
   });
 
   final Map<String, dynamic> data;
   final String Function(dynamic value) cleanText;
-  final VoidCallback onOpenBookings;
+  final bool isExpanded;
+  final VoidCallback onToggleExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -2773,37 +2783,54 @@ class _StaffLiveStatusCard extends StatelessWidget {
               ),
               InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: onOpenBookings,
+                onTap: staff.isEmpty ? null : onToggleExpanded,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 4,
                     vertical: 4,
                   ),
-                  child: Text(
-                    context.t('View live status →'),
-                    style: TextStyle(
-                      color: AppColors.starColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isExpanded
+                            ? context.t('Hide live status')
+                            : context.t('View live status'),
+                        style: TextStyle(
+                          color: AppColors.starColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: AppColors.starColor,
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          if (staff.isEmpty)
-            const _EmptyDashedBox(
-              icon: Icons.person_outline,
-              message: 'No live staff activity is available.',
-            )
-          else
-            ...staff.map(
-              (member) => _StaffDashboardRow(
-                member: member,
-                cleanText: cleanText,
+          if (isExpanded) ...[
+            const SizedBox(height: 16),
+            if (staff.isEmpty)
+              const _EmptyDashedBox(
+                icon: Icons.person_outline,
+                message: 'No live staff activity is available.',
+              )
+            else
+              ...staff.map(
+                (member) => _StaffDashboardRow(
+                  member: member,
+                  cleanText: cleanText,
+                ),
               ),
-            ),
+          ],
         ],
       ),
     );
@@ -2933,10 +2960,7 @@ class _StaffDashboardRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = cleanText(member['name']);
-    final status = cleanText(member['professional_status']);
-    final completed = cleanText(member['completed_items']).isEmpty
-        ? '0'
-        : cleanText(member['completed_items']);
+    final status = _cleanStaffStatus(member);
     final initial = name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
 
     return Container(
@@ -2974,23 +2998,30 @@ class _StaffDashboardRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _DashboardStatusPill(label: status),
-              const SizedBox(height: 4),
-              Text(
-                '$completed completed',
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF9A8A7A),
-                ),
-              ),
-            ],
-          ),
+          _DashboardStatusPill(label: status),
         ],
       ),
     );
+  }
+
+  String _cleanStaffStatus(Map<String, dynamic> member) {
+    final keys = [
+      'professional_status',
+      'professionalStatus',
+      'status',
+      'availability_status',
+      'availabilityStatus',
+      'live_status',
+      'liveStatus',
+      'current_status',
+      'currentStatus',
+      'memberStatus',
+    ];
+    for (final key in keys) {
+      final value = cleanText(member[key]);
+      if (value.isNotEmpty) return value;
+    }
+    return '';
   }
 }
 
@@ -3075,20 +3106,44 @@ class _DashboardStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalized = label.toLowerCase().replaceAll('_', ' ');
-    final isAvailable = normalized.contains('available');
-    final isCompleted = normalized.contains('completed');
-    final isCancelled = normalized.contains('cancelled');
-    final background = isAvailable || isCompleted
+    final normalized = label
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[_\-]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+    final isAvailable = normalized.contains('available') ||
+        normalized.contains('active') ||
+        normalized == 'online';
+    final isBusy = normalized.contains('busy') ||
+        normalized.contains('occupied') ||
+        normalized.contains('in progress') ||
+        normalized.contains('working');
+    final isBreak = normalized.contains('break') ||
+        normalized.contains('pause') ||
+        normalized.contains('away');
+    final isUnavailable = normalized.contains('unavailable') ||
+        normalized.contains('offline') ||
+        normalized.contains('inactive') ||
+        normalized.contains('cancelled') ||
+        normalized.contains('no show');
+    final background = isAvailable
         ? const Color(0xFFE8FFF5)
-        : isCancelled
-            ? const Color(0xFFFDEDEF)
-            : const Color(0xFFFFF7E6);
-    final foreground = isAvailable || isCompleted
+        : isBusy
+            ? const Color(0xFFFFF3E0)
+            : isBreak
+                ? const Color(0xFFF1F5F9)
+                : isUnavailable
+                    ? const Color(0xFFFDEDEF)
+                    : const Color(0xFFFFF7E6);
+    final foreground = isAvailable
         ? const Color(0xFF059669)
-        : isCancelled
-            ? const Color(0xFFE11D48)
-            : AppColors.starColor;
+        : isBusy
+            ? const Color(0xFFD97706)
+            : isBreak
+                ? const Color(0xFF64748B)
+                : isUnavailable
+                    ? const Color(0xFFE11D48)
+                    : AppColors.starColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -3098,7 +3153,7 @@ class _DashboardStatusPill extends StatelessWidget {
         border: Border.all(color: foreground.withValues(alpha: 0.22)),
       ),
       child: Text(
-        label.isEmpty ? 'Upcoming' : _titleCase(normalized),
+        label.isEmpty ? 'Unknown' : _titleCase(normalized),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../repositories/salon_repository.dart';
+import '../../utils/error_parser.dart';
 
 part 'add_salon_state.dart';
 
@@ -65,7 +66,7 @@ class AddSalonCubit extends Cubit<AddSalonState> {
       emit(
         state.copyWith(
           status: AddSalonStatus.failure,
-          errorMessage: error.toString(),
+          errorMessage: extractErrorMessage(error),
         ),
       );
     }
@@ -153,7 +154,7 @@ class AddSalonCubit extends Cubit<AddSalonState> {
     } catch (error) {
       emit(state.copyWith(
         status: AddSalonStatus.failure,
-        errorMessage: error.toString(),
+        errorMessage: extractErrorMessage(error),
       ));
     }
   }
