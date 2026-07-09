@@ -141,6 +141,15 @@ class RoleSelectionScreen extends StatelessWidget {
       roles.removeWhere((role) => role.code == 'app_user');
     }
 
+    roles.sort((first, second) {
+      final firstWeight = first.priorityWeight;
+      final secondWeight = second.priorityWeight;
+      if (firstWeight != secondWeight) {
+        return firstWeight.compareTo(secondWeight);
+      }
+      return first.label.toLowerCase().compareTo(second.label.toLowerCase());
+    });
+
     return roles.isEmpty
         ? const [
             _SelectableRole(
@@ -325,6 +334,22 @@ class _SelectableRole {
   final String code;
   final String label;
   final _RoleDestination destination;
+
+  int get priorityWeight {
+    if (code == UserRoleSession.ownerRoleCode ||
+        id == UserRoleSession.ownerRoleId) {
+      return 0;
+    }
+    if (code == UserRoleSession.stylistRoleCode ||
+        id == UserRoleSession.stylistRoleId ||
+        code == UserRoleSession.staffRoleCode ||
+        id == UserRoleSession.staffRoleId ||
+        code == UserRoleSession.receptionistRoleCode ||
+        id == UserRoleSession.receptionistRoleId) {
+      return 1;
+    }
+    return 2;
+  }
 
   factory _SelectableRole.fromMap(Map<String, dynamic> map) {
     final id =

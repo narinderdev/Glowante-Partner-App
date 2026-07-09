@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../utils/aws_s3_uploader.dart'; // 👈 import uploader
 import 'package:image_picker/image_picker.dart'; // 👈 add this
+import '../config/app_environment.dart';
 import '../services/auth_session_manager.dart';
 import '../services/network_listener.dart';
 import '../services/token_expiration_service.dart';
@@ -72,20 +73,7 @@ final http.Client _authorizedHttpClient = _AuthHttpClient();
 class ApiService {
   static http.Client get _sharedClient => _authorizedHttpClient;
 
-  static String _resolvePlatformValue() {
-    if (kIsWeb) {
-      return 'web';
-    }
-
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.iOS:
-        return 'ios';
-      case TargetPlatform.android:
-        return 'flutter_android';
-      default:
-        return 'flutter_android';
-    }
-  }
+  static String get baseUrl => AppEnvironment.baseUrl;
 
   static void _debugPrintChunked(
     String tag,
@@ -116,11 +104,44 @@ class ApiService {
     print('[$tag] Body: $body');
   }
 
-  // static const String baseUrl = "http://64.227.148.231:3000/";
-  // static const String baseUrl = "https://api.glowante.com/";
-  // static const String baseUrl = "https://dev-api.glowante.com/";
-  static const String baseUrl = "https://test-api.glowante.com/";
-  // static const String baseUrl = "https://b86c-203-190-154-162.ngrok-free.app/";
+  static List<Map<String, dynamic>> _extractMapList(dynamic source) {
+    dynamic candidate = source;
+    final visited = <String>{};
+
+    while (candidate is Map) {
+      final map = Map<String, dynamic>.from(candidate);
+      final listKeys = ['data', 'appointments', 'items', 'bookings'];
+      var foundNested = false;
+
+      for (final key in listKeys) {
+        final nested = map[key];
+        if (nested is List) {
+          candidate = nested;
+          foundNested = true;
+          break;
+        }
+        if (nested is Map && visited.add('$key:${nested.hashCode}')) {
+          candidate = nested;
+          foundNested = true;
+          break;
+        }
+      }
+
+      if (!foundNested) {
+        return const <Map<String, dynamic>>[];
+      }
+    }
+
+    if (candidate is List) {
+      return candidate
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    return const <Map<String, dynamic>>[];
+  }
+
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String registerUserEndpoint = "auth/register";
@@ -1060,7 +1081,7 @@ class ApiService {
     final loginPayload = {
       "phoneNumber": phoneNumber,
       "source": "app",
-      "platform": _resolvePlatformValue(),
+      "platform": AppEnvironment.platform,
     };
 
     String? resolvedToken = deviceToken;
@@ -1247,7 +1268,7 @@ class ApiService {
     final payload = <String, dynamic>{
       "phoneNumber": phoneNumber,
       "source": source,
-      "platform": _resolvePlatformValue(),
+      "platform": AppEnvironment.platform,
       "firstName": firstName,
       "lastName": lastName,
       "deviceToken": resolvedToken,
@@ -1427,7 +1448,7 @@ class ApiService {
   Future<Map<String, dynamic>> resendOtp(String phoneNumber) async {
     final resendPayload = {
       "phoneNumber": phoneNumber,
-      "platform": _resolvePlatformValue(),
+      "platform": AppEnvironment.platform,
     };
     final url = Uri.parse(baseUrl + resendOtpEndpoint);
     final headers = {"Content-Type": "application/json"};
@@ -2909,7 +2930,7 @@ class ApiService {
 
     final body = json.encode({
       'phoneNumber': phoneNumber,
-      'platform': _resolvePlatformValue(),
+      'platform': AppEnvironment.platform,
     });
 
     _logRequest(
@@ -3690,14 +3711,33 @@ class ApiService {
       print("Response Status Code: ${response.statusCode}");
       print("Response Body: ${response.body}");
 
-      if (response.statusCode == 200) {
-        // Decode the JSON response and return it
-        final responseData = json.decode(response.body);
-        print("Decoded Response Data: $responseData");
-        return responseData;
-      } else {
-        throw Exception('Failed to load appointments');
+      final decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : json.decode(response.body);
+      print("Decoded Response Data: $decoded");
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final body = decoded is Map<String, dynamic>
+            ? decoded
+            : <String, dynamic>{'success': true, 'data': decoded};
+        return {
+          'success': body['success'] ?? true,
+          'message': body['message'] ?? 'Success',
+          'data': _extractMapList(body),
+        };
       }
+
+      if (decoded is Map<String, dynamic>) {
+        return {
+          'success': decoded['success'] ?? false,
+          'message':
+              decoded['message']?.toString() ?? 'Failed to load appointments',
+          'statusCode': response.statusCode,
+          'data': _extractMapList(decoded),
+        };
+      }
+
+      throw Exception('Failed to load appointments');
     } catch (e) {
       print("Error: $e");
       rethrow; // Rethrow to propagate the error
@@ -3771,22 +3811,36 @@ class ApiService {
       debugPrint('[StylistBookingsAPI] status=${response.statusCode}');
       _debugPrintChunked('StylistBookingsAPI body', response.body);
 
+      final responseData = response.body.isEmpty
+          ? <String, dynamic>{}
+          : json.decode(response.body);
+      _debugPrintChunked('StylistBookingsAPI decoded', responseData);
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final responseData =
-            response.body.isEmpty ? const [] : json.decode(response.body);
-        _debugPrintChunked('StylistBookingsAPI decoded', responseData);
-        if (responseData is Map<String, dynamic>) {
-          return responseData;
-        }
+        final body = responseData is Map<String, dynamic>
+            ? responseData
+            : <String, dynamic>{'success': true, 'data': responseData};
         return {
-          'success': true,
-          'data': responseData,
+          'success': body['success'] ?? true,
+          'message': body['message'] ?? 'Success',
+          'data': _extractMapList(body),
+        };
+      }
+
+      if (responseData is Map<String, dynamic>) {
+        return {
+          'success': responseData['success'] ?? false,
+          'message': responseData['message']?.toString() ??
+              'Failed to load team appointments',
+          'statusCode': response.statusCode,
+          'data': _extractMapList(responseData),
         };
       }
 
       return {
         'success': false,
         'message': 'Failed to load team appointments',
+        'statusCode': response.statusCode,
         'data': const [],
       };
     } catch (e) {
@@ -5421,7 +5475,7 @@ class ApiService {
       body: jsonEncode({
         "countryCode": countryCode,
         "phoneNumber": phoneNumber,
-        "platform": _resolvePlatformValue(),
+        "platform": AppEnvironment.platform,
       }),
     );
 
