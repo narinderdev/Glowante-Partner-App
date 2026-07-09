@@ -207,6 +207,46 @@ class UserRoleSession {
     return prefs.containsKey(branchPermissionsJsonKey);
   }
 
+  Future<String> loadPrimaryRoleLabel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final roleLabels = prefs.getStringList(_roleLabelsKey) ?? const <String>[];
+    final roleIds = prefs.getStringList(_roleIdsKey) ?? const <String>[];
+    final roleCodes = prefs.getStringList(_roleCodesKey) ?? const <String>[];
+    final primaryRoleId = prefs.getInt(_primaryRoleIdKey);
+    final primaryRoleCode =
+        prefs.getString(_primaryRoleCodeKey)?.trim().toLowerCase();
+
+    if (roleLabels.isEmpty) {
+      return '';
+    }
+
+    if (primaryRoleId != null) {
+      final primaryIdString = primaryRoleId.toString();
+      for (var index = 0; index < roleLabels.length; index++) {
+        if (index < roleIds.length && roleIds[index] == primaryIdString) {
+          final label = roleLabels[index].trim();
+          if (label.isNotEmpty) {
+            return label;
+          }
+        }
+      }
+    }
+
+    if (primaryRoleCode != null && primaryRoleCode.isNotEmpty) {
+      for (var index = 0; index < roleLabels.length; index++) {
+        if (index < roleCodes.length &&
+            roleCodes[index].trim().toLowerCase() == primaryRoleCode) {
+          final label = roleLabels[index].trim();
+          if (label.isNotEmpty) {
+            return label;
+          }
+        }
+      }
+    }
+
+    return roleLabels.first.trim();
+  }
+
   Future<Set<String>> loadPermissions({int? branchId}) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(branchPermissionsJsonKey);

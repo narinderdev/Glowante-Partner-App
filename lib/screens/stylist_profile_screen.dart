@@ -1,20 +1,23 @@
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../features/stylist_attendance/stylist_mark_attendance_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
 import '../utils/api_service.dart';
+import '../utils/aws_s3_uploader.dart';
+import '../utils/error_parser.dart';
 import '../utils/colors.dart';
+import '../services/user_role_session.dart';
 import 'stylist_about_salon_screen.dart';
 import 'stylist_reviews_screen.dart';
 import 'stylist_schedule_screen.dart';
 import 'stylist_web_doc_screen.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-
 
 class StylistProfileScreen extends StatefulWidget {
   const StylistProfileScreen({super.key});
@@ -25,9 +28,13 @@ class StylistProfileScreen extends StatefulWidget {
 
 class _StylistProfileScreenState extends State<StylistProfileScreen> {
   final ApiService apiService = ApiService();
+  final ImagePicker _imagePicker = ImagePicker();
 
   String _userName = '';
   String _phoneNumber = '';
+  String _roleLabel = '';
+  String? _profilePictureUrl;
+  bool _isUploadingProfilePicture = false;
 
   @override
   void initState() {
@@ -41,6 +48,15 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
         prefs.getString('firstName') ?? prefs.getString('first_name') ?? '';
     final lastName =
         prefs.getString('lastName') ?? prefs.getString('last_name') ?? '';
+    final storedProfilePicture = _readStoredValue(prefs, const [
+      'profilePictureUrl',
+      'profile_picture_url',
+      'profileImage',
+      'profile_image',
+      'imageUrl',
+    ]);
+    final storedRoleLabel =
+        await UserRoleSession.instance.loadPrimaryRoleLabel();
     if (!mounted) {
       return;
     }
@@ -48,7 +64,22 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
     setState(() {
       _userName = '$firstName $lastName'.trim();
       _phoneNumber = prefs.getString('phone_number') ?? '';
+      _profilePictureUrl = storedProfilePicture;
+      _roleLabel = storedRoleLabel;
     });
+  }
+
+  String _readStoredValue(
+    SharedPreferences prefs,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = prefs.getString(key)?.trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'null') {
+        return value;
+      }
+    }
+    return '';
   }
 
   void _changeLanguage(String langCode) {
@@ -103,7 +134,6 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
 
   void _showLogoutSheet() {
     FocusScope.of(context).unfocus();
-    final messenger = ScaffoldMessenger.of(context);
     final logoutTitle = translateText('Logout');
     final logoutMessage = translateText('Are you sure you want to log out?');
     final cancelLabel = translateText('Cancel');
@@ -191,7 +221,6 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   }
 
   void _showDeleteDialog() {
-    final messenger = ScaffoldMessenger.of(context);
     final deleteTitle = translateText('Delete Account');
     final deleteMessage =
         translateText('Are you sure you want to delete your account?');
@@ -276,16 +305,228 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
     );
   }
 
+  Future<void> _showProfilePhotoSourceModal() async {
+    FocusScope.of(context).unfocus();
+
+    final source = await showDialog<ImageSource>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 2),
+                Text(
+                  translateText('Add photo'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1F1B18),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  translateText('Choose from gallery or take a new photo.'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6F665E),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      Navigator.pop(dialogContext, ImageSource.camera),
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: Text(translateText('Take from camera')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      Navigator.pop(dialogContext, ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text(translateText('Choose from gallery')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.starColor,
+                    side: BorderSide(color: AppColors.starColor),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || source == null) {
+      return;
+    }
+
+    await _uploadProfilePhoto(source);
+  }
+
+  Future<void> _uploadProfilePhoto(ImageSource source) async {
+    if (_isUploadingProfilePicture) return;
+
+    final token = await apiService.getAuthToken();
+    if (token.isEmpty) {
+      Fluttertoast.showToast(
+        msg: translateText('Session expired. Please log in again.'),
+      );
+      return;
+    }
+
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1200,
+      );
+      if (!mounted || picked == null) return;
+
+      setState(() => _isUploadingProfilePicture = true);
+
+      final prefs = await SharedPreferences.getInstance();
+      final firstName =
+          _readStoredValue(prefs, const ['firstName', 'first_name']);
+      final lastName = _readStoredValue(prefs, const ['lastName', 'last_name']);
+      final currentEmail = _readStoredValue(prefs, const ['email']);
+      final uploaded = await AwsS3Uploader().uploadImageResult(picked);
+      final uploadedUrl = uploaded?.cdnUrl ?? uploaded?.publicUrl;
+
+      if (uploadedUrl == null || uploadedUrl.trim().isEmpty) {
+        Fluttertoast.showToast(
+          msg: translateText('Failed to upload profile photo.'),
+        );
+        return;
+      }
+
+      final response = await apiService.updateUserProfileDetails(
+        firstName,
+        lastName,
+        currentEmail,
+        token,
+        profilePictureUrl: uploadedUrl,
+      );
+
+      final responseData = response['data'];
+      String updatedProfileUrl = uploadedUrl;
+      if (responseData is Map) {
+        final map = Map<String, dynamic>.from(responseData);
+        final responseImage = _readProfilePictureUrlFromMap(map);
+        if (responseImage.isNotEmpty) {
+          updatedProfileUrl = responseImage;
+        }
+      }
+
+      final updatedPrefs = await SharedPreferences.getInstance();
+      await _storeProfilePictureUrl(updatedPrefs, updatedProfileUrl);
+
+      if (!mounted) return;
+      setState(() {
+        _profilePictureUrl = updatedProfileUrl;
+      });
+
+      Fluttertoast.showToast(
+        msg: translateText('Profile photo updated successfully.'),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      debugPrint('Profile photo upload failed: $error');
+      final message = extractErrorMessage(error, fallback: '').trim();
+      if (message.isEmpty) {
+        return;
+      }
+      Fluttertoast.showToast(msg: message);
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingProfilePicture = false);
+      }
+    }
+  }
+
+  String _readProfilePictureUrlFromMap(Map<String, dynamic> map) {
+    const keys = [
+      'profilePictureUrl',
+      'profile_picture_url',
+      'profileImage',
+      'profile_image',
+      'imageUrl',
+    ];
+
+    for (final key in keys) {
+      final value = map[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'null') {
+        return value;
+      }
+    }
+
+    final nestedData = map['data'];
+    if (nestedData is Map) {
+      return _readProfilePictureUrlFromMap(
+        Map<String, dynamic>.from(nestedData),
+      );
+    }
+
+    return '';
+  }
+
+  Future<void> _storeProfilePictureUrl(
+    SharedPreferences prefs,
+    String url,
+  ) async {
+    final normalized = url.trim();
+    if (normalized.isEmpty || normalized.toLowerCase() == 'null') {
+      return;
+    }
+
+    for (final key in const [
+      'profilePictureUrl',
+      'profile_picture_url',
+      'profileImage',
+      'profile_image',
+      'imageUrl',
+    ]) {
+      await prefs.setString(key, normalized);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final langListener = Provider.of<LanguageListener>(context);
 
-    return SharedProfileScreen(
+    final profileScreen = SharedProfileScreen(
       userName: _userName,
       phoneNumber: _phoneNumber,
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
       onRefresh: _loadData,
+      roleLabel:
+          _roleLabel.isNotEmpty ? _roleLabel : translateText('Salon Stylist'),
+      profileImageUrl: _profilePictureUrl,
+      onEditProfilePicture:
+          _isUploadingProfilePicture ? null : _showProfilePhotoSourceModal,
       menuItems: [
         ProfileMenuItemData(
           icon: Icons.face_retouching_natural_outlined,
@@ -332,6 +573,99 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       ],
       onLogout: _showLogoutSheet,
       onDeleteAccount: _showDeleteDialog,
+    );
+
+    if (!_isUploadingProfilePicture) {
+      return profileScreen;
+    }
+
+    return Stack(
+      children: [
+        profileScreen,
+        const Positioned.fill(
+          child: ModalBarrier(
+            dismissible: false,
+            color: Color(0x66000000),
+          ),
+        ),
+        Positioned.fill(
+          child: Center(
+            child: _ProfileUploadOverlay(
+              title: translateText('Updating profile photo'),
+              subtitle: translateText('Uploading and saving your changes'),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileUploadOverlay extends StatelessWidget {
+  const _ProfileUploadOverlay({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 300,
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2A000000),
+            blurRadius: 30,
+            offset: Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFFF2E5D3),
+            ),
+            alignment: Alignment.center,
+            child: const CircularProgressIndicator(
+              strokeWidth: 3,
+              color: AppColors.starColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1F1B18),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: Color(0xFF6F665E),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
