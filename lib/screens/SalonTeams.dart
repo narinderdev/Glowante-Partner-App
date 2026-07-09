@@ -1400,7 +1400,7 @@ class _TeamMembersGrid extends StatelessWidget {
         : screenWidth >= 700
             ? 2
             : 1;
-    final cardHeight = screenWidth >= 700 ? 342.0 : 320.0;
+    final cardHeight = screenWidth >= 700 ? 342.0 : 328.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -2665,7 +2665,7 @@ class _TeamMemberCard extends StatelessWidget {
                     ),
                     backgroundColor: Colors.white,
                     textStyle: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -2685,17 +2685,32 @@ class _TeamMemberCard extends StatelessWidget {
             ],
           ),
           if (_assignedBranchesLabel.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              '${translateText('Assigned branches')}: $_assignedBranchesLabel',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _teamMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                height: 1.2,
+            const SizedBox(height: 8),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${translateText('Assigned branches')}: ',
+                    style: const TextStyle(
+                      color: _teamInk,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  TextSpan(
+                    text: _assignedBranchesLabel,
+                    style: const TextStyle(
+                      color: _teamMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
               ),
+              maxLines: 2,
+              softWrap: true,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
           const Spacer(),
