@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../services/language_listener.dart';
 import '../services/stylist_branch_selection.dart';
@@ -268,7 +269,7 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadData,
+        onRefresh: () => RefreshFeedback.playAndRun(_loadData),
         color: AppColors.starColor,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/language_listener.dart';
@@ -193,7 +194,7 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(title: context.t('About Salon')),
       body: RefreshIndicator(
-        onRefresh: _loadData,
+        onRefresh: () => RefreshFeedback.playAndRun(_loadData),
         color: AppColors.starColor,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),

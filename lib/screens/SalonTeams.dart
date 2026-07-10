@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import '../utils/api_service.dart';
 import 'Addteam.dart';
 import 'TeamMemberDetails.dart';
@@ -113,12 +114,13 @@ class TeamScreen extends StatefulWidget {
 class _TeamScreenState extends State<TeamScreen> {
   late Future<List<Map<String, dynamic>>> branchOptionsFuture;
   final TextEditingController _teamSearchController = TextEditingController();
+  late final VoidCallback _branchSelectionListener;
+  bool _suppressBranchSelectionRefresh = false;
 
   int? selectedBranchId;
   Map<String, dynamic>?
       selectedBranch; // {branchId, branchName, salonId, salonName}
   Future<List<dynamic>>? teamMembersFuture;
-  List<dynamic> _teamMembersCache = [];
   List<Map<String, dynamic>> _salons = const [];
   Map<int, _TeamRatingSummary> _professionalRatings = const {};
   bool _hasTeamMembers = false;
@@ -138,11 +140,21 @@ class _TeamScreenState extends State<TeamScreen> {
   void initState() {
     super.initState();
     _teamSearchController.addListener(_onTeamSearchChanged);
+    _branchSelectionListener = () {
+      if (!mounted || _suppressBranchSelectionRefresh) return;
+      setState(() {
+        branchOptionsFuture = _getBranchOptions();
+      });
+    };
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
     branchOptionsFuture = _getBranchOptions(); // single list for the dropdown
   }
 
   @override
   void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
     _teamSearchDebounce?.cancel();
     _teamSearchController.dispose();
     super.dispose();
@@ -177,8 +189,12 @@ class _TeamScreenState extends State<TeamScreen> {
           }
         }
 
-        if (mounted && out.isNotEmpty && selectedBranchId == null) {
-          final preferredBranchId = selection.branchId;
+        final preferredBranchId = selection.branchId;
+        if (mounted &&
+            out.isNotEmpty &&
+            (selectedBranchId == null ||
+                (preferredBranchId != null &&
+                    selectedBranchId != preferredBranchId))) {
           final branchToSelect = preferredBranchId == null
               ? out.first
               : out.firstWhere(
@@ -256,7 +272,6 @@ class _TeamScreenState extends State<TeamScreen> {
       final members = _applyLocalTeamFilters(rawMembers);
       final ratings = await _loadProfessionalRatings(branchId);
 
-      _teamMembersCache = members;
       if (mounted && selectedBranchId == branchId) {
         final hasMembers = members.isNotEmpty;
         setState(() {
@@ -759,7 +774,6 @@ class _TeamScreenState extends State<TeamScreen> {
       if (mounted) {
         setState(() {
           _statusUpdatingIds.remove(userId);
-          teamMembersFuture = Future.value(_teamMembersCache);
         });
       }
     }
@@ -977,6 +991,7 @@ class _TeamScreenState extends State<TeamScreen> {
     final salonName = (branchOpt['salonName'] ?? '').toString().trim();
     final branchName = (branchOpt['branchName'] ?? '').toString().trim();
     if (salonId != null && branchId != null) {
+      _suppressBranchSelectionRefresh = true;
       unawaited(
         StylistBranchSelectionStore.save(
           salonId: salonId,
@@ -985,7 +1000,11 @@ class _TeamScreenState extends State<TeamScreen> {
           branchName: branchName.isEmpty
               ? (salonName.isEmpty ? 'Branch' : salonName)
               : branchName,
-        ),
+        ).whenComplete(() {
+          if (mounted) {
+            _suppressBranchSelectionRefresh = false;
+          }
+        }),
       );
     }
 
@@ -1224,7 +1243,8 @@ class _TeamScreenState extends State<TeamScreen> {
 
               return RefreshIndicator(
                 color: AppColors.starColor,
-                onRefresh: _refreshTeamMembers,
+                onRefresh: () =>
+                    RefreshFeedback.playAndRun(_refreshTeamMembers),
                 child: FutureBuilder<List<dynamic>>(
                   future: teamMembersFuture,
                   builder: (context, teamSnapshot) {
@@ -2605,6 +2625,8 @@ class _TeamMemberCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                    ] else ...[
+                      const SizedBox(height: 32),
                     ],
                   ],
                 ),
@@ -2710,7 +2732,7 @@ class _TeamMemberCard extends StatelessWidget {
               ),
               maxLines: 2,
               softWrap: true,
-              overflow: TextOverflow.ellipsis,
+              overflow: TextOverflow.clip,
             ),
           ],
           const Spacer(),

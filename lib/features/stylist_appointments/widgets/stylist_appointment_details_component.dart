@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../../stylist_item_entry/stylist_used_item.dart';
 
@@ -609,7 +610,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
             ? content
             : RefreshIndicator(
                 color: _detailsAccent,
-                onRefresh: onRefresh!,
+                onRefresh: () => RefreshFeedback.playAndRun(onRefresh!),
                 child: content,
               ),
       ),

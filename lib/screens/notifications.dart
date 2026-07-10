@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/notification_store.dart';
@@ -60,7 +61,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: RefreshIndicator(
         color: AppColors.starColor,
-        onRefresh: _loadNotifications,
+        onRefresh: () => RefreshFeedback.playAndRun(_loadNotifications),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _items.isEmpty

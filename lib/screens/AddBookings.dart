@@ -57,7 +57,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   final TextEditingController _clientlNameCtrl = TextEditingController();
   final TextEditingController _mobileCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
-  List<Map<String, dynamic>> _branchClientsCache = [];
 
   // Keep existing names so your payload stays the same.
   DateTime? _selectedDate;
@@ -965,29 +964,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     );
   }
 
-  void _upsertBranchClientCache(Map<String, dynamic> customer) {
-    if (customer.isEmpty) return;
-    final id = (customer['id'] ?? '').toString().trim();
-    final phone = _digitsOnly(
-      (customer['phoneNumber'] ?? customer['fullPhoneNumber'] ?? '').toString(),
-    );
-    final matchIndex = _branchClientsCache.indexWhere((existing) {
-      final existingId = (existing['id'] ?? '').toString().trim();
-      final existingPhone = _digitsOnly(
-        (existing['phoneNumber'] ?? existing['fullPhoneNumber'] ?? '')
-            .toString(),
-      );
-      return (id.isNotEmpty && existingId == id) ||
-          (phone.isNotEmpty && existingPhone == phone);
-    });
-
-    if (matchIndex >= 0) {
-      _branchClientsCache[matchIndex] = customer;
-    } else {
-      _branchClientsCache.insert(0, customer);
-    }
-  }
-
   Widget _dialogRequiredLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
@@ -1255,12 +1231,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 fallbackFirstName: firstName,
                 fallbackLastName: lastName,
               );
-              _upsertBranchClientCache({
-                ...customer,
-                if (!customer.containsKey('phoneNumber')) 'phoneNumber': phone,
-                if (!customer.containsKey('firstName')) 'firstName': firstName,
-                if (!customer.containsKey('lastName')) 'lastName': lastName,
-              });
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
             } catch (e) {
@@ -1776,32 +1746,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             Future.microtask(() async {
               try {
                 final loadedClients = await _fetchBranchCustomers();
-                for (final customer in _branchClientsCache) {
-                  final normalized = _normalizeCustomer(customer);
-                  final id = (normalized['id'] ?? '').toString().trim();
-                  final phone = _digitsOnly(
-                    (normalized['phoneNumber'] ??
-                            normalized['fullPhoneNumber'] ??
-                            '')
-                        .toString(),
-                  );
-                  final alreadyExists = loadedClients.any((existing) {
-                    final existingId = (existing['id'] ?? '').toString().trim();
-                    final existingPhone = _digitsOnly(
-                      (existing['phoneNumber'] ??
-                              existing['fullPhoneNumber'] ??
-                              '')
-                          .toString(),
-                    );
-                    return (id.isNotEmpty && existingId == id) ||
-                        (phone.isNotEmpty && existingPhone == phone);
-                  });
-                  if (!alreadyExists) {
-                    loadedClients.insert(0, normalized);
-                  }
-                }
                 clients = loadedClients;
-                _branchClientsCache = List<Map<String, dynamic>>.from(clients);
                 if (ctx.mounted) {
                   setDialogState(() {
                     isLoadingClients = false;
@@ -1957,7 +1902,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                     );
                                     if (selected == null || !mounted) return;
                                     _fillCustomerFields(selected);
-                                    _upsertBranchClientCache(selected);
                                   },
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
@@ -2022,8 +1966,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                           return InkWell(
                                             onTap: () {
                                               _fillCustomerFields(customer);
-                                              _upsertBranchClientCache(
-                                                  customer);
                                               Navigator.pop(ctx);
                                             },
                                             borderRadius:
@@ -2142,6 +2084,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         .map((service) => service['id'])
         .whereType<int>()
         .toSet();
+    var isSubmitting = false;
 
     await showGeneralDialog<void>(
       context: context,
@@ -2210,7 +2153,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         Row(
                           children: [
                             IconButton(
-                              onPressed: () => Navigator.pop(dialogContext),
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () => Navigator.pop(dialogContext),
                               icon: const Icon(
                                 Icons.chevron_left_rounded,
                                 color: _bookingGold,
@@ -2339,17 +2284,31 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton(
-                            onPressed: () async {
-                              try {
-                                await _applyPickedServices(pendingIds);
-                                if (dialogContext.mounted) {
-                                  Navigator.pop(dialogContext);
-                                }
-                              } catch (e) {
-                                if (!mounted) return;
-                                _showError(_extractApiErrorMessage(e));
-                              }
-                            },
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    setSheetState(() {
+                                      isSubmitting = true;
+                                    });
+                                    try {
+                                      final success =
+                                          await _applyPickedServices(
+                                        pendingIds,
+                                      );
+                                      if (success && dialogContext.mounted) {
+                                        Navigator.pop(dialogContext);
+                                      }
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      _showError(_extractApiErrorMessage(e));
+                                    } finally {
+                                      if (dialogContext.mounted) {
+                                        setSheetState(() {
+                                          isSubmitting = false;
+                                        });
+                                      }
+                                    }
+                                  },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _bookingGold,
                               foregroundColor: Colors.white,
@@ -2362,17 +2321,28 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  translateText('Add Services'),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
+                                if (isSubmitting)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                else ...[
+                                  Text(
+                                    translateText('Add Services'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 18,
-                                ),
+                                  const SizedBox(width: 8),
+                                  const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 18,
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -2475,7 +2445,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               data:
                   Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
-                initiallyExpanded: query.isNotEmpty,
+                key: ValueKey('service-category-$catName-$query'),
+                initiallyExpanded: true,
                 tilePadding: const EdgeInsets.symmetric(horizontal: 14),
                 childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
                 iconColor: _bookingGold,
@@ -2648,11 +2619,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     );
   }
 
-  Future<void> _applyPickedServices(Set<int> pickedIds) async {
-    final existingById = <int, Map<String, dynamic>>{
-      for (final service in _selectedServices)
-        if (service['id'] is int) service['id'] as int: service,
-    };
+  Future<bool> _applyPickedServices(Set<int> pickedIds) async {
+    if (pickedIds.isEmpty) {
+      setState(() {
+        _selectedServices = [];
+        _selectedServiceId = null;
+        _professionalByService.clear();
+        _serviceError = null;
+        _syncEndTimeWithDuration();
+      });
+      return true;
+    }
+
     setState(() {
       _selectedServices = _branchServices
           .where((service) {
@@ -2663,7 +2641,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 'id': service['id'],
                 'name': service['name'],
                 'price': service['priceMinor'],
-                'qty': _intValue(existingById[service['id']]?['qty']) ?? 1,
+                'qty': 1,
                 'durationMin': service['durationMin'],
                 'masterServiceId': service['masterServiceId'],
                 'masterServiceName': service['masterServiceName'],
@@ -2688,6 +2666,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       allowOnlineBooking: true,
     );
     await _syncSelectedServicesToCart();
+    return true;
   }
 
   List<dynamic> _cartItemsFromResponse(dynamic data) {
@@ -2808,10 +2787,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         .toList();
   }
 
-  int _cartQtyFrom(Map<String, dynamic> item) {
-    return _intValue(item['qty']) ?? _intValue(item['quantity']) ?? 1;
-  }
-
   String _cartServiceNameFrom(
     Map<String, dynamic> item,
     Map<String, dynamic>? branchService,
@@ -2897,7 +2872,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         'id': serviceId,
         'name': _cartServiceNameFrom(item, branchService),
         'price': _cartServicePriceFrom(item, branchService),
-        'qty': _cartQtyFrom(item),
+        'qty': 1,
         'durationMin': _cartServiceDurationFrom(item, branchService),
         'masterServiceId': branchService?['masterServiceId'],
         'masterServiceName': branchService?['masterServiceName'],
@@ -2920,7 +2895,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     });
   }
 
-  Future<void> _loadCartForSelectedCustomer() async {
+  Future<void> _loadCartForSelectedCustomer({bool syncIfEmpty = true}) async {
     final branchId = widget.branchId;
     final userId = _selectedCustomerId;
     if (branchId == null || userId == null) return;
@@ -2940,7 +2915,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       final cartItems = _cartItemMapsFromResponse(response);
       if (cartItems.isEmpty) {
         _cartItemIdByService.clear();
-        if (_selectedServices.isNotEmpty) {
+        if (syncIfEmpty && _selectedServices.isNotEmpty) {
           await _syncSelectedServicesToCart();
         } else if (mounted) {
           setState(() {
@@ -2951,6 +2926,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         }
       } else {
         _hydrateSelectedServicesFromCartResponse(response);
+        await _removeStaleCartItemsFromResponse(response);
       }
     } catch (e) {
       if (!mounted) return;
@@ -2965,7 +2941,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   Future<void> _showCustomerCartDialog() async {
     if (!_hasCustomerDetails) return;
 
-    await _loadCartForSelectedCustomer();
+    await _loadCartForSelectedCustomer(syncIfEmpty: false);
     if (!mounted) return;
 
     await showGeneralDialog<void>(
@@ -3278,7 +3254,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _showError(translateText('Please select start and end time'));
       return null;
     }
-    for (final service in _selectedServices) {
+    final bookingServices = _selectedServices;
+    for (final service in bookingServices) {
       final serviceId = service['id'];
 
       if (serviceId is! int) continue;
@@ -3299,7 +3276,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       "startAt": _formatAppointmentUtc(_selectedDate!, _startTime!),
       "endAt": _formatAppointmentUtc(_selectedDate!, _endTime!),
       "amountMinor": _selectedTotalPrice().round(),
-      "services": _selectedServices.expand((s) {
+      "services": bookingServices.expand((s) {
         final serviceId = s['id'] as int;
         final selectedProId = _resolveSelectedProId(serviceId);
         final qty = _intValue(s['qty']) ?? 1;

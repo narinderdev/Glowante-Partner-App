@@ -227,6 +227,10 @@ class ApiService {
     return "branches/$id/add-user";
   }
 
+  static String validateTeamMemberContactEndpoint(int branchId) {
+    return "branches/$branchId/team/validate-contact";
+  }
+
   static String addSalonTeamMemberEndpoint(int salonId) {
     return "salons/$salonId/users";
   }
@@ -3036,6 +3040,66 @@ class ApiService {
       }
     } catch (e) {
       // Handle errors (e.g., network issues)
+      print('Error: $e');
+      return {
+        'success': false,
+        'message': e.toString().replaceFirst(RegExp(r'^Exception:\\s*'), ''),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> validateTeamMemberContact(
+    int branchId, {
+    String? email,
+    String? phoneNumber,
+  }) async {
+    final url = Uri.parse(
+      '$baseUrl${validateTeamMemberContactEndpoint(branchId)}',
+    );
+
+    final token = await getAuthToken();
+    final payload = <String, dynamic>{};
+    final cleanedEmail = email?.trim();
+    final cleanedPhone = phoneNumber?.trim();
+
+    if (cleanedEmail != null && cleanedEmail.isNotEmpty) {
+      payload['email'] = cleanedEmail;
+    }
+    if (cleanedPhone != null && cleanedPhone.isNotEmpty) {
+      payload['phoneNumber'] = cleanedPhone;
+    }
+
+    print('[Validate Team Contact] URL: $url');
+    print('[Validate Team Contact] Payload: $payload');
+
+    try {
+      final response = await _sharedClient.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode(payload),
+      );
+
+      print('[Validate Team Contact] Status Code: ${response.statusCode}');
+      print('[Validate Team Contact] Response Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+
+      final decoded =
+          response.body.isNotEmpty ? json.decode(response.body) : null;
+      final message = extractErrorMessage(
+        decoded ?? response.body,
+        fallback: 'Unable to validate team member contact',
+      );
+      return {
+        'success': false,
+        'message': message,
+      };
+    } catch (e) {
       print('Error: $e');
       return {
         'success': false,

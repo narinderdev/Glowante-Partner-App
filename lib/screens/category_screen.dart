@@ -6,11 +6,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import '../Viewmodels/AddCategory.dart';
 import 'AddServices.dart';
 import 'notifications.dart';
 import '../services/language_listener.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../services/stylist_branch_selection.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
@@ -305,6 +307,7 @@ class CategoryScreenState extends State<CategoryScreen> {
   Map<String, dynamic>? _selectedSalon;
   final ScrollController _catalogScrollController = ScrollController();
   final GlobalKey _branchSelectorKey = GlobalKey();
+  late final VoidCallback _branchSelectionListener;
   final FocusNode _catalogSearchFocusNode = FocusNode();
   final TextEditingController _catalogSearchController =
       TextEditingController();
@@ -358,30 +361,21 @@ class CategoryScreenState extends State<CategoryScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _branchSelectionListener = () {
+      if (!mounted || _syncingBookingsSelection) return;
+      refreshFromCurrentSelection();
+    };
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final salonCubit = context.read<SalonListCubit>();
 
       if (salonCubit.state.salons.isEmpty) {
-        salonCubit.loadSalons();
-      } else if (salonCubit.state.selectedSalon != null) {
-        final salons = salonCubit.state.salons
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-        final Map<String, dynamic> selectedSalon = _enrichSalonSelection(
-          Map<String, dynamic>.from(salonCubit.state.selectedSalon!),
-          salons,
-        );
-        final int? branchId = _asInt(selectedSalon['branchId']) ??
-            _asInt(selectedSalon['salonId']);
-        setState(() {
-          _selectedSalon = selectedSalon;
-        });
-        if (branchId != null) {
-          final categoryCubit = context.read<CategoryCubit>();
-          categoryCubit.resetCategories();
-          categoryCubit.loadCategories(branchId);
-        }
+        await salonCubit.loadSalons();
       }
+      await refreshFromCurrentSelection();
     });
   }
 
@@ -392,22 +386,32 @@ class CategoryScreenState extends State<CategoryScreen> {
   }
 
   Future<void> refreshFromCurrentSelection() async {
-    final branchId = _asInt(_selectedSalon?['branchId']) ??
-        _asInt(_selectedSalon?['salonId']);
-    final categoryCubit = context.read<CategoryCubit>();
+    final salonCubit = context.read<SalonListCubit>();
+    if (salonCubit.state.salons.isEmpty) {
+      await salonCubit.loadSalons();
+    }
 
+    final salons = salonCubit.state.salons
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    if (salons.isEmpty) return;
+
+    final persisted = await StylistBranchSelectionStore.load();
+    final currentBranchId = _asInt(_selectedSalon?['branchId']) ??
+        _asInt(_selectedSalon?['salonId']);
+    if (persisted.branchId == null || persisted.branchId != currentBranchId) {
+      await _syncFromBookingsSelection(salons);
+      return;
+    }
+
+    final branchId = currentBranchId;
     if (branchId != null) {
+      final categoryCubit = context.read<CategoryCubit>();
       categoryCubit.resetCategories();
       await categoryCubit.loadCategories(branchId);
       return;
     }
 
-    final salons = context
-        .read<SalonListCubit>()
-        .state
-        .salons
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
     await _syncFromBookingsSelection(salons);
   }
 
@@ -498,6 +502,8 @@ class CategoryScreenState extends State<CategoryScreen> {
 
   @override
   void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
     _catalogScrollController.dispose();
     _catalogSearchFocusNode.dispose();
     _catalogSearchController.dispose();
@@ -1505,7 +1511,7 @@ class CategoryScreenState extends State<CategoryScreen> {
     return RefreshIndicator(
       color: _catalogGold,
       displacement: 32,
-      onRefresh: _refreshData,
+      onRefresh: () => RefreshFeedback.playAndRun(_refreshData),
       child: ListView(
         controller: _catalogScrollController,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -2040,23 +2046,31 @@ class CategoryScreenState extends State<CategoryScreen> {
         _asInt(selection['branchId']) ?? _asInt(selection['salonId']);
     if (branchId == null) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    if (_asInt(selection['branchId']) != null) {
-      await prefs.setInt('selected_branch_id', branchId);
-    }
-
     if (!mounted) return;
+    _syncingBookingsSelection = true;
     setState(() {
       _selectedSalon = selection;
       _expandedCategories.clear();
       _expandedSubcategories.clear();
       _selectedFilterCategoryId = null;
     });
+    try {
+      if (_asInt(selection['branchId']) != null) {
+        await StylistBranchSelectionStore.save(
+          salonId: _asInt(selection['salonId']) ?? branchId,
+          branchId: branchId,
+          salonName: (selection['salonName'] ?? '').toString(),
+          branchName: (selection['branchName'] ?? '').toString(),
+        );
+      }
 
-    context.read<SalonListCubit>().setSelectedSalon(selection);
-    final categoryCubit = context.read<CategoryCubit>();
-    categoryCubit.resetCategories();
-    categoryCubit.loadCategories(branchId);
+      context.read<SalonListCubit>().setSelectedSalon(selection);
+      final categoryCubit = context.read<CategoryCubit>();
+      categoryCubit.resetCategories();
+      await categoryCubit.loadCategories(branchId);
+    } finally {
+      _syncingBookingsSelection = false;
+    }
   }
 
   bool _catalogItemMatchesQuery(Map<String, dynamic> item, String query) {

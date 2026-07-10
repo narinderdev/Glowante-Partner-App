@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
@@ -7,7 +8,6 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 const Color _rolesBackground = Color(0xFFFBFAF8);
 const Color _rolesBorder = Color(0xFFE8DED6);
@@ -281,14 +281,14 @@ class _OwnerRolesPermissionsScreenState
       appBar: buildProfileSubpageAppBar(title: context.t('Roles')),
       body: RefreshIndicator(
         color: AppColors.starColor,
-        onRefresh: () async {
+        onRefresh: () => RefreshFeedback.playAndRun(() async {
           final branchId = _selectedBranchId;
           if (branchId == null) {
             await _loadInitialData();
           } else {
             await _loadRoles(branchId);
           }
-        },
+        }),
         child: _buildBody(),
       ),
     );

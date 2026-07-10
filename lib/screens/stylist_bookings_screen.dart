@@ -5,6 +5,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/stylist_appointments/widgets/stylist_appointment_details_component.dart';
 import '../services/language_listener.dart';
@@ -1875,6 +1876,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
 class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();
+  late final VoidCallback _branchSelectionListener;
 
   List<_SalonBranchOption> _options = const [];
   List<Map<String, dynamic>> _bookings = const [];
@@ -1893,6 +1895,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   int? _userId;
   bool _isLoading = true;
   bool _loadingDate = false;
+  bool _suppressBranchSelectionRefresh = false;
   int? _confirmingAppointmentId;
   int? _startingAppointmentId;
   int? _completingAppointmentId;
@@ -1902,10 +1905,32 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   @override
   void initState() {
     super.initState();
+    _branchSelectionListener = () {
+      if (!mounted || _suppressBranchSelectionRefresh) return;
+      _loadOptions(showPageLoader: false, showInlineLoader: true);
+    };
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _visibleDateStart = _selectedDate;
-    _loadOptions(showPageLoader: false, showInlineLoader: true);
+    _suppressBranchSelectionRefresh = true;
+    _loadOptions(
+      showPageLoader: false,
+      showInlineLoader: true,
+      saveSelection: true,
+    ).whenComplete(() {
+      if (mounted) {
+        _suppressBranchSelectionRefresh = false;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
+    super.dispose();
   }
 
   Map<String, List<_BranchDaySlot>> _weeklySlotsFromSchedule(
@@ -2520,6 +2545,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   Future<void> _loadOptions({
     bool showPageLoader = true,
     bool showInlineLoader = false,
+    bool saveSelection = false,
   }) async {
     setState(() {
       if (showPageLoader) _isLoading = true;
@@ -2549,7 +2575,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
     selected ??= options.isNotEmpty ? options.first : null;
 
-    if (selected != null) {
+    if (selected != null && saveSelection) {
       await StylistBranchSelectionStore.save(
         salonId: selected.salonId,
         branchId: selected.branchId,
@@ -2645,62 +2671,69 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   }
 
   Future<void> _selectOption(_SalonBranchOption option) async {
-    await StylistBranchSelectionStore.save(
-      salonId: option.salonId,
-      branchId: option.branchId,
-      salonName: option.salonName,
-      branchName: option.branchName,
-    );
-
-    setState(() {
-      _selectedOption = option;
-      _loadingDate = true;
-      _errorMessage = null;
-    });
-
-    List<Map<String, dynamic>> bookings = const [];
-    List<String> teamMemberNames = _teamMemberNames;
-    Map<String, List<String>> teamMemberServiceNames = _teamMemberServiceNames;
-    _TeamMemberDirectory teamMemberDirectory = _TeamMemberDirectory(
-      serviceNames: _teamMemberServiceNames,
-      workingHours: _teamMemberWorkingHours,
-      namesByUserId: _teamMemberNamesByUserId,
-      namesByUserBranchId: _teamMemberNamesByUserBranchId,
-      noMembersReason: _noTeamMembersForDateReason,
-    );
-    String? errorMessage;
-    if (!widget.isOwnerMode && _userId == null) {
-      errorMessage = 'Unable to load stylist bookings';
-    } else {
-      final result = await _fetchBookingsForBranch(
+    _suppressBranchSelectionRefresh = true;
+    try {
+      await StylistBranchSelectionStore.save(
+        salonId: option.salonId,
         branchId: option.branchId,
-        userId: _userId,
+        salonName: option.salonName,
+        branchName: option.branchName,
       );
-      bookings = result.bookings;
-      errorMessage = result.errorMessage;
-      if (widget.isOwnerMode) {
-        teamMemberDirectory = await _fetchTeamMemberDirectory(
-          option.branchId,
-          date: _selectedDate,
-        );
-        teamMemberServiceNames = teamMemberDirectory.serviceNames;
-        teamMemberNames = teamMemberDirectory.names;
-      }
-    }
 
-    if (!mounted) return;
-    _logBookingsFetchSnapshot(context, bookings, source: 'select_branch');
-    setState(() {
-      _bookings = bookings;
-      _teamMemberNames = teamMemberNames;
-      _teamMemberServiceNames = teamMemberServiceNames;
-      _teamMemberWorkingHours = teamMemberDirectory.workingHours;
-      _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
-      _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
-      _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
-      _errorMessage = errorMessage;
-      _loadingDate = false;
-    });
+      setState(() {
+        _selectedOption = option;
+        _loadingDate = true;
+        _errorMessage = null;
+      });
+
+      List<Map<String, dynamic>> bookings = const [];
+      List<String> teamMemberNames = _teamMemberNames;
+      Map<String, List<String>> teamMemberServiceNames =
+          _teamMemberServiceNames;
+      _TeamMemberDirectory teamMemberDirectory = _TeamMemberDirectory(
+        serviceNames: _teamMemberServiceNames,
+        workingHours: _teamMemberWorkingHours,
+        namesByUserId: _teamMemberNamesByUserId,
+        namesByUserBranchId: _teamMemberNamesByUserBranchId,
+        noMembersReason: _noTeamMembersForDateReason,
+      );
+      String? errorMessage;
+      if (!widget.isOwnerMode && _userId == null) {
+        errorMessage = 'Unable to load stylist bookings';
+      } else {
+        final result = await _fetchBookingsForBranch(
+          branchId: option.branchId,
+          userId: _userId,
+        );
+        bookings = result.bookings;
+        errorMessage = result.errorMessage;
+        if (widget.isOwnerMode) {
+          teamMemberDirectory = await _fetchTeamMemberDirectory(
+            option.branchId,
+            date: _selectedDate,
+          );
+          teamMemberServiceNames = teamMemberDirectory.serviceNames;
+          teamMemberNames = teamMemberDirectory.names;
+        }
+      }
+
+      if (!mounted) return;
+      _logBookingsFetchSnapshot(context, bookings, source: 'select_branch');
+      setState(() {
+        _bookings = bookings;
+        _teamMemberNames = teamMemberNames;
+        _teamMemberServiceNames = teamMemberServiceNames;
+        _teamMemberWorkingHours = teamMemberDirectory.workingHours;
+        _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
+        _teamMemberNamesByUserBranchId =
+            teamMemberDirectory.namesByUserBranchId;
+        _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
+        _errorMessage = errorMessage;
+        _loadingDate = false;
+      });
+    } finally {
+      _suppressBranchSelectionRefresh = false;
+    }
   }
 
   Future<void> _setSelectedDate(DateTime date) async {
@@ -3568,9 +3601,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           SafeArea(
             bottom: false,
             child: RefreshIndicator(
-              onRefresh: () => _loadOptions(
-                showPageLoader: false,
-                showInlineLoader: false,
+              onRefresh: () => RefreshFeedback.playAndRun(
+                () => _loadOptions(
+                  showPageLoader: false,
+                  showInlineLoader: false,
+                ),
               ),
               color: _bookingsAccent,
               child: ListView(

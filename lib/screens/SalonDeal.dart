@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/price_formatter.dart';
+import '../utils/refresh_feedback.dart';
 import 'Adddeals.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 // ---- UI constants ----
 const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
@@ -25,6 +26,9 @@ class DealScreen extends StatefulWidget {
 
 class _DealScreenState extends State<DealScreen> {
   late Future<List<Map<String, dynamic>>> salonsList;
+  StylistBranchSelection _selection = const StylistBranchSelection();
+  late final VoidCallback _branchSelectionListener;
+  bool _suppressBranchSelectionRefresh = false;
   final Set<int> _deletingIds = {};
   final Set<int> _statusUpdatingIds = {};
   int? selectedSalonId;
@@ -40,7 +44,25 @@ class _DealScreenState extends State<DealScreen> {
   @override
   void initState() {
     super.initState();
-    salonsList = getSalonListApi();
+    _branchSelectionListener = () {
+      if (!mounted || _suppressBranchSelectionRefresh) return;
+      _refreshData();
+    };
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
+    salonsList = _loadSelectionAndSalons();
+  }
+
+  @override
+  void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
+    super.dispose();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadSelectionAndSalons() async {
+    _selection = await StylistBranchSelectionStore.load();
+    return getSalonListApi();
   }
 
   Future<List<Map<String, dynamic>>> getSalonListApi() async {
@@ -109,7 +131,8 @@ class _DealScreenState extends State<DealScreen> {
       } else {
         offers = [];
         debugPrint('❌ Failed to load offers: ${response['message']}');
-        Fluttertoast.showToast(msg: response['message']?.toString() ?? "Failed to load offers");
+        Fluttertoast.showToast(
+            msg: response['message']?.toString() ?? "Failed to load offers");
       }
     });
   }
@@ -202,10 +225,12 @@ class _DealScreenState extends State<DealScreen> {
         offerId: offerId,
       );
       if (res['success'] == true) {
-        Fluttertoast.showToast(msg: translateText('Offer deleted successfully'));
+        Fluttertoast.showToast(
+            msg: translateText('Offer deleted successfully'));
         await _fetchOffers(selectedSalonId!);
       } else {
-        Fluttertoast.showToast(msg: res['message']?.toString() ?? 'Failed to delete deal');
+        Fluttertoast.showToast(
+            msg: res['message']?.toString() ?? 'Failed to delete deal');
       }
     } finally {
       if (mounted) setState(() => _deletingIds.remove(offerId));
@@ -281,14 +306,47 @@ class _DealScreenState extends State<DealScreen> {
     return parts.join(', ');
   }
 
-  Future<void> _selectSalonBranch(Map<String, dynamic> branch) async {
+  Future<void> _refreshData() async {
     setState(() {
-      selectedSalonId = branch['branchId'] as int?;
-      selectedSalon = _selectedSalonPayload(branch);
+      _didAutoSelect = false;
+      selectedSalonId = null;
+      selectedSalon = null;
+      offers = [];
+      salonsList = _loadSelectionAndSalons();
     });
-    final branchId = branch['branchId'];
-    if (branchId is int) {
-      await _fetchOffers(branchId);
+    await salonsList;
+    if (!mounted) return;
+  }
+
+  Future<void> _selectSalonBranch(Map<String, dynamic> branch) async {
+    final salonId = branch['salonId'] as int?;
+    final branchId = branch['branchId'] as int?;
+    final salonName = (branch['salonName'] ?? '').toString().trim();
+    final branchName = (branch['branchName'] ?? '').toString().trim();
+
+    _suppressBranchSelectionRefresh = true;
+    try {
+      if (salonId != null && branchId != null) {
+        await StylistBranchSelectionStore.save(
+          salonId: salonId,
+          branchId: branchId,
+          salonName: salonName.isEmpty ? 'Salon' : salonName,
+          branchName: branchName.isEmpty
+              ? (salonName.isEmpty ? 'Branch' : salonName)
+              : branchName,
+        );
+      }
+
+      setState(() {
+        selectedSalonId = branchId;
+        selectedSalon = _selectedSalonPayload(branch);
+      });
+
+      if (branchId != null) {
+        await _fetchOffers(branchId);
+      }
+    } finally {
+      _suppressBranchSelectionRefresh = false;
     }
   }
 
@@ -465,116 +523,147 @@ class _DealScreenState extends State<DealScreen> {
       appBar: buildProfileSubpageAppBar(
         title: translateText('Deals'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: salonsList,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return _statePanel(
-                icon: Icons.local_offer_rounded,
-                title: 'Loading deals',
-                message: 'Fetching branch offers.',
-                loading: true,
-              );
-            } else if (snapshot.hasError) {
-              return _statePanel(
-                icon: Icons.error_outline_rounded,
-                title: 'Unable to load deals',
-                message: snapshot.error.toString(),
-              );
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return _statePanel(
-                icon: Icons.storefront_rounded,
-                title: 'No salons available',
-                message: 'Create a salon branch before adding deals.',
-              );
-            } else {
-              final salons = snapshot.data!;
-              if (!_didAutoSelect && salons.isNotEmpty) {
-                WidgetsBinding.instance.addPostFrameCallback((_) async {
-                  if (!mounted) return;
-                  final first = salons.first;
-                  setState(() {
-                    _didAutoSelect = true;
-                    selectedSalonId = first['branchId'] as int;
-                    selectedSalon = {
-                      'salonId': first['salonId'],
-                      'salonName': first['salonName'],
-                      'branchId': first['branchId'],
-                      'branchName': first['branchName'],
-                    };
+      body: RefreshIndicator(
+        color: _offerGold,
+        onRefresh: () => RefreshFeedback.playAndRun(_refreshData),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: salonsList,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    const SizedBox(height: 24),
+                    _statePanel(
+                      icon: Icons.local_offer_rounded,
+                      title: 'Loading deals',
+                      message: 'Fetching branch offers.',
+                      loading: true,
+                    ),
+                  ],
+                );
+              } else if (snapshot.hasError) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    const SizedBox(height: 24),
+                    _statePanel(
+                      icon: Icons.error_outline_rounded,
+                      title: 'Unable to load deals',
+                      message: snapshot.error.toString(),
+                    ),
+                  ],
+                );
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    const SizedBox(height: 24),
+                    _statePanel(
+                      icon: Icons.storefront_rounded,
+                      title: 'No salons available',
+                      message: 'Create a salon branch before adding deals.',
+                    ),
+                  ],
+                );
+              } else {
+                final salons = snapshot.data!;
+                if (!_didAutoSelect && salons.isNotEmpty) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    if (!mounted) return;
+                    final preferredBranchId = _selection.branchId;
+                    final preferred = preferredBranchId == null
+                        ? null
+                        : salons.cast<Map<String, dynamic>?>().firstWhere(
+                              (branch) =>
+                                  branch?['branchId'] == preferredBranchId,
+                              orElse: () => null,
+                            );
+                    final first = preferred ?? salons.first;
+                    setState(() {
+                      _didAutoSelect = true;
+                      selectedSalonId = first['branchId'] as int;
+                      selectedSalon = {
+                        'salonId': first['salonId'],
+                        'salonName': first['salonName'],
+                        'branchId': first['branchId'],
+                        'branchName': first['branchName'],
+                      };
+                    });
+                    await _fetchOffers(first['branchId']);
                   });
-                  await _fetchOffers(first['branchId']);
-                });
-              }
+                }
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                final children = <Widget>[
                   if (salons.length > 1) ...[
                     _buildSalonSelector(salons),
                     const SizedBox(height: 12),
                   ],
                   _offersHeader(),
                   const SizedBox(height: 12),
-                  Expanded(
-                    child: Builder(builder: (context) {
-                      if (selectedSalonId == null) {
-                        return _statePanel(
-                          icon: Icons.storefront_rounded,
-                          title: 'Select a branch',
-                          message: 'Choose a branch to view deals.',
-                        );
-                      }
-                      if (loadingOffers) {
-                        return _statePanel(
-                          icon: Icons.local_offer_rounded,
-                          title: 'Loading deals',
-                          message: 'Fetching branch offers.',
-                          loading: true,
-                        );
-                      }
-                      if (offers.isEmpty) {
-                        return _statePanel(
-                          icon: Icons.local_offer_outlined,
-                          title: 'No deals available',
-                          message: 'Add a deal to highlight a service offer.',
-                        );
-                      }
-                      return ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 96),
-                        itemCount: offers.length,
-                        itemBuilder: (context, i) {
-                          final offer = offers[i];
-                          final offerId =
-                              num.tryParse(offer['id']?.toString() ?? '0')
-                                      ?.toInt() ??
-                                  0;
-                          return _OfferCard(
-                            offer: offer,
-                            rs: _rs,
-                            isDeleting: _deletingIds.contains(offerId),
-                            isStatusUpdating:
-                                _statusUpdatingIds.contains(offerId),
-                            onToggleStatus: () => _toggleOfferStatus(
-                              offerId,
-                              (offer['status']?.toString().toUpperCase() ??
-                                      '') !=
-                                  'ACTIVE',
-                            ),
-                            onDelete: () =>
-                                _confirmDeleteOffer(offerId, offer['name']),
-                            onEdit: () => _editOffer(offer),
-                          );
-                        },
+                ];
+
+                if (selectedSalonId == null) {
+                  children.add(
+                    _statePanel(
+                      icon: Icons.storefront_rounded,
+                      title: 'Select a branch',
+                      message: 'Choose a branch to view deals.',
+                    ),
+                  );
+                } else if (loadingOffers) {
+                  children.add(
+                    _statePanel(
+                      icon: Icons.local_offer_rounded,
+                      title: 'Loading deals',
+                      message: 'Fetching branch offers.',
+                      loading: true,
+                    ),
+                  );
+                } else if (offers.isEmpty) {
+                  children.add(
+                    _statePanel(
+                      icon: Icons.local_offer_outlined,
+                      title: 'No deals available',
+                      message: 'Add a deal to highlight a service offer.',
+                    ),
+                  );
+                } else {
+                  children.addAll(
+                    offers.map((offer) {
+                      final offerId =
+                          num.tryParse(offer['id']?.toString() ?? '0')
+                                  ?.toInt() ??
+                              0;
+                      return _OfferCard(
+                        offer: offer,
+                        rs: _rs,
+                        isDeleting: _deletingIds.contains(offerId),
+                        isStatusUpdating: _statusUpdatingIds.contains(offerId),
+                        onToggleStatus: () => _toggleOfferStatus(
+                          offerId,
+                          (offer['status']?.toString().toUpperCase() ?? '') !=
+                              'ACTIVE',
+                        ),
+                        onDelete: () =>
+                            _confirmDeleteOffer(offerId, offer['name']),
+                        onEdit: () => _editOffer(offer),
                       );
                     }),
-                  ),
-                ],
-              );
-            }
-          },
+                  );
+                }
+
+                children.add(const SizedBox(height: 96));
+
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: children,
+                );
+              }
+            },
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(

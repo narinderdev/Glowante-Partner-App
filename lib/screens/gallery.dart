@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
@@ -19,7 +20,7 @@ const Color _galleryShadow = Color(0x12000000);
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({
     super.key,
-    required this.initialBranchId,
+    this.initialBranchId,
   });
 
   final int? initialBranchId;
@@ -30,6 +31,8 @@ class GalleryScreen extends StatefulWidget {
 
 class _GalleryScreenState extends State<GalleryScreen> {
   final ApiService _apiService = ApiService();
+  late final VoidCallback _branchSelectionListener;
+  bool _suppressBranchSelectionRefresh = false;
 
   bool _isLoadingBranches = true;
   bool _isLoadingGallery = false;
@@ -45,7 +48,20 @@ class _GalleryScreenState extends State<GalleryScreen> {
   @override
   void initState() {
     super.initState();
+    _branchSelectionListener = () {
+      if (!mounted || _suppressBranchSelectionRefresh) return;
+      _loadBranchesAndGallery();
+    };
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
     _loadBranchesAndGallery();
+  }
+
+  @override
+  void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
+    super.dispose();
   }
 
   Future<void> _loadBranchesAndGallery() async {
@@ -173,14 +189,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   Future<void> _onBranchSelected(_GalleryBranchOption branch) async {
-    await StylistBranchSelectionStore.save(
-      salonId: branch.salonId,
-      branchId: branch.branchId,
-      salonName: branch.salonName,
-      branchName: branch.branchName,
-    );
+    _suppressBranchSelectionRefresh = true;
+    try {
+      await StylistBranchSelectionStore.save(
+        salonId: branch.salonId,
+        branchId: branch.branchId,
+        salonName: branch.salonName,
+        branchName: branch.branchName,
+      );
 
-    await _loadGallery(branch.branchId);
+      await _loadGallery(branch.branchId);
+    } finally {
+      _suppressBranchSelectionRefresh = false;
+    }
   }
 
   void _openImageModal(String imageUrl) {
@@ -374,12 +395,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.starColor,
-          onRefresh: () async {
+          onRefresh: () => RefreshFeedback.playAndRun(() async {
             final branchId = _selectedBranchId;
             if (branchId != null) {
               await _loadGallery(branchId);
             }
-          },
+          }),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
             children: [
@@ -576,12 +597,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     else if (_imageUrls.isEmpty)
                       _EmptyGalleryBox(
                         isLoading: _isLoadingGallery,
-                        onRefresh: () {
+                        onRefresh: () => RefreshFeedback.playAndRun(() async {
                           final branchId = _selectedBranchId;
                           if (branchId != null) {
-                            _loadGallery(branchId);
+                            await _loadGallery(branchId);
                           }
-                        },
+                        }),
                       )
                     else
                       _GalleryGrid(

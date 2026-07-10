@@ -1427,94 +1427,67 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     final email = _emailCtrl.text.trim().toLowerCase();
     if (phone.isEmpty && email.isEmpty) return true;
 
-    final currentUserIds = _currentMemberIds();
+    if (widget.isEdit) {
+      final initialPhone = _digitsOnly(_initialPhoneNumber());
+      final initialEmail = _initialEmail().trim().toLowerCase();
+      if (phone == initialPhone && email == initialEmail) {
+        return true;
+      }
+    }
 
     setState(() => _isSubmitting = true);
 
     try {
-      final response = await ApiService.getTeamMembers(widget.branchId);
+      final response = await ApiService().validateTeamMemberContact(
+        widget.branchId,
+        email: email.isEmpty ? null : email,
+        phoneNumber: phone.isEmpty ? null : phone,
+      );
+
       if (!mounted) return false;
-      if (response['success'] != true) {
-        await _showValidationDialog([
-          translateText(
-            'Unable to validate phone or email right now. Please try again.',
-          ),
-        ]);
-        return false;
+
+      final data = response['data'];
+      final messageFromResponse = () {
+        if (data is Map<String, dynamic>) {
+          final reason = data['reason']?.toString().trim();
+          if (reason != null && reason.isNotEmpty) return reason;
+
+          final dataMessage = data['message']?.toString().trim();
+          if (dataMessage != null && dataMessage.isNotEmpty) return dataMessage;
+        }
+
+        final message = response['message']?.toString().trim();
+        return message != null && message.isNotEmpty
+            ? message
+            : translateText(
+                'Unable to validate phone or email right now. Please try again.');
+      }();
+
+      final recommendedAction = data is Map<String, dynamic>
+          ? data['recommendedAction']?.toString().trim()
+          : '';
+      final canProceed =
+          data is Map<String, dynamic> ? data['canProceed'] == true : false;
+
+      if (response['success'] == true &&
+          recommendedAction == 'ADD_TEAM_MEMBER' &&
+          canProceed) {
+        return true;
       }
 
-      final existingMembers = _teamMembersFromResponse(response);
-      for (final member in existingMembers) {
-        final memberIds = _memberIds(member);
-        if (widget.isEdit && memberIds.any(currentUserIds.contains)) {
-          continue;
-        }
-
-        final memberPhone = _digitsOnly(
-          _firstTextValue(
-            [member],
-            const [
-              'phoneNumber',
-              'phone',
-              'mobile',
-              'mobileNumber',
-              'contactNumber',
-              'fullPhoneNumber',
-            ],
-          ),
-        );
-        final memberEmail = _firstTextValue(
-          [member],
-          const ['email', 'emailAddress'],
-        ).toLowerCase();
-
-        if (phone.isNotEmpty && memberPhone == phone) {
-          await _showValidationDialog([
-            translateText('Phone number already exists.'),
-          ]);
-          return false;
-        }
-
-        if (email.isNotEmpty && memberEmail == email) {
-          await _showValidationDialog([
-            translateText('Email already exists.'),
-          ]);
-          return false;
-        }
-      }
+      await _showValidationDialog([messageFromResponse]);
+      return false;
     } catch (error) {
-      debugPrint('Team contact duplicate check failed: $error');
+      debugPrint('Team contact validation failed: $error');
       if (mounted) {
         await _showValidationDialog([
-          translateText(
-            'Unable to validate phone or email right now. Please try again.',
-          ),
+          _friendlyErrorMessage(error),
         ]);
       }
       return false;
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-
-    return true;
-  }
-
-  List<Map<String, dynamic>> _teamMembersFromResponse(
-    Map<String, dynamic> response,
-  ) {
-    final data = response['data'];
-    final rawMembers = data is List
-        ? data
-        : data is Map && data['teamMembers'] is List
-            ? data['teamMembers'] as List
-            : data is Map && data['members'] is List
-                ? data['members'] as List
-                : const [];
-
-    return rawMembers
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
   }
 
   String _digitsOnly(String value) {
@@ -1544,40 +1517,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       [member],
       const ['email', 'emailAddress'],
     );
-  }
-
-  Set<int> _currentMemberIds() {
-    final member = widget.initialMember;
-    if (member == null) return const {};
-    return _memberIds(member);
-  }
-
-  Set<int> _memberIds(Map<String, dynamic> member) {
-    final ids = <int>{};
-
-    void add(dynamic value) {
-      final id = _readInt(value);
-      if (id != null) ids.add(id);
-    }
-
-    add(member['id']);
-    add(member['userId']);
-    add(member['teamMemberId']);
-    add(member['employeeId']);
-
-    final user = member['user'];
-    if (user is Map) {
-      add(user['id']);
-      add(user['userId']);
-    }
-
-    return ids;
-  }
-
-  int? _readInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '');
   }
 
   Future<void> _submitEditMember() async {

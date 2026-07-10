@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
-import '../services/stylist_branch_selection.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import 'SalonDeal.dart';
@@ -24,23 +24,6 @@ class OwnerMoreScreen extends StatefulWidget {
 }
 
 class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
-  int? _selectedBranchId;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPermissions();
-  }
-
-  Future<void> _loadPermissions() async {
-    final selection = await StylistBranchSelectionStore.load();
-    if (!mounted) return;
-
-    setState(() {
-      _selectedBranchId = selection.branchId;
-    });
-  }
-
   void _open(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
@@ -74,7 +57,7 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
         title: context.t('Gallery'),
         subtitle: context.t('Manage salon photos'),
         permissions: const ['gallery.view'],
-        onTap: () => _open(GalleryScreen(initialBranchId: _selectedBranchId)),
+        onTap: () => _open(const GalleryScreen()),
       ),
     ];
 
@@ -110,7 +93,7 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
       ),
       body: RefreshIndicator(
         color: AppColors.starColor,
-        onRefresh: _loadPermissions,
+        onRefresh: () => RefreshFeedback.playAndRun(() async {}),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),

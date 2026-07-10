@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
@@ -10,7 +11,6 @@ import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 enum _AiInsightRange { week, month }
 
@@ -258,7 +258,8 @@ class _OwnerAiInsightsScreenState extends State<OwnerAiInsightsScreen> {
         children: [
           RefreshIndicator(
             color: AppColors.starColor,
-            onRefresh: _loadBranchesAndInsights,
+            onRefresh: () =>
+                RefreshFeedback.playAndRun(_loadBranchesAndInsights),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
@@ -614,7 +615,8 @@ class _OwnerAiInsightsScreenState extends State<OwnerAiInsightsScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
-              Fluttertoast.showToast(msg: context.t('AI report generation is coming soon'));
+              Fluttertoast.showToast(
+                  msg: context.t('AI report generation is coming soon'));
             },
             icon: const Icon(Icons.auto_awesome_outlined, size: 16),
             label: Text(context.t('Generate AI Report')),

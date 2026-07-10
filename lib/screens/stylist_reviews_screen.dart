@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/language_listener.dart';
@@ -122,7 +123,7 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(title: context.t('Reviews')),
       body: RefreshIndicator(
-        onRefresh: _loadReviews,
+        onRefresh: () => RefreshFeedback.playAndRun(_loadReviews),
         color: AppColors.starColor,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),

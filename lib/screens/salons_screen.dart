@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import 'add_branch_screen.dart';
 import 'add_salon_screen.dart';
@@ -946,7 +947,7 @@ class _RefreshableSalonsScroll extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: onRefresh,
+      onRefresh: () => RefreshFeedback.playAndRun(onRefresh),
       color: AppColors.starColor,
       displacement: 32,
       child: child,
@@ -1475,9 +1476,11 @@ class _SalonCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           const ColoredBox(color: Color(0xFFF1EFEC)),
-          _AdaptiveSalonNetworkImage(
-            imageUrl: usableImageUrl,
-            fallback: _noSalonImageCard(),
+          Positioned.fill(
+            child: _AdaptiveSalonNetworkImage(
+              imageUrl: usableImageUrl,
+              fallback: _noSalonImageCard(),
+            ),
           ),
         ],
       ),
@@ -3207,7 +3210,6 @@ class _AdaptiveSalonNetworkImageState
     extends State<_AdaptiveSalonNetworkImage> {
   ImageStream? _imageStream;
   ImageStreamListener? _imageStreamListener;
-  double? _aspectRatio;
   bool _hasError = false;
 
   @override
@@ -3221,7 +3223,6 @@ class _AdaptiveSalonNetworkImageState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrl != widget.imageUrl) {
       _removeImageListener();
-      _aspectRatio = null;
       _hasError = false;
       _resolveImage();
     }
@@ -3231,13 +3232,7 @@ class _AdaptiveSalonNetworkImageState
     final provider = NetworkImage(widget.imageUrl);
     final stream = provider.resolve(const ImageConfiguration());
     final listener = ImageStreamListener(
-      (info, _) {
-        final height = info.image.height;
-        if (!mounted || height == 0) return;
-        setState(() {
-          _aspectRatio = info.image.width / height;
-        });
-      },
+      (_, __) {},
       onError: (_, __) {
         if (!mounted) return;
         setState(() => _hasError = true);
@@ -3269,17 +3264,12 @@ class _AdaptiveSalonNetworkImageState
   Widget build(BuildContext context) {
     if (_hasError) return widget.fallback;
 
-    final aspectRatio = _aspectRatio;
-    final fit = aspectRatio == null
-        ? BoxFit.cover
-        : aspectRatio >= 1.1
-            ? BoxFit.cover
-            : BoxFit.contain;
-
     return Image.network(
       widget.imageUrl,
-      fit: fit,
+      fit: BoxFit.cover,
       alignment: Alignment.center,
+      width: double.infinity,
+      height: double.infinity,
       errorBuilder: (_, __, ___) => widget.fallback,
     );
   }
@@ -3304,11 +3294,12 @@ class _AutoSlidingHeroImageState extends State<_AutoSlidingHeroImage> {
   late final PageController _pageController;
   Timer? _autoScrollTimer;
   int _currentPage = 0;
+  int _autoScrollDirection = 1;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _pageController = PageController(viewportFraction: 1.0);
     _startAutoScroll();
   }
 
@@ -3317,6 +3308,7 @@ class _AutoSlidingHeroImageState extends State<_AutoSlidingHeroImage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrls.length != widget.imageUrls.length) {
       _currentPage = 0;
+      _autoScrollDirection = 1;
       _stopAutoScroll();
       _startAutoScroll();
       if (_pageController.hasClients) {
@@ -3331,11 +3323,21 @@ class _AutoSlidingHeroImageState extends State<_AutoSlidingHeroImage> {
       if (!mounted || !_pageController.hasClients || widget.imageUrls.isEmpty) {
         return;
       }
-      final nextPage = (_currentPage + 1) % widget.imageUrls.length;
+      final lastIndex = widget.imageUrls.length - 1;
+      var nextPage = _currentPage + _autoScrollDirection;
+
+      if (nextPage >= lastIndex) {
+        nextPage = lastIndex;
+        _autoScrollDirection = -1;
+      } else if (nextPage <= 0) {
+        nextPage = 0;
+        _autoScrollDirection = 1;
+      }
+
       _pageController.animateToPage(
         nextPage,
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 760),
+        curve: Curves.easeInOutCubicEmphasized,
       );
     });
   }
@@ -3362,52 +3364,60 @@ class _AutoSlidingHeroImageState extends State<_AutoSlidingHeroImage> {
     return SizedBox(
       height: _salonHeroImageHeight,
       width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            itemCount: widget.imageUrls.length,
-            onPageChanged: (index) {
-              if (!mounted) return;
-              setState(() => _currentPage = index);
-            },
-            itemBuilder: (_, index) =>
-                widget.imageBuilder(widget.imageUrls[index]),
-          ),
-          Positioned(
-            bottom: 8,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(widget.imageUrls.length, (index) {
-                  final isActive = index == _currentPage;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: isActive ? 14 : 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(
-                        alpha: isActive ? 1 : 0.78,
-                      ),
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x33000000),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
+      child: PageView.builder(
+        controller: _pageController,
+        clipBehavior: Clip.hardEdge,
+        padEnds: false,
+        itemCount: widget.imageUrls.length,
+        onPageChanged: (index) {
+          if (!mounted) return;
+          setState(() {
+            _currentPage = index;
+            if (index == 0) {
+              _autoScrollDirection = 1;
+            } else if (index == widget.imageUrls.length - 1) {
+              _autoScrollDirection = -1;
+            }
+          });
+        },
+        itemBuilder: (context, index) {
+          return AnimatedBuilder(
+            animation: _pageController,
+            builder: (context, child) {
+              final page = _pageController.hasClients &&
+                      _pageController.position.hasPixels
+                  ? (_pageController.page ?? _currentPage.toDouble())
+                  : _currentPage.toDouble();
+              final delta = page - index;
+              final distance = delta.abs().clamp(0.0, 1.0);
+              final shift = -delta * 32.0;
+              final scale = 1.14 - (distance * 0.08);
+              final rotateY = -delta * 0.34;
+              final opacity = 0.90 + (1.0 - distance) * 0.10;
+
+              return Opacity(
+                opacity: opacity,
+                child: ClipRect(
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.0018)
+                      ..rotateY(rotateY),
+                    child: Transform.translate(
+                      offset: Offset(shift, 0.0),
+                      child: Transform.scale(
+                        scale: scale,
+                        child: SizedBox.expand(
+                          child: widget.imageBuilder(widget.imageUrls[index]),
                         ),
-                      ],
+                      ),
                     ),
-                  );
-                }),
-              ),
-            ),
-          ),
-        ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

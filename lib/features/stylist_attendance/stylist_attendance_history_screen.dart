@@ -2,6 +2,7 @@ import 'package:bloc_onboarding/features/stylist_attendance/stylist_attendance_m
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_face_attendance_service.dart';
 import 'package:bloc_onboarding/utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -151,7 +152,8 @@ class _StylistAttendanceHistoryScreenState
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: () => _loadHistory(showLoader: false),
+        onRefresh: () =>
+            RefreshFeedback.playAndRun(() => _loadHistory(showLoader: false)),
         color: AppColors.starColor,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),

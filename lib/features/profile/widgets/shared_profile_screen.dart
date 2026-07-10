@@ -1,4 +1,5 @@
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -189,7 +190,7 @@ class SharedProfileScreen extends StatelessWidget {
           ? listView
           : RefreshIndicator(
               color: AppColors.starColor,
-              onRefresh: onRefresh!,
+              onRefresh: () => RefreshFeedback.playAndRun(onRefresh!),
               child: listView,
             ),
     );

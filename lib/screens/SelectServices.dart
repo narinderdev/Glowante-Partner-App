@@ -428,7 +428,9 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          initiallyExpanded: searchQuery.isNotEmpty,
+          key: ValueKey(
+              'service-category-${cat['id'] ?? cat['displayName']}-$searchQuery'),
+          initiallyExpanded: true,
           tilePadding: const EdgeInsets.symmetric(horizontal: 14),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           iconColor: _servicePickerGold,
@@ -489,7 +491,10 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
                   data: Theme.of(context)
                       .copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
-                    initiallyExpanded: searchQuery.isNotEmpty,
+                    key: ValueKey(
+                      'service-subcategory-${subMap['id'] ?? subMap['displayName']}-$searchQuery',
+                    ),
+                    initiallyExpanded: true,
                     tilePadding: const EdgeInsets.symmetric(horizontal: 12),
                     childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                     iconColor: _servicePickerGold,

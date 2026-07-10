@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StylistBranchSelection {
@@ -23,10 +24,26 @@ class StylistBranchSelection {
     if (branchName.isNotEmpty) return branchName;
     return '';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is StylistBranchSelection &&
+        other.salonId == salonId &&
+        other.branchId == branchId &&
+        other.salonName == salonName &&
+        other.branchName == branchName;
+  }
+
+  @override
+  int get hashCode => Object.hash(salonId, branchId, salonName, branchName);
 }
 
 class StylistBranchSelectionStore {
   StylistBranchSelectionStore._();
+
+  static final ValueNotifier<StylistBranchSelection> selectionNotifier =
+      ValueNotifier(const StylistBranchSelection());
 
   static const String _selectedSalonIdKey = 'selected_salon_id';
   static const String _selectedBranchIdKey = 'selected_branch_id';
@@ -40,10 +57,19 @@ class StylistBranchSelectionStore {
     required String branchName,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    final selection = StylistBranchSelection(
+      salonId: salonId,
+      branchId: branchId,
+      salonName: salonName,
+      branchName: branchName,
+    );
     await prefs.setInt(_selectedSalonIdKey, salonId);
     await prefs.setInt(_selectedBranchIdKey, branchId);
     await prefs.setString(_selectedSalonNameKey, salonName);
     await prefs.setString(_selectedBranchNameKey, branchName);
+    if (selectionNotifier.value != selection) {
+      selectionNotifier.value = selection;
+    }
   }
 
   static Future<bool> saveFromSalonCreateResponse(
@@ -133,16 +159,20 @@ class StylistBranchSelectionStore {
     return true;
   }
 
-  static Future<StylistBranchSelection> load() async {
+  static Future<StylistBranchSelection> load({
+    bool updateNotifier = false,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    final salonId = _readInt(prefs, _selectedSalonIdKey);
-    final branchId = _readInt(prefs, _selectedBranchIdKey);
-    return StylistBranchSelection(
-      salonId: salonId,
-      branchId: branchId,
+    final selection = StylistBranchSelection(
+      salonId: _readInt(prefs, _selectedSalonIdKey),
+      branchId: _readInt(prefs, _selectedBranchIdKey),
       salonName: _readString(prefs, _selectedSalonNameKey),
       branchName: _readString(prefs, _selectedBranchNameKey),
     );
+    if (updateNotifier && selectionNotifier.value != selection) {
+      selectionNotifier.value = selection;
+    }
+    return selection;
   }
 
   static int? _readInt(SharedPreferences prefs, String key) {

@@ -8,11 +8,11 @@ import 'package:bloc_onboarding/features/stylist_attendance/stylist_stored_enrol
 import 'package:bloc_onboarding/services/stylist_branch_selection.dart';
 import 'package:bloc_onboarding/utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 class StylistMarkAttendanceScreen extends StatefulWidget {
   const StylistMarkAttendanceScreen({super.key});
@@ -476,7 +476,8 @@ class _StylistMarkAttendanceScreenState
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: _loadAttendanceState,
+                  onRefresh: () =>
+                      RefreshFeedback.playAndRun(_loadAttendanceState),
                   color: AppColors.starColor,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),

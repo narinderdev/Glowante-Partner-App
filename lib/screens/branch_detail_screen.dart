@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
@@ -449,7 +450,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
           ),
         ),
         child: RefreshIndicator(
-          onRefresh: _loadDetails,
+          onRefresh: () => RefreshFeedback.playAndRun(_loadDetails),
           color: AppColors.starColor,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),

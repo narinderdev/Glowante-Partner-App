@@ -19,7 +19,7 @@
     <application
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:label="Salon Partner">
+        android:label="Glowante Partner">
 
         <!-- Default FCM notification channel id must EXIST in code -->
         <meta-data

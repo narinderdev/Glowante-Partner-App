@@ -500,7 +500,7 @@
 				DEVELOPMENT_TEAM = 98JV35Z6W2;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Salon Partner";
+				INFOPLIST_KEY_CFBundleDisplayName = "Glowante Partner";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -686,7 +686,7 @@
 				DEVELOPMENT_TEAM = 98JV35Z6W2;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Salon Partner";
+				INFOPLIST_KEY_CFBundleDisplayName = "Glowante Partner";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -712,7 +712,7 @@
 				DEVELOPMENT_TEAM = 98JV35Z6W2;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Salon Partner";
+				INFOPLIST_KEY_CFBundleDisplayName = "Glowante Partner";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

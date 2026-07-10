@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
@@ -16,7 +17,6 @@ import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 class OwnerBranchClientsScreen extends StatefulWidget {
   const OwnerBranchClientsScreen({super.key});
@@ -1485,7 +1485,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       appBar: buildProfileSubpageAppBar(title: context.t('Clients')),
       body: RefreshIndicator(
         color: AppColors.starColor,
-        onRefresh: _loadData,
+        onRefresh: () => RefreshFeedback.playAndRun(_loadData),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           physics: const AlwaysScrollableScrollPhysics(),

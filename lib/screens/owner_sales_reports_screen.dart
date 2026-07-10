@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
@@ -11,7 +12,6 @@ import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import 'bottom_nav.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 enum OwnerSalesReportModule {
   revenueSales,
@@ -278,7 +278,7 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
         children: [
           RefreshIndicator(
             color: AppColors.starColor,
-            onRefresh: _loadBranchesAndReport,
+            onRefresh: () => RefreshFeedback.playAndRun(_loadBranchesAndReport),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
@@ -1607,7 +1607,7 @@ class _PaymentMethodCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final String Function(dynamic value) cleanText;
   final double Function(dynamic value) asDouble;
-String getPaymentMethod(dynamic value) {
+  String getPaymentMethod(dynamic value) {
     final method = (value ?? '').toString().toLowerCase().trim();
 
     switch (method) {
@@ -1619,6 +1619,7 @@ String getPaymentMethod(dynamic value) {
         return cleanText(value);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final rows = data['data'] is List

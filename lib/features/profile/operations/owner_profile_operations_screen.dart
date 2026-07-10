@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../../../services/stylist_branch_selection.dart';
 import '../../../utils/api_service.dart';
@@ -1254,10 +1255,10 @@ class _OwnerProfileOperationsScreenState
                   value: _firstText(detail,
                       const ['stockLevel', 'availableStock', 'currentStock'],
                       fallback: 'N/A')),
-                       _DetailLine(
+              _DetailLine(
                   label: 'Max Stock Level',
-                  value: _firstText(detail,
-                      const ['maxStockLevel', 'maximumStock'],
+                  value: _firstText(
+                      detail, const ['maxStockLevel', 'maximumStock'],
                       fallback: 'N/A')),
               _DetailLine(
                   label: 'Reorder Point',
@@ -1721,7 +1722,7 @@ class _OwnerProfileOperationsScreenState
 
     return RefreshIndicator(
       color: AppColors.starColor,
-      onRefresh: _reloadCurrent,
+      onRefresh: () => RefreshFeedback.playAndRun(_reloadCurrent),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [

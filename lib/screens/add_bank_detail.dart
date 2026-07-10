@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
@@ -307,7 +308,8 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
             ),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () => _loadAccounts(silent: true),
+          onRefresh: () =>
+              RefreshFeedback.playAndRun(() => _loadAccounts(silent: true)),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),

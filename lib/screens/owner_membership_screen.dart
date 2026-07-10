@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -753,7 +754,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         children: [
           RefreshIndicator(
             color: AppColors.starColor,
-            onRefresh: _loadMembership,
+            onRefresh: () => RefreshFeedback.playAndRun(_loadMembership),
             child: _buildBody(),
           ),
           if (_isPaying)

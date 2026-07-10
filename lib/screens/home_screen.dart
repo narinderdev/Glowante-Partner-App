@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -140,7 +140,12 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setString('salon_name', name);
     await prefs.setString('salon_address', address);
     if (branchId != null) {
-      await prefs.setInt('selected_branch_id', branchId);
+      await StylistBranchSelectionStore.save(
+        salonId: salonId,
+        branchId: branchId,
+        salonName: name,
+        branchName: name,
+      );
     }
   }
 
@@ -649,7 +654,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
         Future<void> onConfirmAll() async {
           if (_selectedBranchId == null) {
-            Fluttertoast.showToast(msg: translateText('Please select a branch first.'));
+            Fluttertoast.showToast(
+                msg: translateText('Please select a branch first.'));
             return;
           }
           if (status != 'PENDING' || apptIds.isEmpty) return;
