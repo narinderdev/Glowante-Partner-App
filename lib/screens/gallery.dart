@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../services/stylist_branch_selection.dart';
+import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
@@ -326,28 +327,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   String _addressFromMap(dynamic rawAddress) {
-    if (rawAddress is! Map) return '';
-
-    final address = Map<String, dynamic>.from(rawAddress);
-    final parts = <String>[];
-
-    for (final key in [
-      'line1',
-      'line2',
-      'village',
-      'district',
-      'city',
-      'state',
-      'country',
-      'postalCode',
-    ]) {
-      final value = _cleanText(address[key]);
-      if (value.isNotEmpty && !parts.contains(value)) {
-        parts.add(value);
-      }
-    }
-
-    return parts.join(', ');
+    return formatAddressSummary(rawAddress);
   }
 
   _GalleryBranchOption? get _selectedBranch {

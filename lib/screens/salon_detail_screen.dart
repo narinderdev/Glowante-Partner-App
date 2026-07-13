@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
+import '../utils/address_formatter.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
@@ -201,31 +204,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
   }
 
   String _composeAddress(dynamic source) {
-    if (source is! Map) return '';
-    final data = Map<String, dynamic>.from(source);
-    final parts = <String>[];
-    final seen = <String>{};
-
-    void push(dynamic value) {
-      final text = _cleanText(value);
-      if (text.isEmpty) return;
-      for (final part in text.split(',')) {
-        final item = _cleanText(part);
-        if (item.isNotEmpty && seen.add(item.toLowerCase())) {
-          parts.add(item);
-        }
-      }
-    }
-
-    push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
-    push(data['line2'] ?? data['addressLine2']);
-    push(data['village']);
-    push(data['district']);
-    push(data['city']);
-    push(data['state']);
-    push(data['country']);
-    push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
-    return parts.join(', ');
+    return formatAddressSummary(source);
   }
 
   Map<String, dynamic> _addressMap() {
@@ -522,7 +501,6 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
   Widget build(BuildContext context) {
     final title = _fieldText(['name', 'salonName', 'businessName']);
     final imageUrls = _imageUrls();
-    final imageUrl = imageUrls.isEmpty ? '' : imageUrls.first;
     final openDays =
         _scheduleRows().where((row) => row.value != 'Closed').length;
     final branchCount = _salon['branches'] is List
@@ -550,7 +528,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
               _HeroCard(
                 title: title.isEmpty ? translateText('Salon Details') : title,
                 subtitle: translateText('Main Salon'),
-                imageUrl: imageUrl,
+                imageUrls: imageUrls,
                 active: _salon['active'] != false,
               ),
               const SizedBox(height: 14),
@@ -615,13 +593,13 @@ class _HeroCard extends StatelessWidget {
   const _HeroCard({
     required this.title,
     required this.subtitle,
-    required this.imageUrl,
+    required this.imageUrls,
     required this.active,
   });
 
   final String title;
   final String subtitle;
-  final String imageUrl;
+  final List<String> imageUrls;
   final bool active;
 
   @override
@@ -651,12 +629,26 @@ class _HeroCard extends StatelessWidget {
             children: [
               AspectRatio(
                 aspectRatio: 16 / 9,
-                child: imageUrl.isEmpty
-                    ? const _ImageFallback()
-                    : Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const _ImageFallback(),
+                child: imageUrls.length <= 1
+                    ? (imageUrls.isEmpty
+                        ? const _ImageFallback()
+                        : Image.network(
+                            imageUrls.first,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const _ImageFallback(),
+                          ))
+                    : _AutoSlidingHeroImage(
+                        imageUrls: imageUrls,
+                        fallback: const _ImageFallback(),
+                        imageBuilder: (imageUrl) => Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (_, __, ___) => const _ImageFallback(),
+                        ),
                       ),
               ),
               Positioned.fill(
@@ -729,6 +721,154 @@ class _HeroCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AutoSlidingHeroImage extends StatefulWidget {
+  const _AutoSlidingHeroImage({
+    required this.imageUrls,
+    required this.fallback,
+    required this.imageBuilder,
+  });
+
+  final List<String> imageUrls;
+  final Widget fallback;
+  final Widget Function(String imageUrl) imageBuilder;
+
+  @override
+  State<_AutoSlidingHeroImage> createState() => _AutoSlidingHeroImageState();
+}
+
+class _AutoSlidingHeroImageState extends State<_AutoSlidingHeroImage> {
+  late final PageController _pageController;
+  Timer? _autoScrollTimer;
+  int _currentPage = 0;
+  int _autoScrollDirection = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 1.0);
+    _startAutoScroll();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AutoSlidingHeroImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrls.length != widget.imageUrls.length) {
+      _currentPage = 0;
+      _autoScrollDirection = 1;
+      _stopAutoScroll();
+      _startAutoScroll();
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+    }
+  }
+
+  void _startAutoScroll() {
+    if (widget.imageUrls.length <= 1) return;
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_pageController.hasClients || widget.imageUrls.isEmpty) {
+        return;
+      }
+      final lastIndex = widget.imageUrls.length - 1;
+      var nextPage = _currentPage + _autoScrollDirection;
+
+      if (nextPage >= lastIndex) {
+        nextPage = lastIndex;
+        _autoScrollDirection = -1;
+      } else if (nextPage <= 0) {
+        nextPage = 0;
+        _autoScrollDirection = 1;
+      }
+
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 760),
+        curve: Curves.easeInOutCubicEmphasized,
+      );
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopAutoScroll();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageUrls.isEmpty) return widget.fallback;
+    if (widget.imageUrls.length == 1) {
+      return widget.imageBuilder(widget.imageUrls.first);
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: double.infinity,
+      child: PageView.builder(
+        controller: _pageController,
+        clipBehavior: Clip.hardEdge,
+        padEnds: false,
+        itemCount: widget.imageUrls.length,
+        onPageChanged: (index) {
+          if (!mounted) return;
+          setState(() {
+            _currentPage = index;
+            if (index == 0) {
+              _autoScrollDirection = 1;
+            } else if (index == widget.imageUrls.length - 1) {
+              _autoScrollDirection = -1;
+            }
+          });
+        },
+        itemBuilder: (context, index) {
+          return AnimatedBuilder(
+            animation: _pageController,
+            builder: (context, child) {
+              final page = _pageController.hasClients &&
+                      _pageController.position.hasPixels
+                  ? (_pageController.page ?? _currentPage.toDouble())
+                  : _currentPage.toDouble();
+              final delta = page - index;
+              final distance = delta.abs().clamp(0.0, 1.0);
+              final shift = -delta * 32.0;
+              final scale = 1.14 - (distance * 0.08);
+              final rotateY = -delta * 0.34;
+              final opacity = 0.90 + (1.0 - distance) * 0.10;
+
+              return Opacity(
+                opacity: opacity,
+                child: ClipRect(
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.0018)
+                      ..rotateY(rotateY),
+                    child: Transform.translate(
+                      offset: Offset(shift, 0.0),
+                      child: Transform.scale(
+                        scale: scale,
+                        child: SizedBox.expand(
+                          child: widget.imageBuilder(widget.imageUrls[index]),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

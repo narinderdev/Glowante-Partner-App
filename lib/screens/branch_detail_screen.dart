@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -146,31 +147,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   }
 
   String _composeAddress(dynamic source) {
-    if (source is! Map) return '';
-    final data = Map<String, dynamic>.from(source);
-    final parts = <String>[];
-    final seen = <String>{};
-
-    void push(dynamic value) {
-      final text = _cleanText(value);
-      if (text.isEmpty) return;
-      for (final part in text.split(',')) {
-        final item = _cleanText(part);
-        if (item.isNotEmpty && seen.add(item.toLowerCase())) {
-          parts.add(item);
-        }
-      }
-    }
-
-    push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
-    push(data['line2'] ?? data['addressLine2']);
-    push(data['village']);
-    push(data['district']);
-    push(data['city']);
-    push(data['state']);
-    push(data['country']);
-    push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
-    return parts.join(', ');
+    return formatAddressSummary(source);
   }
 
   String _imageUrl() {

@@ -13,6 +13,7 @@ import 'notifications.dart';
 import '../services/language_listener.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/stylist_branch_selection.dart';
+import '../utils/address_formatter.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
@@ -99,27 +100,7 @@ String _commissionMaxValueLabel(dynamic value) {
 }
 
 String _catalogBranchAddressSummary(dynamic rawAddress) {
-  if (rawAddress is! Map) return '';
-  final address = Map<String, dynamic>.from(rawAddress);
-  final parts = <String>[];
-
-  void push(dynamic value) {
-    final text = value?.toString().trim() ?? '';
-    if (text.isEmpty || text.toLowerCase() == 'null' || parts.contains(text)) {
-      return;
-    }
-    parts.add(text);
-  }
-
-  push(address['line1']);
-  push(address['line2']);
-  push(address['village']);
-  push(address['district']);
-  push(address['city']);
-  push(address['state']);
-  push(address['postalCode']);
-  push(address['country']);
-  return parts.join(', ');
+  return formatAddressSummary(rawAddress);
 }
 
 String _catalogBranchLabel(Map<String, dynamic>? selection) {

@@ -7,6 +7,7 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/profile/compensation/profile_compensation_screen.dart';
 import '../features/profile/operations/owner_profile_operations_screen.dart';
 import '../services/stylist_branch_selection.dart';
+import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
@@ -257,14 +258,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   String _addressSummary(dynamic rawAddress) {
-    if (rawAddress is! Map) return '';
-    final address = Map<String, dynamic>.from(rawAddress);
-    final parts = <String>[];
-    for (final key in ['line1', 'line2', 'city', 'state']) {
-      final value = _cleanText(address[key]);
-      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
-    }
-    return parts.take(2).join(', ');
+    return formatAddressSummary(rawAddress);
   }
 
   _DashboardBranchOption? get _selectedBranchOption {

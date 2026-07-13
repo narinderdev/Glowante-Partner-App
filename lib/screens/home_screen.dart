@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/address_formatter.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -214,16 +215,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final addr = branches.isNotEmpty
         ? branches.first['address'] as Map<String, dynamic>?
         : null;
-    if (addr == null) return translateText('No address available');
-    final parts = [
-      addr['line1'],
-      addr['city'],
-      addr['state'],
-      addr['postalCode'],
-    ]
-        .where((e) => e != null && e.toString().trim().isNotEmpty)
-        .map((e) => e.toString());
-    return parts.join(', ');
+    final address = formatAddressSummary(addr);
+    return address.isEmpty ? translateText('No address available') : address;
   }
 
   Future<void> _onPickSalon(Map<String, dynamic> salon) async {

@@ -15,6 +15,7 @@ import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import 'notifications.dart';
 import 'salon_detail_screen.dart';
+import '../utils/address_formatter.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -1439,31 +1440,7 @@ class _SalonCard extends StatelessWidget {
   }
 
   String _composeAddress(Map<String, dynamic>? data) {
-    if (data == null || data.isEmpty) return '';
-    final segments = <String>[];
-    final seenParts = <String>{};
-
-    void push(dynamic value) {
-      final text = _cleanText(value);
-      if (text.isEmpty) return;
-      for (final part in text.split(',')) {
-        final cleanedPart = _cleanText(part);
-        final key = cleanedPart.toLowerCase();
-        if (cleanedPart.isNotEmpty && seenParts.add(key)) {
-          segments.add(cleanedPart);
-        }
-      }
-    }
-
-    push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
-    push(data['line2'] ?? data['addressLine2']);
-    push(data['village']);
-    push(data['district']);
-    push(data['city']);
-    push(data['state']);
-    push(data['country']);
-    push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
-    return segments.join(', ');
+    return formatAddressSummary(data);
   }
 
   Widget _heroImage(String? imageUrl) {
