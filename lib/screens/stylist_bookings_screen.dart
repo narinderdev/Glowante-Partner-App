@@ -207,15 +207,6 @@ int? _asInt(dynamic value) {
   return null;
 }
 
-bool? _readBool(dynamic value) {
-  if (value is bool) return value;
-  final text = value?.toString().trim().toLowerCase() ?? '';
-  if (text.isEmpty || text == 'null') return null;
-  if (text == 'true' || text == '1' || text == 'yes') return true;
-  if (text == 'false' || text == '0' || text == 'no') return false;
-  return null;
-}
-
 String _normalizeStatus(dynamic value) {
   final normalized = (value ?? '').toString().trim().toUpperCase();
   return normalized.replaceAll('-', '_').replaceAll(' ', '_');
@@ -232,11 +223,6 @@ DateTime? _parseLocal(dynamic iso) {
 
 DateTime _dateOnly(DateTime value) {
   return DateTime(value.year, value.month, value.day);
-}
-
-DateTime? _parseDateOnly(dynamic value) {
-  final parsed = _parseLocal(value);
-  return parsed == null ? null : _dateOnly(parsed);
 }
 
 String _twoDigits(int value) => value.toString().padLeft(2, '0');
@@ -2162,75 +2148,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
   }
 
-  String _weekdayKey(DateTime value) {
-    const days = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ];
-    return days[value.weekday - 1];
-  }
-
-  bool _memberIsEmployedOnDate(
-    Map<String, dynamic> branchEntry,
-    DateTime date,
-  ) {
-    final selectedDate = _dateOnly(date);
-    final joiningDate = _parseDateOnly(branchEntry['joiningDate']);
-    if (joiningDate != null && joiningDate.isAfter(selectedDate)) {
-      return false;
-    }
-
-    final leavingDate = _parseDateOnly(branchEntry['leavingDate']);
-    if (leavingDate != null && leavingDate.isBefore(selectedDate)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _memberHasFutureJoiningDate(
-    Map<String, dynamic> branchEntry,
-    DateTime date,
-  ) {
-    final joiningDate = _parseDateOnly(branchEntry['joiningDate']);
-    return joiningDate != null && joiningDate.isAfter(_dateOnly(date));
-  }
-
-  bool _memberHasPastLeavingDate(
-    Map<String, dynamic> branchEntry,
-    DateTime date,
-  ) {
-    final leavingDate = _parseDateOnly(branchEntry['leavingDate']);
-    return leavingDate != null && leavingDate.isBefore(_dateOnly(date));
-  }
-
-  bool _memberHasScheduleOnDate(
-    Map<String, dynamic> branchEntry,
-    Map<String, dynamic> member,
-    DateTime date,
-  ) {
-    final schedules = _teamMemberScheduleItems(branchEntry, member);
-    if (schedules.isEmpty) return false;
-
-    final targetDay = _weekdayKey(date);
-    for (final schedule in schedules) {
-      final day = schedule['day']?.toString().trim().toLowerCase() ?? '';
-      if (day != targetDay) continue;
-      final start =
-          (schedule['startTime'] ?? schedule['start'])?.toString().trim() ?? '';
-      final end =
-          (schedule['endTime'] ?? schedule['end'])?.toString().trim() ?? '';
-      if (start.isNotEmpty && end.isNotEmpty) return true;
-    }
-
-    return false;
-  }
-
   String _dayDisplayLabel(String day) {
     final normalized = day.trim().toLowerCase();
     if (normalized.isEmpty) return '';
@@ -2385,16 +2302,16 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     required DateTime date,
   }) async {
     try {
-      final response = await ApiService.getTeamMembers(branchId);
+      final response = await ApiService.getTeamMembers(
+        branchId,
+        date: date,
+        includeAssignedForDate: true,
+      );
       final data = (response['data'] as List?) ?? const [];
       final serviceNamesByMember = <String, List<String>>{};
       final workingHoursByMember = <String, List<_WorkingDayHours>>{};
       final namesByUserId = <int, String>{};
       final namesByUserBranchId = <int, String>{};
-      var hasBranchTeamMember = false;
-      var hasFutureJoiningDateMember = false;
-      var hasPastLeavingDateMember = false;
-      var hasEmployedMemberWithoutSchedule = false;
 
       for (final item in data) {
         if (item is! Map) continue;
@@ -2409,7 +2326,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
         final services = <String>[];
         final seen = <String>{};
-        var worksOnSelectedDate = false;
         final assignments = member['userBranches'];
         if (assignments is List) {
           for (final assignment in assignments) {
@@ -2427,16 +2343,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               continue;
             }
 
-            final isActive = _readBool(branchEntry['active']) ?? true;
-            final allowOnlineBooking =
-                _readBool(branchEntry['allowOnlineBooking']) ?? true;
-
-            if (!isActive || !allowOnlineBooking) {
-              continue;
-            }
-
-            hasBranchTeamMember = true;
-
             final workingHours = _workingHoursFromTeamMember(
               branchEntry,
               member,
@@ -2444,21 +2350,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             if (workingHours.isNotEmpty) {
               workingHoursByMember[name] = workingHours;
             }
-
-            if (!_memberIsEmployedOnDate(branchEntry, date)) {
-              if (_memberHasFutureJoiningDate(branchEntry, date)) {
-                hasFutureJoiningDateMember = true;
-              } else if (_memberHasPastLeavingDate(branchEntry, date)) {
-                hasPastLeavingDateMember = true;
-              }
-              continue;
-            }
-
-            if (!_memberHasScheduleOnDate(branchEntry, member, date)) {
-              hasEmployedMemberWithoutSchedule = true;
-              continue;
-            }
-            worksOnSelectedDate = true;
 
             for (final key in const [
               'userBranchId',
@@ -2475,38 +2366,27 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             }
 
             final userBranchServices = branchEntry['userBranchServices'];
-            if (userBranchServices is! List) continue;
-            for (final rawService in userBranchServices) {
-              if (rawService is! Map) continue;
-              final branchService = rawService['branchService'];
-              if (branchService is! Map) continue;
-              final serviceName =
-                  (branchService['displayName'] ?? branchService['name'] ?? '')
-                      .toString()
-                      .trim();
-              if (serviceName.isEmpty) continue;
-              if (seen.add(serviceName.toLowerCase())) {
-                services.add(serviceName);
+            if (userBranchServices is List) {
+              for (final rawService in userBranchServices) {
+                if (rawService is! Map) continue;
+                final branchService = rawService['branchService'];
+                if (branchService is! Map) continue;
+                final serviceName = (branchService['displayName'] ??
+                        branchService['name'] ??
+                        '')
+                    .toString()
+                    .trim();
+                if (serviceName.isEmpty) continue;
+                if (seen.add(serviceName.toLowerCase())) {
+                  services.add(serviceName);
+                }
               }
             }
+
+            // The backend already returns the selected-date set when
+            // includeAssignedForDate=true, so keep every returned branch entry.
+            serviceNamesByMember[name] = services;
           }
-        }
-
-        if (worksOnSelectedDate) {
-          serviceNamesByMember[name] = services;
-        }
-      }
-
-      var noMembersReason = _NoTeamMembersForDateReason.none;
-      if (serviceNamesByMember.isEmpty && hasBranchTeamMember) {
-        if (hasEmployedMemberWithoutSchedule) {
-          noMembersReason = _NoTeamMembersForDateReason.notScheduled;
-        } else if (hasFutureJoiningDateMember) {
-          noMembersReason = _NoTeamMembersForDateReason.joiningDate;
-        } else if (hasPastLeavingDateMember) {
-          noMembersReason = _NoTeamMembersForDateReason.employmentDate;
-        } else {
-          noMembersReason = _NoTeamMembersForDateReason.notScheduled;
         }
       }
 
@@ -2515,7 +2395,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         workingHours: workingHoursByMember,
         namesByUserId: namesByUserId,
         namesByUserBranchId: namesByUserBranchId,
-        noMembersReason: noMembersReason,
+        noMembersReason: _NoTeamMembersForDateReason.none,
       );
     } catch (e) {
       debugPrint('[BookingsTeamMemberServices] failed=$e');

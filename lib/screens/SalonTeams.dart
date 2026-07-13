@@ -1185,6 +1185,59 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
+  Future<void> _openViewMember(Map<String, dynamic> member) async {
+    final userId = _teamAsInt(member['id']) ?? 0;
+    if (userId == 0) return;
+
+    final branchId = selectedBranchId ??
+        _teamAsInt(_teamFirstAssignmentBranchId(member['userBranches']));
+    if (branchId == null) return;
+
+    final ratingSummary =
+        _professionalRatings[userId] ?? _TeamRatingSummary.empty;
+    Map<String, dynamic> detailMember = Map<String, dynamic>.from(member);
+
+    try {
+      final response = await ApiService.getTeamMemberDetails(branchId, userId);
+      if (response['success'] == true && response['data'] is Map) {
+        detailMember = Map<String, dynamic>.from(
+            response['data'] as Map<dynamic, dynamic>);
+      }
+    } catch (error) {
+      debugPrint('Failed to load team member details: $error');
+    }
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TeamMemberDetails(
+          member: detailMember,
+          salons: _salons,
+          professionalRating: ratingSummary.average.toDouble(),
+          professionalReviewCount: ratingSummary.count,
+        ),
+      ),
+    );
+  }
+
+  dynamic _teamFirstAssignmentBranchId(dynamic rawAssignments) {
+    if (rawAssignments is! List) return null;
+    for (final item in rawAssignments) {
+      if (item is! Map) continue;
+      final assignment = Map<String, dynamic>.from(item);
+      final branch = assignment['branch'];
+      if (branch is Map && branch['id'] != null) {
+        return branch['id'];
+      }
+      if (assignment['branchId'] != null) {
+        return assignment['branchId'];
+      }
+    }
+    return null;
+  }
+
   List<OwnerBranchHeaderSelectorOption<int>> _teamBranchOptions(
     List<Map<String, dynamic>> branches,
   ) {
@@ -1325,24 +1378,7 @@ class _TeamScreenState extends State<TeamScreen> {
                           onEditMember: _openEditMember,
                           onDeleteMember: _deleteMember,
                           onToggleMemberActive: _toggleMemberActive,
-                          onViewMember: (member) {
-                            final userId = _asInt(member['id']) ?? 0;
-                            final ratingSummary =
-                                _professionalRatings[userId] ??
-                                    _TeamRatingSummary.empty;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TeamMemberDetails(
-                                  member: member,
-                                  salons: _salons,
-                                  professionalRating:
-                                      ratingSummary.average.toDouble(),
-                                  professionalReviewCount: ratingSummary.count,
-                                ),
-                              ),
-                            );
-                          },
+                          onViewMember: _openViewMember,
                           onAssignMember: _openAssignMember,
                           assignButtonBuilder: _buildAssignButtonChild,
                           memberNameBuilder: _memberDisplayName,
@@ -1406,7 +1442,7 @@ class _TeamMembersGrid extends StatelessWidget {
   final Future<void> Function(Map<String, dynamic> member) onEditMember;
   final Future<void> Function(int userId) onDeleteMember;
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
-  final void Function(Map<String, dynamic> member) onViewMember;
+  final Future<void> Function(Map<String, dynamic> member) onViewMember;
   final Future<void> Function(Map<String, dynamic> member) onAssignMember;
   final Widget Function(Map<String, dynamic> member) assignButtonBuilder;
   final String Function(Map<String, dynamic> member) memberNameBuilder;
@@ -1464,7 +1500,9 @@ class _TeamMembersGrid extends StatelessWidget {
               onEdit: () => onEditMember(member),
               onDelete: () => onDeleteMember(userId),
               onToggleActive: () => onToggleMemberActive(userId, !isActive),
-              onView: () => onViewMember(member),
+              onView: () {
+                unawaited(onViewMember(member));
+              },
               onAssign: () => onAssignMember(member),
             );
           },

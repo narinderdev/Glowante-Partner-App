@@ -231,6 +231,10 @@ class ApiService {
     return "branches/$branchId/team/validate-contact";
   }
 
+  static String teamMemberDetailsEndpoint(int branchId, int userId) {
+    return "branches/$branchId/team/$userId";
+  }
+
   static String addSalonTeamMemberEndpoint(int salonId) {
     return "salons/$salonId/users";
   }
@@ -303,10 +307,17 @@ class ApiService {
       "v2/branches/$branchId/dashboard";
   static String payrollSetupTeamMembersAPI(int branchId) =>
       "v2/branches/$branchId/payroll-setup/team-members";
-  static String employeeSalaryHistoryAPI(int employeeId) =>
-      "v2/employees/$employeeId/salary";
-  static String employeeSalaryConfigAPI(int employeeId, int salaryId) =>
-      "v2/employees/$employeeId/salary/$salaryId";
+  static String branchEmployeeSalaryHistoryAPI(
+    int branchId,
+    int employeeId,
+  ) =>
+      "v2/branches/$branchId/employees/$employeeId/salary";
+  static String branchEmployeeSalaryConfigAPI(
+    int branchId,
+    int employeeId,
+    int salaryId,
+  ) =>
+      "v2/branches/$branchId/employees/$employeeId/salary/$salaryId";
   static String generatePayrollAPI(
     int branchId, {
     required int month,
@@ -403,6 +414,7 @@ class ApiService {
     bool? allowOnlineBooking,
     List<int> serviceIds = const <int>[],
     DateTime? date,
+    bool includeAssignedForDate = false,
     String search = '',
   }) {
     final query = <String, String>{};
@@ -418,6 +430,9 @@ class ApiService {
     }
     if (date != null) {
       query['date'] = DateFormat('yyyy-MM-dd').format(date);
+    }
+    if (includeAssignedForDate) {
+      query['includeAssignedForDate'] = 'true';
     }
     final normalizedSearch = search.trim();
     if (normalizedSearch.isNotEmpty) {
@@ -3167,6 +3182,7 @@ class ApiService {
     bool? allowOnlineBooking,
     List<int> serviceIds = const <int>[],
     DateTime? date,
+    bool includeAssignedForDate = false,
     String search = '',
   }) async {
     try {
@@ -3189,6 +3205,7 @@ class ApiService {
           allowOnlineBooking: allowOnlineBooking,
           serviceIds: serviceIds,
           date: date,
+          includeAssignedForDate: includeAssignedForDate,
           search: search,
         )}',
       ); // Use getTeamMember method to get the endpoint
@@ -3218,6 +3235,46 @@ class ApiService {
       }
     } catch (e) {
       // Log and handle errors
+      print('Error: $e');
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getTeamMemberDetails(
+    int branchId,
+    int userId,
+  ) async {
+    try {
+      final apiService = ApiService();
+      final token = await apiService.getAuthToken();
+      if (token.isEmpty) {
+        throw Exception('No token found');
+      }
+
+      final url = Uri.parse(
+        '$baseUrl${teamMemberDetailsEndpoint(branchId, userId)}',
+      );
+
+      print('API URL: $url');
+      print('Request Headers: { "Authorization": "Bearer $token" }');
+
+      final response = await _sharedClient.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+
+      throw Exception('Failed to load team member details');
+    } catch (e) {
       print('Error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
@@ -4399,25 +4456,27 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> createEmployeeSalaryConfig({
+    required int branchId,
     required int employeeId,
     required Map<String, dynamic> payload,
   }) {
     return _authorizedJsonRequest(
       method: 'POST',
-      endpoint: employeeSalaryHistoryAPI(employeeId),
+      endpoint: branchEmployeeSalaryHistoryAPI(branchId, employeeId),
       body: payload,
       debugTag: 'CreateEmployeeSalaryConfigAPI',
     );
   }
 
   Future<Map<String, dynamic>> updateEmployeeSalaryConfig({
+    required int branchId,
     required int employeeId,
     required int salaryId,
     required Map<String, dynamic> payload,
   }) {
     return _authorizedJsonRequest(
       method: 'PATCH',
-      endpoint: employeeSalaryConfigAPI(employeeId, salaryId),
+      endpoint: branchEmployeeSalaryConfigAPI(branchId, employeeId, salaryId),
       body: payload,
       debugTag: 'UpdateEmployeeSalaryConfigAPI',
     );

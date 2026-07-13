@@ -221,11 +221,13 @@ class ProfileCompensationRepository {
     };
     final response = setup.salaryConfigId != null && setup.salaryConfigId! > 0
         ? await _apiService.updateEmployeeSalaryConfig(
+            branchId: branchId,
             employeeId: setup.userId,
             salaryId: setup.salaryConfigId!,
             payload: payload,
           )
         : await _apiService.createEmployeeSalaryConfig(
+            branchId: branchId,
             employeeId: setup.userId,
             payload: payload,
           );
