@@ -807,7 +807,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   String? _vDiscounted() {
     if (_sDiscounted) return null;
 
-    final d = _parseCurrency(discountedPriceController.text);
+    final value = discountedPriceController.text.trim();
+    if (value.isEmpty) return null;
+
+    final d = _parseCurrency(value);
 
     if (d == null || d < 0) {
       return translateText('Discounted price cannot be negative.');
@@ -1292,6 +1295,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     required Widget child,
     String? errorText,
   }) {
+    final hasError = errorText != null && errorText.trim().isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1301,14 +1306,14 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: errorText == null || errorText.trim().isEmpty
-                  ? const SizedBox.shrink()
-                  : Text(
+              child: hasError
+                  ? Text(
                       errorText,
                       style: const TextStyle(color: Colors.red, fontSize: 12),
-                    ),
+                    )
+                  : const SizedBox.shrink(),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             IgnorePointer(
               child: ValueListenableBuilder<TextEditingValue>(
                 valueListenable: controller,
@@ -1328,6 +1333,27 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _fieldWithBottomError({
+    required Widget child,
+    String? errorText,
+  }) {
+    final hasError = errorText != null && errorText.trim().isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        child,
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Text(
+            errorText,
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ],
       ],
     );
   }
@@ -1773,32 +1799,36 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         pricingMode == 'Discount' && discountType == 'Percent';
 
     if (showFlatField) {
-      return TextFormField(
-        controller: amountOffController,
-        keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-        ],
-        autovalidateMode: _showErrors
-            ? AutovalidateMode.onUserInteraction
-            : AutovalidateMode.disabled,
-        decoration: _decor(
-          label: translateText('Amount Off (₹) *'),
-          hint: translateText('e.g. 100'),
+      return _fieldWithBottomError(
+        errorText: _showErrors ? _vAmountOff(amountOffController.text) : null,
+        child: TextFormField(
+          controller: amountOffController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          autovalidateMode: _showErrors
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
+          decoration: _decor(
+            label: translateText('Amount Off (₹) *'),
+            hint: translateText('e.g. 100'),
+          ),
+          validator: _vAmountOff,
+          onChanged: (_) {
+            if (!_sAmountOff) {
+              setState(() => _sAmountOff = true);
+            } else {
+              setState(() {});
+            }
+          },
         ),
-        validator: _vAmountOff,
-        onChanged: (_) {
-          if (!_sAmountOff) {
-            setState(() => _sAmountOff = true);
-          } else {
-            setState(() {});
-          }
-        },
       );
     }
 
     if (showPercentField) {
       return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: _fieldWithBottomCounter(
@@ -1875,6 +1905,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
   Widget _buildPriceRow() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: TextFormField(
@@ -1888,17 +1919,20 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: TextFormField(
-            controller: discountedPriceController,
-            readOnly: true,
-            autovalidateMode: _showErrors
-                ? AutovalidateMode.always
-                : AutovalidateMode.disabled,
-            decoration: _decor(
-              label: translateText('Discounted Price *'),
-              hint: translateText('0'),
+          child: _fieldWithBottomError(
+            errorText: _showErrors ? _vDiscounted() : null,
+            child: TextFormField(
+              controller: discountedPriceController,
+              readOnly: true,
+              autovalidateMode: _showErrors
+                  ? AutovalidateMode.always
+                  : AutovalidateMode.disabled,
+              decoration: _decor(
+                label: translateText('Discounted Price *'),
+                hint: translateText('0'),
+              ),
+              validator: (_) => _vDiscounted(),
             ),
-            validator: (_) => _vDiscounted(),
           ),
         ),
       ],
@@ -1942,35 +1976,40 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     return Column(
       children: [
-        DropdownButtonFormField<String>(
-          value: packageGender,
-          autovalidateMode:
-              _showErrors ? AutovalidateMode.always : AutovalidateMode.disabled,
-          items: packageGenderOptions
-              .map(
-                (gender) => DropdownMenuItem(
-                  value: gender,
-                  child: Text(
-                    translateText(
-                      gender == 'OTHERS'
-                          ? 'Others'
-                          : gender[0] + gender.substring(1).toLowerCase(),
+        _fieldWithBottomError(
+          errorText: _showErrors ? _vPackageGender() : null,
+          child: DropdownButtonFormField<String>(
+            value: packageGender,
+            autovalidateMode: _showErrors
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            items: packageGenderOptions
+                .map(
+                  (gender) => DropdownMenuItem(
+                    value: gender,
+                    child: Text(
+                      translateText(
+                        gender == 'OTHERS'
+                            ? 'Others'
+                            : gender[0] + gender.substring(1).toLowerCase(),
+                      ),
                     ),
                   ),
-                ),
-              )
-              .toList(),
-          onChanged: (value) {
-            setState(() => packageGender = value);
-          },
-          validator: (_) => _vPackageGender(),
-          decoration: _decor(
-            label: '${translateText('Gender')} *',
-            hint: translateText('Select gender'),
+                )
+                .toList(),
+            onChanged: (value) {
+              setState(() => packageGender = value);
+            },
+            validator: (_) => _vPackageGender(),
+            decoration: _decor(
+              label: '${translateText('Gender')} *',
+              hint: translateText('Select gender'),
+            ),
           ),
         ),
         const SizedBox(height: 14),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: _fieldWithBottomCounter(
@@ -2050,46 +2089,55 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         ),
         const SizedBox(height: 14),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: TextFormField(
-                controller: validFromController,
-                readOnly: true,
-                autovalidateMode: _showErrors
-                    ? AutovalidateMode.onUserInteraction
-                    : AutovalidateMode.disabled,
-                decoration: _decor(
-                  label: '${translateText('Start Date')} *',
-                  hint: translateText('Select start date'),
-                  suffix: IconButton(
-                    icon: const Icon(Icons.date_range, color: _dealGold),
-                    onPressed: () =>
-                        _pickDate(validFromController, isFrom: true),
+              child: _fieldWithBottomError(
+                errorText:
+                    _showErrors ? _vValidFrom(validFromController.text) : null,
+                child: TextFormField(
+                  controller: validFromController,
+                  readOnly: true,
+                  autovalidateMode: _showErrors
+                      ? AutovalidateMode.onUserInteraction
+                      : AutovalidateMode.disabled,
+                  decoration: _decor(
+                    label: '${translateText('Start Date')} *',
+                    hint: translateText('Select start date'),
+                    suffix: IconButton(
+                      icon: const Icon(Icons.date_range, color: _dealGold),
+                      onPressed: () =>
+                          _pickDate(validFromController, isFrom: true),
+                    ),
                   ),
+                  validator: _vValidFrom,
+                  onTap: () => _pickDate(validFromController, isFrom: true),
                 ),
-                validator: _vValidFrom,
-                onTap: () => _pickDate(validFromController, isFrom: true),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
-                controller: validTillController,
-                readOnly: true,
-                autovalidateMode: _showErrors
-                    ? AutovalidateMode.onUserInteraction
-                    : AutovalidateMode.disabled,
-                decoration: _decor(
-                  label: '${translateText('End Date')} *',
-                  hint: translateText('Select end date'),
-                  suffix: IconButton(
-                    icon: const Icon(Icons.date_range, color: _dealGold),
-                    onPressed: () =>
-                        _pickDate(validTillController, isFrom: false),
+              child: _fieldWithBottomError(
+                errorText:
+                    _showErrors ? _vValidTill(validTillController.text) : null,
+                child: TextFormField(
+                  controller: validTillController,
+                  readOnly: true,
+                  autovalidateMode: _showErrors
+                      ? AutovalidateMode.onUserInteraction
+                      : AutovalidateMode.disabled,
+                  decoration: _decor(
+                    label: '${translateText('End Date')} *',
+                    hint: translateText('Select end date'),
+                    suffix: IconButton(
+                      icon: const Icon(Icons.date_range, color: _dealGold),
+                      onPressed: () =>
+                          _pickDate(validTillController, isFrom: false),
+                    ),
                   ),
+                  validator: _vValidTill,
+                  onTap: () => _pickDate(validTillController, isFrom: false),
                 ),
-                validator: _vValidTill,
-                onTap: () => _pickDate(validTillController, isFrom: false),
               ),
             ),
           ],
