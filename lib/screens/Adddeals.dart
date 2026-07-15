@@ -11,7 +11,6 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 const Color _dealGold = Color(0xFF8B6500);
 const Color _dealGoldLight = Color(0xFFD0A244);
 const Color _dealInk = Color(0xFF1F1B18);
@@ -117,12 +116,14 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     return existingStatus;
   }
-String formatInputAmount(num value) {
-  if (value % 1 == 0) {
-    return value.toInt().toString();
+
+  String formatInputAmount(num value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+    return value.toStringAsFixed(2);
   }
- return value.toStringAsFixed(2);
-}
+
   @override
   void initState() {
     super.initState();
@@ -220,17 +221,17 @@ String formatInputAmount(num value) {
 
         if (amt > 0) {
           amountOffController.text =
-             formatInputAmount(minorAmountToRupees(amt) ?? 0);
+              formatInputAmount(minorAmountToRupees(amt) ?? 0);
         }
       }
     } else {
       final amt = (o['discount'] as num?)?.toDouble() ??
           (o['amount'] as num?)?.toDouble() ??
           0.0;
-   amountOffController.text = formatInputAmount(
-  amt > 0 ? (minorAmountToRupees(amt) ?? 0) : 0,
-);
-}
+      amountOffController.text = formatInputAmount(
+        amt > 0 ? (minorAmountToRupees(amt) ?? 0) : 0,
+      );
+    }
     final List rawItems = (o['items'] as List?) ?? const [];
     final Map<int, int> selectedIdQty = {};
     _selectedServices = [];
@@ -263,7 +264,7 @@ String formatInputAmount(num value) {
 
     if (originalTotal != null && originalTotal > 0) {
       originalPriceController.text =
-         formatInputAmount(minorAmountToRupees(originalTotal) ?? 0);
+          formatInputAmount(minorAmountToRupees(originalTotal) ?? 0);
     } else {
       originalPriceController.text =
           formatInputAmount(minorAmountToRupees(_originalTotal()) ?? 0);
@@ -289,8 +290,8 @@ String formatInputAmount(num value) {
     if (pricingMode == 'Fixed') {
       if (originalVal > 0) {
         amountOffController.text = formatInputAmount(
-  (originalVal - discountedVal).clamp(0, originalVal),
-);
+          (originalVal - discountedVal).clamp(0, originalVal),
+        );
       }
     } else if (pricingMode == 'Discount' && discountType == 'Flat') {
       final double? amt = _asDouble(
@@ -302,8 +303,8 @@ String formatInputAmount(num value) {
             formatInputAmount(minorAmountToRupees(amt) ?? 0);
       } else if (originalVal > 0) {
         amountOffController.text = formatInputAmount(
-  (originalVal - discountedVal).clamp(0, originalVal),
-  );
+          (originalVal - discountedVal).clamp(0, originalVal),
+        );
       }
     }
 
@@ -620,10 +621,10 @@ String formatInputAmount(num value) {
 
         if (total > 0) {
           originalPriceController.text =
-    formatInputAmount(minorAmountToRupees(total) ?? 0);
+              formatInputAmount(minorAmountToRupees(total) ?? 0);
         }
-originalPriceController.text =
-    formatInputAmount(minorAmountToRupees(total) ?? 0);
+        originalPriceController.text =
+            formatInputAmount(minorAmountToRupees(total) ?? 0);
         _recalcDiscounted();
       });
     } catch (_) {
@@ -656,7 +657,7 @@ originalPriceController.text =
         final pctValue = original * (pct / 100.0);
 
         if (_autoSetMaxFromPercent && maxDiscountController.text.isEmpty) {
-        _setTextSafe(maxDiscountController, formatInputAmount(pctValue));
+          _setTextSafe(maxDiscountController, formatInputAmount(pctValue));
         }
 
         final cap = _parseNum(maxDiscountController.text);
@@ -665,7 +666,7 @@ originalPriceController.text =
       }
     }
 
-   _setTextSafe(discountedPriceController, formatInputAmount(discounted));
+    _setTextSafe(discountedPriceController, formatInputAmount(discounted));
   }
 
   String? _vTitle(String? v) {
@@ -782,33 +783,34 @@ originalPriceController.text =
   //   return null;
   // }
   String? _vMaxDiscount(String? v) {
-  if (_sMaxDiscount) return null;
+    if (_sMaxDiscount) return null;
 
-  if (pricingMode == 'Discount' && discountType == 'Percent') {
-    final m = _parseCurrency(v ?? '');
+    if (pricingMode == 'Discount' && discountType == 'Percent') {
+      final m = _parseCurrency(v ?? '');
 
-    if (m == null || m <= 0) {
-      return translateText('Enter the maximum discount amount.');
+      if (m == null || m <= 0) {
+        return translateText('Enter the maximum discount amount.');
+      }
+
+      final original = _parseNum(originalPriceController.text);
+
+      if (original > 0 && m > original) {
+        return translateText(
+          'Maximum discount amount cannot exceed the original price.',
+        );
+      }
     }
 
-    final original = _parseNum(originalPriceController.text);
-
-    if (original > 0 && m > original) {
-      return translateText(
-        'Maximum discount amount cannot exceed the original price.',
-      );
-    }
+    return null;
   }
 
-  return null;
-}
   String? _vDiscounted() {
     if (_sDiscounted) return null;
 
     final d = _parseCurrency(discountedPriceController.text);
 
-    if (d == null || d <= 0) {
-      return translateText('Discounted price must be greater than 0.');
+    if (d == null || d < 0) {
+      return translateText('Discounted price cannot be negative.');
     }
 
     return null;
@@ -871,119 +873,118 @@ originalPriceController.text =
   //     ),
   //   );
   // }
-Future<void> _showValidationDialog(List<String> errors) async {
-  await showDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      backgroundColor: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: const BoxDecoration(
-                color: _dealSoftGold,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                color: _dealGold,
-                size: 30,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              translateText('Please fix the following'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _dealInk,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              translateText('Some required details are missing or invalid.'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _dealMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            ...errors.map(
-              (m) => Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _dealFieldFill,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _dealBorder),
+  Future<void> _showValidationDialog(List<String> errors) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: const BoxDecoration(
+                  color: _dealSoftGold,
+                  shape: BoxShape.circle,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      size: 17,
-                      color: _dealGold,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        m,
-                        style: const TextStyle(
-                          color: _dealInk,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          height: 1.3,
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  color: _dealGold,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                translateText('Please fix the following'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _dealInk,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                translateText('Some required details are missing or invalid.'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _dealMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...errors.map(
+                (m) => Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _dealFieldFill,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _dealBorder),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        size: 17,
+                        color: _dealGold,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          m,
+                          style: const TextStyle(
+                            color: _dealInk,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            height: 1.3,
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _dealGold,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _dealGold,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
                   ),
-                ),
-                child: Text(
-                  translateText('OK'),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                  child: Text(
+                    translateText('OK'),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   Future<void> _afterBuild() {
     final c = Completer<void>();
     WidgetsBinding.instance.addPostFrameCallback((_) => c.complete());
@@ -1066,63 +1067,63 @@ Future<void> _showValidationDialog(List<String> errors) async {
   //   );
   // }
   Future<void> _openReviewSummary() async {
-  final original = _parseNum(originalPriceController.text);
-  final maxDiscount = _parseCurrency(maxDiscountController.text) ?? 0;
+    final original = _parseNum(originalPriceController.text);
+    final maxDiscount = _parseCurrency(maxDiscountController.text) ?? 0;
 
-  if (pricingMode == 'Discount' &&
-      discountType == 'Percent' &&
-      original > 0 &&
-      maxDiscount > original) {
-    Fluttertoast.showToast(
-      msg: translateText(
-        'Maximum discount amount cannot exceed the original price.',
+    if (pricingMode == 'Discount' &&
+        discountType == 'Percent' &&
+        original > 0 &&
+        maxDiscount > original) {
+      Fluttertoast.showToast(
+        msg: translateText(
+          'Maximum discount amount cannot exceed the original price.',
+        ),
+      );
+      return;
+    }
+
+    if (!await _validateFormAndShowAlert()) return;
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OfferReviewSummaryScreen(
+          isPackage: _isPackage,
+          isEdit: widget.isEdit,
+          title: dealTitleController.text.trim(),
+          pricingMode: pricingMode,
+          discountType: discountType,
+          amountOff: amountOffController.text.trim(),
+          maxDiscount: maxDiscountController.text.trim(),
+          originalPrice: originalPriceController.text.trim(),
+          discountedPrice: discountedPriceController.text.trim(),
+          terms: termsController.text.trim(),
+          durationValue: durationValueController.text.trim(),
+          durationUnit: durationUnit,
+          validFrom: validFromController.text.trim(),
+          validTill: validTillController.text.trim(),
+          selectedServices: _selectedServices,
+          isSubmitting: _isSubmitting,
+          onSubmit: _submitOffer,
+        ),
       ),
     );
-    return;
   }
 
-  if (!await _validateFormAndShowAlert()) return;
-
-  if (!mounted) return;
-
-  await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => OfferReviewSummaryScreen(
-        isPackage: _isPackage,
-        isEdit: widget.isEdit,
-        title: dealTitleController.text.trim(),
-        pricingMode: pricingMode,
-        discountType: discountType,
-        amountOff: amountOffController.text.trim(),
-        maxDiscount: maxDiscountController.text.trim(),
-        originalPrice: originalPriceController.text.trim(),
-        discountedPrice: discountedPriceController.text.trim(),
-        terms: termsController.text.trim(),
-        durationValue: durationValueController.text.trim(),
-        durationUnit: durationUnit,
-        validFrom: validFromController.text.trim(),
-        validTill: validTillController.text.trim(),
-        selectedServices: _selectedServices,
-        isSubmitting: _isSubmitting,
-        onSubmit: _submitOffer,
-      ),
-    ),
-  );
-}
-String? getApiGender(String? gender) {
-  switch (gender?.toUpperCase()) {
-    case 'MALE':
-      return 'male';
-    case 'FEMALE':
-      return 'female';
-    case 'OTHERS':
-      return 'other';
-    default:
-      return null;
+  String? getApiGender(String? gender) {
+    switch (gender?.toUpperCase()) {
+      case 'MALE':
+        return 'male';
+      case 'FEMALE':
+        return 'female';
+      case 'OTHERS':
+        return 'other';
+      default:
+        return null;
+    }
   }
-}
-
 
   Future<void> _submitOffer() async {
     if (_isSubmitting) return;
@@ -1158,8 +1159,7 @@ String? getApiGender(String? gender) {
       if (_isPackage)
         'durationValue': int.tryParse(durationValueController.text.trim()),
       if (_isPackage) 'durationUnit': durationUnit,
-     if (_isPackage)
-  'gender': getApiGender(packageGender),
+      if (_isPackage) 'gender': getApiGender(packageGender),
     };
 
     if (pricingMode == 'Fixed') {
@@ -1204,13 +1204,15 @@ String? getApiGender(String? gender) {
         if (!mounted) return;
 
         if (res['success'] == true) {
-          Fluttertoast.showToast(msg: translateText('Offer updated successfully'));
+          Fluttertoast.showToast(
+              msg: translateText('Offer updated successfully'));
 
           widget.onPackageCreated(widget.branchId);
           Navigator.pop(context, true);
           Navigator.pop(context, true);
         } else {
-          Fluttertoast.showToast(msg: res['message']?.toString() ?? 'Failed to update offer');
+          Fluttertoast.showToast(
+              msg: res['message']?.toString() ?? 'Failed to update offer');
         }
 
         return;
@@ -1221,13 +1223,15 @@ String? getApiGender(String? gender) {
       if (!mounted) return;
 
       if (res['success'] == true) {
-        Fluttertoast.showToast(msg: translateText('Offer created successfully'));
+        Fluttertoast.showToast(
+            msg: translateText('Offer created successfully'));
 
         widget.onPackageCreated(widget.branchId);
         Navigator.pop(context, true);
         Navigator.pop(context, true);
       } else {
-        Fluttertoast.showToast(msg: res['message']?.toString() ?? 'Failed to create offer');
+        Fluttertoast.showToast(
+            msg: res['message']?.toString() ?? 'Failed to create offer');
       }
     } finally {
       if (mounted) {
@@ -1266,9 +1270,9 @@ String? getApiGender(String? gender) {
       filled: true,
       fillColor: _dealFieldFill,
       isDense: true,
-helperText: null,
-errorStyle: const TextStyle(height: 0, fontSize: 0),
-contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
+      helperText: null,
+      errorStyle: const TextStyle(height: 0, fontSize: 0),
+      contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
       border: OutlineInputBorder(borderRadius: _radius),
       enabledBorder: OutlineInputBorder(
         borderRadius: _radius,
@@ -1286,29 +1290,43 @@ contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
     required TextEditingController controller,
     required int maxLength,
     required Widget child,
+    String? errorText,
   }) {
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         child,
-        Positioned(
-          right: 12,
-          bottom: 22,
-          child: IgnorePointer(
-            child: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                return Text(
-                  '${value.text.length}/$maxLength',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: value.text.length >= maxLength
-                        ? Colors.red
-                        : Colors.grey,
-                  ),
-                );
-              },
+        const SizedBox(height: 6),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: errorText == null || errorText.trim().isEmpty
+                  ? const SizedBox.shrink()
+                  : Text(
+                      errorText,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
             ),
-          ),
+            const SizedBox(width: 8),
+            IgnorePointer(
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) {
+                  return Text(
+                    '${value.text.length}/$maxLength',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: value.text.length >= maxLength
+                          ? Colors.red
+                          : Colors.grey,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1517,6 +1535,7 @@ contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
         _fieldWithBottomCounter(
           controller: dealTitleController,
           maxLength: 50,
+          errorText: _showErrors ? _vTitle(dealTitleController.text) : null,
           child: TextFormField(
             controller: dealTitleController,
             maxLength: 50,
@@ -1605,9 +1624,9 @@ contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
             if (result is List) {
               setState(() {
                 _selectedServices = result.cast<Map<String, dynamic>>();
-  originalPriceController.text = formatInputAmount(
-  minorAmountToRupees(_originalTotal()) ?? 0,
-);
+                originalPriceController.text = formatInputAmount(
+                  minorAmountToRupees(_originalTotal()) ?? 0,
+                );
                 _sServices = true;
                 _sDiscounted = true;
               });
@@ -1754,33 +1773,27 @@ contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
         pricingMode == 'Discount' && discountType == 'Percent';
 
     if (showFlatField) {
-      return _fieldWithBottomCounter(
+      return TextFormField(
         controller: amountOffController,
-        maxLength: _currencyInputMaxLength,
-        child: TextFormField(
-          maxLength: _currencyInputMaxLength,
-          controller: amountOffController,
-          keyboardType: TextInputType.number,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(_currencyInputMaxLength),
-          ],
-          autovalidateMode: _showErrors
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
-          decoration: _decor(
-            label: translateText('Amount Off (₹) *'),
-            hint: translateText('e.g. 100'),
-          ),
-          validator: _vAmountOff,
-          onChanged: (_) {
-            if (!_sAmountOff) {
-              setState(() => _sAmountOff = true);
-            } else {
-              setState(() {});
-            }
-          },
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
+        autovalidateMode: _showErrors
+            ? AutovalidateMode.onUserInteraction
+            : AutovalidateMode.disabled,
+        decoration: _decor(
+          label: translateText('Amount Off (₹) *'),
+          hint: translateText('e.g. 100'),
         ),
+        validator: _vAmountOff,
+        onChanged: (_) {
+          if (!_sAmountOff) {
+            setState(() => _sAmountOff = true);
+          } else {
+            setState(() {});
+          }
+        },
       );
     }
 
@@ -1791,6 +1804,8 @@ contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
             child: _fieldWithBottomCounter(
               controller: amountOffController,
               maxLength: _percentageInputMaxLength,
+              errorText:
+                  _showErrors ? _vAmountOff(amountOffController.text) : null,
               child: TextFormField(
                 maxLength: _percentageInputMaxLength,
                 controller: amountOffController,
@@ -1822,6 +1837,9 @@ contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
             child: _fieldWithBottomCounter(
               controller: maxDiscountController,
               maxLength: _currencyInputMaxLength,
+              errorText: _showErrors
+                  ? _vMaxDiscount(maxDiscountController.text)
+                  : null,
               child: TextFormField(
                 maxLength: _currencyInputMaxLength,
                 controller: maxDiscountController,
@@ -1911,6 +1929,8 @@ contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
   }
 
   Widget _buildPackageDurationFields() {
+    final durationInputMaxLength = durationUnit == 'MONTH' ? 2 : 4;
+
     void clampDurationForUnit(String unit) {
       if (unit == 'MONTH') {
         final current = int.tryParse(durationValueController.text.trim()) ?? 0;
@@ -1955,14 +1975,15 @@ contentPadding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
             Expanded(
               child: _fieldWithBottomCounter(
                 controller: durationValueController,
-                maxLength: 4,
+                maxLength: durationInputMaxLength,
+                errorText: _showErrors ? _vPackageDuration() : null,
                 child: TextFormField(
                   controller: durationValueController,
-                  maxLength: 4,
+                  maxLength: durationInputMaxLength,
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(4),
+                    LengthLimitingTextInputFormatter(durationInputMaxLength),
                   ],
                   decoration: _decor(
                     label: '${translateText('Duration')} *',

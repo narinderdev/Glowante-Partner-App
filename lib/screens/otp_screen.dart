@@ -195,6 +195,47 @@ class _OtpScreenState extends State<OtpScreen> {
     });
   }
 
+  void _syncOtpTextControllerFromBoxes() {
+    final completeOtp =
+        otpControllers.every((controller) => controller.text.isNotEmpty)
+            ? otpControllers.map((controller) => controller.text).join()
+            : '';
+    final wasProgrammaticFill = _isProgrammaticFill;
+
+    _isProgrammaticFill = true;
+    try {
+      _otpTextEditController.text = completeOtp;
+      _lastOtpText = completeOtp;
+      _otpTextEditController.selection = TextSelection.collapsed(
+        offset: completeOtp.length,
+      );
+    } finally {
+      _isProgrammaticFill = wasProgrammaticFill;
+    }
+  }
+
+  void _handleOtpBackspace(int index) {
+    if (isLoading) return;
+
+    if (otpControllers[index].text.isNotEmpty) {
+      return;
+    }
+
+    if (index == 0) return;
+
+    otpControllers[index - 1].clear();
+    _syncOtpTextControllerFromBoxes();
+
+    setState(() {
+      isContinueButtonEnabled =
+          otpControllers.every((controller) => controller.text.isNotEmpty);
+    });
+
+    FocusScope.of(context).requestFocus(otpFocusNodes[index - 1]);
+    otpControllers[index - 1].selection =
+        const TextSelection.collapsed(offset: 0);
+  }
+
   Future<void> _verifyOtp() async {
     _autoSubmitScheduled = false;
     String otp = otpControllers.map((controller) => controller.text).join();
@@ -221,6 +262,10 @@ class _OtpScreenState extends State<OtpScreen> {
         if (token != null && user != null) {
           String? firstName = user['firstName'];
           String? lastName = user['lastName'];
+          final String userEmail = (user['email'] ?? user['emailAddress'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
           final int? userId = user['id'] is int
               ? user['id'] as int
               : int.tryParse('${user['id']}');
@@ -255,6 +300,13 @@ class _OtpScreenState extends State<OtpScreen> {
           } else {
             await prefs.remove('last_name');
             await prefs.remove('lastName');
+          }
+          if (userEmail.isNotEmpty && userEmail != 'null') {
+            await prefs.setString('email', userEmail);
+            await prefs.setString('emailAddress', userEmail);
+          } else {
+            await prefs.remove('email');
+            await prefs.remove('emailAddress');
           }
           final bool hasFullName = hasFirstName && hasLastName;
           await prefs.setBool('profile_complete', hasFullName);
@@ -393,11 +445,8 @@ class _OtpScreenState extends State<OtpScreen> {
       otpControllers[index].selection =
           const TextSelection.collapsed(offset: 1);
     }
-    final compactOtp =
-        otpControllers.map((controller) => controller.text).join();
-    _otpTextEditController.text = compactOtp;
-    _lastOtpText = compactOtp;
     _isProgrammaticFill = false;
+    _syncOtpTextControllerFromBoxes();
 
     setState(() {
       isContinueButtonEnabled =
@@ -737,29 +786,8 @@ class _OtpScreenState extends State<OtpScreen> {
                                 onKeyEvent: (event) {
                                   if (event is KeyDownEvent &&
                                       event.logicalKey ==
-                                          LogicalKeyboardKey.backspace &&
-                                      otpControllers[index].text.isEmpty &&
-                                      index > 0) {
-                                    otpControllers[index - 1].clear();
-
-                                    final compactOtp = otpControllers
-                                        .map((controller) => controller.text)
-                                        .join();
-
-                                    _otpTextEditController.text = compactOtp;
-                                    _lastOtpText = compactOtp;
-
-                                    setState(() {
-                                      isContinueButtonEnabled =
-                                          otpControllers.every((controller) =>
-                                              controller.text.isNotEmpty);
-                                    });
-
-                                    FocusScope.of(context)
-                                        .requestFocus(otpFocusNodes[index - 1]);
-                                    otpControllers[index - 1].selection =
-                                        const TextSelection.collapsed(
-                                            offset: 0);
+                                          LogicalKeyboardKey.backspace) {
+                                    _handleOtpBackspace(index);
                                   }
                                 },
                                 child: TextField(

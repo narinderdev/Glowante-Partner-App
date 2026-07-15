@@ -44,6 +44,7 @@ class StylistBranchSelectionStore {
 
   static final ValueNotifier<StylistBranchSelection> selectionNotifier =
       ValueNotifier(const StylistBranchSelection());
+  static final ValueNotifier<int> salonCatalogRevision = ValueNotifier(0);
 
   static const String _selectedSalonIdKey = 'selected_salon_id';
   static const String _selectedBranchIdKey = 'selected_branch_id';
@@ -173,6 +174,34 @@ class StylistBranchSelectionStore {
       selectionNotifier.value = selection;
     }
     return selection;
+  }
+
+  static Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_selectedSalonIdKey);
+    await prefs.remove(_selectedBranchIdKey);
+    await prefs.remove(_selectedSalonNameKey);
+    await prefs.remove(_selectedBranchNameKey);
+    const selection = StylistBranchSelection();
+    if (selectionNotifier.value != selection) {
+      selectionNotifier.value = selection;
+    }
+  }
+
+  static Future<bool> clearIfMatches({
+    int? salonId,
+    int? branchId,
+  }) async {
+    final selection = await load();
+    final matchesSalon = salonId != null && selection.salonId == salonId;
+    final matchesBranch = branchId != null && selection.branchId == branchId;
+    if (!matchesSalon && !matchesBranch) return false;
+    await clear();
+    return true;
+  }
+
+  static void notifySalonCatalogChanged() {
+    salonCatalogRevision.value = salonCatalogRevision.value + 1;
   }
 
   static int? _readInt(SharedPreferences prefs, String key) {

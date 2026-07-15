@@ -1844,6 +1844,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();
   late final VoidCallback _branchSelectionListener;
+  late final VoidCallback _salonCatalogListener;
 
   List<_SalonBranchOption> _options = const [];
   List<Map<String, dynamic>> _bookings = const [];
@@ -1876,8 +1877,14 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       if (!mounted || _suppressBranchSelectionRefresh) return;
       _loadOptions(showPageLoader: false, showInlineLoader: true);
     };
+    _salonCatalogListener = () {
+      if (!mounted) return;
+      _loadOptions(showPageLoader: false, showInlineLoader: true);
+    };
     StylistBranchSelectionStore.selectionNotifier
         .addListener(_branchSelectionListener);
+    StylistBranchSelectionStore.salonCatalogRevision
+        .addListener(_salonCatalogListener);
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _visibleDateStart = _selectedDate;
@@ -1897,6 +1904,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   void dispose() {
     StylistBranchSelectionStore.selectionNotifier
         .removeListener(_branchSelectionListener);
+    StylistBranchSelectionStore.salonCatalogRevision
+        .removeListener(_salonCatalogListener);
     super.dispose();
   }
 
@@ -2084,13 +2093,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     if (widget.isOwnerMode) {
       final response = await _apiService.getSalonListApi();
       final data = (response['data'] as List?) ?? const [];
-      final options = _buildOptionsFromSalons(data);
-      if (options.isNotEmpty) {
-        return options;
-      }
-      return _buildOptionsFromSalons(
-        await UserRoleSession.instance.loadUserSalons(),
-      );
+      return _buildOptionsFromSalons(data);
     }
 
     var options = _buildOptionsFromUserBranches(
@@ -2435,6 +2438,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       }
     }
     selected ??= options.isNotEmpty ? options.first : null;
+
+    if (widget.isOwnerMode && options.isEmpty && saved.branchId != null) {
+      await StylistBranchSelectionStore.clear();
+    }
 
     if (selected != null && saveSelection) {
       await StylistBranchSelectionStore.save(

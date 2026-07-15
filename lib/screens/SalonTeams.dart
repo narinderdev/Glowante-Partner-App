@@ -1324,8 +1324,7 @@ class _TeamScreenState extends State<TeamScreen> {
                     ];
 
                     if (teamSnapshot.connectionState ==
-                            ConnectionState.waiting &&
-                        !teamSnapshot.hasData) {
+                        ConnectionState.waiting) {
                       children.add(
                         SizedBox(
                           height: MediaQuery.of(context).size.height * 0.45,

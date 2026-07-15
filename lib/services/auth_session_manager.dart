@@ -27,6 +27,8 @@ class AuthSessionManager {
     'firstName',
     'lastName',
     'email',
+    'emailAddress',
+    'email_address',
     'profilePictureUrl',
     'profile_picture_url',
     'profileImage',

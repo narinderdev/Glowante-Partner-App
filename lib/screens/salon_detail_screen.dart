@@ -26,7 +26,6 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
   Map<String, dynamic>? _primaryBranch;
   List<String> _services = const [];
   List<String> _teamMembers = const [];
-  bool _isLoading = true;
   String? _error;
 
   @override
@@ -44,7 +43,6 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
 
     if (branchId == null) {
       setState(() {
-        _isLoading = false;
         _services = _extractServices(_salon);
         _teamMembers = _extractTeamMembers(_salon['team'] ?? _salon['staff']);
       });
@@ -52,7 +50,6 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     }
 
     setState(() {
-      _isLoading = true;
       _error = null;
     });
 
@@ -76,7 +73,6 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
         _primaryBranch = branchDetails;
         _services = _extractServices(serviceResponse);
         _teamMembers = _extractTeamMembers(teamResponse['data']);
-        _isLoading = false;
       });
     } catch (error) {
       if (!mounted) return;
@@ -85,7 +81,6 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
         _services = _extractServices(_primaryBranch ?? _salon);
         _teamMembers =
             _extractTeamMembers(_primaryBranch?['team'] ?? _salon['team']);
-        _isLoading = false;
       });
     }
   }
@@ -541,10 +536,6 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
                   _SummaryStat(label: 'Open Days', value: openDays.toString()),
                 ],
               ),
-              if (_isLoading) ...[
-                const SizedBox(height: 16),
-                const Center(child: CircularProgressIndicator()),
-              ],
               if (_error != null) ...[
                 const SizedBox(height: 12),
                 _WarningBox(message: _error!),

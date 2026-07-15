@@ -15,6 +15,7 @@ import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import 'notifications.dart';
 import 'salon_detail_screen.dart';
+import '../services/stylist_branch_selection.dart';
 import '../utils/address_formatter.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
@@ -372,6 +373,12 @@ class SalonsScreenState extends State<SalonsScreen> {
     try {
       debugPrint('[SalonAction] Delete salon -> salonId=$salonId');
       await repository.deleteSalon(salonId);
+      final clearedSelection =
+          await StylistBranchSelectionStore.clearIfMatches(salonId: salonId);
+      if (clearedSelection && mounted) {
+        context.read<SalonListCubit>().clearSelectedSalon();
+      }
+      StylistBranchSelectionStore.notifySalonCatalogChanged();
       if (!mounted) return;
       Fluttertoast.showToast(msg: translateText('Salon deleted successfully'));
       await _refreshSalons();
@@ -498,6 +505,12 @@ class SalonsScreenState extends State<SalonsScreen> {
     try {
       debugPrint('[BranchAction] Delete branch -> branchId=$branchId');
       await repository.deleteBranch(branchId);
+      final clearedSelection =
+          await StylistBranchSelectionStore.clearIfMatches(branchId: branchId);
+      if (clearedSelection && mounted) {
+        context.read<SalonListCubit>().clearSelectedSalon();
+      }
+      StylistBranchSelectionStore.notifySalonCatalogChanged();
       if (!mounted) return;
       Fluttertoast.showToast(msg: translateText('Branch deleted successfully'));
       await _refreshSalons();
@@ -638,7 +651,12 @@ class SalonsScreenState extends State<SalonsScreen> {
                         )
                       else
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
+                          padding: EdgeInsets.fromLTRB(
+                            0,
+                            0,
+                            0,
+                            widget.readOnly ? 18 : 128,
+                          ),
                           sliver: SliverList(
                             delegate:
                                 SliverChildBuilderDelegate((context, index) {
@@ -740,6 +758,10 @@ class SalonsScreenState extends State<SalonsScreen> {
                             key: const ValueKey('fab-panel'),
                             child: _FabActionPanel(
                               key: _fabPanelKey,
+                              onClose: () {
+                                _collapseFab();
+                                _dismissKeyboard();
+                              },
                               onTeam: () {
                                 _collapseFab();
                                 _dismissKeyboard();
@@ -775,31 +797,13 @@ class SalonsScreenState extends State<SalonsScreen> {
                         : const SizedBox.shrink(key: ValueKey('fab-empty')),
                   ),
                   const SizedBox(height: 10),
-                  FloatingActionButton.extended(
+                  _QuickActionFab(
                     key: _fabKey,
-                    heroTag: 'salons_quick_actions_fab',
-                    backgroundColor: const Color(0xFF8B6500),
-                    foregroundColor: Colors.white,
-                    icon: Icon(
-                      fabExpanded ? Icons.close : Icons.menu_rounded,
-                      size: 20,
-                    ),
-                    label: Text(
-                      translateText(fabExpanded ? 'Close' : 'Quick actions'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                    isExpanded: fabExpanded,
                     onPressed: () {
                       _dismissKeyboard();
                       setState(() => fabExpanded = !fabExpanded);
                     },
-                    extendedPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    elevation: 4,
                   ),
                 ],
               ),
@@ -3842,48 +3846,270 @@ class _BranchTileState extends State<_BranchTile> {
 class _FabActionPanel extends StatelessWidget {
   const _FabActionPanel({
     super.key,
+    required this.onClose,
     required this.onTeam,
     required this.onDeals,
     required this.onPackages,
   });
 
+  final VoidCallback onClose;
   final VoidCallback onTeam;
   final VoidCallback onDeals;
   final VoidCallback onPackages;
 
   @override
   Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 260, maxWidth: 320),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFFEFC), Color(0xFFFFF6E9)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFFE8DED4)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 30,
+                offset: Offset(0, 16),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -18,
+                  right: -18,
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Color(0x33C9A64A),
+                          Color(0x00C9A64A),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF4E8D1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.flash_on_rounded,
+                              color: Color(0xFF8B6500),
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  translateText('Quick actions'),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF201B17),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Jump straight to common tasks',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF7D7268),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkResponse(
+                            onTap: onClose,
+                            radius: 20,
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3DD),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFE4CF9B),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: Color(0xFF8B6500),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _FabActionTile(
+                        icon: Icons.groups_2_rounded,
+                        label: translateText('Team members'),
+                        subtitle: translateText('Manage stylists & staff'),
+                        onTap: onTeam,
+                      ),
+                      const SizedBox(height: 10),
+                      _FabActionTile(
+                        icon: Icons.local_offer_rounded,
+                        label: translateText('Deals'),
+                        subtitle: translateText('Create offers'),
+                        onTap: onDeals,
+                      ),
+                      const SizedBox(height: 10),
+                      _FabActionTile(
+                        icon: Icons.card_giftcard_rounded,
+                        label: translateText('Packages'),
+                        subtitle: translateText('Bundle services'),
+                        onTap: onPackages,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionFab extends StatelessWidget {
+  const _QuickActionFab({
+    super.key,
+    required this.isExpanded,
+    required this.onPressed,
+  });
+
+  final bool isExpanded;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = translateText(isExpanded ? 'Close' : 'Quick actions');
+    final icon = isExpanded ? Icons.close_rounded : Icons.menu_rounded;
+    final subtitle = isExpanded ? 'Tap to collapse' : 'Tap to open';
+
     return Material(
-      color: Colors.white,
-      elevation: 12,
-      shadowColor: const Color(0x22000000),
-      borderRadius: BorderRadius.circular(18),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 220),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      color: Colors.transparent,
+      elevation: isExpanded ? 10 : 9,
+      shadowColor: const Color(0x33000000),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          width: isExpanded ? 168 : 192,
+          height: 60,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isExpanded
+                  ? const [Color(0xFF7A5700), Color(0xFFA67A00)]
+                  : const [Color(0xFF8B6500), Color(0xFFC2941B)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Stack(
             children: [
-              _FabActionTile(
-                icon: Icons.groups_2_rounded,
-                label: translateText('Team members'),
-                subtitle: translateText('Manage stylists & staff'),
-                onTap: onTeam,
+              Positioned(
+                top: -14,
+                left: -12,
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [Color(0x33FFFFFF), Color(0x00FFFFFF)],
+                    ),
+                  ),
+                ),
               ),
-              const Divider(height: 1, color: Color(0xFFE8DED4)),
-              _FabActionTile(
-                icon: Icons.local_offer_outlined,
-                label: translateText('Deals'),
-                subtitle: translateText('Create offers'),
-                onTap: onDeals,
-              ),
-              const Divider(height: 1, color: Color(0xFFE8DED4)),
-              _FabActionTile(
-                icon: Icons.card_giftcard_outlined,
-                label: translateText('Packages'),
-                subtitle: translateText('Bundle services'),
-                onTap: onPackages,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.125 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: Icon(
+                          icon,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            fontSize: 10.2,
+                            fontWeight: FontWeight.w600,
+                            height: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -3908,53 +4134,64 @@ class _FabActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF4E8D1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: const Color(0xFF8B6500), size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                      color: Color(0xFF201B17),
-                    ),
+    return Material(
+      color: Colors.white.withValues(alpha: 0.78),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF4E8D1), Color(0xFFF8EFD9)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF8A8178),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE0C27C)),
+                ),
+                child: Icon(icon, color: const Color(0xFF8B6500), size: 19),
               ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 14,
-              color: Color(0xFFB8AEA6),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: Color(0xFF201B17),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF8A8178),
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: Color(0xFFB8AEA6),
+              ),
+            ],
+          ),
         ),
       ),
     );

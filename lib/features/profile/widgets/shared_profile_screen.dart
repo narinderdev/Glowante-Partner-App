@@ -57,6 +57,7 @@ class SharedProfileScreen extends StatelessWidget {
     super.key,
     required this.userName,
     required this.phoneNumber,
+    this.email = '',
     required this.currentLanguageCode,
     required this.onLanguageChanged,
     required this.menuItems,
@@ -71,6 +72,7 @@ class SharedProfileScreen extends StatelessWidget {
 
   final String userName;
   final String phoneNumber;
+  final String email;
   final String currentLanguageCode;
   final ValueChanged<String> onLanguageChanged;
   final List<ProfileMenuItemData> menuItems;
@@ -91,6 +93,7 @@ class SharedProfileScreen extends StatelessWidget {
         _ProfileHero(
           userName: userName,
           phoneNumber: phoneNumber,
+          email: email,
           roleLabel: roleLabel,
           profileImageUrl: profileImageUrl,
           onEditProfilePicture: onEditProfilePicture,
@@ -201,6 +204,7 @@ class _ProfileHero extends StatelessWidget {
   const _ProfileHero({
     required this.userName,
     required this.phoneNumber,
+    this.email = '',
     this.roleLabel,
     this.profileImageUrl,
     this.onEditProfilePicture,
@@ -208,6 +212,7 @@ class _ProfileHero extends StatelessWidget {
 
   final String userName;
   final String phoneNumber;
+  final String email;
   final String? roleLabel;
   final String? profileImageUrl;
   final VoidCallback? onEditProfilePicture;
@@ -242,6 +247,18 @@ class _ProfileHero extends StatelessWidget {
               phoneNumber,
               style: _profileTextStyle(
                 size: 14,
+                weight: FontWeight.w500,
+                color: const Color(0xFF78716C),
+              ),
+            ),
+          ],
+          if (email.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${context.t('Salon Owner Email')}: ${email.trim()}',
+              textAlign: TextAlign.center,
+              style: _profileTextStyle(
+                size: 13,
                 weight: FontWeight.w500,
                 color: const Color(0xFF78716C),
               ),

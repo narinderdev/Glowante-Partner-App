@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'dart:convert';
 
 import 'dart:io';
@@ -18,7 +20,6 @@ import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 class AddSalonServices extends StatefulWidget {
   const AddSalonServices({
@@ -60,6 +61,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
   late List<String> _selectedCodes;
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _isCompletingSuccess = false;
   final Map<String, ImageProvider> _imageProviders = {};
   int? _selectedSourceBranchId;
 
@@ -68,6 +70,14 @@ class _AddSalonServicesState extends State<AddSalonServices> {
     super.initState();
     _selectedCodes = List<String>.from(widget.initialCodes);
     _selectedSourceBranchId = widget.initialSourceBranchId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final cubit = context.read<AddSalonCubit>();
+      if (cubit.state.status == AddSalonStatus.submitting ||
+          cubit.state.status == AddSalonStatus.success) {
+        cubit.resetStatus();
+      }
+    });
     fetchServiceCatalog();
   }
 
@@ -165,7 +175,11 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         }
 
         if (state.status == AddSalonStatus.success) {
-          Fluttertoast.showToast(msg: translateText('Salon added successfully'));
+          if (mounted) setState(() => _isCompletingSuccess = true);
+          Fluttertoast.showToast(
+              msg: translateText('Salon added successfully'));
+          await Future<void>.delayed(const Duration(milliseconds: 900));
+          if (!context.mounted) return;
           final savedSelection =
               await StylistBranchSelectionStore.saveFromSalonCreateResponse(
             state.createdSalonResponse,
@@ -177,186 +191,194 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           }
           context.read<AddSalonCubit>().resetStatus();
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 3)),
+            MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 2)),
             (route) => false,
           );
         }
       },
       builder: (context, state) {
-        final isApiCalling =
-            _isSubmitting || state.status == AddSalonStatus.loading;
+        final isApiCalling = _isSubmitting || _isCompletingSuccess;
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFFBFAF8),
-          appBar: buildProfileSubpageAppBar(
-            title: translateText(widget.title ?? 'Add Salon'),
-            toolbarHeight: kToolbarHeight,
-          ),
-          body: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 24, 18, 28),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          SalonFlowStepHeader(
-                            currentStep: 3,
-                            detailsLabel: translateText(
-                              widget.branchFormData != null
-                                  ? 'Branch Details'
-                                  : 'Salon Details',
-                            ),
-                          ),
-                          const SizedBox(height: 26),
-                          if (widget.branchFormData != null &&
-                              widget.sourceBranches.isNotEmpty) ...[
-                            _buildCopyFromBranchCard(),
-                            const SizedBox(height: 26),
-                            _buildOrDivider(),
-                            const SizedBox(height: 18),
-                          ],
-                          Text(
-                            translateText(
-                              '"Excellence is in every detail of the service\nyou provide."',
-                            ),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              height: 1.5,
-                              color: Color(0xFF6C625A),
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          Text(
-                            translateText('Choose Your Specialties'),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF191817),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            translateText(
-                              "Select the categories that define your salon's professional catalog.",
-                            ),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              height: 1.45,
-                              color: Color(0xFF5E554E),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 34),
-                          AbsorbPointer(
-                            absorbing: copyServicesSelected || isApiCalling,
-                            child: Opacity(
-                              opacity: copyServicesSelected || isApiCalling
-                                  ? 0.45
-                                  : 1,
-                              child: GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  childAspectRatio: 1.28,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
+        return PopScope(
+          canPop: !isApiCalling,
+          child: Scaffold(
+            backgroundColor: const Color(0xFFFBFAF8),
+            appBar: buildProfileSubpageAppBar(
+              title: translateText(widget.title ?? 'Add Salon'),
+              toolbarHeight: kToolbarHeight,
+              automaticallyImplyLeading: !isApiCalling,
+            ),
+            body: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : AbsorbPointer(
+                    absorbing: isApiCalling,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 24, 18, 28),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              SalonFlowStepHeader(
+                                currentStep: 3,
+                                detailsLabel: translateText(
+                                  widget.branchFormData != null
+                                      ? 'Branch Details'
+                                      : 'Salon Details',
                                 ),
-                                itemCount: _services.length,
-                                itemBuilder: (context, index) {
-                                  final service =
-                                      _services[index] as Map<String, dynamic>;
-                                  final name =
-                                      (service['name'] ?? '') as String;
-                                  final imageUrl =
-                                      (service['image_url'] ?? '') as String;
-                                  final code =
-                                      (service['code'] ?? '') as String;
-                                  final isSelected =
-                                      _selectedCodes.contains(code);
-
-                                  return GestureDetector(
-                                    onTap: () {
-                                      if (isApiCalling) return;
-                                      setState(() {
-                                        if (isSelected) {
-                                          _selectedCodes.remove(code);
-                                        } else {
-                                          _selectedCodes.add(code);
-                                        }
-                                      });
-                                    },
-                                    child: _buildSpecialtyCard(
-                                      name: name,
-                                      imageUrl: imageUrl,
-                                      isSelected: isSelected,
+                              ),
+                              const SizedBox(height: 26),
+                              if (widget.branchFormData != null &&
+                                  widget.sourceBranches.isNotEmpty) ...[
+                                _buildCopyFromBranchCard(),
+                                const SizedBox(height: 26),
+                                _buildOrDivider(),
+                                const SizedBox(height: 18),
+                              ],
+                              Text(
+                                translateText(
+                                  '"Excellence is in every detail of the service\nyou provide."',
+                                ),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  height: 1.5,
+                                  color: Color(0xFF6C625A),
+                                  fontStyle: FontStyle.italic,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              Text(
+                                translateText('Choose Your Specialties'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF191817),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                translateText(
+                                  "Select the categories that define your salon's professional catalog.",
+                                ),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  height: 1.45,
+                                  color: Color(0xFF5E554E),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 34),
+                              AbsorbPointer(
+                                absorbing: copyServicesSelected || isApiCalling,
+                                child: Opacity(
+                                  opacity: copyServicesSelected || isApiCalling
+                                      ? 0.45
+                                      : 1,
+                                  child: GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      childAspectRatio: 1.28,
+                                      crossAxisSpacing: 12,
+                                      mainAxisSpacing: 12,
                                     ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 42),
-                          _buildLaunchQuote(),
-                          const SizedBox(height: 18),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 54,
-                            child: ElevatedButton(
-                              onPressed: isApiCalling
-                                  ? null
-                                  : () => _submitSelection(context),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF8B6500),
-                                foregroundColor: Colors.white,
-                                elevation: 9,
-                                shadowColor: const Color(0x338B6500),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(7),
+                                    itemCount: _services.length,
+                                    itemBuilder: (context, index) {
+                                      final service = _services[index]
+                                          as Map<String, dynamic>;
+                                      final name =
+                                          (service['name'] ?? '') as String;
+                                      final imageUrl = (service['image_url'] ??
+                                          '') as String;
+                                      final code =
+                                          (service['code'] ?? '') as String;
+                                      final isSelected =
+                                          _selectedCodes.contains(code);
+
+                                      return GestureDetector(
+                                        onTap: () {
+                                          if (isApiCalling) return;
+                                          setState(() {
+                                            if (isSelected) {
+                                              _selectedCodes.remove(code);
+                                            } else {
+                                              _selectedCodes.add(code);
+                                            }
+                                          });
+                                        },
+                                        child: _buildSpecialtyCard(
+                                          name: name,
+                                          imageUrl: imageUrl,
+                                          isSelected: isSelected,
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                child: isApiCalling
-                                    ? const SizedBox(
-                                        key: ValueKey('loader'),
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : Text(
-                                        translateText(
-                                            widget.branchFormData != null
-                                                ? widget.submitLabel
-                                                : 'Finish & Launch Salon'),
-                                        key: const ValueKey('text'),
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                              const SizedBox(height: 42),
+                              _buildLaunchQuote(),
+                              const SizedBox(height: 18),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: ElevatedButton(
+                                  onPressed: isApiCalling
+                                      ? null
+                                      : () => _submitSelection(context),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF8B6500),
+                                    foregroundColor: Colors.white,
+                                    elevation: 9,
+                                    shadowColor: const Color(0x338B6500),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(7),
+                                    ),
+                                  ),
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: isApiCalling
+                                        ? const SizedBox(
+                                            key: ValueKey('loader'),
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Text(
+                                            translateText(
+                                                widget.branchFormData != null
+                                                    ? widget.submitLabel
+                                                    : 'Finish & Launch Salon'),
+                                            key: const ValueKey('text'),
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
+          ),
         );
       },
     );
@@ -706,7 +728,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
     final copyServicesSelected =
         widget.branchFormData != null && _selectedSourceBranchId != null;
     if (!copyServicesSelected && _selectedCodes.isEmpty) {
-      Fluttertoast.showToast(msg: translateText('Please select at least one service.'));
+      Fluttertoast.showToast(
+          msg: translateText('Please select at least one service.'));
       return;
     }
 
@@ -715,7 +738,6 @@ class _AddSalonServicesState extends State<AddSalonServices> {
     setState(() => _isSubmitting = true);
 
     final navigator = Navigator.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final salonCubit = context.read<AddSalonCubit>();
     salonCubit.updateSelectedServiceCodes(List<String>.from(_selectedCodes));
 
@@ -756,7 +778,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         );
 
         if (!mounted) return;
-        Fluttertoast.showToast(msg: translateText('Branch added successfully!'));
+        Fluttertoast.showToast(
+            msg: translateText('Branch added successfully!'));
 
         final savedSelection =
             await StylistBranchSelectionStore.saveFromBranchCreateResponse(
@@ -779,6 +802,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
 
       // ✅ Salon Flow (unchanged)
       if (widget.formData != null) {
+        salonCubit.setSubmitting(true);
         await salonCubit.submit(widget.formData!);
       }
     } catch (e) {

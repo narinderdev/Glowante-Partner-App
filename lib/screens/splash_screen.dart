@@ -100,7 +100,7 @@ class _SplashScreenState extends State<SplashScreen> {
           MaterialPageRoute(
             builder: (_) => usesStylistShell
                 ? const StylistBottomNav(tabIndex: 0)
-                : const BottomNav(tabIndex: 0),
+                : const BottomNav(tabIndex: 2),
           ),
         );
       } else {

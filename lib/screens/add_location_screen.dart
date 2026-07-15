@@ -88,9 +88,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       scoFlatHouseController.text = widget.initialScoFlatHouse!;
     }
 
-   if (widget.initialStreetSectorArea?.isNotEmpty == true) {
-  streetSectorAreaController.text = widget.initialStreetSectorArea!;
-}
+    if (widget.initialStreetSectorArea?.isNotEmpty == true) {
+      streetSectorAreaController.text = widget.initialStreetSectorArea!;
+    }
 
     if (widget.initialCompleteAddress?.isNotEmpty == true) {
       _baseCompleteAddress = _addressWithoutManualParts(
@@ -357,12 +357,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             .join(', '),
       );
       // final derivedStreet = _deriveStreetSectorArea(formattedAddress);
-final derivedStreet = '';
+      final derivedStreet = '';
       _removeOverlay();
 
       _isSyncingCompleteAddress = true;
       setState(() {
-    _baseCompleteAddress = formattedAddress;
+        _baseCompleteAddress = formattedAddress;
 
         scoFlatHouseController.clear();
         streetSectorAreaController.value = TextEditingValue(
@@ -371,10 +371,9 @@ final derivedStreet = '';
         );
 
         completeAddressController.value = TextEditingValue(
-  text: formattedAddress,
-  selection: TextSelection.collapsed(offset: formattedAddress.length),
-);
-     
+          text: formattedAddress,
+          selection: TextSelection.collapsed(offset: formattedAddress.length),
+        );
 
         // Keep search location empty when using current location
         searchLocationController.clear();
@@ -583,14 +582,14 @@ final derivedStreet = '';
       final placeName = (place?.name ?? '').trim();
 
       final address = _cleanAddressText(
-  placeName.isNotEmpty && placeAddress.isNotEmpty
-      ? '$placeName, $placeAddress'
-      : fallbackSuggestionText.isNotEmpty && placeAddress.isNotEmpty
-          ? '$fallbackSuggestionText, $placeAddress'
-          : placeAddress.isNotEmpty
-              ? placeAddress
-              : fallbackSuggestionText,
-);
+        placeName.isNotEmpty && placeAddress.isNotEmpty
+            ? '$placeName, $placeAddress'
+            : fallbackSuggestionText.isNotEmpty && placeAddress.isNotEmpty
+                ? '$fallbackSuggestionText, $placeAddress'
+                : placeAddress.isNotEmpty
+                    ? placeAddress
+                    : fallbackSuggestionText,
+      );
 
       double? lat = place?.latLng?.lat;
       double? lng = place?.latLng?.lng;
@@ -624,7 +623,7 @@ final derivedStreet = '';
 
       if (!mounted) return;
 
-   final derivedStreet = '';
+      final derivedStreet = '';
 
       _isSyncingCompleteAddress = true;
       setState(() {
@@ -797,12 +796,6 @@ final derivedStreet = '';
     );
 
     return _dedupeAddressParts([...manualParts, ...baseParts].join(', '));
-  }
-
-  void _setBaseCompleteAddress(String address) {
-    _baseCompleteAddress =
-        _addressWithoutManualParts(_cleanAddressText(address));
-    _syncCompleteAddressFromParts();
   }
 
   void _syncCompleteAddressFromParts() {
@@ -1094,6 +1087,7 @@ final derivedStreet = '';
               controller: completeAddressController,
               label: 'Complete Address',
               hint: 'Start typing above to auto-suggest full address...',
+              enabled: false,
               isRequired: true,
               minLines: 3,
               maxLines: 3,

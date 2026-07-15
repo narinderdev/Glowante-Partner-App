@@ -32,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String? userName;
   String? phoneNumber;
+  String? email;
   String? profilePictureUrl;
   bool _isUploadingProfilePicture = false;
 
@@ -65,6 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]);
       userName = '$firstName $lastName'.trim();
       phoneNumber = _readStoredValue(prefs, const ['phone_number']);
+      email = _readStoredEmail(prefs);
       profilePictureUrl = _readStoredValue(prefs, const [
         'profilePictureUrl',
         'profile_picture_url',
@@ -86,6 +88,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
     return '';
+  }
+
+  String _readStoredEmail(SharedPreferences prefs) {
+    final value = _readStoredValue(prefs, const [
+      'email',
+      'emailAddress',
+      'email_address',
+    ]).toLowerCase();
+    return value == 'null' ? '' : value;
   }
 
   Future<void> _showProfilePhotoSourceModal() async {
@@ -194,7 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final firstName =
           _readStoredValue(prefs, const ['firstName', 'first_name']);
       final lastName = _readStoredValue(prefs, const ['lastName', 'last_name']);
-      final currentEmail = _readStoredValue(prefs, const ['email']);
+      final currentEmail = _readStoredEmail(prefs);
       final uploaded = await AwsS3Uploader()
           .uploadImageResult(picked)
           .timeout(const Duration(minutes: 2), onTimeout: () => null);
@@ -548,6 +559,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profileScreen = SharedProfileScreen(
       userName: userName?.trim().isNotEmpty == true ? userName! : '',
       phoneNumber: phoneNumber ?? '',
+      email: email ?? '',
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
       onRefresh: _loadUserData,

@@ -78,4 +78,8 @@ class SalonListCubit extends Cubit<SalonListState> {
   void setSelectedSalon(Map<String, dynamic> salon) {
     emit(state.copyWith(selectedSalon: salon));
   }
+
+  void clearSelectedSalon() {
+    emit(state.copyWith(clearSelectedSalon: true));
+  }
 }

@@ -57,6 +57,7 @@ class OwnerDashboardScreen extends StatefulWidget {
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();
+  late final VoidCallback _salonCatalogListener;
   int _notificationPage = 0;
   static const int _notificationPageSize = 4;
   List<_DashboardBranchOption> _branchOptions = const [];
@@ -71,7 +72,20 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _salonCatalogListener = () {
+      if (!mounted) return;
+      _loadData();
+    };
+    StylistBranchSelectionStore.salonCatalogRevision
+        .addListener(_salonCatalogListener);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    StylistBranchSelectionStore.salonCatalogRevision
+        .removeListener(_salonCatalogListener);
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -90,20 +104,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       final prefs = await prefsFuture;
       _profileImageUrl = _readProfileImageUrl(prefs);
 
-      final int? preferredBranchId = selection.branchId;
-      Future<void>? dashboardFuture;
-      if (preferredBranchId != null) {
-        dashboardFuture = _loadDashboard(
-          preferredBranchId,
-          saveSelection: false,
-          showLoading: false,
-        );
-      }
-
-      if (dashboardFuture != null) {
-        await dashboardFuture;
-      }
-
       final response = await salonFuture;
       final rawSalons = (response['data'] as List?) ?? const [];
       final options = _extractBranchOptions(rawSalons);
@@ -120,18 +120,20 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       });
 
       if (selectedBranchId == null) {
+        await StylistBranchSelectionStore.clear();
         if (!mounted) return;
-        setState(() => _isLoadingDashboard = false);
+        setState(() {
+          _dashboard = const {};
+          _isLoadingDashboard = false;
+        });
         return;
       }
 
-      if (dashboardFuture == null || selectedBranchId != preferredBranchId) {
-        await _loadDashboard(
-          selectedBranchId,
-          saveSelection: false,
-          showLoading: false,
-        );
-      }
+      await _loadDashboard(
+        selectedBranchId,
+        saveSelection: selectedBranchId != selection.branchId,
+        showLoading: false,
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() {

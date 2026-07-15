@@ -68,7 +68,13 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   Future<void> _updateProfile() async {
     String firstName = _capitalizeFirstLetter(firstNameController.text.trim());
     String lastName = _capitalizeFirstLetter(lastNameController.text.trim());
-    String email = emailController.text.trim();
+    String email = emailController.text.trim().toLowerCase();
+    if (emailController.text != email) {
+      emailController.value = TextEditingValue(
+        text: email,
+        selection: TextSelection.collapsed(offset: email.length),
+      );
+    }
 
     // Reset errors
     setState(() {
@@ -133,6 +139,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
       await prefs.setString('firstName', firstName);
       await prefs.setString('lastName', lastName);
       await prefs.setString('email', email);
+      await prefs.setString('emailAddress', email);
       await prefs.setString('first_name', firstName);
       await prefs.setString('last_name', lastName);
       await prefs.setBool('profile_complete', true);
@@ -164,7 +171,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
                   fullPhoneNumber: userData['fullPhoneNumber'],
                   firstName: userData['firstName'] ?? '',
                   lastName: userData['lastName'] ?? '',
-                  email: userData['email'] ?? '',
+                  email: email,
                   isProceedFrom: "onboarding",
                   buildingName: userData['buildingName'] ?? '',
                   city: userData['city'] ?? '',
@@ -581,6 +588,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
             if (isNameField) const _ProfileNameInputFormatter(),
             if (fieldType == 'email')
               FilteringTextInputFormatter.deny(RegExp(r'\s')),
+            if (fieldType == 'email') const _LowerCaseTextInputFormatter(),
           ],
           textCapitalization:
               isNameField ? TextCapitalization.words : TextCapitalization.none,
@@ -693,6 +701,21 @@ class _ProfileNameInputFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: filteredText,
       selection: TextSelection.collapsed(offset: selectionOffset),
+      composing: TextRange.empty,
+    );
+  }
+}
+
+class _LowerCaseTextInputFormatter extends TextInputFormatter {
+  const _LowerCaseTextInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return newValue.copyWith(
+      text: newValue.text.toLowerCase(),
       composing: TextRange.empty,
     );
   }

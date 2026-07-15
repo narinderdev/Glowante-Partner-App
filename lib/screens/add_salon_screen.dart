@@ -1579,7 +1579,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           }
 
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 3)),
+            MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 2)),
             (route) => false,
           );
         }

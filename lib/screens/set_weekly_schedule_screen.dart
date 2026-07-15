@@ -410,6 +410,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (_isSubmitting) return;
         _popWithCurrentSchedule();
       },
       child: Scaffold(
@@ -417,137 +418,143 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
         appBar: buildProfileSubpageAppBar(
           title: translateText(widget.title ?? 'Add Salon'),
           toolbarHeight: kToolbarHeight,
+          automaticallyImplyLeading: !_isSubmitting,
         ),
-        body: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 34),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SalonFlowStepHeader(
-                    currentStep: 2,
-                    detailsLabel: translateText(widget.detailsStepLabel),
-                    totalSteps: widget.totalSteps,
-                  ),
-                  const SizedBox(height: 44),
-                  Text(
-                    translateText('Set Weekly Working Hours'),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      height: 1.2,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1F1B18),
+        body: AbsorbPointer(
+          absorbing: _isSubmitting,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 34),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SalonFlowStepHeader(
+                      currentStep: 2,
+                      detailsLabel: translateText(widget.detailsStepLabel),
+                      totalSteps: widget.totalSteps,
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    translateText(
-                      "Configure your salon's operational hours for a seamless booking experience.",
+                    const SizedBox(height: 44),
+                    Text(
+                      translateText('Set Weekly Working Hours'),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        height: 1.2,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1F1B18),
+                      ),
                     ),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.45,
-                      color: Color(0xFF5F574F),
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(height: 10),
+                    Text(
+                      translateText(
+                        "Configure your salon's operational hours for a seamless booking experience.",
+                      ),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: Color(0xFF5F574F),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 28),
-                  _buildCopyMondayControl(),
-                  const SizedBox(height: 18),
-                  _buildScheduleModeDivider(),
-                  const SizedBox(height: 18),
-                  for (final day in _days)
-                    _buildDayCard(day, _startTimeOptions),
-                  const SizedBox(height: 54),
-                  _buildScheduleQuote(),
-                  const SizedBox(height: 38),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _popWithCurrentSchedule,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 17),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            side: const BorderSide(
-                              color: Color(0xFFD0A244),
-                              width: 1.4,
-                            ),
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFFD0A244),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.chevron_left_rounded, size: 22),
-                              const SizedBox(width: 6),
-                              Text(
-                                translateText('Back'),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                    const SizedBox(height: 28),
+                    _buildCopyMondayControl(),
+                    const SizedBox(height: 18),
+                    _buildScheduleModeDivider(),
+                    const SizedBox(height: 18),
+                    for (final day in _days)
+                      _buildDayCard(day, _startTimeOptions),
+                    const SizedBox(height: 54),
+                    _buildScheduleQuote(),
+                    const SizedBox(height: 38),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed:
+                                _isSubmitting ? null : _popWithCurrentSchedule,
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 17),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isSubmitting ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 17),
-                            backgroundColor: const Color(0xFF8B6500),
-                            foregroundColor: Colors.white,
-                            elevation: 10,
-                            shadowColor: const Color(0x338B6500),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              side: const BorderSide(
+                                color: Color(0xFFD0A244),
+                                width: 1.4,
+                              ),
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFFD0A244),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (_isSubmitting)
-                                const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              else ...[
-                                Flexible(
-                                  child: Text(
-                                    translateText(
-                                      widget.submitLabel ??
-                                          (widget.totalSteps == 2
-                                              ? 'Save'
-                                              : 'Save & Continue'),
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.chevron_left_rounded,
+                                    size: 22),
+                                const SizedBox(width: 6),
+                                Text(
+                                  translateText('Back'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                const Icon(Icons.arrow_forward_rounded,
-                                    size: 20),
                               ],
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _isSubmitting ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 17),
+                              backgroundColor: const Color(0xFF8B6500),
+                              foregroundColor: Colors.white,
+                              elevation: 10,
+                              shadowColor: const Color(0x338B6500),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (_isSubmitting)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                else ...[
+                                  Flexible(
+                                    child: Text(
+                                      translateText(
+                                        widget.submitLabel ??
+                                            (widget.totalSteps == 2
+                                                ? 'Save'
+                                                : 'Save & Continue'),
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward_rounded,
+                                      size: 20),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -557,7 +564,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   }
 
   void _popWithCurrentSchedule() {
-    if (_isPoppingWithResult || !mounted) return;
+    if (_isSubmitting || _isPoppingWithResult || !mounted) return;
 
     _isPoppingWithResult = true;
 
@@ -569,9 +576,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
 
   Widget _buildDayCard(String day, List<String> startOptions) {
     final config = _scheduleByDay[day]!;
-    final followsMondaySchedule = _copyMondayToAll && day != 'monday';
-    final canEditDay = !followsMondaySchedule;
-    final canEditTime = !config.isClosed && canEditDay;
+    final canEditTime = !config.isClosed;
     final endOptions = _endOptionsForStartCached(config.startTime);
 
     return Container(
@@ -651,7 +656,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          if (!followsMondaySchedule && config.isClosed)
+          if (config.isClosed)
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Text(
@@ -671,16 +676,14 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
               activeTrackColor: const Color(0xFF8B6500),
               inactiveThumbColor: Colors.white,
               inactiveTrackColor: const Color(0xFFE1DFDD),
-              onChanged: canEditDay
-                  ? (enabled) {
-                      setState(() {
-                        _applyDayConfig(
-                          day,
-                          config.copyWith(isClosed: !enabled),
-                        );
-                      });
-                    }
-                  : null,
+              onChanged: (enabled) {
+                setState(() {
+                  _applyDayConfig(
+                    day,
+                    config.copyWith(isClosed: !enabled),
+                  );
+                });
+              },
             ),
           ),
         ],
@@ -858,6 +861,9 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   }
 
   void _applyDayConfig(String day, _DayScheduleConfig config) {
+    if (_copyMondayToAll && day != 'monday') {
+      _copyMondayToAll = false;
+    }
     _scheduleByDay[day] = config;
     if (_copyMondayToAll && day == 'monday') {
       for (final dayName in _days.skip(1)) {

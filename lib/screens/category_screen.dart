@@ -339,6 +339,38 @@ class CategoryScreenState extends State<CategoryScreen> {
     return selection;
   }
 
+  bool _selectionExistsInSalons(
+    Map<String, dynamic>? selection,
+    List<Map<String, dynamic>> salons,
+  ) {
+    if (selection == null) return false;
+    final selectedSalonId = _asInt(selection['salonId']);
+    final selectedBranchId = _asInt(selection['branchId']);
+
+    for (final salon in salons) {
+      final salonId = _asInt(salon['id']);
+      if (selectedSalonId != null && salonId != selectedSalonId) continue;
+
+      final branches = salon['branches'];
+      if (branches is List && branches.isNotEmpty) {
+        for (final rawBranch in branches) {
+          if (rawBranch is! Map) continue;
+          final branchId = _asInt(rawBranch['id']);
+          if (selectedBranchId == null || branchId == selectedBranchId) {
+            return true;
+          }
+        }
+        continue;
+      }
+
+      if (selectedBranchId == null && selectedSalonId != null) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -375,7 +407,17 @@ class CategoryScreenState extends State<CategoryScreen> {
     final salons = salonCubit.state.salons
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-    if (salons.isEmpty) return;
+    if (salons.isEmpty) {
+      await StylistBranchSelectionStore.clear();
+      if (!mounted) return;
+      setState(() {
+        _selectedSalon = null;
+        _expandedCategories.clear();
+        _expandedSubcategories.clear();
+      });
+      context.read<CategoryCubit>().resetCategories();
+      return;
+    }
 
     final persisted = await StylistBranchSelectionStore.load();
     final currentBranchId = _asInt(_selectedSalon?['branchId']) ??
@@ -431,7 +473,21 @@ class CategoryScreenState extends State<CategoryScreen> {
         if (matchedBranch != null) break;
       }
 
-      if (matchedSalon == null || matchedBranch == null) return;
+      if (matchedSalon == null || matchedBranch == null) {
+        await StylistBranchSelectionStore.clear();
+        if (!mounted) return;
+        setState(() {
+          _selectedSalon = null;
+          _expandedCategories.clear();
+          _expandedSubcategories.clear();
+        });
+        context.read<CategoryCubit>().resetCategories();
+        _autoPickFirstSalon(SalonListState(
+          status: SalonListStatus.success,
+          salons: salons,
+        ));
+        return;
+      }
 
       final matchedSalonId = _asInt(matchedSalon['id']);
       if (matchedSalonId == null) return;
@@ -1236,14 +1292,29 @@ class CategoryScreenState extends State<CategoryScreen> {
   }
 
   void _autoPickFirstSalon(SalonListState state) {
-    if (_selectedSalon != null) return;
-    if (state.salons.isEmpty) return;
+    final salons =
+        state.salons.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+    if (_selectionExistsInSalons(_selectedSalon, salons)) return;
+
+    if (_selectedSalon != null) {
+      setState(() {
+        _selectedSalon = null;
+        _expandedCategories.clear();
+        _expandedSubcategories.clear();
+      });
+      context.read<CategoryCubit>().resetCategories();
+    }
+
+    if (salons.isEmpty) {
+      StylistBranchSelectionStore.clear();
+      return;
+    }
 
     Map<String, dynamic>? firstSalonWithBranch;
     Map<String, dynamic>? firstBranch;
 
-    for (final rawSalon in state.salons) {
-      final salon = Map<String, dynamic>.from(rawSalon);
+    for (final salon in salons) {
       final branches = salon['branches'];
       if (branches is List && branches.isNotEmpty) {
         final branch = branches.first;
@@ -1276,14 +1347,21 @@ class CategoryScreenState extends State<CategoryScreen> {
       });
 
       context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
+      unawaited(StylistBranchSelectionStore.save(
+        salonId: salonId,
+        branchId: branchId,
+        salonName: (salon['name'] ?? '').toString(),
+        branchName: (branch['name'] ?? salon['name'] ?? '').toString(),
+      ));
       final categoryCubit = context.read<CategoryCubit>();
       categoryCubit.resetCategories();
       categoryCubit.loadCategories(branchId);
       return;
     }
 
-    final Map<String, dynamic> fallbackSalon =
-        Map<String, dynamic>.from(state.salons.first);
+    final Map<String, dynamic> fallbackSalon = Map<String, dynamic>.from(
+      salons.first,
+    );
     final int? fallbackSalonId = _asInt(fallbackSalon['id']);
     if (fallbackSalonId == null) return;
 
