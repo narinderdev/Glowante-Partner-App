@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import '../../../utils/price_formatter.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -379,6 +380,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  void _openDashboardDrawer(BuildContext scaffoldContext) {
+    if (_selectedBranchId == null || _branchOptions.isEmpty) {
+      Fluttertoast.showToast(msg: context.t('Please add a salon first'));
+      return;
+    }
+
+    Scaffold.of(scaffoldContext).openDrawer();
+  }
+
   Future<void> _showBranchPicker() async {
     if (_branchOptions.length <= 1) return;
 
@@ -454,6 +464,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasSalon = _selectedBranchId != null && _branchOptions.isNotEmpty;
+
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
       drawer: _DashboardDrawer(
@@ -466,8 +478,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         toolbarHeight: 58,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: Icon(
+              Icons.menu_rounded,
+              color: hasSalon ? AppColors.starColor : const Color(0xFFBDB5AE),
+            ),
+            onPressed: () => _openDashboardDrawer(context),
             tooltip: context.t('Menu'),
           ),
         ),
@@ -1217,46 +1232,26 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF6E8C8),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.spa_outlined,
-                      color: AppColors.starColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.t('Glowante'),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.starColor,
-                          ),
-                        ),
-                        Text(
-                          context.t('Salon Operations'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF756A61),
-                          ),
-                        ),
-                      ],
+              SizedBox(
+                width: double.infinity,
+                height: 34,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Image.asset(
+                    'assets/images/finallogo.png',
+                    height: 28,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerLeft,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/images/logo.png',
+                      height: 28,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerLeft,
                     ),
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               const Divider(
                 height: 1,
                 thickness: 1,
