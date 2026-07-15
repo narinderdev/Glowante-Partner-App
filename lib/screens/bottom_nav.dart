@@ -84,13 +84,13 @@ class _BottomNavState extends State<BottomNav> {
   }
 
   Future<void> _handleTabSelect(int index, {bool animate = true}) async {
-    if (_shouldLockToSalonsTab() && index != 2) {
+    if (_shouldRestrictToDashboardAndSalons() && index != 0 && index != 2) {
       return;
     }
     _setCurrentIndex(index, animate: animate);
   }
 
-  bool _shouldLockToSalonsTab() {
+  bool _shouldRestrictToDashboardAndSalons() {
     final salonState = context.read<SalonListCubit>().state;
     return salonState.status == SalonListStatus.success &&
         salonState.salons.isEmpty;
@@ -135,15 +135,21 @@ class _BottomNavState extends State<BottomNav> {
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
     final salonState = context.watch<SalonListCubit>().state;
-    final lockToSalonsTab = salonState.status == SalonListStatus.success &&
-        salonState.salons.isEmpty;
+    final restrictToDashboardAndSalons =
+        salonState.status == SalonListStatus.success &&
+            salonState.salons.isEmpty;
 
-    if (lockToSalonsTab && _currentIndex != 2) {
+    if (restrictToDashboardAndSalons &&
+        _currentIndex != 0 &&
+        _currentIndex != 2) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_shouldLockToSalonsTab() || _currentIndex == 2) {
+        if (!mounted ||
+            !_shouldRestrictToDashboardAndSalons() ||
+            _currentIndex == 0 ||
+            _currentIndex == 2) {
           return;
         }
-        _setCurrentIndex(2, animate: false);
+        _setCurrentIndex(0, animate: false);
       });
     }
 
@@ -152,13 +158,13 @@ class _BottomNavState extends State<BottomNav> {
         icon: Icons.dashboard_outlined,
         activeIcon: Icons.dashboard_rounded,
         label: context.t('Home'),
-        enabled: !lockToSalonsTab,
+        enabled: true,
       ),
       SharedBottomNavDestination(
         icon: Icons.calendar_month_outlined,
         activeIcon: Icons.calendar_month_outlined,
         label: context.t('Bookings'),
-        enabled: !lockToSalonsTab,
+        enabled: !restrictToDashboardAndSalons,
       ),
       SharedBottomNavDestination(
         icon: Icons.storefront_outlined,
@@ -170,13 +176,13 @@ class _BottomNavState extends State<BottomNav> {
         icon: Icons.content_cut_rounded,
         activeIcon: Icons.content_cut_rounded,
         label: context.t('Catalog'),
-        enabled: !lockToSalonsTab,
+        enabled: !restrictToDashboardAndSalons,
       ),
       SharedBottomNavDestination(
         icon: Icons.more_horiz_rounded,
         activeIcon: Icons.more_horiz_rounded,
         label: context.t('More'),
-        enabled: !lockToSalonsTab,
+        enabled: !restrictToDashboardAndSalons,
       ),
     ];
 

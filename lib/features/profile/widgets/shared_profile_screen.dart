@@ -255,7 +255,7 @@ class _ProfileHero extends StatelessWidget {
           if (email.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              '${context.t('Salon Owner Email')}: ${email.trim()}',
+              '${email.trim()}',
               textAlign: TextAlign.center,
               style: _profileTextStyle(
                 size: 13,
