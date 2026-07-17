@@ -231,17 +231,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       address.city.trim(),
       address.pincode.trim(),
     ].where((part) => part.isNotEmpty).toList();
-    final leadingPartsLower =
-        leadingParts.map((part) => part.toLowerCase()).toSet();
-    final baseParts = address.buildingName
-        .split(',')
-        .map((part) => part.trim())
-        .where(
-          (part) =>
-              part.isNotEmpty &&
-              !leadingPartsLower.contains(part.toLowerCase()),
-        )
-        .toList();
+    final baseParts = _splitAddressPartsKeepingDuplicates(
+      address.buildingName,
+    );
+    if (leadingParts.length > 1 && _startsWithParts(baseParts, leadingParts)) {
+      baseParts.removeRange(0, leadingParts.length);
+    }
     return [...leadingParts, ...baseParts].join(', ');
   }
 
@@ -277,6 +272,33 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         .map((part) => part.trim())
         .where((part) => part.isNotEmpty)
         .toList();
+  }
+
+  bool _startsWithParts(List<String> source, List<String> prefix) {
+    if (prefix.isEmpty || source.length < prefix.length) return false;
+    for (var index = 0; index < prefix.length; index++) {
+      if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _addressWithoutLeadingManualParts(
+    String address,
+    List<String> manualParts,
+  ) {
+    final addressParts = _splitAddressPartsKeepingDuplicates(address);
+    final manualPrefixParts = manualParts
+        .expand(_splitAddressPartsKeepingDuplicates)
+        .where((part) => part.trim().isNotEmpty)
+        .toList();
+
+    if (_startsWithParts(addressParts, manualPrefixParts)) {
+      addressParts.removeRange(0, manualPrefixParts.length);
+    }
+
+    return addressParts.join(', ');
   }
 
   String _deriveStreetSectorArea(
@@ -556,14 +578,24 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     if (address == null) return null;
 
-    final completeAddress = <String>[];
-    final seenAddressParts = <String>{};
+    final line2Parts = _splitAddressPartsKeepingDuplicates(
+      (address['line2'] ?? '').toString(),
+    );
+    final line1Parts = _splitAddressPartsKeepingDuplicates(
+      (address['line1'] ?? address['addressLine1'] ?? address['buildingName'])
+              ?.toString() ??
+          '',
+    );
+    final completeAddress = <String>[...line1Parts];
+    if (line2Parts.length <= 1 || !_startsWithParts(line1Parts, line2Parts)) {
+      completeAddress.addAll(line2Parts);
+    }
+
+    final seenAddressParts =
+        completeAddress.map((part) => part.toLowerCase()).toSet();
 
     void addAddressParts(dynamic rawValue) {
-      final value = (rawValue ?? '').toString().trim();
-      if (value.isEmpty) return;
-
-      for (final part in _splitAddressParts(value)) {
+      for (final part in _splitAddressParts(rawValue?.toString() ?? '')) {
         if (seenAddressParts.add(part.toLowerCase())) {
           completeAddress.add(part);
         }
@@ -571,23 +603,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
 
     for (final key in const [
-      'line1',
-      'line2',
       'village',
       'district',
       'city',
       'state',
+      'country',
       'postalCode',
     ]) {
       addAddressParts(address[key]);
     }
 
-    final line2Parts = _splitAddressPartsKeepingDuplicates(
-      (address['line2'] ?? '').toString(),
-    );
     final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
-    final streetSectorArea =
-        line2Parts.length > 1 ? line2Parts.skip(1).join(', ') : '';
+    final streetSectorArea = line2Parts.length > 1
+        ? line2Parts.skip(1).join(', ')
+        : line2Parts.length == 1 && _startsWithParts(line1Parts, line2Parts)
+            ? line2Parts.first
+            : '';
 
     if (completeAddress.isEmpty &&
         scoFlatHouse.isEmpty &&
@@ -595,11 +626,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       return null;
     }
 
+    final completeAddressText = completeAddress.join(', ');
+    final baseAddress = _addressWithoutLeadingManualParts(completeAddressText, [
+      scoFlatHouse,
+      streetSectorArea,
+    ]);
+
     return AddSalonAddress(
-      buildingName: _addressWithoutManualParts(completeAddress.join(', '), [
-        scoFlatHouse,
-        streetSectorArea,
-      ]),
+      buildingName: baseAddress.isNotEmpty ? baseAddress : completeAddressText,
       city: scoFlatHouse,
       pincode: streetSectorArea,
       state: _firstNonEmptyValue([address['state']]),
@@ -637,26 +671,34 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   String _composeEditableAddressText(Map<String, dynamic>? address) {
     if (address == null) return '';
 
-    final parts = <String>[];
-    void push(dynamic rawValue) {
-      final value = (rawValue ?? '').toString().trim();
-      if (value.isEmpty || value.toLowerCase() == 'null') return;
+    final line1Parts = _splitAddressPartsKeepingDuplicates(
+      (address['line1'] ?? address['addressLine1'] ?? address['buildingName'])
+              ?.toString() ??
+          '',
+    );
+    final line2Parts = _splitAddressPartsKeepingDuplicates(
+      (address['line2'] ?? address['addressLine2'])?.toString() ?? '',
+    );
+    final parts = <String>[...line1Parts];
+    if (line2Parts.length <= 1 || !_startsWithParts(line1Parts, line2Parts)) {
+      parts.addAll(line2Parts);
+    }
+    final seenParts = parts.map((part) => part.toLowerCase()).toSet();
 
-      for (final part in value.split(',')) {
-        final cleaned = part.trim();
-        if (cleaned.isNotEmpty && cleaned.toLowerCase() != 'null') {
-          parts.add(cleaned);
+    void push(dynamic rawValue) {
+      for (final part in _splitAddressParts(rawValue?.toString() ?? '')) {
+        if (seenParts.add(part.toLowerCase())) {
+          parts.add(part);
         }
       }
     }
 
     for (final key in const [
-      'line1',
-      'line2',
       'village',
       'district',
       'city',
       'state',
+      'country',
       'postalCode',
     ]) {
       push(address[key]);
@@ -1262,13 +1304,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   Future<void> _chooseLocation(AddSalonState state) async {
     final addr = state.address;
+    final initialCompleteAddress = _initialAddressDisplayText.trim().isNotEmpty
+        ? _initialAddressDisplayText.trim()
+        : addr == null
+            ? null
+            : _composeAddressLine1(addr);
 
     final result = await Navigator.push<Map<String, dynamic>?>(
       context,
       MaterialPageRoute(
         builder: (_) => AddLocationScreen(
-          initialCompleteAddress:
-              addr == null ? null : _composeAddressLine1(addr),
+          initialCompleteAddress: initialCompleteAddress,
           initialScoFlatHouse: addr?.city,
           initialStreetSectorArea: addr?.pincode,
         ),

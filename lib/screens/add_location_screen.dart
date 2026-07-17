@@ -97,9 +97,11 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       final initialCompleteAddress = _cleanAddressText(
         widget.initialCompleteAddress!,
       );
-      _baseCompleteAddress = _addressWithoutManualParts(initialCompleteAddress);
 
       if (_initialAddressIncludesManualParts(initialCompleteAddress)) {
+        _baseCompleteAddress = _addressWithoutManualParts(
+          initialCompleteAddress,
+        );
         completeAddressController.value = TextEditingValue(
           text: initialCompleteAddress,
           selection: TextSelection.collapsed(
@@ -108,6 +110,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
         _lastSyncedManualAddressParts = _manualAddressParts();
       } else {
+        _baseCompleteAddress = _addressWithoutManualParts(
+          initialCompleteAddress,
+        );
         _syncCompleteAddressFromParts();
       }
     }
@@ -742,6 +747,14 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     }).toList();
   }
 
+  List<String> _splitAddressPartsKeepingDuplicates(String value) {
+    return value
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+  }
+
   String _addressPartKey(String value) {
     return value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
@@ -762,35 +775,51 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 
   String _addressWithoutManualParts(String address) {
-    return _addressWithoutParts(address, _manualAddressParts());
+    return _addressWithoutLeadingParts(address, _manualAddressParts());
   }
 
-  String _addressWithoutParts(String address, Iterable<String> parts) {
+  String _addressWithoutLeadingParts(String address, Iterable<String> parts) {
+    final manualPrefixParts = parts
+        .expand((part) => _splitAddressPartsKeepingDuplicates(part))
+        .where((part) => _addressPartKey(part).isNotEmpty)
+        .toList();
     final expandedParts = _expandedAddressParts(parts);
-    final partsLower = expandedParts
-        .map(_addressPartKey)
-        .where((part) => part.isNotEmpty)
-        .toSet();
 
-    if (partsLower.isEmpty) return address.trim();
+    if (manualPrefixParts.isEmpty) return address.trim();
 
-    return _splitAddressParts(address)
-        .map((part) {
-          if (partsLower.contains(_addressPartKey(part))) return '';
+    final addressParts = _splitAddressPartsKeepingDuplicates(address);
+    var removedManualPrefix = false;
+    if (_startsWithAddressParts(addressParts, manualPrefixParts)) {
+      addressParts.removeRange(0, manualPrefixParts.length);
+      removedManualPrefix = true;
+    }
 
-          var remaining = part;
-          var previousRemaining = '';
-          while (remaining.isNotEmpty && remaining != previousRemaining) {
-            previousRemaining = remaining;
-            for (final manualPart in expandedParts) {
-              remaining = _removeLeadingAddressPart(remaining, manualPart);
-              if (remaining.isEmpty) break;
-            }
-          }
-          return remaining;
-        })
-        .where((part) => part.trim().isNotEmpty)
-        .join(', ');
+    if (addressParts.isEmpty) return '';
+
+    var firstPart = addressParts.first;
+    if (!removedManualPrefix) {
+      var previousFirstPart = '';
+      while (firstPart.isNotEmpty && firstPart != previousFirstPart) {
+        previousFirstPart = firstPart;
+        for (final manualPart in expandedParts) {
+          firstPart = _removeLeadingAddressPart(firstPart, manualPart);
+          if (firstPart.isEmpty) break;
+        }
+      }
+    }
+
+    addressParts[0] = firstPart;
+    return addressParts.where((part) => part.trim().isNotEmpty).join(', ');
+  }
+
+  bool _startsWithAddressParts(List<String> source, List<String> prefix) {
+    if (prefix.isEmpty || source.length < prefix.length) return false;
+    for (var index = 0; index < prefix.length; index++) {
+      if (_addressPartKey(source[index]) != _addressPartKey(prefix[index])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   List<String> _expandedAddressParts(Iterable<String> parts) {
@@ -834,14 +863,14 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
   String _composeAddressFromParts() {
     final manualParts = _manualAddressParts();
-    _baseCompleteAddress = _addressWithoutParts(
+    final baseCompleteAddress = _addressWithoutLeadingParts(
       _baseCompleteAddress,
       _lastSyncedManualAddressParts,
     );
 
     final addressParts = <String>[...manualParts];
     final seenNonManualParts = <String>{};
-    for (final basePart in _splitAddressParts(_baseCompleteAddress)) {
+    for (final basePart in _splitAddressParts(baseCompleteAddress)) {
       final key = _addressPartKey(basePart);
       if (key.isNotEmpty && seenNonManualParts.add(key)) {
         addressParts.add(basePart);

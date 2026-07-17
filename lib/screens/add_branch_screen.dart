@@ -364,6 +364,33 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         .toList();
   }
 
+  bool _startsWithParts(List<String> source, List<String> prefix) {
+    if (prefix.isEmpty || source.length < prefix.length) return false;
+    for (var index = 0; index < prefix.length; index++) {
+      if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _addressWithoutLeadingManualParts(
+    String address,
+    List<String> manualParts,
+  ) {
+    final addressParts = _splitAddressPartsKeepingDuplicates(address);
+    final manualPrefixParts = manualParts
+        .expand(_splitAddressPartsKeepingDuplicates)
+        .where((part) => part.trim().isNotEmpty)
+        .toList();
+
+    if (_startsWithParts(addressParts, manualPrefixParts)) {
+      addressParts.removeRange(0, manualPrefixParts.length);
+    }
+
+    return addressParts.join(', ');
+  }
+
   String _deriveStreetSectorArea(
     String completeAddress, {
     String? line2,
@@ -394,27 +421,34 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       address.city.trim(),
       address.pincode.trim(),
     ].where((part) => part.isNotEmpty).toList();
-    final leadingPartsLower =
-        leadingParts.map((part) => part.toLowerCase()).toSet();
-    final baseParts = address.buildingName
-        .split(',')
-        .map((part) => part.trim())
-        .where(
-          (part) =>
-              part.isNotEmpty &&
-              !leadingPartsLower.contains(part.toLowerCase()),
-        )
-        .toList();
+    final baseParts = _splitAddressPartsKeepingDuplicates(
+      address.buildingName,
+    );
+    if (leadingParts.length > 1 && _startsWithParts(baseParts, leadingParts)) {
+      baseParts.removeRange(0, leadingParts.length);
+    }
     return [...leadingParts, ...baseParts].join(', ');
   }
 
   BranchAddress? _extractInitialAddress(Map<String, dynamic> branch) {
     final address = _asStringKeyedMap(branch['address']) ?? branch;
 
-    final completeAddress = <String>[];
+    final line2Parts = _splitAddressPartsKeepingDuplicates(
+      (address['line2'] ?? '').toString(),
+    );
+    final line1Parts = _splitAddressPartsKeepingDuplicates(
+      (address['line1'] ?? address['addressLine1'] ?? address['buildingName'])
+              ?.toString() ??
+          '',
+    );
+    final completeAddress = <String>[...line1Parts];
+    if (line2Parts.length <= 1 || !_startsWithParts(line1Parts, line2Parts)) {
+      completeAddress.addAll(line2Parts);
+    }
+
+    final seenAddressParts =
+        completeAddress.map((part) => part.toLowerCase()).toSet();
     for (final key in const [
-      'line1',
-      'line2',
       'village',
       'district',
       'city',
@@ -422,19 +456,19 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       'country',
       'postalCode',
     ]) {
-      final value = (address[key] ?? '').toString().trim();
-      if (value.isNotEmpty && !completeAddress.contains(value)) {
-        completeAddress.add(value);
+      for (final part in _splitAddressParts((address[key] ?? '').toString())) {
+        if (seenAddressParts.add(part.toLowerCase())) {
+          completeAddress.add(part);
+        }
       }
     }
-
-    final line2Parts = _splitAddressPartsKeepingDuplicates(
-      (address['line2'] ?? '').toString(),
-    );
     final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
 
-    final streetSectorArea =
-        line2Parts.length > 1 ? line2Parts.skip(1).join(', ') : '';
+    final streetSectorArea = line2Parts.length > 1
+        ? line2Parts.skip(1).join(', ')
+        : line2Parts.length == 1 && _startsWithParts(line1Parts, line2Parts)
+            ? line2Parts.first
+            : '';
 
     if (completeAddress.isEmpty &&
         scoFlatHouse.isEmpty &&
@@ -442,11 +476,14 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       return null;
     }
 
+    final completeAddressText = completeAddress.join(', ');
+    final baseAddress = _addressWithoutLeadingManualParts(completeAddressText, [
+      scoFlatHouse,
+      streetSectorArea,
+    ]);
+
     return BranchAddress(
-      buildingName: _addressWithoutManualParts(completeAddress.join(', '), [
-        scoFlatHouse,
-        streetSectorArea,
-      ]),
+      buildingName: baseAddress.isNotEmpty ? baseAddress : completeAddressText,
       city: scoFlatHouse,
       pincode: streetSectorArea,
       state: _firstNonEmptyValue([address['state']]),
@@ -933,11 +970,13 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   Future<void> _chooseLocation(AddBranchState state) async {
     final existing = state.address;
     final branchCubit = context.read<AddBranchCubit>();
+    final initialCompleteAddress =
+        existing == null ? null : _composeAddressLine1(existing);
     final result = await Navigator.push<Map<String, dynamic>?>(
       context,
       MaterialPageRoute(
         builder: (_) => AddLocationScreen(
-          initialCompleteAddress: existing?.buildingName,
+          initialCompleteAddress: initialCompleteAddress,
           initialScoFlatHouse: existing?.city,
           initialStreetSectorArea: existing?.pincode,
         ), // no legacy params needed
