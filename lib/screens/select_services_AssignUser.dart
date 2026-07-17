@@ -74,6 +74,11 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
       if (resp['success'] == true) {
         setState(() {
           categories = resp['data']?['categories'] ?? [];
+          if (selected.isEmpty) {
+            for (final serviceId in _allServiceIds()) {
+              selected[serviceId] = true;
+            }
+          }
           isLoading = false;
         });
       } else {

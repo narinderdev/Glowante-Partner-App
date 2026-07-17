@@ -222,13 +222,23 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
   bool _applyOperatingSchedule(dynamic rawSchedule) {
     final schedule = _extractSchedule(rawSchedule);
-    final operatingSlots = _operatingSlotsFromSchedule(schedule);
+    final operatingSlots = _operatingSlotsFromSchedule(schedule) ??
+        <String, List<_OperatingSlot>>{};
+    final explicitClosedDays = _explicitClosedDaysFromSchedule(schedule);
 
-    if (operatingSlots == null) return false;
+    if (operatingSlots.isEmpty && explicitClosedDays.isEmpty) return false;
+
+    operatingSlots.removeWhere(
+      (day, _) => explicitClosedDays.contains(_dayKey(day)),
+    );
 
     final closedDays = _weekDays
         .map(_dayKey)
-        .where((day) => !operatingSlots.containsKey(day))
+        .where(
+          (day) =>
+              explicitClosedDays.contains(day) ||
+              !operatingSlots.containsKey(day),
+        )
         .toSet();
 
     void apply() {
@@ -254,6 +264,177 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
     setState(apply);
     return true;
+  }
+
+  Set<String> _explicitClosedDaysFromSchedule(dynamic rawSchedule) {
+    final schedule = _extractSchedule(rawSchedule);
+    final closedDays = <String>{};
+
+    void addClosedDay(dynamic value) {
+      if (value is String) {
+        final dayKey = _dayKey(value);
+        if (_isKnownWeekday(dayKey)) closedDays.add(dayKey);
+        return;
+      }
+
+      if (value is Map) {
+        final dayKey = _dayKeyFromScheduleMap(value);
+        if (dayKey != null) closedDays.add(dayKey);
+      }
+    }
+
+    void addClosedDayEntries(dynamic value) {
+      if (value is Iterable) {
+        for (final item in value) {
+          addClosedDay(item);
+        }
+      } else {
+        addClosedDay(value);
+      }
+    }
+
+    if (schedule is Map) {
+      for (final key in const [
+        'closedDays',
+        'closedDay',
+        'offDays',
+        'offDay',
+        'weeklyOffs',
+        'weeklyOff',
+        'dayOffs',
+        'dayOff',
+        'holidays',
+      ]) {
+        addClosedDayEntries(schedule[key]);
+      }
+
+      final directDay = _dayKeyFromScheduleMap(schedule);
+      if (directDay != null && _isExplicitlyClosedScheduleValue(schedule)) {
+        closedDays.add(directDay);
+      }
+
+      for (final day in _weekDays) {
+        final dayKey = _dayKey(day);
+        if (schedule.containsKey(dayKey) &&
+            _isExplicitlyClosedScheduleValue(schedule[dayKey])) {
+          closedDays.add(dayKey);
+        }
+        if (schedule.containsKey(day) &&
+            _isExplicitlyClosedScheduleValue(schedule[day])) {
+          closedDays.add(dayKey);
+        }
+      }
+    } else if (schedule is List) {
+      for (final item in schedule.whereType<Map>()) {
+        final dayKey = _dayKeyFromScheduleMap(item);
+        if (dayKey != null && _isExplicitlyClosedScheduleValue(item)) {
+          closedDays.add(dayKey);
+        }
+      }
+    }
+
+    return closedDays;
+  }
+
+  bool _isKnownWeekday(String dayKey) {
+    final normalized = _dayKey(dayKey);
+    return _weekDays.map(_dayKey).contains(normalized);
+  }
+
+  String? _dayKeyFromScheduleMap(Map value) {
+    for (final key in const [
+      'day',
+      'dayOfWeek',
+      'weekDay',
+      'weekday',
+      'name'
+    ]) {
+      final day = value[key]?.toString().trim();
+      if (day == null || day.isEmpty) continue;
+      final dayKey = _dayKey(day);
+      if (_isKnownWeekday(dayKey)) return dayKey;
+    }
+    return null;
+  }
+
+  bool? _boolFromScheduleValue(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (const {'true', 'yes', 'y', '1', 'open', 'opened', 'working'}
+          .contains(normalized)) {
+        return true;
+      }
+      if (const {'false', 'no', 'n', '0', 'closed', 'close', 'off', 'inactive'}
+          .contains(normalized)) {
+        return false;
+      }
+    }
+    return null;
+  }
+
+  bool _isExplicitlyClosedScheduleValue(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return !value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return const {'closed', 'close', 'off', 'holiday', 'inactive'}
+          .contains(normalized);
+    }
+    if (value is Iterable) return value.isEmpty;
+
+    if (value is Map) {
+      for (final key in const [
+        'closed',
+        'isClosed',
+        'isDayClosed',
+        'dayClosed',
+        'isOff',
+        'off',
+        'isHoliday',
+        'holiday',
+      ]) {
+        final closed = _boolFromScheduleValue(value[key]);
+        if (closed == true) return true;
+      }
+
+      for (final key in const [
+        'isOpen',
+        'open',
+        'opened',
+        'isWorking',
+        'working',
+        'enabled',
+        'isEnabled',
+        'active',
+        'isActive',
+      ]) {
+        final open = _boolFromScheduleValue(value[key]);
+        if (open == false) return true;
+      }
+
+      for (final key in const ['status', 'dayStatus', 'availabilityStatus']) {
+        final status = value[key]?.toString().trim().toLowerCase();
+        if (status == null) continue;
+        if (const {'closed', 'close', 'off', 'holiday', 'inactive'}
+            .contains(status)) {
+          return true;
+        }
+      }
+
+      for (final key in const [
+        'slots',
+        'timeSlots',
+        'timings',
+        'workingHours'
+      ]) {
+        final slots = value[key];
+        if (slots is Iterable && slots.isEmpty) return true;
+      }
+    }
+
+    return false;
   }
 
   Map<String, List<_OperatingSlot>>? _operatingSlotsFromSchedule(
@@ -285,7 +466,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       var foundAnyDay = false;
 
       for (final item in schedule.whereType<Map>()) {
-        final day = item['day']?.toString().trim().toLowerCase();
+        final day = _dayKeyFromScheduleMap(item);
 
         if (day == null || day.isEmpty) continue;
 
@@ -313,11 +494,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     }
 
     if (value is Map) {
-      final isClosed = value['closed'] == true ||
-          value['isClosed'] == true ||
-          value['status']?.toString().toLowerCase() == 'closed';
-
-      if (isClosed) return const [];
+      if (_isExplicitlyClosedScheduleValue(value)) return const [];
 
       final slots = value['slots'];
 

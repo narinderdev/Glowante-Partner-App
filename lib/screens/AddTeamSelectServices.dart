@@ -106,6 +106,11 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
               .whereType<Map>()
               .map((cat) => Map<String, dynamic>.from(cat))
               .toList();
+          if (_selected.isEmpty) {
+            for (final serviceId in _allServiceIds()) {
+              _selected[serviceId] = true;
+            }
+          }
           _loading = false;
         });
       } else {
