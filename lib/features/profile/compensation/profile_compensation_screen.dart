@@ -799,7 +799,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
 
   Future<void> _deleteOverride(String overrideId) async {
     final branchId = _selectedBranch?.branchId;
-    if (branchId == null) {
+    if (branchId == null || _isActionInProgress) {
+      return;
+    }
+    final override = _staffOverrideById(overrideId);
+    final confirmed = await _confirmDeleteOverride(override);
+    if (!confirmed) {
       return;
     }
     _logCompensation(
@@ -818,6 +823,75 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       );
       _showToast('Override removed successfully');
     });
+  }
+
+  StaffCommissionOverride? _staffOverrideById(String overrideId) {
+    for (final override in _staffOverrides) {
+      if (override.id == overrideId) {
+        return override;
+      }
+    }
+    return null;
+  }
+
+  Future<bool> _confirmDeleteOverride(
+    StaffCommissionOverride? override,
+  ) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final service = override == null ? null : _serviceForOverride(override);
+    final target = override == null
+        ? context.t('this staff override')
+        : '${override.staffName}${service == null ? '' : ' - ${service.name}'}';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      requestFocus: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFFFFCF8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          title: Text(
+            context.t('Delete override?'),
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1C1917),
+            ),
+          ),
+          content: Text(
+            '${context.t('Are you sure you want to delete')} $target?',
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.35,
+              color: Color(0xFF6B625A),
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.starColor,
+              ),
+              child: Text(context.t('Cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.red,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: Text(context.t('Delete')),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed ?? false;
   }
 
   Future<void> _performAction(Future<void> Function() action) async {

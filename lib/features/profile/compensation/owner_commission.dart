@@ -5,10 +5,20 @@ const int _commissionServicesPageSize = 8;
 extension _OwnerCommissionUi on _ProfileCompensationScreenState {
   Widget _buildCommissionScreen() {
     if (_services.isEmpty) {
-      return _EmptyStateCard(
-        title: context.t('No services found for this branch'),
-        subtitle: context.t(
-          'Commission setup needs active branch services and staff members.',
+      return RefreshIndicator(
+        color: AppColors.starColor,
+        onRefresh: () => _reloadContent(showLoader: false),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+          children: [
+            _EmptyStateCard(
+              title: context.t('No services found for this branch'),
+              subtitle: context.t(
+                'Commission setup needs active branch services and staff members.',
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -34,216 +44,226 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
         .take(_commissionServicesPageSize)
         .toList();
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F4F1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE8DED6)),
+    return RefreshIndicator(
+      color: AppColors.starColor,
+      onRefresh: () => _reloadContent(showLoader: false),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F4F1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE8DED6)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _CommissionTabButton(
+                    label: context.t('Services'),
+                    icon: Icons.content_cut_rounded,
+                    isSelected: _commissionTab == _CommissionTab.services,
+                    onTap: () =>
+                        _setCommissionTabValue(_CommissionTab.services),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _CommissionTabButton(
+                    label: context.t('Staff Overrides'),
+                    icon: Icons.groups_2_rounded,
+                    isSelected: _commissionTab == _CommissionTab.overrides,
+                    onTap: () =>
+                        _setCommissionTabValue(_CommissionTab.overrides),
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(
+          const SizedBox(height: 16),
+          Text(
+            context.t('Staff override rules'),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1C1917),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.t(
+              'Custom service commission rates assigned to individual staff.',
+            ),
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: [
               Expanded(
-                child: _CommissionTabButton(
-                  label: context.t('Services'),
-                  icon: Icons.content_cut_rounded,
-                  isSelected: _commissionTab == _CommissionTab.services,
-                  onTap: () => _setCommissionTabValue(_CommissionTab.services),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _CommissionTabButton(
-                  label: context.t('Staff Overrides'),
-                  icon: Icons.groups_2_rounded,
-                  isSelected: _commissionTab == _CommissionTab.overrides,
-                  onTap: () => _setCommissionTabValue(_CommissionTab.overrides),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          context.t('Staff override rules'),
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF1C1917),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          context.t(
-            'Custom service commission rates assigned to individual staff.',
-          ),
-          style: const TextStyle(
-            fontSize: 12,
-            height: 1.35,
-            color: Color(0xFF6B7280),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _serviceSearchController,
-                // maxLength: 60,
-                style: const TextStyle(fontSize: 12),
-                decoration: InputDecoration(
-                  hintText: _commissionTab == _CommissionTab.services
-                      ? context.t('Search services')
-                      : context.t('Search staff or service'),
-                  hintStyle:
-                      const TextStyle(fontSize: 12, color: Color(0xFF8A8178)),
-                  prefixIcon: const Icon(Icons.search, size: 17),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: Color(0xFFE8DED6)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: Color(0xFFE8DED6)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(
-                      color: AppColors.starColor,
-                      width: 1.2,
+                child: TextField(
+                  controller: _serviceSearchController,
+                  // maxLength: 60,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: _commissionTab == _CommissionTab.services
+                        ? context.t('Search services')
+                        : context.t('Search staff or service'),
+                    hintStyle:
+                        const TextStyle(fontSize: 12, color: Color(0xFF8A8178)),
+                    prefixIcon: const Icon(Icons.search, size: 17),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(color: Color(0xFFE8DED6)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(color: Color(0xFFE8DED6)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(
+                        color: AppColors.starColor,
+                        width: 1.2,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (_commissionTab == _CommissionTab.services) ...[
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 142,
-                child: Container(
-                  height: 46,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: const Color(0xFFE8DED6)),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: selectedCategoryFilter,
-                      isExpanded: true,
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 18,
-                        color: Color(0xFF8A8178),
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF2A2622),
-                      ),
-                      items: categoryFilterOptions
-                          .map(
-                            (value) => DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(
-                                context.t(
-                                  _commissionCategoryFilterLabel(value),
+              if (_commissionTab == _CommissionTab.services) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 142,
+                  child: Container(
+                    height: 46,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: const Color(0xFFE8DED6)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedCategoryFilter,
+                        isExpanded: true,
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 18,
+                          color: Color(0xFF8A8178),
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF2A2622),
+                        ),
+                        items: categoryFilterOptions
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(
+                                  context.t(
+                                    _commissionCategoryFilterLabel(value),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        _setCommissionCategoryFilter(value);
-                      },
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) {
+                            return;
+                          }
+                          _setCommissionCategoryFilter(value);
+                        },
+                      ),
                     ),
                   ),
                 ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_commissionTab == _CommissionTab.services) ...[
+            filteredServices.isEmpty
+                ? SizedBox(
+                    height: 86,
+                    child: _NoCommissionMatchesCard(
+                      title: context.t('No matching services'),
+                      subtitle: context.t(
+                        'Try a different service name or clear the search.',
+                      ),
+                    ),
+                  )
+                : _ServiceCommissionTable(
+                    services: pageServices,
+                    selectedServiceId: selectedService?.id,
+                    overrides: _staffOverrides,
+                    onSelect: _selectCommissionService,
+                  ),
+            if (filteredServices.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _CommissionPaginationBar(
+                start: serviceStart + 1,
+                end: math.min(
+                  serviceStart + pageServices.length,
+                  filteredServices.length,
+                ),
+                total: filteredServices.length,
+                currentPage: servicePage + 1,
+                totalPages: servicePageCount,
+                onPrevious: servicePage <= 0
+                    ? null
+                    : () => _setCommissionServicesPage(servicePage - 1),
+                onNext: servicePage >= servicePageCount - 1
+                    ? null
+                    : () => _setCommissionServicesPage(servicePage + 1),
               ),
             ],
-          ],
-        ),
-        const SizedBox(height: 10),
-        if (_commissionTab == _CommissionTab.services) ...[
-          filteredServices.isEmpty
-              ? SizedBox(
-                  height: 86,
-                  child: _NoCommissionMatchesCard(
-                    title: context.t('No matching services'),
-                    subtitle: context.t(
-                      'Try a different service name or clear the search.',
-                    ),
-                  ),
-                )
-              : _ServiceCommissionTable(
-                  services: pageServices,
-                  selectedServiceId: selectedService?.id,
-                  overrides: _staffOverrides,
-                  onSelect: _selectCommissionService,
+            const SizedBox(height: 18),
+            if (selectedService == null)
+              _EmptyStateCard(
+                title: context.t('Select a service'),
+                subtitle: context.t(
+                  'Choose a service to configure staff-specific commission overrides.',
                 ),
-          if (filteredServices.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _CommissionPaginationBar(
-              start: serviceStart + 1,
-              end: math.min(
-                serviceStart + pageServices.length,
-                filteredServices.length,
+              )
+            else
+              _SelectedServiceOverridesCard(
+                service: selectedService,
+                overrides: _selectedServiceOverrides,
+                teamMembers: _teamMembers,
+                isActionInProgress: _isActionInProgress,
+                onAdd: _openAddOverrideDialog,
+                onViewAll: () =>
+                    _setCommissionTabValue(_CommissionTab.overrides),
+                onEdit: _openEditOverrideDialog,
+                onDelete: _deleteOverride,
               ),
-              total: filteredServices.length,
-              currentPage: servicePage + 1,
-              totalPages: servicePageCount,
-              onPrevious: servicePage <= 0
-                  ? null
-                  : () => _setCommissionServicesPage(servicePage - 1),
-              onNext: servicePage >= servicePageCount - 1
-                  ? null
-                  : () => _setCommissionServicesPage(servicePage + 1),
-            ),
-          ],
-          const SizedBox(height: 18),
-          if (selectedService == null)
-            _EmptyStateCard(
-              title: context.t('Select a service'),
-              subtitle: context.t(
-                'Choose a service to configure staff-specific commission overrides.',
-              ),
-            )
-          else
-            _SelectedServiceOverridesCard(
-              service: selectedService,
-              overrides: _selectedServiceOverrides,
+          ] else ...[
+            const SizedBox(height: 8),
+            _AllStaffOverridesCard(
+              overrides: _filteredStaffOverrides,
+              services: _services,
+              teamMembers: _teamMembers,
               isActionInProgress: _isActionInProgress,
               onAdd: _openAddOverrideDialog,
-              onViewAll: () => _setCommissionTabValue(_CommissionTab.overrides),
               onEdit: _openEditOverrideDialog,
               onDelete: _deleteOverride,
             ),
-        ] else ...[
-          const SizedBox(height: 8),
-          _AllStaffOverridesCard(
-            overrides: _filteredStaffOverrides,
-            services: _services,
-            isActionInProgress: _isActionInProgress,
-            onAdd: _openAddOverrideDialog,
-            onEdit: _openEditOverrideDialog,
-            onDelete: _deleteOverride,
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -682,6 +702,7 @@ class _SelectedServiceOverridesCard extends StatelessWidget {
   const _SelectedServiceOverridesCard({
     required this.service,
     required this.overrides,
+    required this.teamMembers,
     required this.isActionInProgress,
     required this.onAdd,
     required this.onViewAll,
@@ -691,11 +712,21 @@ class _SelectedServiceOverridesCard extends StatelessWidget {
 
   final BranchServiceSummary service;
   final List<StaffCommissionOverride> overrides;
+  final List<ProfileTeamMember> teamMembers;
   final bool isActionInProgress;
   final VoidCallback onAdd;
   final VoidCallback onViewAll;
   final ValueChanged<StaffCommissionOverride> onEdit;
   final ValueChanged<String> onDelete;
+
+  String _roleFor(StaffCommissionOverride override) {
+    for (final member in teamMembers) {
+      if (member.id == override.staffId) {
+        return member.role.trim().isEmpty ? 'Team Member' : member.role;
+      }
+    }
+    return 'Team Member';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -781,6 +812,7 @@ class _SelectedServiceOverridesCard extends StatelessWidget {
                       child: _StaffOverrideRowCard(
                         staffOverride: override,
                         service: service,
+                        staffRole: _roleFor(override),
                         isActionInProgress: isActionInProgress,
                         showService: false,
                         onEdit: () => onEdit(override),
@@ -1122,6 +1154,7 @@ class _AllStaffOverridesCard extends StatelessWidget {
   const _AllStaffOverridesCard({
     required this.overrides,
     required this.services,
+    required this.teamMembers,
     required this.isActionInProgress,
     required this.onAdd,
     required this.onEdit,
@@ -1130,6 +1163,7 @@ class _AllStaffOverridesCard extends StatelessWidget {
 
   final List<StaffCommissionOverride> overrides;
   final List<BranchServiceSummary> services;
+  final List<ProfileTeamMember> teamMembers;
   final bool isActionInProgress;
   final VoidCallback onAdd;
   final ValueChanged<StaffCommissionOverride> onEdit;
@@ -1144,11 +1178,20 @@ class _AllStaffOverridesCard extends StatelessWidget {
     return null;
   }
 
+  String _roleFor(StaffCommissionOverride override) {
+    for (final member in teamMembers) {
+      if (member.id == override.staffId) {
+        return member.role.trim().isEmpty ? 'Team Member' : member.role;
+      }
+    }
+    return 'Team Member';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -1157,25 +1200,17 @@ class _AllStaffOverridesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.t('Staff overrides'),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1C1917),
-                  ),
-                ),
-              ),
-              ElevatedButton.icon(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
                 onPressed: isActionInProgress ? null : onAdd,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.starColor,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  minimumSize: const Size(128, 42),
+                  minimumSize: const Size(132, 40),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -1184,42 +1219,242 @@ class _AllStaffOverridesCard extends StatelessWidget {
                 label: Text(
                   isActionInProgress
                       ? context.t('Saving...')
-                      : context.t('Add Override'),
+                      : context.t('Add override'),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            context.t(
-              'Custom commission rates assigned to staff for specific services.',
             ),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
           ),
-          const SizedBox(height: 14),
           if (overrides.isEmpty)
-            _EmptyStateCard(
-              title: context.t('No staff overrides found'),
-              subtitle: context.t(
-                'Add staff-specific commission rates for any service.',
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: _EmptyStateCard(
+                title: context.t('No staff overrides found'),
+                subtitle: context.t(
+                  'Add staff-specific commission rates for any service.',
+                ),
               ),
             )
           else
-            ...overrides.map((override) {
-              final service = _serviceFor(override);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _StaffOverrideRowCard(
-                  staffOverride: override,
-                  service: service,
-                  isActionInProgress: isActionInProgress,
-                  showService: true,
-                  onEdit: () => onEdit(override),
-                  onDelete: () => onDelete(override.id),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 760),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _StaffOverrideTableHeader(),
+                    ...overrides.map((override) {
+                      final service = _serviceFor(override);
+                      return _StaffOverrideTableRow(
+                        staffOverride: override,
+                        service: service,
+                        staffRole: _roleFor(override),
+                        isActionInProgress: isActionInProgress,
+                        onEdit: () => onEdit(override),
+                        onDelete: () => onDelete(override.id),
+                      );
+                    }),
+                  ],
                 ),
-              );
-            }),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            child: Text(
+              '${overrides.length} ${context.t(overrides.length == 1 ? 'override' : 'overrides')}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF9CA3AF),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _StaffOverrideTableHeader extends StatelessWidget {
+  const _StaffOverrideTableHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAF9F8),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE8DED6)),
+        ),
+      ),
+      child: Row(
+        children: [
+          _StaffOverrideTableCell(
+            width: 250,
+            isHeader: true,
+            child: Text(context.t('STAFF')),
+          ),
+          _StaffOverrideTableCell(
+            width: 210,
+            isHeader: true,
+            child: Text(context.t('SERVICE')),
+          ),
+          _StaffOverrideTableCell(
+            width: 150,
+            isHeader: true,
+            child: Text(context.t('CATEGORY')),
+          ),
+          _StaffOverrideTableCell(
+            width: 110,
+            isHeader: true,
+            child: Text(context.t('CUSTOM RATE')),
+          ),
+          const SizedBox(width: 40),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaffOverrideTableRow extends StatelessWidget {
+  const _StaffOverrideTableRow({
+    required this.staffOverride,
+    required this.service,
+    required this.staffRole,
+    required this.isActionInProgress,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final StaffCommissionOverride staffOverride;
+  final BranchServiceSummary? service;
+  final String staffRole;
+  final bool isActionInProgress;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = _staffOverrideAmount(staffOverride);
+    return Container(
+      height: 64,
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFEFE7DF)),
+        ),
+      ),
+      child: Row(
+        children: [
+          _StaffOverrideTableCell(
+            width: 250,
+            child: Row(
+              children: [
+                _CommissionInitialsAvatar(name: staffOverride.staffName),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        staffOverride.staffName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1C1917),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        staffRole,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _StaffOverrideTableCell(
+            width: 210,
+            child: Text(
+              service?.name ?? context.t('Unknown service'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF374151),
+              ),
+            ),
+          ),
+          _StaffOverrideTableCell(
+            width: 150,
+            child: Text(
+              service?.categoryName.trim().isNotEmpty == true
+                  ? service!.categoryName
+                  : context.t('Uncategorized'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ),
+          _StaffOverrideTableCell(
+            width: 110,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _CommissionValueBadge(label: amount),
+            ),
+          ),
+          SizedBox(
+            width: 40,
+            child: _StaffOverrideActionsButton(
+              isActionInProgress: isActionInProgress,
+              onEdit: onEdit,
+              onDelete: onDelete,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaffOverrideTableCell extends StatelessWidget {
+  const _StaffOverrideTableCell({
+    required this.width,
+    required this.child,
+    this.isHeader = false,
+  });
+
+  final double width;
+  final Widget child;
+  final bool isHeader;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: DefaultTextStyle(
+          style: TextStyle(
+            fontSize: isHeader ? 11 : 13,
+            fontWeight: isHeader ? FontWeight.w800 : FontWeight.w500,
+            letterSpacing: isHeader ? 0.4 : 0,
+            color: isHeader ? const Color(0xFF6B7280) : const Color(0xFF1C1917),
+          ),
+          child: child,
+        ),
       ),
     );
   }
@@ -1316,6 +1551,7 @@ class _StaffOverrideRowCard extends StatelessWidget {
   const _StaffOverrideRowCard({
     required this.staffOverride,
     required this.service,
+    required this.staffRole,
     required this.isActionInProgress,
     required this.showService,
     required this.onEdit,
@@ -1324,6 +1560,7 @@ class _StaffOverrideRowCard extends StatelessWidget {
 
   final StaffCommissionOverride staffOverride;
   final BranchServiceSummary? service;
+  final String staffRole;
   final bool isActionInProgress;
   final bool showService;
   final VoidCallback onEdit;
@@ -1331,9 +1568,7 @@ class _StaffOverrideRowCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amount = staffOverride.ruleType == CommissionRuleTypes.percentage
-        ? '${_formatOverrideNumber(staffOverride.value)}%'
-        : _formatCurrency(staffOverride.value.round());
+    final amount = _staffOverrideAmount(staffOverride);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1344,18 +1579,7 @@ class _StaffOverrideRowCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: const Color(0xFFF0E6D6),
-            child: Text(
-              _commissionInitials(staffOverride.staffName),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                color: AppColors.starColor,
-              ),
-            ),
-          ),
+          _CommissionInitialsAvatar(name: staffOverride.staffName),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1375,7 +1599,7 @@ class _StaffOverrideRowCard extends StatelessWidget {
                 Text(
                   showService
                       ? (service?.name ?? context.t('Unknown service'))
-                      : '${context.t('Effective from')} ${DateFormat('dd MMM yyyy').format(staffOverride.effectiveFrom)}',
+                      : staffRole,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style:
@@ -1403,28 +1627,111 @@ class _StaffOverrideRowCard extends StatelessWidget {
               color: AppColors.starColor,
             ),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: isActionInProgress ? null : onEdit,
-            icon: const Icon(
-              Icons.edit_outlined,
-              color: AppColors.starColor,
-              size: 20,
-            ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: isActionInProgress ? null : onDelete,
-            icon: const Icon(
-              Icons.delete_outline_rounded,
-              color: AppColors.red,
-              size: 20,
-            ),
+          const SizedBox(width: 4),
+          _StaffOverrideActionsButton(
+            isActionInProgress: isActionInProgress,
+            onEdit: onEdit,
+            onDelete: onDelete,
           ),
         ],
       ),
     );
   }
+}
+
+class _CommissionInitialsAvatar extends StatelessWidget {
+  const _CommissionInitialsAvatar({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: const Color(0xFFF0E6D6),
+      child: Text(
+        _commissionInitials(name),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          color: AppColors.starColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _StaffOverrideActionsButton extends StatelessWidget {
+  const _StaffOverrideActionsButton({
+    required this.isActionInProgress,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final bool isActionInProgress;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      enabled: !isActionInProgress,
+      tooltip: context.t('Actions'),
+      icon: const Icon(
+        Icons.more_vert_rounded,
+        color: Color(0xFF8A8178),
+        size: 20,
+      ),
+      offset: const Offset(0, 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      onSelected: (value) {
+        if (value == 'edit') {
+          onEdit();
+        } else if (value == 'delete') {
+          onDelete();
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          value: 'edit',
+          child: Row(
+            children: [
+              const Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: AppColors.starColor,
+              ),
+              const SizedBox(width: 8),
+              Text(context.t('Edit')),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'delete',
+          child: Row(
+            children: [
+              const Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+                color: AppColors.red,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.t('Delete'),
+                style: const TextStyle(color: AppColors.red),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _staffOverrideAmount(StaffCommissionOverride override) {
+  return override.ruleType == CommissionRuleTypes.percentage
+      ? '${_formatOverrideNumber(override.value)}%'
+      : _formatCurrency(override.value.round());
 }
 
 String _formatOverrideNumber(num value) {
