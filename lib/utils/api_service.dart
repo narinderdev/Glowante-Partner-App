@@ -307,8 +307,17 @@ class ApiService {
       "v2/branches/$branchId/dashboard";
   static String payrollSetupTeamMembersAPI(int branchId) =>
       "v2/branches/$branchId/payroll-setup/team-members";
+  static String branchCommissionServicesAPI(int branchId) =>
+      "v2/branches/$branchId/commission/services";
   static String branchCommissionStaffAPI(int branchId) =>
       "v2/branches/$branchId/commission/staff";
+  static String branchCommissionStaffOverridesAPI(int branchId) =>
+      "v2/branches/$branchId/commission/staff-overrides";
+  static String branchCommissionStaffOverrideAPI(
+    int branchId,
+    String overrideId,
+  ) =>
+      "v2/branches/$branchId/commission/staff-overrides/$overrideId";
   static String branchEmployeeSalaryHistoryAPI(
     int branchId,
     int employeeId,
@@ -4464,6 +4473,49 @@ class ApiService {
       method: 'GET',
       endpoint: branchCommissionStaffAPI(branchId),
       debugTag: 'BranchCommissionStaffAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getBranchCommissionServices({
+    required int branchId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: branchCommissionServicesAPI(branchId),
+      debugTag: 'BranchCommissionServicesAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getBranchCommissionStaffOverrides({
+    required int branchId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: branchCommissionStaffOverridesAPI(branchId),
+      debugTag: 'BranchCommissionStaffOverridesAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> saveBranchCommissionStaffOverrides({
+    required int branchId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: branchCommissionStaffOverridesAPI(branchId),
+      body: payload,
+      debugTag: 'SaveBranchCommissionStaffOverridesAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteBranchCommissionStaffOverride({
+    required int branchId,
+    required String overrideId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: branchCommissionStaffOverrideAPI(branchId, overrideId),
+      debugTag: 'DeleteBranchCommissionStaffOverrideAPI',
     );
   }
 

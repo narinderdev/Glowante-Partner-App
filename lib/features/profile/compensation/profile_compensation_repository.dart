@@ -17,10 +17,6 @@ class ProfileCompensationRepository {
   static const String _payrollSetupsPrefix = 'profile_payroll_setups_';
   static const String _payrollRunsPrefix = 'profile_payroll_runs_';
   static const String _commissionRulesPrefix = 'profile_commission_rules_';
-  static const String _commissionOverridesPrefix =
-      'profile_commission_overrides_';
-  static const String _deletedCommissionOverridesPrefix =
-      'profile_deleted_commission_overrides_';
 
   Future<List<ProfileBranchOption>> loadBranchOptions() async {
     final response = await _apiService.getSalonListApi();
@@ -91,7 +87,9 @@ class ProfileCompensationRepository {
   }
 
   Future<List<BranchServiceSummary>> loadServices(int branchId) async {
-    final response = await _apiService.getService(branchId: branchId);
+    final response = await _apiService.getBranchCommissionServices(
+      branchId: branchId,
+    );
     final items = <BranchServiceSummary>[];
     final seenIds = <int>{};
 
@@ -144,6 +142,33 @@ class ProfileCompensationRepository {
     visit(response);
     items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return items;
+  }
+
+  Future<List<ProfileTeamMember>> loadCommissionStaff(int branchId) async {
+    final response = await _apiService.getBranchCommissionStaff(
+      branchId: branchId,
+    );
+    if (response['success'] != true) {
+      return const <ProfileTeamMember>[];
+    }
+    final data = response['data'];
+    final dataMap = data is Map<String, dynamic>
+        ? data
+        : data is Map
+            ? Map<String, dynamic>.from(data)
+            : const <String, dynamic>{};
+    final raw = (dataMap['staff'] as List?) ?? const <dynamic>[];
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) => _teamMemberFromMap(
+            Map<String, dynamic>.from(item),
+            branchId: branchId,
+          ),
+        )
+        .where((item) => item.id != 0)
+        .toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 
   Future<List<PayrollSetupRecord>> loadPayrollSetups(int branchId) async {
@@ -1245,39 +1270,13 @@ class ProfileCompensationRepository {
   Future<List<StaffCommissionOverride>> loadCommissionOverrides(
     int branchId,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    final cached = _readList(
-      prefs.getString(_commissionOverridesKey(branchId)),
-      (json) => StaffCommissionOverride.fromJson(json),
+    final response = await _apiService.getBranchCommissionStaffOverrides(
+      branchId: branchId,
     );
-    final deletedIds = prefs.getStringList(
-          _deletedCommissionOverridesKey(branchId),
-        ) ??
-        const <String>[];
-
-    try {
-      final response = await _apiService.getBranchCommissionStaff(
-        branchId: branchId,
-      );
-      if (response['success'] != true) {
-        return cached.where((item) => !deletedIds.contains(item.id)).toList();
-      }
-
-      final apiOverrides = _commissionOverridesFromStaffResponse(response)
-          .where((item) => !deletedIds.contains(item.id))
-          .toList();
-      final merged = _mergeCommissionOverrides(
-        cached.where((item) => !deletedIds.contains(item.id)).toList(),
-        apiOverrides,
-      );
-      await prefs.setString(
-        _commissionOverridesKey(branchId),
-        jsonEncode(merged.map((item) => item.toJson()).toList()),
-      );
-      return merged;
-    } catch (_) {
-      return cached.where((item) => !deletedIds.contains(item.id)).toList();
+    if (response['success'] != true) {
+      return const <StaffCommissionOverride>[];
     }
+    return _commissionOverridesFromResponse(response);
   }
 
   Future<void> saveCommissionRule({
@@ -1328,34 +1327,24 @@ class ProfileCompensationRepository {
     required int serviceId,
     required List<StaffCommissionOverride> overrides,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final existing = await loadCommissionOverrides(branchId);
-    final retained =
-        existing.where((item) => item.serviceId != serviceId).toList();
-    final next = <StaffCommissionOverride>[...retained, ...overrides];
-    await prefs.setString(
-      _commissionOverridesKey(branchId),
-      jsonEncode(next.map((item) => item.toJson()).toList()),
-    );
+    for (final override in overrides) {
+      final response = await _apiService.saveBranchCommissionStaffOverrides(
+        branchId: branchId,
+        payload: _staffOverridePayload(override),
+      );
+      _requireSuccess(response);
+    }
   }
 
   Future<void> deleteStaffOverride({
     required int branchId,
     required String overrideId,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final existing = await loadCommissionOverrides(branchId);
-    final next = existing.where((item) => item.id != overrideId).toList();
-    final deletedKey = _deletedCommissionOverridesKey(branchId);
-    final deletedIds = prefs.getStringList(deletedKey) ?? <String>[];
-    if (!deletedIds.contains(overrideId)) {
-      deletedIds.add(overrideId);
-      await prefs.setStringList(deletedKey, deletedIds);
-    }
-    await prefs.setString(
-      _commissionOverridesKey(branchId),
-      jsonEncode(next.map((item) => item.toJson()).toList()),
+    final response = await _apiService.deleteBranchCommissionStaffOverride(
+      branchId: branchId,
+      overrideId: overrideId,
     );
+    _requireSuccess(response);
   }
 
   CommissionServiceRule ruleForService({
@@ -1631,13 +1620,7 @@ class ProfileCompensationRepository {
   String _commissionRulesKey(int branchId) =>
       '$_commissionRulesPrefix$branchId';
 
-  String _commissionOverridesKey(int branchId) =>
-      '$_commissionOverridesPrefix$branchId';
-
-  String _deletedCommissionOverridesKey(int branchId) =>
-      '$_deletedCommissionOverridesPrefix$branchId';
-
-  List<StaffCommissionOverride> _commissionOverridesFromStaffResponse(
+  List<StaffCommissionOverride> _commissionOverridesFromResponse(
     Map<String, dynamic> response,
   ) {
     final data = response['data'];
@@ -1646,60 +1629,58 @@ class ProfileCompensationRepository {
         : data is Map
             ? Map<String, dynamic>.from(data)
             : const <String, dynamic>{};
-    final staffList = (dataMap['staff'] as List?) ?? const <dynamic>[];
+    final rawOverrides = (dataMap['overrides'] as List?) ??
+        (response['overrides'] as List?) ??
+        const <dynamic>[];
     final overrides = <StaffCommissionOverride>[];
 
-    for (final staffEntry in staffList.whereType<Map>()) {
-      final staff = Map<String, dynamic>.from(staffEntry);
-      final staffId = _asInt(
-            staff['teamMemberId'] ?? staff['userId'] ?? staff['id'],
+    for (final overrideEntry in rawOverrides.whereType<Map>()) {
+      final override = Map<String, dynamic>.from(overrideEntry);
+      final serviceId = _asInt(
+            override['branchServiceId'] ?? override['serviceId'],
           ) ??
           0;
-      final staffName = _cleanText(
-        staff['teamMemberName'] ?? staff['name'] ?? staff['userName'],
-      );
-      final rawOverrides =
-          (staff['commissionOverrides'] as List?) ?? const <dynamic>[];
-
-      for (final overrideEntry in rawOverrides.whereType<Map>()) {
-        final override = Map<String, dynamic>.from(overrideEntry);
-        final serviceId = _asInt(
-              override['branchServiceId'] ?? override['serviceId'],
-            ) ??
-            0;
-        final overrideId = _cleanText(override['id']);
-        if (serviceId == 0 || staffId == 0 || overrideId.isEmpty) {
-          continue;
-        }
-        final ruleType = _cleanText(
-          override['ruleType'],
-          fallback: CommissionRuleTypes.percentage,
-        ).toLowerCase();
-        final isFixed = ruleType == CommissionRuleTypes.fixed;
-        final value = isFixed
-            ? (_asDouble(override['fixedAmountMinor']) ?? 0)
-            : (_asDouble(override['percentage']) ?? 0);
-        overrides.add(
-          StaffCommissionOverride(
-            id: overrideId,
-            serviceId: serviceId,
-            staffId: staffId,
-            staffName: _cleanText(
-              override['userName'],
-              fallback: staffName.isEmpty ? 'Team Member #$staffId' : staffName,
-            ),
-            ruleType: isFixed
-                ? CommissionRuleTypes.fixed
-                : CommissionRuleTypes.percentage,
-            value: value,
-            effectiveFrom: DateTime.tryParse(
-                  _cleanText(override['effectiveFrom']),
-                ) ??
-                DateTime.now(),
-            notes: _cleanText(override['notes']),
-          ),
-        );
+      final staffId = _asInt(
+            override['userId'] ??
+                override['staffId'] ??
+                override['teamMemberId'] ??
+                override['employeeId'],
+          ) ??
+          0;
+      final overrideId = _cleanText(override['id']);
+      if (serviceId == 0 || staffId == 0 || overrideId.isEmpty) {
+        continue;
       }
+      final ruleType = _cleanText(
+        override['ruleType'],
+        fallback: CommissionRuleTypes.percentage,
+      ).toLowerCase();
+      final isFixed = ruleType == CommissionRuleTypes.fixed;
+      final value = isFixed
+          ? (_asDouble(override['fixedAmountMinor']) ?? 0)
+          : (_asDouble(override['percentage']) ?? 0);
+      overrides.add(
+        StaffCommissionOverride(
+          id: overrideId,
+          serviceId: serviceId,
+          staffId: staffId,
+          staffName: _cleanText(
+            override['userName'] ??
+                override['staffName'] ??
+                override['teamMemberName'],
+            fallback: 'Team Member #$staffId',
+          ),
+          ruleType: isFixed
+              ? CommissionRuleTypes.fixed
+              : CommissionRuleTypes.percentage,
+          value: value,
+          effectiveFrom: DateTime.tryParse(
+                _cleanText(override['effectiveFrom']),
+              ) ??
+              DateTime.now(),
+          notes: _cleanText(override['notes']),
+        ),
+      );
     }
 
     overrides.sort((a, b) {
@@ -1712,23 +1693,20 @@ class ProfileCompensationRepository {
     return overrides;
   }
 
-  List<StaffCommissionOverride> _mergeCommissionOverrides(
-    List<StaffCommissionOverride> cached,
-    List<StaffCommissionOverride> apiOverrides,
-  ) {
-    final byId = <String, StaffCommissionOverride>{
-      for (final item in cached) item.id: item,
-      for (final item in apiOverrides) item.id: item,
+  Map<String, dynamic> _staffOverridePayload(StaffCommissionOverride override) {
+    final isFixed = override.ruleType == CommissionRuleTypes.fixed;
+    return <String, dynamic>{
+      if (int.tryParse(override.id) != null) 'id': int.parse(override.id),
+      'userId': override.staffId,
+      'branchServiceId': override.serviceId,
+      'ruleType':
+          isFixed ? CommissionRuleTypes.fixed : CommissionRuleTypes.percentage,
+      'percentage': isFixed ? null : override.value,
+      'fixedAmountMinor': isFixed ? override.value.round() : null,
+      'effectiveFrom': DateFormat('yyyy-MM-dd').format(override.effectiveFrom),
+      'notes': override.notes,
+      'isActive': true,
     };
-    final merged = byId.values.toList();
-    merged.sort((a, b) {
-      final serviceCompare = a.serviceId.compareTo(b.serviceId);
-      if (serviceCompare != 0) {
-        return serviceCompare;
-      }
-      return a.staffName.toLowerCase().compareTo(b.staffName.toLowerCase());
-    });
-    return merged;
   }
 
   ProfileTeamMember _teamMemberFromMap(

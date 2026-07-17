@@ -312,7 +312,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       details: 'branchId=$branchId',
     );
     final results = await Future.wait<dynamic>(<Future<dynamic>>[
-      _repository.loadTeamMembers(branchId),
+      _repository.loadCommissionStaff(branchId),
       _repository.loadServices(branchId),
       _repository.loadCommissionOverrides(branchId),
     ]);
@@ -760,20 +760,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       _isActionInProgress = true;
     });
     try {
-      final currentForService = _staffOverrides
-          .where((item) => item.serviceId == serviceId)
-          .where(
-            (item) =>
-                !overrides.any((override) => override.staffId == item.staffId),
-          )
-          .toList();
       await _repository.saveStaffOverrides(
         branchId: branchId,
         serviceId: serviceId,
-        overrides: <StaffCommissionOverride>[
-          ...currentForService,
-          ...overrides,
-        ],
+        overrides: overrides,
       );
       await _loadCommissionData(branchId);
       _logCompensation(
