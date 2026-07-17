@@ -1220,20 +1220,25 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               ),
             ),
           ),
-          if (errorText != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              errorText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: const TextStyle(
-                color: AppColors.red,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+          SizedBox(
+            height: 22,
+            child: errorText == null
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      errorText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: const TextStyle(
+                        color: AppColors.red,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+          ),
         ],
       ),
     );
@@ -1749,6 +1754,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 18),
                                 child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
                                       child: _buildTimeDropdownField(
