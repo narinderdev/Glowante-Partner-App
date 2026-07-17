@@ -365,19 +365,25 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     required bool isFrom,
   }) async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final DateTime? fromDate = _parseUiDate(validFromController.text);
+    final DateTime? selectedDate = _parseUiDate(c.text);
 
     final firstDate = isFrom
-        ? DateTime(now.year, now.month, now.day)
-        : (fromDate != null && fromDate.isAfter(now)
-            ? fromDate
-            : DateTime(now.year, now.month, now.day));
+        ? (widget.isEdit ? DateTime(1900) : today)
+        : (fromDate != null && fromDate.isAfter(today) ? fromDate : today);
+    final lastDate = DateTime(now.year + 5);
+    final initialDate = selectedDate != null &&
+            !selectedDate.isBefore(firstDate) &&
+            !selectedDate.isAfter(lastDate)
+        ? selectedDate
+        : (today.isBefore(firstDate) ? firstDate : today);
 
     final picked = await showDatePicker(
       context: context,
-      initialDate: now.isBefore(firstDate) ? firstDate : now,
+      initialDate: initialDate,
       firstDate: firstDate,
-      lastDate: DateTime(now.year + 5),
+      lastDate: lastDate,
       initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
@@ -690,8 +696,16 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     if (x.isEmpty) return translateText('Start Date is required.');
 
-    if (_parseUiDate(x) == null) {
+    final selectedDate = _parseUiDate(x);
+
+    if (selectedDate == null) {
       return translateText('Enter a valid start date.');
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (!widget.isEdit && selectedDate.isBefore(today)) {
+      return translateText('Start Date cannot be in the past.');
     }
 
     return null;

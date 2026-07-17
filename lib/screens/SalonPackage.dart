@@ -763,7 +763,7 @@ class _BranchSelectorField extends StatelessWidget {
   }
 }
 
-class _OfferCard extends StatelessWidget {
+class _OfferCard extends StatefulWidget {
   const _OfferCard({
     required this.offer,
     required this.rs,
@@ -783,8 +783,23 @@ class _OfferCard extends StatelessWidget {
   final bool isStatusUpdating;
 
   @override
+  State<_OfferCard> createState() => _OfferCardState();
+}
+
+class _OfferCardState extends State<_OfferCard> {
+  bool _showAllIncludedServices = false;
+
+  @override
   Widget build(BuildContext context) {
     try {
+      final offer = widget.offer;
+      final rs = widget.rs;
+      final onDelete = widget.onDelete;
+      final onEdit = widget.onEdit;
+      final onToggleStatus = widget.onToggleStatus;
+      final isDeleting = widget.isDeleting;
+      final isStatusUpdating = widget.isStatusUpdating;
+
       // --------- read from response safely ---------
       final String name = offer['name']?.toString() ?? '';
       final String status = offer['status']?.toString() ?? 'UNKNOWN';
@@ -845,6 +860,8 @@ class _OfferCard extends StatelessWidget {
       final String? genderText = _genderText(gender);
       final String durationLine =
           _serviceDurationLine(serviceDuration) ?? translateText('N/A');
+      final List visibleItems =
+          _showAllIncludedServices ? items : items.take(2).toList();
       final String? discountChipText = () {
         if (!isDiscount) return null;
         if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
@@ -899,8 +916,6 @@ class _OfferCard extends StatelessWidget {
                       if (genderText != null) const SizedBox(width: 70),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  if (items.isNotEmpty) _servicePreviewChips(items),
                   const SizedBox(height: 14),
 
                   _detailRow(
@@ -963,25 +978,34 @@ class _OfferCard extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: items.map((e) {
-                        final m = Map<String, dynamic>.from(e as Map);
-                        final n = (m['name'] ?? 'Service').toString();
-                        final q = (m['qty'] ?? 1) as num;
-                        return Chip(
-                          label: Text('$n × ${q.toStringAsFixed(0)}'),
-                          labelStyle: const TextStyle(
-                            color: _offerInk,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                      children: [
+                        ...visibleItems.map(_serviceChip),
+                        if (items.length > 2)
+                          ActionChip(
+                            label: Text(
+                              _showAllIncludedServices
+                                  ? translateText('Show less')
+                                  : '+${items.length - 2} more',
+                            ),
+                            labelStyle: const TextStyle(
+                              color: _offerGold,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                            backgroundColor: _offerSoftGold,
+                            side: const BorderSide(color: _offerBorder),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: const VisualDensity(
+                                horizontal: -4, vertical: -4),
+                            onPressed: () {
+                              setState(() {
+                                _showAllIncludedServices =
+                                    !_showAllIncludedServices;
+                              });
+                            },
                           ),
-                          backgroundColor: _offerFieldFill,
-                          side: const BorderSide(color: _offerBorder),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity:
-                              const VisualDensity(horizontal: -4, vertical: -4),
-                        );
-                      }).toList(),
+                      ],
                     ),
                   ] else ...[
                     Align(
@@ -1098,94 +1122,81 @@ class _OfferCard extends StatelessWidget {
                   //     ),
                   //   ],
                   // ),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 120,
-                          height: 38,
-                          child: ElevatedButton(
-                            onPressed: (isDeleting || isStatusUpdating)
-                                ? null
-                                : onToggleStatus,
-                            style: _blackButtonStyle,
-                            child: isStatusUpdating
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Text(
-                                    translateText(
-                                      isActive ? 'Deactivate' : 'Make Live',
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _actionButton(
+                          onPressed: (isDeleting || isStatusUpdating)
+                              ? null
+                              : onToggleStatus,
+                          child: isStatusUpdating
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   ),
+                                )
+                              : Text(
+                                  translateText(
+                                    isActive ? 'Deactivate' : 'Make Live',
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: _actionButtonTextStyle,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _actionButton(
+                          onPressed: () => _showReviewDialog(context),
+                          child: Text(
+                            translateText('Review'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _actionButtonTextStyle,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 78,
-                          height: 38,
-                          child: ElevatedButton(
-                            onPressed: (isDeleting || isStatusUpdating)
-                                ? null
-                                : onEdit,
-                            style: _blackButtonStyle,
-                            child: Text(
-                              translateText('Edit'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _actionButton(
+                          onPressed:
+                              (isDeleting || isStatusUpdating) ? null : onEdit,
+                          child: Text(
+                            translateText('Edit'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _actionButtonTextStyle,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 105,
-                          height: 38,
-                          child: ElevatedButton.icon(
-                            onPressed: (isDeleting || isStatusUpdating)
-                                ? null
-                                : onDelete,
-                            icon: isDeleting
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.delete, size: 15),
-                            label: Text(
-                              isDeleting
-                                  ? 'Deleting...'
-                                  : translateText('Delete'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: _blackButtonStyle,
-                          ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _actionButton(
+                          onPressed: (isDeleting || isStatusUpdating)
+                              ? null
+                              : onDelete,
+                          child: isDeleting
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  translateText('Delete'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: _actionButtonTextStyle,
+                                ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1196,13 +1207,13 @@ class _OfferCard extends StatelessWidget {
     } catch (e, st) {
       print('❌ ERROR while building offer card: $e');
       print('STACK TRACE:\n$st');
-      print('OFFER DATA:\n${offer.toString()}');
+      print('OFFER DATA:\n${widget.offer.toString()}');
       return Card(
         color: Colors.red.shade50,
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Text(
-            'Error rendering offer: ${offer['name'] ?? 'Unknown'}\n$e',
+            'Error rendering offer: ${widget.offer['name'] ?? 'Unknown'}\n$e',
             style: const TextStyle(color: Colors.red),
           ),
         ),
@@ -1211,6 +1222,30 @@ class _OfferCard extends StatelessWidget {
   }
 
   // ---------- small UI helpers ----------
+  TextStyle get _actionButtonTextStyle => const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+      );
+
+  Widget _actionButton({
+    required VoidCallback? onPressed,
+    required Widget child,
+  }) {
+    return SizedBox(
+      height: 38,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: _blackButtonStyle,
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _statusChip(String? status) {
     final s = (status ?? '').toString().toUpperCase();
     final isActive = s == 'ACTIVE';
@@ -1323,35 +1358,318 @@ class _OfferCard extends StatelessWidget {
     );
   }
 
-  Widget _servicePreviewChips(List items) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: items.take(2).map((e) {
-        final m = Map<String, dynamic>.from(e as Map);
-        final name = (m['name'] ?? 'Service').toString();
-        final qty = (m['qty'] ?? 1) as num;
-        final label = qty > 1 ? '$name x ${qty.toStringAsFixed(0)}' : name;
+  Widget _serviceChip(dynamic item) {
+    return Chip(
+      label: Text(_serviceLabel(item)),
+      labelStyle: const TextStyle(
+        color: _offerInk,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+      ),
+      backgroundColor: _offerFieldFill,
+      side: const BorderSide(color: _offerBorder),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+    );
+  }
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: _offerFieldFill,
-            borderRadius: BorderRadius.circular(999),
+  String _serviceLabel(dynamic item) {
+    final m = item is Map ? Map<String, dynamic>.from(item) : {};
+    final name = (m['name'] ?? 'Service').toString();
+    final qty = m['qty'] is num ? m['qty'] as num : 1;
+    return '$name × ${qty.toStringAsFixed(0)}';
+  }
+
+  void _showReviewDialog(BuildContext context) {
+    final offer = widget.offer;
+    final itemSummary = offer['itemSummary'] is Map
+        ? Map<String, dynamic>.from(offer['itemSummary'])
+        : <String, dynamic>{};
+    final items = offer['items'] is List ? offer['items'] as List : <dynamic>[];
+    final pricingMode = (offer['pricingMode'] ?? '').toString();
+    final discountType = (offer['discountType'] ?? '').toString();
+    final durationValue = (offer['durationValue'] ?? '').toString();
+    final durationUnit = (offer['durationUnit'] ?? '').toString();
+    final gender = (offer['gender'] ?? '').toString();
+    final totalPrice = itemSummary['totalPrice'];
+    final totalDuration = itemSummary['totalDuration'] ?? offer['duration'];
+    final itemCount = itemSummary['itemCount'];
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+          backgroundColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _offerMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+          child: Container(
+            decoration: BoxDecoration(
+              color: _offerSurface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _offerBorder),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 460,
+                maxHeight: MediaQuery.of(context).size.height * .82,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 12, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: const BoxDecoration(
+                            color: _offerSoftGold,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.inventory_2_outlined,
+                            color: _offerGold,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            translateText('Package Review'),
+                            style: const TextStyle(
+                              color: _offerInk,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: _offerMuted),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _reviewSection(
+                            'Package Information',
+                            Icons.info_outline_rounded,
+                            [
+                              _reviewRow('Title', offer['name']),
+                              _reviewRow('Gender', gender),
+                              _reviewRow('Pricing Option', pricingMode),
+                              if (pricingMode.toUpperCase() == 'DISCOUNT')
+                                _reviewRow('Discount Type', discountType),
+                              _reviewRow('Discount Amount',
+                                  _moneyLabel(offer['discount'])),
+                              _reviewRow(
+                                  'Discount Percentage', offer['discountPct']),
+                              _reviewRow('Max Discount',
+                                  _moneyLabel(offer['maxDiscount'])),
+                              _reviewRow('Duration',
+                                  '$durationValue $durationUnit'.trim()),
+                              _reviewRow('Terms', offer['terms']),
+                            ],
+                          ),
+                          _reviewSection(
+                            'Price Summary',
+                            Icons.payments_outlined,
+                            [
+                              _reviewRow(
+                                  'Actual Price',
+                                  totalPrice is num
+                                      ? widget.rs(totalPrice)
+                                      : totalPrice),
+                              _reviewRow(
+                                  'Final Price', _moneyLabel(offer['price'])),
+                              _reviewRow('Service Count', itemCount),
+                              _reviewRow('Total Duration', totalDuration),
+                            ],
+                          ),
+                          _reviewSection(
+                            'Validity',
+                            Icons.event_outlined,
+                            [
+                              _reviewRow('Start Date', offer['validFrom']),
+                              _reviewRow('End Date', offer['validTo']),
+                            ],
+                          ),
+                          _reviewSection(
+                            'Included Services',
+                            Icons.spa_outlined,
+                            items.isEmpty
+                                ? <Widget?>[]
+                                : items.map(_reviewServiceRow).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
-      }).toList(),
+      },
     );
+  }
+
+  Widget _reviewSection(String title, IconData icon, List<Widget?> children) {
+    final visibleChildren = children.whereType<Widget>().toList();
+    if (visibleChildren.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _offerBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 17, color: _offerGold),
+              const SizedBox(width: 8),
+              Text(
+                translateText(title),
+                style: const TextStyle(
+                  color: _offerInk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...visibleChildren,
+        ],
+      ),
+    );
+  }
+
+  Widget? _reviewServiceRow(dynamic item) {
+    final m = item is Map ? Map<String, dynamic>.from(item) : {};
+    final details = <String>[
+      'Qty: ${m['qty'] ?? 1}',
+      if (m['price'] != null) 'Price: ${_moneyLabel(m['price'])}',
+      if (m['duration'] != null) 'Duration: ${m['duration']}',
+    ].join('  ');
+    final name = (m['name'] ?? '').toString().trim();
+    if (name.isEmpty && details.trim().isEmpty) return null;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _offerFieldFill,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _offerBorder),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.spa_outlined, color: _offerGold, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              name.isEmpty ? translateText('Service') : name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _offerInk,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              details,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: _offerMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _moneyLabel(dynamic value) {
+    if (value == null) return '';
+    if (value is num) return widget.rs(value);
+
+    final parsed = num.tryParse(value.toString());
+    return parsed == null ? value.toString() : widget.rs(parsed);
+  }
+
+  Widget? _reviewRow(String label, dynamic value) {
+    final display = (value ?? '').toString().trim();
+    if (_isBlankReviewValue(display)) return null;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              translateText(label),
+              style: const TextStyle(
+                color: _offerMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              display,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: _offerInk,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isBlankReviewValue(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return true;
+    final compact = normalized.replaceAll(',', '').replaceAll('₹', '').trim();
+    final parsed = num.tryParse(compact);
+    return parsed != null && parsed == 0;
   }
 
   Widget _detailRow({

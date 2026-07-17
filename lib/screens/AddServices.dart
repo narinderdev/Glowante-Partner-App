@@ -1118,9 +1118,15 @@ class _AddServicesState extends State<AddServices> {
                                         setState(() {
                                           if (duration != null &&
                                               duration > 0) {
-                                            _passiveWaitEnabled = true;
-                                            _setDefaultPassiveWaitForDuration(
-                                                duration);
+                                            if (_passiveWaitEnabled) {
+                                              _normalizePassiveWaitForDuration(
+                                                duration,
+                                              );
+                                            } else {
+                                              _initialBusyMinutes = duration;
+                                              _passiveWaitMinutes = 0;
+                                              _finalBusyMinutes = 0;
+                                            }
                                           } else {
                                             _passiveWaitEnabled = false;
                                             _initialBusyMinutes = 0;
@@ -1353,38 +1359,28 @@ class _AddServicesState extends State<AddServices> {
                                       if (!valid) return;
                                       await _saveService();
                                     },
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          translateText(_isEditMode
-                                              ? 'Update Service'
-                                              : 'Add Service'),
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        const Icon(
-                                          Icons.add_task_outlined,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                      ],
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    translateText(_isEditMode
+                                        ? 'Update Service'
+                                        : 'Add Service'),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
                                     ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Icon(
+                                    Icons.add_task_outlined,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
