@@ -24,6 +24,8 @@ class SelectServicesAssignUser extends StatefulWidget {
   final Map<String, dynamic> member; // ✅ add
   final List<Map<String, dynamic>> salons;
   final Map<int, bool>? initialSelected;
+  final List<Map<String, dynamic>> initialSchedules;
+  final List<String> initialMarkedOffDays;
 
   const SelectServicesAssignUser({
     super.key,
@@ -34,6 +36,8 @@ class SelectServicesAssignUser extends StatefulWidget {
     required this.member, // ✅ add
     required this.salons,
     this.initialSelected,
+    this.initialSchedules = const [],
+    this.initialMarkedOffDays = const [],
   });
 
   @override
@@ -44,6 +48,9 @@ class SelectServicesAssignUser extends StatefulWidget {
 class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
   List categories = [];
   final Map<int, bool> selected = {};
+  late List<Map<String, dynamic>> _rememberedSchedules;
+  late List<String> _rememberedMarkedOffDays;
+  String? _rememberedJoiningDate;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   String _searchQuery = '';
@@ -57,6 +64,14 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
     if (widget.initialSelected != null) {
       selected.addAll(widget.initialSelected!);
     }
+    _rememberedSchedules = widget.initialSchedules
+        .map((slot) => Map<String, dynamic>.from(slot))
+        .toList();
+    _rememberedMarkedOffDays = List<String>.from(widget.initialMarkedOffDays);
+    _rememberedJoiningDate =
+        widget.joinedAt.trim().isEmpty || widget.joinedAt == 'N/A'
+            ? null
+            : widget.joinedAt;
     _fetchServices();
   }
 
@@ -91,6 +106,16 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
 
   List<int> get selectedServiceIds =>
       selected.entries.where((e) => e.value).map((e) => e.key).toList();
+
+  Map<String, dynamic> _currentStateResult({required bool completed}) {
+    return {
+      'completed': completed,
+      'selectedServiceIds': selectedServiceIds,
+      'schedules': _rememberedSchedules,
+      'markedOffDays': _rememberedMarkedOffDays,
+      if (_rememberedJoiningDate != null) 'joiningDate': _rememberedJoiningDate,
+    };
+  }
 
   bool get allSelected {
     final allIds = _allServiceIds();
@@ -417,10 +442,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(
             context,
-            {
-              'completed': false,
-              'selectedServiceIds': selectedServiceIds,
-            },
+            _currentStateResult(completed: false),
           ),
         ),
       ),
@@ -564,10 +586,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(
                     context,
-                    {
-                      'completed': false,
-                      'selectedServiceIds': selectedServiceIds,
-                    },
+                    _currentStateResult(completed: false),
                   ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -611,7 +630,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                     final navigator = Navigator.of(context);
 
                     // 👉 Navigate to Step 3
-                    final assigned = await navigator.push<bool>(
+                    final result = await navigator.push<dynamic>(
                       MaterialPageRoute(
                         builder: (_) => AssignUserSlot(
                           salonId: widget.salonId,
@@ -620,12 +639,38 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                           selectedServiceIds: ids,
                           member: widget.member, // ✅ pass to Step 2
                           salons: widget.salons,
-                          joinedAt: widget.joinedAt, // 👈 don’t forget this
+                          joinedAt: _rememberedJoiningDate ?? widget.joinedAt,
+                          initialSchedules: _rememberedSchedules,
+                          initialMarkedOffDays: _rememberedMarkedOffDays,
                         ),
                       ),
                     );
                     if (!mounted) return;
-                    if (assigned == true) {
+                    if (result is Map) {
+                      final schedules = result['schedules'];
+                      if (schedules is List) {
+                        _rememberedSchedules = schedules
+                            .whereType<Map>()
+                            .map((slot) => Map<String, dynamic>.from(slot))
+                            .toList();
+                      }
+
+                      final markedOffDays = result['markedOffDays'];
+                      if (markedOffDays is List) {
+                        _rememberedMarkedOffDays = markedOffDays
+                            .map((day) => day.toString())
+                            .where((day) => day.trim().isNotEmpty)
+                            .toList();
+                      }
+
+                      final joiningDate = result['joiningDate']?.toString();
+                      if (joiningDate != null &&
+                          joiningDate.trim().isNotEmpty) {
+                        _rememberedJoiningDate = joiningDate;
+                      }
+                    }
+
+                    if (result == true) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (!mounted) return;
                         navigator.pop(true);

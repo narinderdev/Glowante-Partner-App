@@ -90,6 +90,10 @@ class AssignUserScreen extends StatefulWidget {
 class _AssignUserScreenState extends State<AssignUserScreen> {
   int? _selectedBranchId;
   final Map<int, Set<int>> _rememberedSelectedServiceIdsByBranchId = {};
+  final Map<int, List<Map<String, dynamic>>> _rememberedSchedulesByBranchId =
+      {};
+  final Map<int, List<String>> _rememberedMarkedOffDaysByBranchId = {};
+  final Map<int, String> _rememberedJoiningDateByBranchId = {};
 
   Set<int> _assignedBranchIds() {
     final assignedBranchIds = <int>{};
@@ -216,19 +220,25 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
     final navigator = Navigator.of(context);
     final rememberedSelectedServiceIds =
         _rememberedSelectedServiceIdsByBranchId[selectedBranchId] ?? <int>{};
+    final rememberedJoiningDate =
+        _rememberedJoiningDateByBranchId[selectedBranchId];
     final result = await navigator.push<dynamic>(
       MaterialPageRoute(
         builder: (_) => SelectServicesAssignUser(
           salonId: branch.salonId,
           branchId: branch.id,
           userId: widget.member['id'],
-          joinedAt: joinedAt,
+          joinedAt: rememberedJoiningDate ?? joinedAt,
           member: widget.member,
           salons: widget.salons,
           initialSelected: {
             for (final serviceId in rememberedSelectedServiceIds)
               serviceId: true,
           },
+          initialSchedules:
+              _rememberedSchedulesByBranchId[selectedBranchId] ?? const [],
+          initialMarkedOffDays:
+              _rememberedMarkedOffDaysByBranchId[selectedBranchId] ?? const [],
         ),
       ),
     );
@@ -239,6 +249,27 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
       if (rawSelected is List) {
         _rememberedSelectedServiceIdsByBranchId[selectedBranchId] =
             rawSelected.whereType<int>().toSet();
+      }
+
+      final rawSchedules = result['schedules'];
+      if (rawSchedules is List) {
+        _rememberedSchedulesByBranchId[selectedBranchId] = rawSchedules
+            .whereType<Map>()
+            .map((slot) => Map<String, dynamic>.from(slot))
+            .toList();
+      }
+
+      final rawMarkedOffDays = result['markedOffDays'];
+      if (rawMarkedOffDays is List) {
+        _rememberedMarkedOffDaysByBranchId[selectedBranchId] = rawMarkedOffDays
+            .map((day) => day.toString())
+            .where((day) => day.trim().isNotEmpty)
+            .toList();
+      }
+
+      final rawJoiningDate = result['joiningDate']?.toString();
+      if (rawJoiningDate != null && rawJoiningDate.trim().isNotEmpty) {
+        _rememberedJoiningDateByBranchId[selectedBranchId] = rawJoiningDate;
       }
 
       if (result['completed'] == true) {

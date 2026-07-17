@@ -44,10 +44,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   bool _copyMondayToAllChecked = false;
   bool _isLoadingOperatingSchedule = false;
   bool _isApplyingMondayCopy = false;
-  bool _hasPrefilledMemberSchedule = false;
   final Map<int, Set<int>> _rememberedSelectedServiceIdsByBranchId = {};
-
-  bool get _isEditFlow => widget.formData['isEdit'] == true;
 
   int? _toInt(dynamic value) {
     if (value is int) return value;
@@ -94,7 +91,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     mondaySchedule = {};
 
-    _hasPrefilledMemberSchedule = _prefillSchedules();
+    _prefillSchedules();
 
     _useSalonHours = false;
 
@@ -284,22 +281,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         return;
       }
 
-      // Add flow can default empty days to salon/branch hours.
-      // Edit flow keeps member's saved custom slots.
-      if (!_isEditFlow && !_hasPrefilledMemberSchedule) {
-        _fillEmptyDaysFromOperatingSlots(operatingSlots);
-        return;
-      }
-
-      // Edit custom schedule: normalize saved slots inside allowed branch hours.
-      // for (final day in _weekDays) {
-      //   final slots = weeklySchedule[day];
-
-      //   if (slots == null || slots.isEmpty) continue;
-
-      //   weeklySchedule[day] =
-      //       slots.map((slot) => _normalizeSlotWithinDay(day, slot)).toList();
-      // }
+      // A day should never be open with no visible timing. If the member
+      // has no custom slot for an open day, show the salon/branch timing.
+      _fillEmptyDaysFromOperatingSlots(operatingSlots);
       _sortWeeklyScheduleInPlace();
     }
 
@@ -1986,11 +1970,12 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
         FocusManager.instance.primaryFocus?.unfocus();
         Navigator.pop(context, _currentStateResult(completed: false));
-        return false;
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF7F4F1),

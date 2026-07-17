@@ -67,6 +67,22 @@ class _TeamOnlineAvailabilityScreenState
   bool _isSubmitting = false;
   DateTime? _joiningDate;
 
+  String? get _selectedJoiningDate {
+    final date = _joiningDate;
+    if (date == null) return null;
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  dynamic _previousResult() {
+    if (widget.mode != TeamAvailabilityMode.assignUser) return false;
+    return {
+      'completed': false,
+      'joiningDate': _selectedJoiningDate,
+      'selectedServiceIds': widget.assignBranchServiceIds ?? const <int>[],
+      'schedules': widget.assignSchedules ?? const <Map<String, dynamic>>[],
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -148,226 +164,239 @@ class _TeamOnlineAvailabilityScreenState
   Widget build(BuildContext context) {
     final isAssign = widget.mode == TeamAvailabilityMode.assignUser;
     final isEdit = widget.mode == TeamAvailabilityMode.editMember;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: buildProfileSubpageAppBar(
-        title: translateText(
-          isAssign ? 'Assign User' : 'Online Availability',
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _previousResult());
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: buildProfileSubpageAppBar(
+          title: translateText(
+            isAssign ? 'Assign User' : 'Online Availability',
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => Navigator.pop(context, _previousResult()),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              MultiStepFlowHeader(
-                currentStep: 4,
-                useIcons: isAssign,
-                steps: isAssign
-                    ? const [
-                        FlowStepItem(
-                          stepNumber: 1,
-                          label: 'Select Branches',
-                          icon: Icons.place_outlined,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                MultiStepFlowHeader(
+                  currentStep: 4,
+                  useIcons: isAssign,
+                  steps: isAssign
+                      ? const [
+                          FlowStepItem(
+                            stepNumber: 1,
+                            label: 'Select Branches',
+                            icon: Icons.place_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 2,
+                            label: 'Choose Services',
+                            icon: Icons.handyman_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 3,
+                            label: 'Schedule',
+                            icon: Icons.calendar_today_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 4,
+                            label: 'Complete',
+                            icon: Icons.check_circle_outline,
+                          ),
+                        ]
+                      : const [
+                          FlowStepItem(
+                            stepNumber: 1,
+                            label: 'Personal Details',
+                          ),
+                          FlowStepItem(
+                            stepNumber: 2,
+                            label: 'Schedule',
+                          ),
+                          FlowStepItem(
+                            stepNumber: 3,
+                            label: 'Services',
+                          ),
+                          FlowStepItem(
+                            stepNumber: 4,
+                            label: 'Online Availability',
+                          ),
+                        ],
+                ),
+                const SizedBox(height: 28),
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFF0FDF4), Color(0xFFF8FAFC)],
                         ),
-                        FlowStepItem(
-                          stepNumber: 2,
-                          label: 'Choose Services',
-                          icon: Icons.handyman_outlined,
-                        ),
-                        FlowStepItem(
-                          stepNumber: 3,
-                          label: 'Schedule',
-                          icon: Icons.calendar_today_outlined,
-                        ),
-                        FlowStepItem(
-                          stepNumber: 4,
-                          label: 'Complete',
-                          icon: Icons.check_circle_outline,
-                        ),
-                      ]
-                    : const [
-                        FlowStepItem(
-                          stepNumber: 1,
-                          label: 'Personal Details',
-                        ),
-                        FlowStepItem(
-                          stepNumber: 2,
-                          label: 'Schedule',
-                        ),
-                        FlowStepItem(
-                          stepNumber: 3,
-                          label: 'Services',
-                        ),
-                        FlowStepItem(
-                          stepNumber: 4,
-                          label: 'Online Availability',
-                        ),
-                      ],
-              ),
-              const SizedBox(height: 28),
-              Expanded(
-                child: Center(
-                  child: Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF86EFAC)),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFF0FDF4), Color(0xFFF8FAFC)],
                       ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.check_circle_outline,
-                          size: 56,
-                          color: Color(0xFF4CAF50),
-                        ),
-                        const SizedBox(height: 24),
-                        if (isAssign) ...[
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              '${translateText('Joining Date')} *',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle_outline,
+                            size: 56,
+                            color: Color(0xFF4CAF50),
+                          ),
+                          const SizedBox(height: 24),
+                          if (isAssign) ...[
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '${translateText('Joining Date')} *',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF374151),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: _pickJoiningDate,
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border:
-                                    Border.all(color: const Color(0xFFD1D5DB)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _joiningDate == null
-                                          ? 'dd/mm/yyyy'
-                                          : '${_joiningDate!.day.toString().padLeft(2, '0')}/${_joiningDate!.month.toString().padLeft(2, '0')}/${_joiningDate!.year}',
-                                      style: TextStyle(
-                                        color: _joiningDate == null
-                                            ? const Color(0xFF9CA3AF)
-                                            : const Color(0xFF111827),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: _pickJoiningDate,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: const Color(0xFFD1D5DB)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _joiningDate == null
+                                            ? 'dd/mm/yyyy'
+                                            : '${_joiningDate!.day.toString().padLeft(2, '0')}/${_joiningDate!.month.toString().padLeft(2, '0')}/${_joiningDate!.year}',
+                                        style: TextStyle(
+                                          color: _joiningDate == null
+                                              ? const Color(0xFF9CA3AF)
+                                              : const Color(0xFF111827),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const Icon(Icons.calendar_today_outlined,
-                                      size: 18),
-                                ],
+                                    const Icon(Icons.calendar_today_outlined,
+                                        size: 18),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 22),
-                        ],
-                        Text(
-                          translateText(
-                            'Should this team member be available for online booking?',
-                          ),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _ChoiceToggle(
-                              label: 'Yes',
-                              selected: _allowOnlineBooking,
-                              onTap: () {
-                                setState(() => _allowOnlineBooking = true);
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            _ChoiceToggle(
-                              label: 'No',
-                              selected: !_allowOnlineBooking,
-                              onTap: () {
-                                setState(() => _allowOnlineBooking = false);
-                              },
-                            ),
+                            const SizedBox(height: 22),
                           ],
-                        ),
-                      ],
+                          Text(
+                            translateText(
+                              'Should this team member be available for online booking?',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _ChoiceToggle(
+                                label: 'Yes',
+                                selected: _allowOnlineBooking,
+                                onTap: () {
+                                  setState(() => _allowOnlineBooking = true);
+                                },
+                              ),
+                              const SizedBox(width: 12),
+                              _ChoiceToggle(
+                                label: 'No',
+                                selected: !_allowOnlineBooking,
+                                onTap: () {
+                                  setState(() => _allowOnlineBooking = false);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => Navigator.pop(context, false),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        backgroundColor: const Color(0xFFE5E7EB),
-                        foregroundColor: const Color(0xFF374151),
-                        side: BorderSide.none,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.pop(context, _previousResult()),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          backgroundColor: const Color(0xFFE5E7EB),
+                          foregroundColor: const Color(0xFF374151),
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
+                        child: Text(translateText('Previous')),
                       ),
-                      child: Text(translateText('Previous')),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        backgroundColor: AppColors.starColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isSubmitting ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          backgroundColor: AppColors.starColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          elevation: 2,
                         ),
-                        elevation: 2,
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                translateText(
+                                  isAssign
+                                      ? 'Submit'
+                                      : (isEdit ? 'Save' : 'Add'),
+                                ),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
                       ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                          : Text(
-                              translateText(
-                                isAssign ? 'Submit' : (isEdit ? 'Save' : 'Add'),
-                              ),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                              ),
-                            ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
