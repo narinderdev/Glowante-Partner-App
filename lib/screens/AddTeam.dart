@@ -1475,25 +1475,33 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   }
 
   Future<bool> _validateUniqueTeamContact() async {
-    final phone = _digitsOnly(_phoneCtrl.text);
+    final phone = _normalizePhoneForContact(_phoneCtrl.text);
     final email = _emailCtrl.text.trim().toLowerCase();
-    if (phone.isEmpty && email.isEmpty) return true;
+
+    String? phoneToValidate = phone.isEmpty ? null : phone;
+    String? emailToValidate = email.isEmpty ? null : email;
 
     if (widget.isEdit) {
-      final initialPhone = _digitsOnly(_initialPhoneNumber());
-      final initialEmail = _initialEmail().trim().toLowerCase();
-      if (phone == initialPhone && email == initialEmail) {
-        return true;
-      }
+      final originalPhone = _normalizePhoneForContact(_initialPhoneNumber());
+      final originalEmail = _initialEmail().trim().toLowerCase();
+      final phoneChanged = phone != originalPhone;
+      final emailChanged = email != originalEmail;
+
+      if (!phoneChanged && !emailChanged) return true;
+
+      if (!phoneChanged) phoneToValidate = null;
+      if (!emailChanged) emailToValidate = null;
     }
+
+    if (phoneToValidate == null && emailToValidate == null) return true;
 
     setState(() => _isSubmitting = true);
 
     try {
       final response = await ApiService().validateTeamMemberContact(
         widget.branchId,
-        email: email.isEmpty ? null : email,
-        phoneNumber: phone.isEmpty ? null : phone,
+        email: emailToValidate,
+        phoneNumber: phoneToValidate,
       );
 
       if (!mounted) return false;
@@ -1544,6 +1552,14 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   String _digitsOnly(String value) {
     return value.replaceAll(RegExp(r'\D'), '');
+  }
+
+  String _normalizePhoneForContact(String value) {
+    final digits = _digitsOnly(value);
+    if (digits.length > 10 && digits.startsWith('91')) {
+      return digits.substring(digits.length - 10);
+    }
+    return digits;
   }
 
   String _initialPhoneNumber() {

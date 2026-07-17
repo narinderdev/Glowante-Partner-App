@@ -1828,271 +1828,313 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
             },
           ),
         ),
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MultiStepFlowHeader(
-                  currentStep: 2,
-                  steps: const [
-                    FlowStepItem(
-                      stepNumber: 1,
-                      label: 'Personal Details',
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MultiStepFlowHeader(
+                      currentStep: 2,
+                      steps: const [
+                        FlowStepItem(
+                          stepNumber: 1,
+                          label: 'Personal Details',
+                        ),
+                        FlowStepItem(
+                          stepNumber: 2,
+                          label: 'Schedule',
+                        ),
+                        FlowStepItem(
+                          stepNumber: 3,
+                          label: 'Services',
+                        ),
+                        FlowStepItem(
+                          stepNumber: 4,
+                          label: 'Online Availability',
+                        ),
+                      ],
                     ),
-                    FlowStepItem(
-                      stepNumber: 2,
-                      label: 'Schedule',
+                    const SizedBox(height: 20),
+                    Text(
+                      translateText('Set Weekly Working Hours'),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    FlowStepItem(
-                      stepNumber: 3,
-                      label: 'Services',
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _useSalonHours,
+                      onChanged: _isLoadingOperatingSchedule
+                          ? null
+                          : (value) {
+                              final nextValue = value ?? false;
+
+                              if (nextValue == _useSalonHours) return;
+
+                              setState(() {
+                                if (nextValue) {
+                                  _manualWeeklyScheduleSnapshot =
+                                      _cloneWeeklySchedule(weeklySchedule);
+                                  _manualMemberOffDaysSnapshot =
+                                      Set<String>.from(_memberOffDays);
+                                  _manualMemberOffDaySnapshots =
+                                      _memberOffDaySnapshots.map(
+                                    (day, slots) => MapEntry(
+                                      day,
+                                      _cloneSlotList(slots),
+                                    ),
+                                  );
+
+                                  _clearWeeklySchedule();
+                                  _memberOffDays.clear();
+                                  _memberOffDaySnapshots.clear();
+
+                                  // Fill schedule immediately from salon/branch hours.
+                                  _fillEmptyDaysFromOperatingSlots(
+                                    _operatingSlotsByDay,
+                                  );
+                                } else {
+                                  _restoreWeeklyScheduleSnapshot();
+                                }
+
+                                _useSalonHours = nextValue;
+                              });
+                            },
+                      title: Text(
+                        translateText('Use salon open & close time'),
+                      ),
+                      subtitle: Text(
+                        translateText(
+                          'Apply the salon\'s operating hours instead of defining custom time slots.',
+                        ),
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
                     ),
-                    FlowStepItem(
-                      stepNumber: 4,
-                      label: 'Online Availability',
+                    // if (_useSalonHours)
+                    //   Container(
+                    //     width: double.infinity,
+                    //     margin: const EdgeInsets.only(top: 16),
+                    //     padding: const EdgeInsets.all(12),
+                    //     decoration: BoxDecoration(
+                    //       color: Colors.grey.shade100,
+                    //       borderRadius: BorderRadius.circular(8),
+                    //     ),
+                    //     child: Text(
+                    //       translateText(
+                    //         'Salon operating hours will be used for this team member. Uncheck to set custom slots.',
+                    //       ),
+                    //       style: const TextStyle(fontSize: 14),
+                    //     ),
+                    //   ),
+
+                    // // Important:
+                    // // Always show weekly cards.
+                    // // If _useSalonHours is true, fields are disabled but visible.
+                    // const SizedBox(height: 16),
+                    // ..._weekDays.map(_weeklyHoursCard),
+                    if (_useSalonHours)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0EDE9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFD8C7B3)),
+                        ),
+                        child: Text(
+                          translateText(
+                            'Salon operating hours will be used for this team member.',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF5E564F),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+
+                    _orDivider(),
+
+                    Text(
+                      translateText('Or set custom working hours below'),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _useSalonHours
+                            ? const Color(0xFF9A928B)
+                            : const Color(0xFF1F1B18),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    ..._weekDays.map(_weeklyHoursCard),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () {
+                                      Navigator.pop(
+                                        context,
+                                        _currentStateResult(completed: false),
+                                      );
+                                    },
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF2D2926),
+                                side: const BorderSide(
+                                  color: Color(0xFFE2D3BF),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.arrow_back_rounded,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    translateText('Previous').toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () async {
+                                      await _goToSelectServices();
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                                backgroundColor: AppColors.starColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: _isSubmitting
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            translateText('Save & Continue')
+                                                .toUpperCase(),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 11,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        const Icon(
+                                          Icons.arrow_forward_rounded,
+                                          size: 15,
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  translateText('Set Weekly Working Hours'),
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_isLoadingOperatingSchedule) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.starColor,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        translateText('Checking branch closed days...'),
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+              ),
+            ),
+            if (_isLoadingOperatingSchedule) _operatingScheduleLoader(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _operatingScheduleLoader() {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.28),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
                   ),
                 ],
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _useSalonHours,
-                  onChanged: (value) {
-                    final nextValue = value ?? false;
-
-                    if (nextValue == _useSalonHours) return;
-
-                    setState(() {
-                      if (nextValue) {
-                        _manualWeeklyScheduleSnapshot =
-                            _cloneWeeklySchedule(weeklySchedule);
-                        _manualMemberOffDaysSnapshot =
-                            Set<String>.from(_memberOffDays);
-                        _manualMemberOffDaySnapshots =
-                            _memberOffDaySnapshots.map(
-                          (day, slots) => MapEntry(
-                            day,
-                            _cloneSlotList(slots),
-                          ),
-                        );
-
-                        _clearWeeklySchedule();
-                        _memberOffDays.clear();
-                        _memberOffDaySnapshots.clear();
-
-                        // Fill schedule immediately from salon/branch hours.
-                        _fillEmptyDaysFromOperatingSlots(
-                          _operatingSlotsByDay,
-                        );
-                      } else {
-                        _restoreWeeklyScheduleSnapshot();
-                      }
-
-                      _useSalonHours = nextValue;
-                    });
-                  },
-                  title: Text(
-                    translateText('Use salon open & close time'),
-                  ),
-                  subtitle: Text(
-                    translateText(
-                      'Apply the salon\'s operating hours instead of defining custom time slots.',
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: AppColors.starColor,
                     ),
                   ),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
-                // if (_useSalonHours)
-                //   Container(
-                //     width: double.infinity,
-                //     margin: const EdgeInsets.only(top: 16),
-                //     padding: const EdgeInsets.all(12),
-                //     decoration: BoxDecoration(
-                //       color: Colors.grey.shade100,
-                //       borderRadius: BorderRadius.circular(8),
-                //     ),
-                //     child: Text(
-                //       translateText(
-                //         'Salon operating hours will be used for this team member. Uncheck to set custom slots.',
-                //       ),
-                //       style: const TextStyle(fontSize: 14),
-                //     ),
-                //   ),
-
-                // // Important:
-                // // Always show weekly cards.
-                // // If _useSalonHours is true, fields are disabled but visible.
-                // const SizedBox(height: 16),
-                // ..._weekDays.map(_weeklyHoursCard),
-                if (_useSalonHours)
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(top: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0EDE9),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFD8C7B3)),
-                    ),
-                    child: Text(
-                      translateText(
-                        'Salon operating hours will be used for this team member.',
-                      ),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF5E564F),
-                        fontWeight: FontWeight.w600,
-                      ),
+                  const SizedBox(height: 14),
+                  Text(
+                    translateText('Please wait...'),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2B2520),
                     ),
                   ),
-
-                _orDivider(),
-
-                Text(
-                  translateText('Or set custom working hours below'),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _useSalonHours
-                        ? const Color(0xFF9A928B)
-                        : const Color(0xFF1F1B18),
+                  const SizedBox(height: 4),
+                  Text(
+                    translateText('Loading...'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
                   ),
-                ),
-
-                const SizedBox(height: 12),
-
-                ..._weekDays.map(_weeklyHoursCard),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _isSubmitting
-                              ? null
-                              : () {
-                                  Navigator.pop(
-                                    context,
-                                    _currentStateResult(completed: false),
-                                  );
-                                },
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 50),
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF2D2926),
-                            side: const BorderSide(
-                              color: Color(0xFFE2D3BF),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.arrow_back_rounded,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                translateText('Previous').toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isSubmitting
-                              ? null
-                              : () async {
-                                  await _goToSelectServices();
-                                },
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 50),
-                            backgroundColor: AppColors.starColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: _isSubmitting
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        translateText('Save & Continue')
-                                            .toUpperCase(),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 11,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    const Icon(
-                                      Icons.arrow_forward_rounded,
-                                      size: 15,
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
