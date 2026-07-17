@@ -1333,31 +1333,39 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
+              Stack(
+                alignment: Alignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      translateText('Required Fields'),
-                      style: const TextStyle(
-                        color: Color(0xFF2D2926),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 42),
+                      child: Text(
+                        translateText('Required Fields'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF2D2926),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Color(0xFF5E564F),
+                        size: 24,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Color(0xFF5E564F),
-                      size: 24,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
@@ -1376,10 +1384,14 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.circle,
-                            size: 7,
-                            color: AppColors.red,
+                          Text(
+                            '•',
+                            style: TextStyle(
+                              color: AppColors.red,
+                              fontSize: 16,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
