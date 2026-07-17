@@ -1683,12 +1683,16 @@ class ProfileCompensationRepository {
     Map<String, dynamic> map, {
     required String categoryName,
   }) {
+    final resolvedCategoryName = _serviceCategoryNameFromMap(
+      map,
+      fallback: categoryName,
+    );
     return BranchServiceSummary(
       id: _asInt(map['id']) ?? 0,
       name: _cleanText(map['displayName']).isNotEmpty
           ? _cleanText(map['displayName'])
           : _cleanText(map['name']),
-      categoryName: categoryName,
+      categoryName: resolvedCategoryName,
       description: _cleanText(map['description']),
       durationMin: _asInt(map['durationMin']) ?? 0,
       priceMinor: _asInt(map['priceMinor']) ?? 0,
@@ -1702,6 +1706,31 @@ class ProfileCompensationRepository {
       commissionFixedAmountMinor: _asInt(map['commissionFixedAmountMinor']),
       commissionMaxAmountMinor: _asInt(map['commissionMaxAmountMinor']),
     );
+  }
+
+  String _serviceCategoryNameFromMap(
+    Map<String, dynamic> map, {
+    required String fallback,
+  }) {
+    for (final key in const <String>[
+      'branchCategory',
+      'branchSubCategory',
+      'masterSubCategory',
+      'masterCategory',
+    ]) {
+      final value = map[key];
+      if (value is! Map) {
+        continue;
+      }
+      final nested = Map<String, dynamic>.from(value);
+      final displayName = _cleanText(nested['displayName']).isNotEmpty
+          ? _cleanText(nested['displayName'])
+          : _cleanText(nested['name']);
+      if (displayName.isNotEmpty) {
+        return displayName;
+      }
+    }
+    return fallback;
   }
 
   String _composeAddress(Map<String, dynamic>? address) {

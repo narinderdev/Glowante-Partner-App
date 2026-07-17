@@ -1,4 +1,7 @@
 part of 'profile_compensation_screen.dart';
+
+const int _commissionServicesPageSize = 8;
+
 extension _OwnerCommissionUi on _ProfileCompensationScreenState {
   Widget _buildCommissionScreen() {
     if (_services.isEmpty) {
@@ -11,7 +14,25 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
     }
 
     final selectedService = _selectedService;
-    final selectedRule = _selectedServiceRule;
+    final categoryFilterOptions = _commissionCategoryFilterOptions;
+    final selectedCategoryFilter =
+        categoryFilterOptions.contains(_commissionCategoryFilter)
+            ? _commissionCategoryFilter
+            : _commissionAllCategoriesValue;
+    final filteredServices = _filteredServices;
+    final servicePageCount = filteredServices.isEmpty
+        ? 1
+        : ((filteredServices.length - 1) / _commissionServicesPageSize)
+                .floor() +
+            1;
+    final servicePage = filteredServices.isEmpty
+        ? 0
+        : math.min(_commissionServicesPage, servicePageCount - 1);
+    final serviceStart = servicePage * _commissionServicesPageSize;
+    final pageServices = filteredServices
+        .skip(serviceStart)
+        .take(_commissionServicesPageSize)
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
@@ -30,9 +51,7 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
                   label: context.t('Services'),
                   icon: Icons.content_cut_rounded,
                   isSelected: _commissionTab == _CommissionTab.services,
-                  onTap: () {
-                    _setCommissionTabValue(_CommissionTab.services);
-                  },
+                  onTap: () => _setCommissionTabValue(_CommissionTab.services),
                 ),
               ),
               const SizedBox(width: 4),
@@ -41,266 +60,189 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
                   label: context.t('Staff Overrides'),
                   icon: Icons.groups_2_rounded,
                   isSelected: _commissionTab == _CommissionTab.overrides,
-                  onTap: () {
-                    _setCommissionTabValue(_CommissionTab.overrides);
-                  },
+                  onTap: () => _setCommissionTabValue(_CommissionTab.overrides),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _serviceSearchController,
-          // maxLength: 60,
-          style: const TextStyle(fontSize: 12),
-          decoration: InputDecoration(
-            hintText: context.t('Search services'),
-            hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF8A8178)),
-            prefixIcon: const Icon(Icons.search, size: 17),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(9),
-              borderSide: const BorderSide(color: Color(0xFFE8DED6)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(9),
-              borderSide: const BorderSide(color: Color(0xFFE8DED6)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(9),
-              borderSide:
-                  const BorderSide(color: AppColors.starColor, width: 1.2),
-            ),
+        const SizedBox(height: 16),
+        Text(
+          context.t('Staff override rules'),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF1C1917),
           ),
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: _filteredServices.isEmpty ? 86 : 114,
-          child: _filteredServices.isEmpty
-              ? Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        const SizedBox(height: 4),
+        Text(
+          context.t(
+            'Custom service commission rates assigned to individual staff.',
+          ),
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.35,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _serviceSearchController,
+                // maxLength: 60,
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: _commissionTab == _CommissionTab.services
+                      ? context.t('Search services')
+                      : context.t('Search staff or service'),
+                  hintStyle:
+                      const TextStyle(fontSize: 12, color: Color(0xFF8A8178)),
+                  prefixIcon: const Icon(Icons.search, size: 17),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(9),
+                    borderSide: const BorderSide(color: Color(0xFFE8DED6)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(9),
+                    borderSide: const BorderSide(color: Color(0xFFE8DED6)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(9),
+                    borderSide: const BorderSide(
+                      color: AppColors.starColor,
+                      width: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (_commissionTab == _CommissionTab.services) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 142,
+                child: Container(
+                  height: 46,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(9),
                     border: Border.all(color: const Color(0xFFE8DED6)),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        context.t('No matching services'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1C1917),
-                        ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedCategoryFilter,
+                      isExpanded: true,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: Color(0xFF8A8178),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        context.t(
-                            'Try a different service name or clear the search.'),
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          height: 1.2,
-                          color: Color(0xFF6B7280),
-                        ),
+                      borderRadius: BorderRadius.circular(10),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2A2622),
                       ),
-                    ],
-                  ),
-                )
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _filteredServices.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final service = _filteredServices[index];
-                    final isSelected = selectedService?.id == service.id;
-                    final rule = _repository.ruleForService(
-                      service: service,
-                      storedRules: _serviceRules,
-                    );
-
-                    return _ServiceSelectorCard(
-                      service: service,
-                      rule: rule,
-                      isSelected: isSelected,
-                      onTap: () {
-                        _selectCommissionService(service.id);
+                      items: categoryFilterOptions
+                          .map(
+                            (value) => DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(
+                                context.t(
+                                  _commissionCategoryFilterLabel(value),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        _setCommissionCategoryFilter(value);
                       },
-                    );
-                  },
-                ),
-        ),
-        const SizedBox(height: 18),
-        if (selectedService == null || selectedRule == null)
-          _EmptyStateCard(
-            title: context.t('Select a service'),
-            subtitle: context.t(
-              'Choose a service to edit its default commission rule and staff overrides.',
-            ),
-          )
-        else if (_commissionTab == _CommissionTab.services)
-          _ServiceRuleEditorCard(
-            service: selectedService,
-            initialRule: selectedRule,
-            isSaving: _isActionInProgress,
-            onSave: (rule) => _saveCommissionRule(
-              service: selectedService,
-              rule: rule,
-            ),
-          )
-        else
-          Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                selectedService.name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1C1917),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                selectedService.categoryName.isEmpty
-                                    ? context.t('Staff override rules')
-                                    : selectedService.categoryName,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF6B7280),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        _ActionChipButton(
-                          label: _isActionInProgress
-                              ? 'Saving...'
-                              : context.t('Add Override'),
-                          onTap: _isActionInProgress
-                              ? null
-                              : () {
-                                  _openAddOverrideDialog();
-                                },
-                          filled: true,
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 14),
-                    if (_selectedServiceOverrides.isEmpty)
-                      _EmptyStateCard(
-                        title: context.t('No staff overrides found'),
-                        subtitle: context.t(
-                          'Add override rules for one or more staff members on this service.',
-                        ),
-                      )
-                    else
-                      ..._selectedServiceOverrides.map(
-                        (override) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8F5F2),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        override.staffName,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF1C1917),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        override.ruleType ==
-                                                CommissionRuleTypes.percentage
-                                            ? '${_formatOverrideNumber(override.value)}%'
-                                            : _formatCurrency(
-                                                override.value.round()),
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${context.t('Effective from')} ${_formatDate(override.effectiveFrom)}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF9CA3AF),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: _isActionInProgress
-                                      ? null
-                                      : () {
-                                          _openEditOverrideDialog(override);
-                                        },
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    color: AppColors.starColor,
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: _isActionInProgress
-                                      ? null
-                                      : () {
-                                          _deleteOverride(override.id);
-                                        },
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    color: AppColors.red,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
             ],
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_commissionTab == _CommissionTab.services) ...[
+          filteredServices.isEmpty
+              ? SizedBox(
+                  height: 86,
+                  child: _NoCommissionMatchesCard(
+                    title: context.t('No matching services'),
+                    subtitle: context.t(
+                      'Try a different service name or clear the search.',
+                    ),
+                  ),
+                )
+              : _ServiceCommissionTable(
+                  services: pageServices,
+                  selectedServiceId: selectedService?.id,
+                  overrides: _staffOverrides,
+                  onSelect: _selectCommissionService,
+                ),
+          if (filteredServices.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _CommissionPaginationBar(
+              start: serviceStart + 1,
+              end: math.min(
+                serviceStart + pageServices.length,
+                filteredServices.length,
+              ),
+              total: filteredServices.length,
+              currentPage: servicePage + 1,
+              totalPages: servicePageCount,
+              onPrevious: servicePage <= 0
+                  ? null
+                  : () => _setCommissionServicesPage(servicePage - 1),
+              onNext: servicePage >= servicePageCount - 1
+                  ? null
+                  : () => _setCommissionServicesPage(servicePage + 1),
+            ),
+          ],
+          const SizedBox(height: 18),
+          if (selectedService == null)
+            _EmptyStateCard(
+              title: context.t('Select a service'),
+              subtitle: context.t(
+                'Choose a service to configure staff-specific commission overrides.',
+              ),
+            )
+          else
+            _SelectedServiceOverridesCard(
+              service: selectedService,
+              overrides: _selectedServiceOverrides,
+              isActionInProgress: _isActionInProgress,
+              onAdd: _openAddOverrideDialog,
+              onViewAll: () => _setCommissionTabValue(_CommissionTab.overrides),
+              onEdit: _openEditOverrideDialog,
+              onDelete: _deleteOverride,
+            ),
+        ] else ...[
+          const SizedBox(height: 8),
+          _AllStaffOverridesCard(
+            overrides: _filteredStaffOverrides,
+            services: _services,
+            isActionInProgress: _isActionInProgress,
+            onAdd: _openAddOverrideDialog,
+            onEdit: _openEditOverrideDialog,
+            onDelete: _deleteOverride,
           ),
+        ],
       ],
     );
   }
@@ -322,20 +264,20 @@ class _CommissionTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isSelected ? const Color(0xFF2A2622) : Colors.transparent,
+      color: isSelected ? AppColors.starColor : Colors.transparent,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
                 size: 14,
-                color: isSelected ? Colors.white : const Color(0xFF4B4038),
+                color: isSelected ? Colors.white : const Color(0xFF5F574F),
               ),
               const SizedBox(width: 6),
               Flexible(
@@ -346,7 +288,7 @@ class _CommissionTabButton extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: isSelected ? Colors.white : const Color(0xFF4B4038),
+                    color: isSelected ? Colors.white : const Color(0xFF5F574F),
                   ),
                 ),
               ),
@@ -358,91 +300,374 @@ class _CommissionTabButton extends StatelessWidget {
   }
 }
 
-class _ServiceSelectorCard extends StatelessWidget {
-  const _ServiceSelectorCard({
+class _NoCommissionMatchesCard extends StatelessWidget {
+  const _NoCommissionMatchesCard({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1C1917),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              height: 1.2,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceCommissionTable extends StatelessWidget {
+  const _ServiceCommissionTable({
+    required this.services,
+    required this.selectedServiceId,
+    required this.overrides,
+    required this.onSelect,
+  });
+
+  final List<BranchServiceSummary> services;
+  final int? selectedServiceId;
+  final List<StaffCommissionOverride> overrides;
+  final ValueChanged<int> onSelect;
+
+  int _overrideCount(int serviceId) {
+    return overrides
+        .where((override) => override.serviceId == serviceId)
+        .length;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: 720,
+            child: Column(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  color: const Color(0xFFF7F4F1),
+                  child: Row(
+                    children: [
+                      _CommissionTableHeaderCell(
+                        flex: 3,
+                        label: context.t('Service'),
+                      ),
+                      _CommissionTableHeaderCell(
+                        flex: 2,
+                        label: context.t('Category'),
+                      ),
+                      _CommissionTableHeaderCell(
+                        flex: 2,
+                        label: context.t('Default commission'),
+                      ),
+                      _CommissionTableHeaderCell(
+                        flex: 1,
+                        label: context.t('Overrides'),
+                      ),
+                      _CommissionTableHeaderCell(
+                        flex: 1,
+                        label: context.t('Status'),
+                      ),
+                    ],
+                  ),
+                ),
+                ...services.map((service) {
+                  final isSelected = service.id == selectedServiceId;
+                  return _ServiceCommissionTableRow(
+                    service: service,
+                    overrideCount: _overrideCount(service.id),
+                    isSelected: isSelected,
+                    onTap: () => onSelect(service.id),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommissionPaginationBar extends StatelessWidget {
+  const _CommissionPaginationBar({
+    required this.start,
+    required this.end,
+    required this.total,
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final int start;
+  final int end;
+  final int total;
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$start-$end ${context.t('of')} $total',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF8A8178),
+            ),
+          ),
+        ),
+        Text(
+          '$currentPage / $totalPages',
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF6B625A),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _CommissionPageButton(
+          label: context.t('Previous'),
+          onTap: onPrevious,
+        ),
+        const SizedBox(width: 6),
+        _CommissionPageButton(
+          label: context.t('Next'),
+          onTap: onNext,
+        ),
+      ],
+    );
+  }
+}
+
+class _CommissionPageButton extends StatelessWidget {
+  const _CommissionPageButton({
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return InkWell(
+      borderRadius: BorderRadius.circular(4),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: enabled ? Colors.white : const Color(0xFFF3F0ED),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: enabled ? const Color(0xFFD4B985) : const Color(0xFFE1D6CB),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: enabled ? AppColors.starColor : const Color(0xFFB8AEA5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommissionTableHeaderCell extends StatelessWidget {
+  const _CommissionTableHeaderCell({
+    required this.flex,
+    required this.label,
+  });
+
+  final int flex;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        label.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.6,
+          color: Color(0xFF7A7169),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceCommissionTableRow extends StatelessWidget {
+  const _ServiceCommissionTableRow({
     required this.service,
-    required this.rule,
+    required this.overrideCount,
     required this.isSelected,
     required this.onTap,
   });
 
   final BranchServiceSummary service;
-  final CommissionServiceRule rule;
+  final int overrideCount;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final valueLabel = rule.ruleType == CommissionRuleTypes.percentage
-        ? '${_formatOverrideNumber(rule.value)}%'
-        : _formatCurrency(rule.value.round());
-
     return Material(
-      color: Colors.transparent,
+      color: isSelected ? const Color(0xFFF3EEE8) : Colors.white,
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
         onTap: onTap,
-        child: Ink(
-          width: 126,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF2A2622) : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected
-                  ? const Color(0xFF2A2622)
-                  : const Color(0xFFE8DED6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: Color(0xFFE8DED6)),
             ),
-            boxShadow: isSelected
-                ? const [
-                    BoxShadow(
-                      color: Color(0x22000000),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ]
-                : null,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
+          child: Row(
             children: [
-              Text(
-                service.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.05,
-                  fontWeight: FontWeight.w900,
-                  color: isSelected ? Colors.white : const Color(0xFF1C1917),
+              Expanded(
+                flex: 3,
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 17,
+                      backgroundColor: const Color(0xFFFFEFF2),
+                      child: Text(
+                        _commissionInitials(service.name),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFE11D48),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            service.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1C1917),
+                            ),
+                          ),
+                          // const SizedBox(height: 3),
+                          // Text(
+                          //   service.description.isEmpty
+                          //       ? 'ID ${service.id}'
+                          //       : service.description,
+                          //   maxLines: 1,
+                          //   overflow: TextOverflow.ellipsis,
+                          //   style: const TextStyle(
+                          //     fontSize: 10,
+                          //     color: Color(0xFF8A8178),
+                          //   ),
+                          // ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 5),
               Expanded(
+                flex: 2,
                 child: Text(
                   service.categoryName.isEmpty
-                      ? context.t('Service commission')
+                      ? context.t('Uncategorized')
                       : service.categoryName,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 9,
-                    height: 1.15,
-                    color: isSelected
-                        ? const Color(0xFFD1D5DB)
-                        : const Color(0xFF5F574F),
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _CommissionValueBadge(
+                    label: _serviceDefaultCommissionLabel(service),
+                    muted: !service.commissionEnabled,
                   ),
                 ),
               ),
-              Text(
-                rule.active ? valueLabel : context.t('Inactive'),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: isSelected
-                      ? const Color(0xFFF2BE3F)
-                      : AppColors.starColor,
+              Expanded(
+                flex: 1,
+                child: Text(
+                  '$overrideCount',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.starColor,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _CommissionStatusPill(active: service.isActive),
                 ),
               ),
             ],
@@ -453,121 +678,470 @@ class _ServiceSelectorCard extends StatelessWidget {
   }
 }
 
-class _ServiceRuleEditorCard extends StatefulWidget {
-  const _ServiceRuleEditorCard({
+class _SelectedServiceOverridesCard extends StatelessWidget {
+  const _SelectedServiceOverridesCard({
     required this.service,
-    required this.initialRule,
-    required this.isSaving,
-    required this.onSave,
+    required this.overrides,
+    required this.isActionInProgress,
+    required this.onAdd,
+    required this.onViewAll,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final BranchServiceSummary service;
-  final CommissionServiceRule initialRule;
-  final bool isSaving;
-  final Future<void> Function(CommissionServiceRule rule) onSave;
+  final List<StaffCommissionOverride> overrides;
+  final bool isActionInProgress;
+  final VoidCallback onAdd;
+  final VoidCallback onViewAll;
+  final ValueChanged<StaffCommissionOverride> onEdit;
+  final ValueChanged<String> onDelete;
 
   @override
-  State<_ServiceRuleEditorCard> createState() => _ServiceRuleEditorCardState();
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SelectedCommissionServiceHeader(service: service),
+          const SizedBox(height: 12),
+          _DefaultCommissionSummaryCard(service: service),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE8DED6)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            context.t('Staff overrides'),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1C1917),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _CommissionCountPill(label: '${overrides.length}'),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: onViewAll,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.starColor,
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      child: Text(context.t('View all')),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (overrides.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFCFAF8),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE8DED6)),
+                    ),
+                    child: Text(
+                      context.t('No overrides set for this service.'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  )
+                else
+                  ...overrides.map(
+                    (override) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _StaffOverrideRowCard(
+                        staffOverride: override,
+                        service: service,
+                        isActionInProgress: isActionInProgress,
+                        showService: false,
+                        onEdit: () => onEdit(override),
+                        onDelete: () => onDelete(override.id),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isActionInProgress ? null : onAdd,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.starColor,
+                      side: const BorderSide(color: Color(0xFFD4B985)),
+                      backgroundColor: const Color(0xFFFFFBF3),
+                      minimumSize: const Size.fromHeight(42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: Text(
+                      isActionInProgress
+                          ? context.t('Saving...')
+                          : context.t('Add staff override'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  context.t(
+                    'Override rates take priority over the default rate during payroll calculation.',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    height: 1.3,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
-  late String _ruleType;
-  late TextEditingController _valueController;
-  late TextEditingController _notesController;
-  late DateTime _effectiveFrom;
-  late bool _active;
+class _SelectedCommissionServiceHeader extends StatelessWidget {
+  const _SelectedCommissionServiceHeader({required this.service});
+
+  final BranchServiceSummary service;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCFAF8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: const Color(0xFFFFEFF2),
+            child: Text(
+              _commissionInitials(service.name),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFFE11D48),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  service.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1C1917),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  service.categoryName.isEmpty
+                      ? context.t('Uncategorized')
+                      : service.categoryName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                ),
+              ],
+            ),
+          ),
+          _CommissionStatusPill(active: service.isActive),
+        ],
+      ),
+    );
+  }
+}
+
+class _DefaultCommissionSummaryCard extends StatefulWidget {
+  const _DefaultCommissionSummaryCard({required this.service});
+
+  final BranchServiceSummary service;
+
+  @override
+  State<_DefaultCommissionSummaryCard> createState() =>
+      _DefaultCommissionSummaryCardState();
+}
+
+class _DefaultCommissionSummaryCardState
+    extends State<_DefaultCommissionSummaryCard> {
+  late String _selectedRuleType;
 
   @override
   void initState() {
     super.initState();
-    _applyRule(widget.initialRule);
+    _selectedRuleType = _initialRuleType;
   }
 
   @override
-  void didUpdateWidget(covariant _ServiceRuleEditorCard oldWidget) {
+  void didUpdateWidget(covariant _DefaultCommissionSummaryCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.service.id != widget.service.id ||
-        oldWidget.initialRule != widget.initialRule) {
-      _applyRule(widget.initialRule);
+        oldWidget.service.commissionType != widget.service.commissionType) {
+      _selectedRuleType = _initialRuleType;
     }
   }
 
-  void _applyRule(CommissionServiceRule rule) {
-    if (_isControllerReady) {
-      _valueController.dispose();
-      _notesController.dispose();
-    }
-    _ruleType = rule.ruleType;
-    _valueController = TextEditingController(
-      text: rule.value == 0
-          ? ''
-          : rule.ruleType == CommissionRuleTypes.fixed
-              ? (minorAmountToRupees(rule.value) ?? 0).toStringAsFixed(0)
-              : _formatOverrideNumber(rule.value),
-    );
-    _notesController = TextEditingController(text: rule.notes);
-    _effectiveFrom = rule.effectiveFrom;
-    _active = rule.active;
+  String get _initialRuleType => _serviceDefaultIsPercentage(widget.service)
+      ? CommissionRuleTypes.percentage
+      : CommissionRuleTypes.fixed;
+
+  void _selectRuleType(String value) {
+    setState(() => _selectedRuleType = value);
   }
 
-  bool get _isControllerReady {
-    try {
-      _valueController;
-      _notesController;
-      return true;
-    } catch (_) {
-      return false;
+  String get _rateValue {
+    if (_selectedRuleType == CommissionRuleTypes.fixed) {
+      final fixedAmountMinor = widget.service.commissionFixedAmountMinor ??
+          widget.service.commissionMaxAmountMinor;
+      final rupees = minorAmountToRupees(fixedAmountMinor) ?? 0;
+      return _formatOverrideNumber(rupees);
     }
+    return _formatOverrideNumber(widget.service.commissionPercentage ?? 0);
   }
+
+  String get _rateSymbol =>
+      _selectedRuleType == CommissionRuleTypes.fixed ? '₹' : '%';
 
   @override
-  void dispose() {
-    _valueController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
+  Widget build(BuildContext context) {
+    final enabled = widget.service.commissionEnabled;
 
-  void _reset() {
-    setState(() {
-      _valueController.text = widget.initialRule.value == 0
-          ? ''
-          : widget.initialRule.ruleType == CommissionRuleTypes.fixed
-              ? (minorAmountToRupees(widget.initialRule.value) ?? 0)
-                  .toStringAsFixed(0)
-              : _formatOverrideNumber(widget.initialRule.value);
-      _notesController.text = widget.initialRule.notes;
-      _ruleType = widget.initialRule.ruleType;
-      _effectiveFrom = widget.initialRule.effectiveFrom;
-      _active = widget.initialRule.active;
-    });
-  }
-
-  Future<void> _save() async {
-    final parsed = double.tryParse(_valueController.text.trim());
-    final invalidValue = translateText('Enter a valid commission value');
-    final commissionRange =
-        translateText('Commission must be between 0 and 100');
-    if (parsed == null || parsed < 0) {
-      Fluttertoast.showToast(msg: invalidValue);
-      return;
-    }
-    if (_ruleType == CommissionRuleTypes.percentage && parsed > 100) {
-      Fluttertoast.showToast(msg: commissionRange);
-      return;
-    }
-
-    await widget.onSave(
-      CommissionServiceRule(
-        serviceId: widget.service.id,
-        ruleType: _ruleType,
-        value: _ruleType == CommissionRuleTypes.fixed
-            ? rupeesToMinorAmount(parsed).toDouble()
-            : parsed,
-        effectiveFrom: _effectiveFrom,
-        active: _active,
-        notes: _notesController.text.trim(),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.t('Default commission'),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1C1917),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.t('Applies to all staff unless overridden.'),
+            style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+          ),
+          const SizedBox(height: 12),
+          if (!enabled)
+            _CommissionValueBadge(
+                label: context.t('No commission'), muted: true)
+          else ...[
+            _CommissionDialogLabel(context.t('Type')),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                _ReadOnlyCommissionTypeChip(
+                  label: context.t('Percentage (%)'),
+                  selected: _selectedRuleType == CommissionRuleTypes.percentage,
+                  onTap: () => _selectRuleType(CommissionRuleTypes.percentage),
+                ),
+                _ReadOnlyCommissionTypeChip(
+                  label: context.t('Fixed Amount (Rs.)'),
+                  selected: _selectedRuleType == CommissionRuleTypes.fixed,
+                  onTap: () => _selectRuleType(CommissionRuleTypes.fixed),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _CommissionDialogLabel(context.t('Rate')),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFCFAF8),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE8DED6)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _rateValue,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1C1917),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    _rateSymbol,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF8A8178),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E8),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE6C978)),
+            ),
+            child: Text(
+              enabled
+                  ? context.t(
+                      'Staff overrides take priority over this default rate.',
+                    )
+                  : context.t(
+                      'No default commission is configured for this service.',
+                    ),
+              style: const TextStyle(
+                fontSize: 11,
+                height: 1.3,
+                color: Color(0xFF8A5A00),
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+}
+
+class _ReadOnlyCommissionTypeChip extends StatelessWidget {
+  const _ReadOnlyCommissionTypeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? AppColors.starColor : const Color(0xFFB8AEA5),
+                width: selected ? 2.4 : 1.6,
+              ),
+            ),
+            child: selected
+                ? Center(
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.starColor,
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color:
+                  selected ? const Color(0xFF1C1917) : const Color(0xFF6B625A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AllStaffOverridesCard extends StatelessWidget {
+  const _AllStaffOverridesCard({
+    required this.overrides,
+    required this.services,
+    required this.isActionInProgress,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final List<StaffCommissionOverride> overrides;
+  final List<BranchServiceSummary> services;
+  final bool isActionInProgress;
+  final VoidCallback onAdd;
+  final ValueChanged<StaffCommissionOverride> onEdit;
+  final ValueChanged<String> onDelete;
+
+  BranchServiceSummary? _serviceFor(StaffCommissionOverride override) {
+    for (final service in services) {
+      if (service.id == override.serviceId) {
+        return service;
+      }
+    }
+    return null;
   }
 
   @override
@@ -577,15 +1151,8 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE8DED6)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,139 +1160,266 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.service.name,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        height: 1.05,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF1C1917),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.t('Default commission rule'),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF5F574F),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  context.t('Staff overrides'),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1C1917),
+                  ),
                 ),
               ),
-              Switch(
-                value: _active,
-                activeThumbColor: AppColors.starColor,
-                onChanged: widget.isSaving
-                    ? null
-                    : (value) {
-                        setState(() => _active = value);
-                      },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _CommissionDropdownField(
-            label: context.t('Rule type'),
-            value: _ruleType,
-            enabled: !widget.isSaving,
-            items: [
-              DropdownMenuItem(
-                value: CommissionRuleTypes.percentage,
-                child: Text(context.t('Percentage')),
-              ),
-              DropdownMenuItem(
-                value: CommissionRuleTypes.fixed,
-                child: Text(context.t('Fixed')),
-              ),
-            ],
-            onChanged: (value) {
-              if (value != null) setState(() => _ruleType = value);
-            },
-          ),
-          const SizedBox(height: 12),
-          _CommissionTextField(
-            label: _ruleType == CommissionRuleTypes.percentage
-                ? context.t('Value (%)')
-                : context.t('Value (₹)'),
-            controller: _valueController,
-            enabled: !widget.isSaving,
-            maxLength: 8,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          const SizedBox(height: 12),
-          _CommissionDateField(
-            label: context.t('Effective from'),
-            value: _effectiveFrom,
-            onTap: widget.isSaving
-                ? () {}
-                : () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _effectiveFrom,
-                      firstDate: DateTime(2022),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) {
-                      setState(() => _effectiveFrom = picked);
-                    }
-                  },
-          ),
-          const SizedBox(height: 12),
-          _CommissionTextField(
-            label: context.t('Notes'),
-            controller: _notesController,
-            enabled: !widget.isSaving,
-            maxLines: 3,
-            maxLength: 120,
-            hintText: context.t('Add details about this commission rule...'),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: widget.isSaving
-                      ? null
-                      : () {
-                          _reset();
-                        },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    foregroundColor: const Color(0xFF1C1917),
-                    side: const BorderSide(color: Color(0xFFE8DED6)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+              ElevatedButton.icon(
+                onPressed: isActionInProgress ? null : onAdd,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size(128, 42),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(context.t('Cancel')),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: widget.isSaving
-                      ? null
-                      : () {
-                          _save();
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(widget.isSaving
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text(
+                  isActionInProgress
                       ? context.t('Saving...')
-                      : context.t('Save Changes')),
+                      : context.t('Add Override'),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.t(
+              'Custom commission rates assigned to staff for specific services.',
+            ),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+          ),
+          const SizedBox(height: 14),
+          if (overrides.isEmpty)
+            _EmptyStateCard(
+              title: context.t('No staff overrides found'),
+              subtitle: context.t(
+                'Add staff-specific commission rates for any service.',
+              ),
+            )
+          else
+            ...overrides.map((override) {
+              final service = _serviceFor(override);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _StaffOverrideRowCard(
+                  staffOverride: override,
+                  service: service,
+                  isActionInProgress: isActionInProgress,
+                  showService: true,
+                  onEdit: () => onEdit(override),
+                  onDelete: () => onDelete(override.id),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommissionCountPill extends StatelessWidget {
+  const _CommissionCountPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E8),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE6C978)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: AppColors.starColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _CommissionValueBadge extends StatelessWidget {
+  const _CommissionValueBadge({
+    required this.label,
+    this.muted = false,
+  });
+
+  final String label;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: muted ? const Color(0xFFF3F0ED) : const Color(0xFFFFF8E8),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: muted ? const Color(0xFFE1D6CB) : const Color(0xFFE6C978),
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: muted ? const Color(0xFF8A8178) : AppColors.starColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _CommissionStatusPill extends StatelessWidget {
+  const _CommissionStatusPill({required this.active});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFE9F9EF) : const Color(0xFFF3F0ED),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        context.t(active ? 'Active' : 'Inactive'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          color: active ? const Color(0xFF16803A) : const Color(0xFF8A8178),
+        ),
+      ),
+    );
+  }
+}
+
+class _StaffOverrideRowCard extends StatelessWidget {
+  const _StaffOverrideRowCard({
+    required this.staffOverride,
+    required this.service,
+    required this.isActionInProgress,
+    required this.showService,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final StaffCommissionOverride staffOverride;
+  final BranchServiceSummary? service;
+  final bool isActionInProgress;
+  final bool showService;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = staffOverride.ruleType == CommissionRuleTypes.percentage
+        ? '${_formatOverrideNumber(staffOverride.value)}%'
+        : _formatCurrency(staffOverride.value.round());
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F5F2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: const Color(0xFFF0E6D6),
+            child: Text(
+              _commissionInitials(staffOverride.staffName),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: AppColors.starColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  staffOverride.staffName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1C1917),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  showService
+                      ? (service?.name ?? context.t('Unknown service'))
+                      : '${context.t('Effective from')} ${DateFormat('dd MMM yyyy').format(staffOverride.effectiveFrom)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                ),
+                if (showService) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    '${context.t('Effective from')} ${DateFormat('dd MMM yyyy').format(staffOverride.effectiveFrom)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            amount,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: AppColors.starColor,
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: isActionInProgress ? null : onEdit,
+            icon: const Icon(
+              Icons.edit_outlined,
+              color: AppColors.starColor,
+              size: 20,
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: isActionInProgress ? null : onDelete,
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.red,
+              size: 20,
+            ),
           ),
         ],
       ),
@@ -738,187 +1432,48 @@ String _formatOverrideNumber(num value) {
   return text.replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
-class _CommissionFieldLabel extends StatelessWidget {
-  const _CommissionFieldLabel(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Text(
-        label.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
-          color: Color(0xFF8A8178),
-        ),
-      ),
-    );
-  }
+bool _serviceDefaultIsPercentage(BranchServiceSummary service) {
+  return (service.commissionType ?? '').toLowerCase() !=
+      CommissionRuleTypes.fixed;
 }
 
-InputDecoration _commissionFieldDecoration({String? hintText}) {
-  return InputDecoration(
-    hintText: hintText,
-    hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9A9189)),
-    filled: true,
-    fillColor: const Color(0xFFF7F4F1),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: Color(0xFFE1D6CB)),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: Color(0xFFE1D6CB)),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: AppColors.starColor, width: 1.2),
-    ),
-    disabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: Color(0xFFE1D6CB)),
-    ),
+String _serviceDefaultCommissionLabel(BranchServiceSummary service) {
+  if (!service.commissionEnabled) {
+    return 'No commission';
+  }
+  if (_serviceDefaultIsPercentage(service)) {
+    return '${_formatOverrideNumber(service.commissionPercentage ?? 0)}%';
+  }
+  return _formatCurrency(
+    service.commissionFixedAmountMinor ?? service.commissionMaxAmountMinor ?? 0,
   );
 }
 
-class _CommissionTextField extends StatelessWidget {
-  const _CommissionTextField({
-    required this.label,
-    required this.controller,
-    this.enabled = true,
-    this.maxLines = 1,
-    this.maxLength = 120,
-    this.keyboardType,
-    this.hintText,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final bool enabled;
-  final int maxLines;
-  final int maxLength;
-  final TextInputType? keyboardType;
-  final String? hintText;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CommissionFieldLabel(label),
-        TextField(
-          controller: controller,
-          enabled: enabled,
-          maxLines: maxLines,
-          maxLength: maxLength,
-          keyboardType: keyboardType,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1C1917),
-          ),
-          decoration: _commissionFieldDecoration(hintText: hintText),
-        ),
-      ],
-    );
+String _commissionInitials(String value) {
+  final parts = value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) {
+    return 'ST';
   }
+  final first = parts.first.characters.first.toUpperCase();
+  final second =
+      parts.length > 1 ? parts.last.characters.first.toUpperCase() : '';
+  return '$first$second';
 }
 
-class _CommissionDropdownField extends StatelessWidget {
-  const _CommissionDropdownField({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-    this.enabled = true,
-  });
-
-  final String label;
-  final String value;
-  final List<DropdownMenuItem<String>> items;
-  final ValueChanged<String?> onChanged;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CommissionFieldLabel(label),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: _commissionFieldDecoration(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1C1917),
-          ),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-          items: items,
-          onChanged: enabled ? onChanged : null,
-        ),
-      ],
-    );
+String _commissionRateLabel(
+  StaffCommissionOverride? override, {
+  String fallback = 'No override',
+}) {
+  if (override == null) {
+    return fallback;
   }
-}
-
-class _CommissionDateField extends StatelessWidget {
-  const _CommissionDateField({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String label;
-  final DateTime value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CommissionFieldLabel(label),
-        InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F4F1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE1D6CB)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    DateFormat('dd MMM yyyy').format(value),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1C1917),
-                    ),
-                  ),
-                ),
-                const Icon(
-                  Icons.calendar_today_outlined,
-                  size: 17,
-                  color: AppColors.starColor,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  return override.ruleType == CommissionRuleTypes.percentage
+      ? '${_formatOverrideNumber(override.value)}%'
+      : _formatCurrency(override.value.round());
 }
 
 class _AddOverrideDialog extends StatefulWidget {
@@ -926,7 +1481,9 @@ class _AddOverrideDialog extends StatefulWidget {
     required this.title,
     required this.submitLabel,
     required this.serviceId,
+    required this.services,
     required this.staff,
+    required this.existingOverrides,
     required this.onSubmit,
     this.initialOverride,
   });
@@ -934,8 +1491,13 @@ class _AddOverrideDialog extends StatefulWidget {
   final String title;
   final String submitLabel;
   final int serviceId;
+  final List<BranchServiceSummary> services;
   final List<ProfileTeamMember> staff;
-  final Future<void> Function(List<StaffCommissionOverride> overrides) onSubmit;
+  final List<StaffCommissionOverride> existingOverrides;
+  final Future<void> Function(
+    int serviceId,
+    List<StaffCommissionOverride> overrides,
+  ) onSubmit;
   final StaffCommissionOverride? initialOverride;
 
   @override
@@ -945,10 +1507,12 @@ class _AddOverrideDialog extends StatefulWidget {
 class _AddOverrideDialogState extends State<_AddOverrideDialog> {
   final _formKey = GlobalKey<FormState>();
   final Set<int> _selectedStaffIds = <int>{};
+  final TextEditingController _staffSearchController = TextEditingController();
   final TextEditingController _valueController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  String? _ruleType;
+  late int _selectedServiceId;
+  String _ruleType = CommissionRuleTypes.percentage;
   DateTime _effectiveFrom = DateTime.now();
   bool _isSaving = false;
   bool get _isEdit => widget.initialOverride != null;
@@ -957,20 +1521,28 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
   @override
   void initState() {
     super.initState();
+    _selectedServiceId = widget.serviceId;
     final initial = widget.initialOverride;
     if (initial != null) {
       _selectedStaffIds.add(initial.staffId);
       _ruleType = initial.ruleType;
       _effectiveFrom = initial.effectiveFrom;
       _valueController.text = initial.ruleType == CommissionRuleTypes.fixed
-          ? (minorAmountToRupees(initial.value) ?? 0).toStringAsFixed(0)
+          ? _formatOverrideNumber(minorAmountToRupees(initial.value) ?? 0)
           : _formatOverrideNumber(initial.value);
       _notesController.text = initial.notes;
+    } else {
+      _ruleType = _defaultRuleTypeForService(_selectedService);
+      _valueController.text = _defaultRateTextForSelectedService();
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    });
   }
 
   @override
   void dispose() {
+    _staffSearchController.dispose();
     _valueController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -995,14 +1567,17 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     }
 
     final parsed = double.parse(_valueController.text.trim());
-    final ruleType = _ruleType ?? CommissionRuleTypes.percentage;
+    final serviceId = _selectedServiceId;
+    final ruleType = _ruleType;
 
     final overrides = widget.staff
         .where((member) => _selectedStaffIds.contains(member.id))
         .map(
           (member) => StaffCommissionOverride(
-            id: '${widget.serviceId}_${member.id}_${DateTime.now().millisecondsSinceEpoch}',
-            serviceId: widget.serviceId,
+            id: _isEdit
+                ? widget.initialOverride!.id
+                : '${serviceId}_${member.id}_${DateTime.now().millisecondsSinceEpoch}',
+            serviceId: serviceId,
             staffId: member.id,
             staffName: member.name,
             ruleType: ruleType,
@@ -1017,9 +1592,9 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
 
     setState(() => _isSaving = true);
     try {
-      await widget.onSubmit(overrides);
+      await widget.onSubmit(serviceId, overrides);
       if (mounted) {
-        Navigator.pop(context);
+        _closeDialog();
       }
     } finally {
       if (mounted) {
@@ -1028,88 +1603,546 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     }
   }
 
+  BranchServiceSummary? get _selectedService {
+    for (final service in widget.services) {
+      if (service.id == _selectedServiceId) {
+        return service;
+      }
+    }
+    return widget.services.isEmpty ? null : widget.services.first;
+  }
+
+  String _defaultRuleTypeForService(BranchServiceSummary? service) {
+    if (service == null) {
+      return CommissionRuleTypes.percentage;
+    }
+    return _serviceDefaultIsPercentage(service)
+        ? CommissionRuleTypes.percentage
+        : CommissionRuleTypes.fixed;
+  }
+
+  String _defaultRateTextForSelectedService() {
+    final service = _selectedService;
+    if (service == null) {
+      return '';
+    }
+    if (_ruleType == CommissionRuleTypes.fixed) {
+      final fixedAmountMinor = service.commissionFixedAmountMinor ??
+          service.commissionMaxAmountMinor;
+      return _formatOverrideNumber(minorAmountToRupees(fixedAmountMinor) ?? 0);
+    }
+    return _formatOverrideNumber(service.commissionPercentage ?? 0);
+  }
+
+  void _syncRateFromSelectedService({bool resetRuleType = false}) {
+    final service = _selectedService;
+    if (resetRuleType) {
+      _ruleType = _defaultRuleTypeForService(service);
+    }
+    _valueController.text = _defaultRateTextForSelectedService();
+  }
+
+  List<TextInputFormatter> get _rateInputFormatters {
+    if (_ruleType == CommissionRuleTypes.percentage) {
+      return <TextInputFormatter>[
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(2),
+      ];
+    }
+    return <TextInputFormatter>[
+      TextInputFormatter.withFunction((oldValue, newValue) {
+        final text = newValue.text;
+        if (RegExp(r'^\d{0,6}(\.\d{0,2})?$').hasMatch(text)) {
+          return newValue;
+        }
+        return oldValue;
+      }),
+      LengthLimitingTextInputFormatter(9),
+    ];
+  }
+
+  bool get _hasValidRate {
+    final text = _valueController.text.trim();
+    if (text.isEmpty) {
+      return false;
+    }
+    final parsed = double.tryParse(text);
+    if (parsed == null || parsed <= 0) {
+      return false;
+    }
+    if (_ruleType == CommissionRuleTypes.percentage) {
+      return text.length <= 2 && parsed <= 99;
+    }
+    final priceRupees = minorAmountToRupees(_selectedService?.priceMinor);
+    return priceRupees == null || parsed <= priceRupees;
+  }
+
+  bool get _canSubmit =>
+      !_isSaving &&
+      _selectedService != null &&
+      _selectedStaffIds.isNotEmpty &&
+      _hasValidRate;
+
+  List<ProfileTeamMember> get _filteredStaff {
+    final query = _staffSearchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      return widget.staff;
+    }
+    return widget.staff.where((member) {
+      final haystack =
+          '${member.name} ${member.role} ${member.phoneNumber} ${member.id}'
+              .toLowerCase();
+      return haystack.contains(query);
+    }).toList();
+  }
+
+  StaffCommissionOverride? _existingOverrideFor(int staffId) {
+    for (final override in widget.existingOverrides) {
+      if (override.serviceId == _selectedServiceId &&
+          override.staffId == staffId &&
+          override.id != widget.initialOverride?.id) {
+        return override;
+      }
+    }
+    return null;
+  }
+
+  InputDecoration _dialogInputDecoration({
+    String? hintText,
+    Widget? prefixIcon,
+    Widget? suffix,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9A9189)),
+      prefixIcon: prefixIcon,
+      suffix: suffix,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE1D6CB)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE1D6CB)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.starColor, width: 1.2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.red, width: 1.2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.red, width: 1.2),
+      ),
+    );
+  }
+
+  Future<void> _pickEffectiveDate() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _effectiveFrom,
+      firstDate: DateTime(2022),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _effectiveFrom = picked);
+    }
+  }
+
+  void _closeDialog() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.pop(context);
+  }
+
+  Widget _buildDialogActionRow(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${_selectedStaffIds.length} ${context.t(_selectedStaffIds.length == 1 ? 'staff selected' : 'staff selected')}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _isSaving ? null : _closeDialog,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.starColor,
+                  side: const BorderSide(color: Color(0xFFD4B985)),
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                child: Text(context.t('Cancel')),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _canSubmit ? _submit : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFFD8D2CA),
+                  disabledForegroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: _isSaving
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(child: Text(context.t('Saving...'))),
+                        ],
+                      )
+                    : Text(
+                        widget.submitLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final selectedService = _selectedService;
+    final filteredStaff = _filteredStaff;
+
     return AlertDialog(
-      title: Text(widget.title),
-      content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            autovalidateMode: _autoValidateMode,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      backgroundColor: const Color(0xFFFFFBF7),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      titlePadding: const EdgeInsets.fromLTRB(18, 18, 12, 0),
+      contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_isEdit) ...[
-                  Text(
-                    context.t('Editing staff'),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1C1917),
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F5F2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE8DED6)),
-                    ),
-                    child: Text(
-                      widget.initialOverride?.staffName ?? '',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.t(
+                    'Set a custom commission rate for one or more staff members.',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    height: 1.3,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: _isSaving ? null : _closeDialog,
+            icon: const Icon(Icons.close_rounded, color: Color(0xFF6B625A)),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 520,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+          ),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              autovalidateMode: _autoValidateMode,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (selectedService != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F5F2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE8DED6)),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: const Color(0xFFFFEFF2),
+                            child: Text(
+                              _commissionInitials(selectedService.name),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFE11D48),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  selectedService.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF1C1917),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  selectedService.categoryName.isEmpty
+                                      ? context.t('Service')
+                                      : selectedService.categoryName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _CommissionValueBadge(
+                            label:
+                                '${context.t('Default')} ${_serviceDefaultCommissionLabel(selectedService)}',
+                            muted: !selectedService.commissionEnabled,
+                          ),
+                        ],
                       ),
                     ),
+                    const SizedBox(height: 14),
+                  ],
+                  _CommissionDialogLabel(context.t('Service')),
+                  DropdownButtonFormField<int>(
+                    initialValue: _selectedServiceId,
+                    isExpanded: true,
+                    decoration: _dialogInputDecoration(),
+                    icon:
+                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                    items: widget.services
+                        .map(
+                          (service) => DropdownMenuItem<int>(
+                            value: service.id,
+                            child: Text(
+                              service.categoryName.isEmpty
+                                  ? service.name
+                                  : '${service.name} - ${service.categoryName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _isSaving || _isEdit
+                        ? null
+                        : (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() {
+                              _selectedServiceId = value;
+                              _syncRateFromSelectedService(resetRuleType: true);
+                            });
+                            _validateIfNeeded();
+                          },
                   ),
-                ] else ...[
+                  const SizedBox(height: 16),
+                  _CommissionDialogLabel(
+                    _isEdit
+                        ? context.t('Selected staff')
+                        : context.t('1. Select staff members'),
+                  ),
+                  if (!_isEdit) ...[
+                    TextField(
+                      controller: _staffSearchController,
+                      enabled: !_isSaving,
+                      autofocus: false,
+                      style: const TextStyle(fontSize: 12),
+                      decoration: _dialogInputDecoration(
+                        hintText: context.t('Search by name, role, or ID'),
+                        prefixIcon: const Icon(Icons.search, size: 17),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   FormField<Set<int>>(
                     initialValue: _selectedStaffIds.toSet(),
                     validator: (_) => _selectedStaffIds.isEmpty
                         ? translateText('Select at least one staff member')
                         : null,
                     builder: (field) {
+                      final visibleStaffIds =
+                          filteredStaff.map((member) => member.id).toSet();
+                      final selectedVisibleCount = visibleStaffIds
+                          .where(_selectedStaffIds.contains)
+                          .length;
+                      final bool? allVisibleSelected = selectedVisibleCount == 0
+                          ? false
+                          : selectedVisibleCount == visibleStaffIds.length
+                              ? true
+                              : null;
+                      final tableHeight = math.min(
+                        232.0,
+                        38.0 + (filteredStaff.length * 58.0),
+                      );
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            context.t('Select staff'),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                          Container(
+                            height: filteredStaff.isEmpty ? null : tableHeight,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border:
+                                  Border.all(color: const Color(0xFFE8DED6)),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: widget.staff.map((member) {
-                              final isSelected =
-                                  _selectedStaffIds.contains(member.id);
-                              return FilterChip(
-                                label: Text(member.name),
-                                selected: isSelected,
-                                onSelected: _isSaving
-                                    ? null
-                                    : (value) {
-                                        setState(() {
-                                          if (value) {
-                                            _selectedStaffIds.add(member.id);
-                                          } else {
-                                            _selectedStaffIds.remove(member.id);
-                                          }
-                                        });
-                                        field.didChange(_selectedStaffIds.toSet());
-                                        _validateIfNeeded();
-                                      },
-                              );
-                            }).toList(),
+                            child: filteredStaff.isEmpty
+                                ? Padding(
+                                    padding: const EdgeInsets.all(18),
+                                    child: Text(
+                                      context.t('No staff found'),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  )
+                                : SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: SizedBox(
+                                      width: 760,
+                                      height: tableHeight,
+                                      child: Column(
+                                        children: [
+                                          _StaffPickerHeaderRow(
+                                            value: allVisibleSelected,
+                                            enabled: !_isSaving && !_isEdit,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                if (value ?? false) {
+                                                  _selectedStaffIds
+                                                      .addAll(visibleStaffIds);
+                                                } else {
+                                                  _selectedStaffIds.removeAll(
+                                                    visibleStaffIds,
+                                                  );
+                                                }
+                                              });
+                                              field.didChange(
+                                                _selectedStaffIds.toSet(),
+                                              );
+                                              _validateIfNeeded();
+                                            },
+                                          ),
+                                          Expanded(
+                                            child: ListView.separated(
+                                              shrinkWrap: true,
+                                              itemCount: filteredStaff.length,
+                                              separatorBuilder: (_, __) =>
+                                                  const Divider(
+                                                height: 1,
+                                                color: Color(0xFFE8DED6),
+                                              ),
+                                              itemBuilder: (context, index) {
+                                                final member =
+                                                    filteredStaff[index];
+                                                final isSelected =
+                                                    _selectedStaffIds
+                                                        .contains(member.id);
+                                                final existing =
+                                                    _existingOverrideFor(
+                                                  member.id,
+                                                );
+                                                return _StaffPickerRow(
+                                                  member: member,
+                                                  selected: isSelected,
+                                                  enabled:
+                                                      !_isSaving && !_isEdit,
+                                                  currentRate:
+                                                      _commissionRateLabel(
+                                                    existing,
+                                                    fallback: selectedService ==
+                                                            null
+                                                        ? 'No override'
+                                                        : _serviceDefaultCommissionLabel(
+                                                            selectedService,
+                                                          ),
+                                                  ),
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      if (value) {
+                                                        _selectedStaffIds
+                                                            .add(member.id);
+                                                      } else {
+                                                        _selectedStaffIds
+                                                            .remove(
+                                                          member.id,
+                                                        );
+                                                      }
+                                                    });
+                                                    field.didChange(
+                                                      _selectedStaffIds.toSet(),
+                                                    );
+                                                    _validateIfNeeded();
+                                                  },
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                           ),
                           if (field.errorText != null) ...[
                             const SizedBox(height: 6),
@@ -1126,125 +2159,491 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                       );
                     },
                   ),
-                ],
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _ruleType,
-                  decoration: InputDecoration(
-                    labelText: context.t('Rule type'),
+                  const SizedBox(height: 16),
+                  _CommissionDialogLabel(context.t('2. Set commission rate')),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      _CommissionRuleRadio(
+                        label: context.t('Percentage (%)'),
+                        value: CommissionRuleTypes.percentage,
+                        groupValue: _ruleType,
+                        onChanged: _isSaving
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _ruleType = value;
+                                  _syncRateFromSelectedService();
+                                });
+                                _validateIfNeeded();
+                              },
+                      ),
+                      _CommissionRuleRadio(
+                        label: context.t('Fixed Amount (Rs.)'),
+                        value: CommissionRuleTypes.fixed,
+                        groupValue: _ruleType,
+                        onChanged: _isSaving
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _ruleType = value;
+                                  _syncRateFromSelectedService();
+                                });
+                                _validateIfNeeded();
+                              },
+                      ),
+                    ],
                   ),
-                  validator: (value) => value == null
-                      ? translateText('Rule type is required')
-                      : null,
-                  items: [
-                    DropdownMenuItem(
-                      value: CommissionRuleTypes.percentage,
-                      child: Text(context.t('Percentage')),
+                  const SizedBox(height: 10),
+                  _CommissionDialogLabel(context.t('Rate *')),
+                  TextFormField(
+                    controller: _valueController,
+                    enabled: !_isSaving,
+                    autofocus: false,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: _rateInputFormatters,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                     ),
-                    DropdownMenuItem(
-                      value: CommissionRuleTypes.fixed,
-                      child: Text(context.t('Fixed')),
+                    decoration: _dialogInputDecoration(
+                      suffix: Text(
+                        _ruleType == CommissionRuleTypes.percentage ? '%' : '₹',
+                        style: const TextStyle(
+                          color: Color(0xFF8A8178),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  ],
-                  onChanged: _isSaving
-                      ? null
-                      : (value) {
-                          setState(() => _ruleType = value);
-                          _validateIfNeeded();
-                        },
-                ),
-                const SizedBox(height: 12),
-                _LabeledTextField(
-                  label: context.t('Value'),
-                  controller: _valueController,
-                  enabled: !_isSaving,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  validator: (value) {
-                    final text = (value ?? '').trim();
-                    if (text.isEmpty) {
-                      return translateText('Enter a valid override value');
-                    }
-                    final parsed = double.tryParse(text);
-                    if (parsed == null || parsed <= 0) {
-                      return translateText('Enter a valid override value');
-                    }
-                    if (_ruleType == CommissionRuleTypes.percentage &&
-                        parsed > 100) {
-                      return translateText(
-                        'Commission must be between 0 and 100',
-                      );
-                    }
-                    return null;
-                  },
-                  onChanged: _isSaving
-                      ? null
-                      : (_) {
-                          _validateIfNeeded();
-                        },
-                ),
-                const SizedBox(height: 12),
-                _DateFieldButton(
-                  label: context.t('Effective from'),
-                  value: _effectiveFrom,
-                  onTap: _isSaving
-                      ? () {}
-                      : () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _effectiveFrom,
-                            firstDate: DateTime(2022),
-                            lastDate: DateTime(2100),
+                    validator: (value) {
+                      final text = (value ?? '').trim();
+                      if (text.isEmpty) {
+                        return translateText('Enter a valid override value');
+                      }
+                      final parsed = double.tryParse(text);
+                      if (parsed == null || parsed <= 0) {
+                        return translateText('Enter a valid override value');
+                      }
+                      if (_ruleType == CommissionRuleTypes.percentage) {
+                        if (text.length > 2 || parsed > 99) {
+                          return translateText(
+                            'Percentage cannot be more than 2 digits',
                           );
-                          if (picked != null) {
-                            setState(() => _effectiveFrom = picked);
-                          }
-                        },
-                ),
-                const SizedBox(height: 12),
-                _LabeledTextField(
-                  label: context.t('Notes'),
-                  controller: _notesController,
-                  enabled: !_isSaving,
-                  maxLines: 1,
-                ),
-              ],
+                        }
+                      } else {
+                        final selectedService = _selectedService;
+                        final priceRupees =
+                            minorAmountToRupees(selectedService?.priceMinor);
+                        if (priceRupees != null && parsed > priceRupees) {
+                          return translateText(
+                            'Fixed amount cannot be greater than Rs. ${_formatOverrideNumber(priceRupees)}',
+                          );
+                        }
+                      }
+                      return null;
+                    },
+                    onChanged: _isSaving
+                        ? null
+                        : (_) {
+                            setState(() {});
+                            _validateIfNeeded();
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _CommissionDialogLabel(
+                              context.t('Effective from'),
+                            ),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: _isSaving ? null : _pickEffectiveDate,
+                              child: Ink(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 13,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: const Color(0xFFE1D6CB),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        DateFormat('dd/MM/yyyy')
+                                            .format(_effectiveFrom),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF1C1917),
+                                        ),
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.calendar_today_outlined,
+                                      size: 16,
+                                      color: AppColors.starColor,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _CommissionDialogLabel(context.t('Notes')),
+                            TextFormField(
+                              controller: _notesController,
+                              enabled: !_isSaving,
+                              autofocus: false,
+                              maxLines: 1,
+                              style: const TextStyle(fontSize: 12),
+                              decoration: _dialogInputDecoration(
+                                hintText: context.t('Optional'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8E8),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE6C978)),
+                    ),
+                    child: Text(
+                      selectedService == null
+                          ? context.t(
+                              'This rate overrides the default commission for the selected staff on this service.',
+                            )
+                          : context.t(
+                              'This rate overrides the default ${_serviceDefaultCommissionLabel(selectedService)} commission for the selected staff on this service.',
+                            ),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.3,
+                        color: Color(0xFF8A5A00),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDialogActionRow(context),
+                ],
+              ),
             ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.pop(context),
-          child: Text(context.t('Cancel')),
+    );
+  }
+}
+
+class _CommissionDialogLabel extends StatelessWidget {
+  const _CommissionDialogLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.1,
+          color: Color(0xFF7A7169),
         ),
-        ElevatedButton(
-          onPressed: _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.starColor,
-            foregroundColor: Colors.white,
-          ),
-          child: _isSaving
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white,
-                        ),
+      ),
+    );
+  }
+}
+
+class _CommissionRuleRadio extends StatelessWidget {
+  const _CommissionRuleRadio({
+    required this.label,
+    required this.value,
+    required this.groupValue,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final String groupValue;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = value == groupValue;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onChanged == null ? null : () => onChanged!(value),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? AppColors.starColor : const Color(0xFFB8AEA5),
+                width: selected ? 2 : 1.4,
+              ),
+            ),
+            child: selected
+                ? Center(
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.starColor,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(context.t('Saving...')),
-                  ],
-                )
-              : Text(widget.submitLabel),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2A2622),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaffPickerHeaderRow extends StatelessWidget {
+  const _StaffPickerHeaderRow({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool? value;
+  final bool enabled;
+  final ValueChanged<bool?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF7F4F1),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE8DED6)),
         ),
-      ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 38,
+            child: Checkbox(
+              value: value,
+              tristate: true,
+              onChanged: enabled ? onChanged : null,
+              visualDensity: VisualDensity.compact,
+              activeColor: AppColors.starColor,
+            ),
+          ),
+          _StaffPickerHeaderCell(
+            flex: 3,
+            label: context.t('Staff'),
+          ),
+          _StaffPickerHeaderCell(
+            flex: 2,
+            label: context.t('Role'),
+          ),
+          _StaffPickerHeaderCell(
+            flex: 2,
+            label: context.t('Current rate'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaffPickerHeaderCell extends StatelessWidget {
+  const _StaffPickerHeaderCell({
+    required this.flex,
+    required this.label,
+  });
+
+  final int flex;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        label.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.6,
+          color: Color(0xFF7A7169),
+        ),
+      ),
+    );
+  }
+}
+
+class _StaffPickerRow extends StatelessWidget {
+  const _StaffPickerRow({
+    required this.member,
+    required this.selected,
+    required this.enabled,
+    required this.currentRate,
+    required this.onChanged,
+  });
+
+  final ProfileTeamMember member;
+  final bool selected;
+  final bool enabled;
+  final String currentRate;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? () => onChanged(!selected) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 38,
+              child: Checkbox(
+                value: selected,
+                onChanged: enabled
+                    ? (value) {
+                        onChanged(value ?? false);
+                      }
+                    : null,
+                visualDensity: VisualDensity.compact,
+                activeColor: AppColors.starColor,
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 15,
+                    backgroundColor: const Color(0xFFF0E6D6),
+                    child: Text(
+                      _commissionInitials(member.name),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.starColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          member.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1C1917),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'GLW-${member.id}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF8A8178),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                member.role.isEmpty ? context.t('Staff') : member.role,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  height: 1.15,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F4F1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFE8DED6)),
+                  ),
+                  child: Text(
+                    currentRate,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.starColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -31,6 +31,9 @@ enum CompensationModule {
 
 enum _CommissionTab { services, overrides }
 
+const String _commissionAllCategoriesValue = '__all_categories__';
+const String _commissionUncategorizedValue = '__uncategorized__';
+
 String _formatCurrency(num minorAmount) {
   return '₹${(minorAmount / 100).toStringAsFixed(2)}';
 }
@@ -72,6 +75,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       TextEditingController();
   CompensationModule _module = CompensationModule.payroll;
   _CommissionTab _commissionTab = _CommissionTab.services;
+  String _commissionCategoryFilter = _commissionAllCategoriesValue;
 
   List<ProfileBranchOption> _branchOptions = const <ProfileBranchOption>[];
   ProfileBranchOption? _selectedBranch;
@@ -81,7 +85,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   List<PayrollRunRecord> _payrollRuns = const <PayrollRunRecord>[];
   List<PayrollAdvanceRecord> _advances = const <PayrollAdvanceRecord>[];
   List<BranchServiceSummary> _services = const <BranchServiceSummary>[];
-  List<CommissionServiceRule> _serviceRules = const <CommissionServiceRule>[];
   List<StaffCommissionOverride> _staffOverrides =
       const <StaffCommissionOverride>[];
   BranchAttendanceOverview? _attendanceOverview;
@@ -97,6 +100,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   String? _branchError;
   String? _contentError;
   int? _selectedServiceId;
+  int _commissionServicesPage = 0;
   DateTime _advanceMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime _leaveMonth = DateTime(DateTime.now().year, DateTime.now().month);
   String? _selectedLeavePayrollId;
@@ -136,7 +140,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         'service_search_changed',
         details: _serviceSearchController.text.trim(),
       );
-      setState(() {});
+      setState(() {
+        _commissionServicesPage = 0;
+      });
     });
     _advanceSearchController.addListener(() {
       _logCompensation(
@@ -308,7 +314,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     final results = await Future.wait<dynamic>(<Future<dynamic>>[
       _repository.loadTeamMembers(branchId),
       _repository.loadServices(branchId),
-      _repository.loadCommissionRules(branchId),
       _repository.loadCommissionOverrides(branchId),
     ]);
 
@@ -327,14 +332,13 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     setState(() {
       _teamMembers = List<ProfileTeamMember>.from(results[0] as List);
       _services = services;
-      _serviceRules = List<CommissionServiceRule>.from(results[2] as List);
-      _staffOverrides = List<StaffCommissionOverride>.from(results[3] as List);
+      _staffOverrides = List<StaffCommissionOverride>.from(results[2] as List);
       _selectedServiceId = selectedServiceId;
     });
     _logCompensation(
       'load_commission_data_success',
       details:
-          'branchId=$branchId, team=${_teamMembers.length}, services=${_services.length}, rules=${_serviceRules.length}, overrides=${_staffOverrides.length}, selectedServiceId=$_selectedServiceId',
+          'branchId=$branchId, team=${_teamMembers.length}, services=${_services.length}, overrides=${_staffOverrides.length}, selectedServiceId=$_selectedServiceId',
     );
   }
 
@@ -736,34 +740,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     });
   }
 
-  Future<void> _saveCommissionRule({
-    required BranchServiceSummary service,
-    required CommissionServiceRule rule,
-  }) async {
-    final branchId = _selectedBranch?.branchId;
-    if (branchId == null) {
-      return;
-    }
-    _logCompensation(
-      'save_commission_rule_started',
-      details:
-          'branchId=$branchId, serviceId=${service.id}, ruleType=${rule.ruleType}, active=${rule.active}',
-    );
-    await _performAction(() async {
-      await _repository.saveCommissionRule(
-        branchId: branchId,
-        service: service,
-        rule: rule,
-      );
-      await _loadCommissionData(branchId);
-      _logCompensation(
-        'save_commission_rule_success',
-        details: 'branchId=$branchId, serviceId=${service.id}',
-      );
-      _showToast('Commission rule saved successfully');
-    });
-  }
-
   Future<void> _saveOverrides(
     int serviceId,
     List<StaffCommissionOverride> overrides,
@@ -895,28 +871,56 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     return _services.isEmpty ? null : _services.first;
   }
 
-  CommissionServiceRule? get _selectedServiceRule {
-    final service = _selectedService;
-    if (service == null) {
-      return null;
-    }
-    return _repository.ruleForService(
-      service: service,
-      storedRules: _serviceRules,
-    );
-  }
-
   List<BranchServiceSummary> get _filteredServices {
     final query = _serviceSearchController.text.trim().toLowerCase();
-    if (query.isEmpty) {
-      return _services;
-    }
+    final categoryFilter =
+        _commissionCategoryFilterOptions.contains(_commissionCategoryFilter)
+            ? _commissionCategoryFilter
+            : _commissionAllCategoriesValue;
     return _services.where((service) {
+      if (categoryFilter == _commissionUncategorizedValue &&
+          service.categoryName.trim().isNotEmpty) {
+        return false;
+      }
+      if (categoryFilter != _commissionAllCategoriesValue &&
+          categoryFilter != _commissionUncategorizedValue &&
+          service.categoryName.trim() != categoryFilter) {
+        return false;
+      }
+      if (query.isEmpty) {
+        return true;
+      }
       final haystack =
           '${service.name} ${service.categoryName} ${service.description}'
               .toLowerCase();
       return haystack.contains(query);
     }).toList();
+  }
+
+  List<String> get _commissionCategoryFilterOptions {
+    final categories = _services
+        .map((service) => service.categoryName.trim())
+        .where((category) => category.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final hasUncategorized =
+        _services.any((service) => service.categoryName.trim().isEmpty);
+    return <String>[
+      _commissionAllCategoriesValue,
+      ...categories,
+      if (hasUncategorized) _commissionUncategorizedValue,
+    ];
+  }
+
+  String _commissionCategoryFilterLabel(String value) {
+    if (value == _commissionAllCategoriesValue) {
+      return 'All Categories';
+    }
+    if (value == _commissionUncategorizedValue) {
+      return 'Uncategorized';
+    }
+    return value;
   }
 
   List<StaffCommissionOverride> get _selectedServiceOverrides {
@@ -931,6 +935,39 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     return items;
   }
 
+  List<StaffCommissionOverride> get _filteredStaffOverrides {
+    final query = _serviceSearchController.text.trim().toLowerCase();
+    final items = _staffOverrides.where((override) {
+      if (query.isEmpty) {
+        return true;
+      }
+      final service = _serviceForOverride(override);
+      final haystack =
+          '${override.staffName} ${service?.name ?? ''} ${service?.categoryName ?? ''} ${override.ruleType}'
+              .toLowerCase();
+      return haystack.contains(query);
+    }).toList();
+    items.sort((a, b) {
+      final serviceA = _serviceForOverride(a)?.name.toLowerCase() ?? '';
+      final serviceB = _serviceForOverride(b)?.name.toLowerCase() ?? '';
+      final serviceCompare = serviceA.compareTo(serviceB);
+      if (serviceCompare != 0) {
+        return serviceCompare;
+      }
+      return a.staffName.toLowerCase().compareTo(b.staffName.toLowerCase());
+    });
+    return items;
+  }
+
+  BranchServiceSummary? _serviceForOverride(StaffCommissionOverride override) {
+    for (final service in _services) {
+      if (service.id == override.serviceId) {
+        return service;
+      }
+    }
+    return null;
+  }
+
   void _showToast(String message, {bool isError = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final targetContext = appNavigatorKey.currentContext ?? context;
@@ -942,12 +979,32 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     });
   }
 
-  void _setCommissionTabValue(_CommissionTab tab) {
-    setState(() => _commissionTab = tab);
-  }
-
   void _selectCommissionService(int serviceId) {
     setState(() => _selectedServiceId = serviceId);
+  }
+
+  void _setCommissionTabValue(_CommissionTab tab) {
+    setState(() {
+      _commissionTab = tab;
+      _commissionServicesPage = 0;
+    });
+  }
+
+  void _setCommissionCategoryFilter(String value) {
+    setState(() {
+      _commissionCategoryFilter = value;
+      _commissionServicesPage = 0;
+    });
+  }
+
+  void _setCommissionServicesPage(int page) {
+    final totalItems = _filteredServices.length;
+    final maxPage = totalItems == 0
+        ? 0
+        : ((totalItems - 1) / _commissionServicesPageSize).floor();
+    setState(() {
+      _commissionServicesPage = page.clamp(0, maxPage).toInt();
+    });
   }
 
   String _errorText(Object error) {
@@ -2837,32 +2894,41 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (service == null) {
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     await showDialog<void>(
       context: context,
+      requestFocus: false,
       builder: (context) => _AddOverrideDialog(
         title: context.t('Add Override'),
         submitLabel: context.t('Save Override'),
         serviceId: service.id,
+        services: _services,
         staff: _activeTeamMembers,
-        onSubmit: (overrides) => _saveOverrides(service.id, overrides),
+        existingOverrides: _staffOverrides,
+        onSubmit: (serviceId, overrides) =>
+            _saveOverrides(serviceId, overrides),
       ),
     );
   }
 
   Future<void> _openEditOverrideDialog(StaffCommissionOverride override) async {
-    final service = _selectedService;
-    if (service == null) {
+    if (!_services.any((service) => service.id == override.serviceId)) {
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     await showDialog<void>(
       context: context,
+      requestFocus: false,
       builder: (context) => _AddOverrideDialog(
         title: context.t('Edit Override'),
         submitLabel: context.t('Update Override'),
-        serviceId: service.id,
+        serviceId: override.serviceId,
+        services: _services,
         staff: _activeTeamMembers,
         initialOverride: override,
-        onSubmit: (overrides) => _saveOverrides(service.id, overrides),
+        existingOverrides: _staffOverrides,
+        onSubmit: (serviceId, overrides) =>
+            _saveOverrides(serviceId, overrides),
       ),
     );
   }
