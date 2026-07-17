@@ -52,6 +52,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   bool _sameAsBranchTimings = false;
   bool _copyMondayToAllChecked = false;
   bool _isLoadingOperatingSchedule = false;
+  bool _isApplyingMondayCopy = false;
 
   final Set<String> _markedOffDays = <String>{};
   final Set<String> _closedDays = <String>{};
@@ -109,6 +110,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   void _syncMondayToAllOpenDays() {
     if (!_copyMondayToAllChecked) return;
 
+    final mondayIsOff = _isMarkedOff('Monday');
     final mondaySlots =
         (weeklySchedule['Monday'] ?? const <Map<String, String>>[])
             .map((slot) => Map<String, String>.from(slot))
@@ -118,10 +120,17 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       for (final day in _weekDays) {
         if (day == 'Monday' || _isClosedDay(day)) continue;
 
-        _markedOffDays.remove(_dayKey(day));
-
         final slots = weeklySchedule[day];
         if (slots == null) continue;
+
+        final dayKey = _dayKey(day);
+        if (mondayIsOff) {
+          slots.clear();
+          _markedOffDays.add(dayKey);
+          continue;
+        }
+
+        _markedOffDays.remove(dayKey);
 
         slots
           ..clear()
@@ -132,6 +141,11 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
       _sortWeeklyScheduleInPlace();
     });
+  }
+
+  void _clearCopyMondaySelectionOnManualEdit(String day) {
+    if (!_copyMondayToAllChecked || day == 'Monday') return;
+    setState(() => _copyMondayToAllChecked = false);
   }
 
   Future<void> _loadOperatingSchedule() async {
@@ -752,8 +766,27 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     return null;
   }
 
-  void _addSlot(String day) {
+  Future<void> _showMondayCopyLoader() async {
+    if (!mounted) return;
+    setState(() => _isApplyingMondayCopy = true);
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+  }
+
+  Future<void> _hideMondayCopyLoader() async {
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+    setState(() => _isApplyingMondayCopy = false);
+  }
+
+  void _addSlot(
+    String day, {
+    bool clearCopySelection = true,
+    bool syncMondayChanges = true,
+  }) {
     if (_sameAsBranchTimings) return;
+    if (clearCopySelection) {
+      _clearCopyMondaySelectionOnManualEdit(day);
+    }
 
     if (_isClosedDay(day)) {
       _showClosedDayMessage(day);
@@ -776,13 +809,14 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       });
     });
 
-    if (day == 'Monday') {
+    if (day == 'Monday' && syncMondayChanges) {
       _syncMondayToAllOpenDays();
     }
   }
 
   void _deleteSlot(String day, int index) {
     if (_sameAsBranchTimings) return;
+    _clearCopyMondaySelectionOnManualEdit(day);
 
     setState(() {
       weeklySchedule[day]?.removeAt(index);
@@ -795,6 +829,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
   void _updateTime(String day, int index, String timeType, String newTime) {
     if (_sameAsBranchTimings) return;
+    _clearCopyMondaySelectionOnManualEdit(day);
 
     setState(() {
       weeklySchedule[day]?[index][timeType] = newTime;
@@ -832,27 +867,59 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     }
   }
 
-  void _markOff(String day) {
+  Future<void> _markOff(String day) async {
     if (_sameAsBranchTimings) return;
+    final shouldCopyMonday = day == 'Monday' && _copyMondayToAllChecked;
+    if (shouldCopyMonday) {
+      await _showMondayCopyLoader();
+    } else {
+      _clearCopyMondaySelectionOnManualEdit(day);
+    }
 
-    setState(() {
-      weeklySchedule[day]?.clear();
-      _markedOffDays.add(_dayKey(day));
-    });
+    try {
+      setState(() {
+        weeklySchedule[day]?.clear();
+        _markedOffDays.add(_dayKey(day));
+      });
 
-    if (day == 'Monday' && _copyMondayToAllChecked) {
-      _syncMondayToAllOpenDays();
+      if (day == 'Monday') {
+        _syncMondayToAllOpenDays();
+      }
+    } finally {
+      if (shouldCopyMonday) {
+        await _hideMondayCopyLoader();
+      }
     }
   }
 
-  void _markWorking(String day) {
+  Future<void> _markWorking(String day) async {
     if (_sameAsBranchTimings) return;
+    final shouldCopyMonday = day == 'Monday' && _copyMondayToAllChecked;
+    if (shouldCopyMonday) {
+      await _showMondayCopyLoader();
+    } else {
+      _clearCopyMondaySelectionOnManualEdit(day);
+    }
 
-    setState(() {
-      _markedOffDays.remove(_dayKey(day));
-    });
+    try {
+      setState(() {
+        _markedOffDays.remove(_dayKey(day));
+      });
 
-    _addSlot(day);
+      _addSlot(
+        day,
+        clearCopySelection: false,
+        syncMondayChanges: false,
+      );
+
+      if (day == 'Monday') {
+        _syncMondayToAllOpenDays();
+      }
+    } finally {
+      if (shouldCopyMonday) {
+        await _hideMondayCopyLoader();
+      }
+    }
   }
 
   void _copyMondayToAll(bool value) {
@@ -862,7 +929,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
     if (!value) return;
 
-    if ((weeklySchedule['Monday'] ?? const []).isEmpty) {
+    if ((weeklySchedule['Monday'] ?? const []).isEmpty &&
+        !_isMarkedOff('Monday')) {
       setState(() => _copyMondayToAllChecked = false);
 
       Fluttertoast.showToast(
@@ -1358,7 +1426,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
   @override
   Widget build(BuildContext context) {
-    final navigationDisabled = isSubmitting || _isLoadingOperatingSchedule;
+    final navigationDisabled =
+        isSubmitting || _isLoadingOperatingSchedule || _isApplyingMondayCopy;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F4F1),
@@ -1508,7 +1577,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                 ],
               ),
             ),
-            if (_isLoadingOperatingSchedule) _operatingScheduleLoader(),
+            if (_isLoadingOperatingSchedule || _isApplyingMondayCopy)
+              _operatingScheduleLoader(),
           ],
         ),
       ),
@@ -1619,7 +1689,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    translateText('Loading salon timing'),
+                    translateText('Loading...'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,

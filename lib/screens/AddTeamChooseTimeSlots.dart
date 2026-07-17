@@ -43,6 +43,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   bool _useSalonHours = false;
   bool _copyMondayToAllChecked = false;
   bool _isLoadingOperatingSchedule = false;
+  bool _isApplyingMondayCopy = false;
   bool _hasPrefilledMemberSchedule = false;
   final Map<int, Set<int>> _rememberedSelectedServiceIdsByBranchId = {};
 
@@ -933,6 +934,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   void addSlot(String day) {
     if (_useSalonHours) return;
+    _clearCopyMondaySelectionOnManualEdit(day);
     if (_isMemberOffDay(day)) return;
 
     if (_isClosedDay(day)) {
@@ -1099,6 +1101,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   void deleteSlot(String day, int index) {
     if (_useSalonHours) return;
+    _clearCopyMondaySelectionOnManualEdit(day);
 
     setState(() {
       weeklySchedule[day]?.removeAt(index);
@@ -1112,6 +1115,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   void updateTime(String day, int index, String timeType, String newTime) {
     if (_useSalonHours) return;
 
+    _clearCopyMondaySelectionOnManualEdit(day);
     String? toastMessage;
 
     setState(() {
@@ -1171,6 +1175,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   void _syncMondayToAllOpenDays() {
     if (!_copyMondayToAllChecked) return;
 
+    final mondayIsOff = _isMemberOffDay('Monday');
     final mondaySlots =
         (weeklySchedule['Monday'] ?? const <Map<String, String>>[])
             .map((slot) => Map<String, String>.from(slot))
@@ -1180,11 +1185,21 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       for (final day in _weekDays) {
         if (day == 'Monday' || _isClosedDay(day)) continue;
 
-        _memberOffDays.remove(_dayKey(day));
-        _memberOffDaySnapshots.remove(_dayKey(day));
-
         final slots = weeklySchedule[day];
         if (slots == null) continue;
+
+        final dayKey = _dayKey(day);
+        if (mondayIsOff) {
+          if (slots.isNotEmpty) {
+            _memberOffDaySnapshots[dayKey] = _cloneSlotList(slots);
+          }
+          slots.clear();
+          _memberOffDays.add(dayKey);
+          continue;
+        }
+
+        _memberOffDays.remove(dayKey);
+        _memberOffDaySnapshots.remove(dayKey);
 
         slots
           ..clear()
@@ -1209,7 +1224,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     if (!value) return;
 
-    if (weeklySchedule['Monday']!.isEmpty) {
+    if (weeklySchedule['Monday']!.isEmpty && !_isMemberOffDay('Monday')) {
       setState(() => _copyMondayToAllChecked = false);
       Fluttertoast.showToast(
         msg: translateText('Please add time slots for Monday first.'),
@@ -1218,6 +1233,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     }
 
     _syncMondayToAllOpenDays();
+  }
+
+  void _clearCopyMondaySelectionOnManualEdit(String day) {
+    if (!_copyMondayToAllChecked || day == 'Monday') return;
+    setState(() => _copyMondayToAllChecked = false);
   }
 
   void _showClosedDayMessage(String day) {
@@ -1255,40 +1275,69 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   bool _isMemberOffDay(String day) => _memberOffDays.contains(_dayKey(day));
 
-  void _toggleMarkOff(String day) {
+  Future<void> _showMondayCopyLoader() async {
+    if (!mounted) return;
+    setState(() => _isApplyingMondayCopy = true);
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+  }
+
+  Future<void> _hideMondayCopyLoader() async {
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+    setState(() => _isApplyingMondayCopy = false);
+  }
+
+  Future<void> _toggleMarkOff(String day) async {
     if (_useSalonHours || _isClosedDay(day)) return;
+
+    final shouldCopyMonday = day == 'Monday' && _copyMondayToAllChecked;
+    if (shouldCopyMonday) {
+      await _showMondayCopyLoader();
+    } else {
+      _clearCopyMondaySelectionOnManualEdit(day);
+    }
 
     final key = _dayKey(day);
 
-    setState(() {
-      if (_memberOffDays.contains(key)) {
-        _memberOffDays.remove(key);
-        final snapshot = _memberOffDaySnapshots.remove(key);
+    try {
+      setState(() {
+        if (_memberOffDays.contains(key)) {
+          _memberOffDays.remove(key);
+          final snapshot = _memberOffDaySnapshots.remove(key);
 
-        if (snapshot != null && snapshot.isNotEmpty) {
-          weeklySchedule[day] = _cloneSlotList(snapshot);
+          if (snapshot != null && snapshot.isNotEmpty) {
+            weeklySchedule[day] = _cloneSlotList(snapshot);
+          } else {
+            weeklySchedule[day] = _defaultOperatingSlotsForDay(day);
+          }
         } else {
-          weeklySchedule[day] = _defaultOperatingSlotsForDay(day);
+          final currentSlots =
+              weeklySchedule[day] ?? const <Map<String, String>>[];
+          if (currentSlots.isNotEmpty) {
+            _memberOffDaySnapshots[key] = _cloneSlotList(currentSlots);
+          }
+          weeklySchedule[day] = [];
+          _memberOffDays.add(key);
         }
-      } else {
-        final currentSlots =
-            weeklySchedule[day] ?? const <Map<String, String>>[];
-        if (currentSlots.isNotEmpty) {
-          _memberOffDaySnapshots[key] = _cloneSlotList(currentSlots);
-        }
-        weeklySchedule[day] = [];
-        _memberOffDays.add(key);
-      }
 
-      _sortWeeklyScheduleInPlace();
-    });
+        _sortWeeklyScheduleInPlace();
+      });
+
+      if (day == 'Monday') {
+        _syncMondayToAllOpenDays();
+      }
+    } finally {
+      if (shouldCopyMonday) {
+        await _hideMondayCopyLoader();
+      }
+    }
   }
 
-  void _markWorking(String day) {
+  Future<void> _markWorking(String day) async {
     if (_useSalonHours || _isClosedDay(day)) return;
     if (!_isMemberOffDay(day)) return;
 
-    _toggleMarkOff(day);
+    await _toggleMarkOff(day);
   }
 
   Widget _timeDropdownField(
@@ -2029,7 +2078,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                 children: [
                                   Checkbox(
                                     value: _copyMondayToAllChecked,
-                                    onChanged: _isLoadingOperatingSchedule
+                                    onChanged: _isLoadingOperatingSchedule ||
+                                            _isApplyingMondayCopy
                                         ? null
                                         : (value) {
                                             _copyMondayToAll(value ?? false);
@@ -2160,7 +2210,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                 ),
               ),
             ),
-            if (_isLoadingOperatingSchedule) _operatingScheduleLoader(),
+            if (_isLoadingOperatingSchedule || _isApplyingMondayCopy)
+              _operatingScheduleLoader(),
           ],
         ),
       ),
