@@ -1168,6 +1168,15 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   Future<void> _openAssignMember(Map<String, dynamic> member) async {
+    if (!_teamIsActiveEntity(member)) {
+      Fluttertoast.showToast(
+        msg: translateText(
+          'Inactive team members cannot be assigned to another branch.',
+        ),
+      );
+      return;
+    }
+
     if (selectedBranch == null || _salons.isEmpty) return;
     final assigned = await Navigator.push<bool>(
       context,

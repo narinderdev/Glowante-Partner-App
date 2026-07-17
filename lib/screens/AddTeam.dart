@@ -244,11 +244,34 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     final x = (v ?? '').trim();
 
     if (x.isEmpty) return translateText('Email is required.');
-    if (!_emailRegExp.hasMatch(x)) {
+    if (!_isValidEmail(x)) {
       return translateText('Enter a valid email address.');
     }
 
     return null;
+  }
+
+  bool _isValidEmail(String value) {
+    if (!_emailRegExp.hasMatch(value)) return false;
+    if (value.contains('..')) return false;
+
+    final parts = value.split('@');
+    if (parts.length != 2) return false;
+
+    final local = parts.first;
+    final domain = parts.last.toLowerCase();
+    if (local.startsWith('.') || local.endsWith('.')) return false;
+
+    final domainLabels = domain.split('.');
+    if (domainLabels.length < 2) return false;
+    for (final label in domainLabels) {
+      if (label.isEmpty || label.startsWith('-') || label.endsWith('-')) {
+        return false;
+      }
+    }
+
+    final tld = domainLabels.last;
+    return RegExp(r'^[a-z]{2,10}$').hasMatch(tld);
   }
 
   String? _vAddress() {
@@ -353,11 +376,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       setState(() {
         _allRoles = _readOptionMaps(data['roles'])
             .where((role) => role['branchId'] != null)
+            .where((role) => !_isOwnerRoleOption(role))
             .toList();
         _allSpecs = _readOptionMaps(
           data['specialities'] ?? data['specializations'],
         );
         _normalizeSelectedOptions(_selectedRoles, _allRoles);
+        _selectedRoles.removeWhere(_isOwnerRoleText);
         _normalizeSelectedOptions(_selectedSpecs, _allSpecs);
       });
     } catch (e) {
@@ -589,6 +614,21 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return (option['label'] ?? option['name'] ?? option['displayName'] ?? '')
         .toString()
         .trim();
+  }
+
+  bool _isOwnerRoleOption(Map<String, dynamic> option) {
+    return _optionKeys(option).any(_isOwnerRoleText);
+  }
+
+  bool _isOwnerRoleText(String value) {
+    final normalized =
+        value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ');
+
+    return normalized
+            .split(RegExp(r'\s+'))
+            .where((part) => part.isNotEmpty)
+            .join(' ') ==
+        'salon owner';
   }
 
   Set<String> _optionKeys(Map<String, dynamic> option) {
