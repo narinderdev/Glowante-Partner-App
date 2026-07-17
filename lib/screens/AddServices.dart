@@ -1295,7 +1295,7 @@ class _AddServicesState extends State<AddServices> {
                                   const SizedBox(height: 7),
                                   TextFormField(
                                     controller: commissionMaxController,
-                                    maxLength: 6,
+                                    maxLength: 9,
                                     maxLengthEnforcement:
                                         MaxLengthEnforcement.enforced,
                                     keyboardType:
@@ -1308,7 +1308,7 @@ class _AddServicesState extends State<AddServices> {
                                       FilteringTextInputFormatter.allow(
                                         RegExp(r'[0-9.]'),
                                       ),
-                                      LengthLimitingTextInputFormatter(6),
+                                      LengthLimitingTextInputFormatter(9),
                                     ],
                                     decoration: _inputDecoration(
                                       hint: translateText("Maximum amount"),
@@ -1320,7 +1320,7 @@ class _AddServicesState extends State<AddServices> {
                                   _FieldCounter(
                                     currentLength:
                                         commissionMaxController.text.length,
-                                    maxLength: 6,
+                                    maxLength: 9,
                                   ),
                                 ],
                               ],
