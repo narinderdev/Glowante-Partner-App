@@ -1189,166 +1189,150 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
         title: translateText('Assign User'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
-          child: Column(
-            children: [
-              MultiStepFlowHeader(
-                currentStep: 3,
-                useIcons: true,
-                steps: const [
-                  FlowStepItem(
-                    stepNumber: 1,
-                    label: 'Select Branches',
-                    icon: Icons.place_outlined,
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
+              child: Column(
+                children: [
+                  MultiStepFlowHeader(
+                    currentStep: 3,
+                    useIcons: true,
+                    steps: const [
+                      FlowStepItem(
+                        stepNumber: 1,
+                        label: 'Select Branches',
+                        icon: Icons.place_outlined,
+                      ),
+                      FlowStepItem(
+                        stepNumber: 2,
+                        label: 'Choose Services',
+                        icon: Icons.handyman_outlined,
+                      ),
+                      FlowStepItem(
+                        stepNumber: 3,
+                        label: 'Schedule',
+                        icon: Icons.calendar_today_outlined,
+                      ),
+                      FlowStepItem(
+                        stepNumber: 4,
+                        label: 'Complete',
+                        icon: Icons.check_circle_outline,
+                      ),
+                    ],
                   ),
-                  FlowStepItem(
-                    stepNumber: 2,
-                    label: 'Choose Services',
-                    icon: Icons.handyman_outlined,
+                  const SizedBox(height: 46),
+                  Text(
+                    translateText('Set Weekly Working Hours'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF111827),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  FlowStepItem(
-                    stepNumber: 3,
-                    label: 'Schedule',
-                    icon: Icons.calendar_today_outlined,
-                  ),
-                  FlowStepItem(
-                    stepNumber: 4,
-                    label: 'Complete',
-                    icon: Icons.check_circle_outline,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 46),
-              Text(
-                translateText('Set Weekly Working Hours'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF111827),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(maxWidth: 532),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxWidth: 532),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          translateText('Set Working Schedule'),
-                          style: const TextStyle(
-                            color: Color(0xFF111827),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              translateText('Set Working Schedule'),
+                              style: const TextStyle(
+                                color: Color(0xFF111827),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const Spacer(),
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                // children: [
+                                //   Checkbox(
+                                //     value: _sameAsBranchTimings,
+                                //     onChanged: (value) {
+                                //       _applySameAsBranchTimings(value ?? false);
+                                //     },
+                                //     visualDensity: VisualDensity.compact,
+                                //     materialTapTargetSize:
+                                //         MaterialTapTargetSize.shrinkWrap,
+                                //   ),
+                                //   Flexible(
+                                //     child: Text(
+                                //       translateText('Same as branch timings'),
+                                //       overflow: TextOverflow.ellipsis,
+                                //       style: const TextStyle(
+                                //         color: Color(0xFF374151),
+                                //         fontSize: 11,
+                                //         fontWeight: FontWeight.w500,
+                                //       ),
+                                //     ),
+                                //   ),
+                                // ],
+                              ),
+                            ),
+                          ],
                         ),
-                        const Spacer(),
-                        Flexible(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            // children: [
-                            //   Checkbox(
-                            //     value: _sameAsBranchTimings,
-                            //     onChanged: (value) {
-                            //       _applySameAsBranchTimings(value ?? false);
-                            //     },
-                            //     visualDensity: VisualDensity.compact,
-                            //     materialTapTargetSize:
-                            //         MaterialTapTargetSize.shrinkWrap,
-                            //   ),
-                            //   Flexible(
-                            //     child: Text(
-                            //       translateText('Same as branch timings'),
-                            //       overflow: TextOverflow.ellipsis,
-                            //       style: const TextStyle(
-                            //         color: Color(0xFF374151),
-                            //         fontSize: 11,
-                            //         fontWeight: FontWeight.w500,
-                            //       ),
-                            //     ),
-                            //   ),
-                            // ],
+                        const SizedBox(height: 18),
+                        IgnorePointer(
+                          ignoring: _sameAsBranchTimings,
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 180),
+                            opacity: _sameAsBranchTimings ? 0.45 : 1,
+                            child: Column(
+                              children: [
+                                for (final day in _weekDays) ...[
+                                  _dayScheduleCard(day),
+                                  if (day == 'Monday') ...[
+                                    Row(
+                                      children: [
+                                        Checkbox(
+                                          value: _copyMondayToAllChecked,
+                                          onChanged: _sameAsBranchTimings
+                                              ? null
+                                              : (value) {
+                                                  _copyMondayToAll(
+                                                    value ?? false,
+                                                  );
+                                                },
+                                          visualDensity: VisualDensity.compact,
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            translateText(
+                                              'Copy Monday schedule to all days',
+                                            ),
+                                            style: const TextStyle(
+                                              color: Color(0xFF111827),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                  ],
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    if (_isLoadingOperatingSchedule) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.starColor,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            translateText('Checking branch timings...'),
-                            style: TextStyle(
-                              color: Colors.grey.shade700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    IgnorePointer(
-                      ignoring: _sameAsBranchTimings,
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 180),
-                        opacity: _sameAsBranchTimings ? 0.45 : 1,
-                        child: Column(
-                          children: [
-                            for (final day in _weekDays) ...[
-                              _dayScheduleCard(day),
-                              if (day == 'Monday') ...[
-                                Row(
-                                  children: [
-                                    Checkbox(
-                                      value: _copyMondayToAllChecked,
-                                      onChanged: _sameAsBranchTimings
-                                          ? null
-                                          : (value) {
-                                              _copyMondayToAll(value ?? false);
-                                            },
-                                      visualDensity: VisualDensity.compact,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        translateText(
-                                          'Copy Monday schedule to all days',
-                                        ),
-                                        style: const TextStyle(
-                                          color: Color(0xFF111827),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                              ],
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 84),
+                ],
               ),
-              const SizedBox(height: 84),
-            ],
-          ),
+            ),
+            if (_isLoadingOperatingSchedule) _operatingScheduleLoader(),
+          ],
         ),
       ),
       bottomNavigationBar: SafeArea(
@@ -1411,6 +1395,63 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _operatingScheduleLoader() {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.28),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: AppColors.starColor,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    translateText('Please wait...'),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2B2520),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    translateText('Loading salon timing'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

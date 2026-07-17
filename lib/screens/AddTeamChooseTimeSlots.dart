@@ -39,12 +39,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   late Map<String, List<Map<String, String>>> weeklySchedule;
   late Map<String, List<Map<String, String>>> mondaySchedule;
 
-  Map<String, List<Map<String, String>>>? _manualWeeklyScheduleSnapshot;
-  Set<String>? _manualMemberOffDaysSnapshot;
-  Map<String, List<Map<String, String>>>? _manualMemberOffDaySnapshots;
-
   bool _isSubmitting = false;
   bool _useSalonHours = false;
+  bool _copyMondayToAllChecked = false;
   bool _isLoadingOperatingSchedule = false;
   bool _hasPrefilledMemberSchedule = false;
   final Map<int, Set<int>> _rememberedSelectedServiceIdsByBranchId = {};
@@ -98,9 +95,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     _hasPrefilledMemberSchedule = _prefillSchedules();
 
-    // Important:
-    // Keep this true in edit mode if member was saved with salon hours.
-    _useSalonHours = widget.formData['useSalonHours'] == true;
+    _useSalonHours = false;
 
     _loadOperatingSchedule();
   }
@@ -122,17 +117,6 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   }
 
   List<String> get _weekDays => weeklySchedule.keys.toList();
-
-  Map<String, List<Map<String, String>>> _cloneWeeklySchedule(
-    Map<String, List<Map<String, String>>> source,
-  ) {
-    return source.map(
-      (day, slots) => MapEntry(
-        day,
-        slots.map((slot) => Map<String, String>.from(slot)).toList(),
-      ),
-    );
-  }
 
   int _slotSortValue(Map<String, String> slot, String key) {
     return _parseTimeToMinutes(slot[key] ?? '') ?? 0;
@@ -163,38 +147,6 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     for (final day in _weekDays) {
       weeklySchedule[day]?.clear();
     }
-  }
-
-  void _restoreWeeklyScheduleSnapshot() {
-    final snapshot = _manualWeeklyScheduleSnapshot;
-
-    if (snapshot != null) {
-      weeklySchedule = _cloneWeeklySchedule(snapshot);
-      _sortWeeklyScheduleInPlace();
-      _manualWeeklyScheduleSnapshot = null;
-
-      _memberOffDays
-        ..clear()
-        ..addAll(_manualMemberOffDaysSnapshot ?? const <String>{});
-      _memberOffDaySnapshots
-        ..clear()
-        ..addAll(
-          _manualMemberOffDaySnapshots?.map(
-                (day, slots) => MapEntry(
-                  day,
-                  slots.map((slot) => Map<String, String>.from(slot)).toList(),
-                ),
-              ) ??
-              const <String, List<Map<String, String>>>{},
-        );
-      _manualMemberOffDaysSnapshot = null;
-      _manualMemberOffDaySnapshots = null;
-      return;
-    }
-
-    _clearWeeklySchedule();
-    _memberOffDays.clear();
-    _memberOffDaySnapshots.clear();
   }
 
   Future<void> _loadOperatingSchedule() async {
@@ -822,6 +774,10 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       });
       _sortWeeklyScheduleInPlace();
     });
+
+    if (day == 'Monday') {
+      _syncMondayToAllOpenDays();
+    }
   }
 
   // _OperatingSlot? _nextAvailableSlotForDay(String day) {
@@ -916,6 +872,18 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         .toList()
       ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
+    if (existing.isEmpty) {
+      final firstBound = operatingSlots.first;
+      if (firstBound.endMinutes - firstBound.startMinutes < _timeMinuteStep) {
+        return null;
+      }
+
+      return _OperatingSlot(
+        startMinutes: firstBound.startMinutes,
+        endMinutes: firstBound.endMinutes,
+      );
+    }
+
     final lastUsed = existing.last;
     final nextStart = _roundUpToStep(lastUsed.endMinutes + _timeMinuteStep);
 
@@ -947,6 +915,10 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     setState(() {
       weeklySchedule[day]?.removeAt(index);
     });
+
+    if (day == 'Monday') {
+      _syncMondayToAllOpenDays();
+    }
   }
 
   void updateTime(String day, int index, String timeType, String newTime) {
@@ -1002,50 +974,62 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     if (toastMessage != null) {
       Fluttertoast.showToast(msg: toastMessage!);
     }
+
+    if (day == 'Monday') {
+      _syncMondayToAllOpenDays();
+    }
   }
 
-  void copyMondayScheduleToAll() {
-    if (_useSalonHours) return;
+  void _syncMondayToAllOpenDays() {
+    if (!_copyMondayToAllChecked) return;
 
-    if (weeklySchedule['Monday']!.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Alert'),
-            content: const Text('Please add time slots for Monday first.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      setState(() {
-        final mondaySlots = weeklySchedule['Monday']!
+    final mondaySlots =
+        (weeklySchedule['Monday'] ?? const <Map<String, String>>[])
             .map((slot) => Map<String, String>.from(slot))
             .toList();
 
-        weeklySchedule.forEach((day, slots) {
-          if (day != 'Monday' && !_isClosedDay(day) && !_isMemberOffDay(day)) {
-            slots
-              ..clear()
-              ..addAll(
-                mondaySlots.map(
-                  (slot) => _normalizeSlotWithinDay(
-                    day,
-                    Map<String, String>.from(slot),
-                  ),
-                ),
-              );
-          }
-        });
-        _sortWeeklyScheduleInPlace();
-      });
+    setState(() {
+      for (final day in _weekDays) {
+        if (day == 'Monday' || _isClosedDay(day)) continue;
+
+        _memberOffDays.remove(_dayKey(day));
+        _memberOffDaySnapshots.remove(_dayKey(day));
+
+        final slots = weeklySchedule[day];
+        if (slots == null) continue;
+
+        slots
+          ..clear()
+          ..addAll(
+            mondaySlots.map(
+              (slot) => _normalizeSlotWithinDay(
+                day,
+                Map<String, String>.from(slot),
+              ),
+            ),
+          );
+      }
+
+      _sortWeeklyScheduleInPlace();
+    });
+  }
+
+  void _copyMondayToAll(bool value) {
+    if (_useSalonHours) return;
+
+    setState(() => _copyMondayToAllChecked = value);
+
+    if (!value) return;
+
+    if (weeklySchedule['Monday']!.isEmpty) {
+      setState(() => _copyMondayToAllChecked = false);
+      Fluttertoast.showToast(
+        msg: translateText('Please add time slots for Monday first.'),
+      );
+      return;
     }
+
+    _syncMondayToAllOpenDays();
   }
 
   void _showClosedDayMessage(String day) {
@@ -1112,6 +1096,13 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     });
   }
 
+  void _markWorking(String day) {
+    if (_useSalonHours || _isClosedDay(day)) return;
+    if (!_isMemberOffDay(day)) return;
+
+    _toggleMarkOff(day);
+  }
+
   Widget _timeDropdownField(
     String day,
     int index,
@@ -1121,66 +1112,68 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final options = _timeOptionsForField(day, index, timeType);
     final safeValue = options.contains(currentValue) ? currentValue : null;
 
-    return DropdownButtonFormField<String>(
-      value: safeValue,
-      isExpanded: true,
-      icon: const Icon(
-        Icons.schedule_rounded,
-        color: Color(0xFF1F1B18),
-        size: 14,
-      ),
-      decoration: InputDecoration(
-        isDense: true,
-        filled: true,
-        fillColor:
-            _useSalonHours ? const Color(0xFFF0EDE9) : const Color(0xFFFAF8F6),
-        contentPadding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
+    return SizedBox(
+      height: 34,
+      child: DropdownButtonFormField<String>(
+        value: safeValue,
+        isExpanded: true,
+        icon: const Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: Color(0xFF8D867F),
+          size: 16,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: _useSalonHours ? const Color(0xFFF0EDE9) : Colors.white,
+          contentPadding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(3),
+            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(3),
+            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(3),
+            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(3),
+            borderSide: const BorderSide(color: Color(0xFFD98A00)),
+          ),
         ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
+        hint: Text(
+          currentValue ?? translateText('Select time'),
+          style: const TextStyle(
+            color: Color(0xFF1F2937),
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFD8C7B3)),
-        ),
-      ),
-      hint: Text(
-        currentValue ?? translateText('Select time'),
-        style: const TextStyle(
-          color: Color(0xFF1F1B18),
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      items: options
-          .map(
-            (option) => DropdownMenuItem<String>(
-              value: option,
-              child: Text(
-                option,
-                style: const TextStyle(
-                  color: Color(0xFF1F1B18),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+        items: options
+            .map(
+              (option) => DropdownMenuItem<String>(
+                value: option,
+                child: Text(
+                  option,
+                  style: const TextStyle(
+                    color: Color(0xFF1F2937),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-          )
-          .toList(),
-      onChanged: _useSalonHours
-          ? null
-          : (value) {
-              if (value == null) return;
-              updateTime(day, index, timeType, value);
-            },
+            )
+            .toList(),
+        onChanged: _useSalonHours
+            ? null
+            : (value) {
+                if (value == null) return;
+                updateTime(day, index, timeType, value);
+              },
+      ),
     );
   }
 
@@ -1255,6 +1248,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final slots = _sortedDaySlots(day);
     final isClosed = _isClosedDay(day);
     final isOff = _isMemberOffDay(day);
+    final markedOff = isClosed || isOff;
 
     return Opacity(
       opacity: _useSalonHours ? 0.55 : 1,
@@ -1262,25 +1256,15 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         ignoring: _useSalonHours,
         child: Container(
           width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 14),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.fromLTRB(12, 13, 12, 13),
           decoration: BoxDecoration(
-            color: _useSalonHours ? const Color(0xFFF0EDE9) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            color: markedOff ? const Color(0xFFFFFBF6) : Colors.white,
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: _useSalonHours
-                  ? const Color(0xFFD8D1CA)
-                  : const Color(0xFFF0E8DF),
+              color:
+                  markedOff ? const Color(0xFFF3E4D2) : const Color(0xFFE1E5EA),
             ),
-            boxShadow: _useSalonHours
-                ? const []
-                : const [
-                    BoxShadow(
-                      color: Color(0x08000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1318,100 +1302,46 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                           ),
                         ),
                       ),
-                    )
-                  else
-                    const Spacer(),
-                  if (!isClosed && !isOff)
-                    TextButton(
-                      onPressed: () => _toggleMarkOff(day),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFB00020),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        minimumSize: const Size(0, 30),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        translateText('MARK OFF'),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
                     ),
-                  if (isOff)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: GestureDetector(
-                          onTap: () => _toggleMarkOff(day),
-                          child: Container(
-                            height: 36,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                            ),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF1F1),
-                              borderRadius: BorderRadius.circular(7),
-                              border: Border.all(
-                                color: const Color(0xFFF1A7A7),
-                              ),
-                            ),
-                            child: Text(
-                              translateText('MARKED OFF'),
-                              style: const TextStyle(
-                                color: Color(0xFFC23939),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 2.0,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                  if (isClosed) const SizedBox(width: 10),
+                  if (!isClosed && isOff)
+                    _smallPillButton(
+                      text: 'Mark Working',
+                      filled: true,
+                      onPressed: () => _markWorking(day),
                     ),
                 ],
               ),
-              const SizedBox(height: 18),
-              if (!isClosed && !isOff) ...[
+              if (!markedOff) ...[
+                const SizedBox(height: 10),
                 if (slots.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      translateText('No time slots added'),
-                      style: const TextStyle(
-                        color: Color(0xFF9A928B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                  Row(
+                    children: [
+                      _addSlotButton(day),
+                      const SizedBox(width: 10),
+                      _smallPillButton(
+                        text: 'Mark Off',
+                        onPressed: () => _toggleMarkOff(day),
                       ),
-                    ),
+                    ],
+                  )
+                else ...[
+                  for (var index = 0; index < slots.length; index++)
+                    _weeklySlotRow(day, index),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      if (slots.length < _maxSlotsPerDay) _addSlotButton(day),
+                      if (slots.length < _maxSlotsPerDay)
+                        const SizedBox(width: 10),
+                      _smallPillButton(
+                        text: 'Mark Off',
+                        onPressed: () => _toggleMarkOff(day),
+                      ),
+                    ],
                   ),
-                for (var index = 0; index < slots.length; index++)
-                  _weeklySlotRow(day, index),
-                if (!_useSalonHours && slots.length < _maxSlotsPerDay)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _addSlotButton(day),
-                  ),
+                ],
               ],
-              if (isOff)
-                Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: Text(
-                    translateText(
-                      'This day is marked off. Tap MARKED OFF to restore.',
-                    ),
-                    style: const TextStyle(
-                      color: Color(0xFF9A928B),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -1419,42 +1349,101 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     );
   }
 
-  Widget _weeklySlotRow(String day, int index) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: _labeledTimeField(
-              label: 'FROM',
-              child: _timeDropdownField(day, index, 'start'),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _labeledTimeField(
-              label: 'TO',
-              child: _timeDropdownField(day, index, 'end'),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 32,
-            height: 38,
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.delete_outline_rounded,
-                color: _useSalonHours
-                    ? const Color(0xFFBDB7B1)
-                    : const Color(0xFFE54848),
-                size: 17,
+  Widget _smallPillButton({
+    required String text,
+    required VoidCallback onPressed,
+    bool filled = false,
+    IconData? icon,
+  }) {
+    return SizedBox(
+      height: 34,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: icon == null
+            ? const SizedBox.shrink()
+            : Icon(
+                icon,
+                size: 13,
+                color:
+                    filled ? const Color(0xFFD98A00) : const Color(0xFFBDBDBD),
               ),
-              onPressed: _useSalonHours ? null : () => deleteSlot(day, index),
-            ),
+        label: Text(
+          translateText(text),
+          style: TextStyle(
+            color: filled ? const Color(0xFF7C5600) : const Color(0xFF6B7280),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
           ),
+        ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor:
+              filled ? const Color(0xFFFFF4DC) : const Color(0xFFF9FAFB),
+          side: BorderSide(
+            color: filled ? const Color(0xFFFFE1A8) : Colors.transparent,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          minimumSize: const Size(0, 34),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _weeklySlotRow(String day, int index) {
+    final isLastSlot = index == ((weeklySchedule[day]?.length ?? 0) - 1);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: isLastSlot ? 0 : 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _labeledTimeField(
+                  label: 'Start Time',
+                  child: _timeDropdownField(day, index, 'start'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Text(
+                  translateText('to'),
+                  style: const TextStyle(
+                    color: Color(0xFF374151),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _labeledTimeField(
+                  label: 'End Time',
+                  child: _timeDropdownField(day, index, 'end'),
+                ),
+              ),
+            ],
+          ),
+          if ((weeklySchedule[day] ?? const []).length > 1) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFFE54848),
+                  size: 18,
+                ),
+                onPressed: () => deleteSlot(day, index),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1470,10 +1459,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         Text(
           translateText(label),
           style: const TextStyle(
-            color: Color(0xFFB5ADA5),
-            fontSize: 8,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.4,
+            color: Color(0xFF6B7280),
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 4),
@@ -1482,66 +1470,33 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     );
   }
 
-  Widget _orDivider() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Divider(
-              color: Color(0xFFE8DED6),
-              thickness: 1,
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5EAD2),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFFD0A244)),
-            ),
-            child: Text(
-              translateText('OR'),
-              style: const TextStyle(
-                color: Color(0xFF8B6500),
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-          const Expanded(
-            child: Divider(
-              color: Color(0xFFE8DED6),
-              thickness: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _addSlotButton(String day) {
-    return OutlinedButton.icon(
-      onPressed: () => addSlot(day),
-      icon: const Icon(Icons.add_rounded, size: 13),
-      label: Text(
-        translateText('ADD SLOT'),
-        style: const TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.4,
+    return SizedBox(
+      height: 34,
+      child: OutlinedButton.icon(
+        onPressed: () => addSlot(day),
+        icon: const Icon(
+          Icons.add_circle_rounded,
+          size: 13,
+          color: Color(0xFFD98A00),
         ),
-      ),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFF8B6500),
-        side: const BorderSide(color: Color(0xFFE8D8C3)),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        minimumSize: const Size(0, 30),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+        label: Text(
+          translateText('Add Slot'),
+          style: const TextStyle(
+            color: Color(0xFF6B7280),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: Color(0xFFD8DEE8)),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          minimumSize: const Size(0, 34),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
         ),
       ),
     );
@@ -1559,7 +1514,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       final List<Map<String, String>> scheduleData = _buildScheduleData();
       if (scheduleData.isEmpty) {
         Fluttertoast.showToast(
-          msg: translateText('Please add at least one time slot.'),
+          msg: translateText('At least one day must be working.'),
         );
         return;
       }
@@ -1640,7 +1595,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       final List<Map<String, String>> scheduleData = _buildScheduleData();
       if (scheduleData.isEmpty) {
         Fluttertoast.showToast(
-          msg: translateText('Please add at least one time slot.'),
+          msg: translateText('At least one day must be working.'),
         );
         return;
       }
@@ -1857,124 +1812,79 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      translateText('Set Weekly Working Hours'),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(height: 46),
+                    Center(
+                      child: Text(
+                        translateText('Set Weekly Working Hours'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF111827),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _useSalonHours,
-                      onChanged: _isLoadingOperatingSchedule
-                          ? null
-                          : (value) {
-                              final nextValue = value ?? false;
-
-                              if (nextValue == _useSalonHours) return;
-
-                              setState(() {
-                                if (nextValue) {
-                                  _manualWeeklyScheduleSnapshot =
-                                      _cloneWeeklySchedule(weeklySchedule);
-                                  _manualMemberOffDaysSnapshot =
-                                      Set<String>.from(_memberOffDays);
-                                  _manualMemberOffDaySnapshots =
-                                      _memberOffDaySnapshots.map(
-                                    (day, slots) => MapEntry(
-                                      day,
-                                      _cloneSlotList(slots),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxWidth: 532),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                translateText('Set Working Schedule'),
+                                style: const TextStyle(
+                                  color: Color(0xFF111827),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const Spacer(),
+                              const Flexible(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          for (final day in _weekDays) ...[
+                            _weeklyHoursCard(day),
+                            if (day == 'Monday') ...[
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: _copyMondayToAllChecked,
+                                    onChanged: _isLoadingOperatingSchedule
+                                        ? null
+                                        : (value) {
+                                            _copyMondayToAll(value ?? false);
+                                          },
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      translateText(
+                                        'Copy Monday schedule to all days',
+                                      ),
+                                      style: const TextStyle(
+                                        color: Color(0xFF111827),
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  );
-
-                                  _clearWeeklySchedule();
-                                  _memberOffDays.clear();
-                                  _memberOffDaySnapshots.clear();
-
-                                  // Fill schedule immediately from salon/branch hours.
-                                  _fillEmptyDaysFromOperatingSlots(
-                                    _operatingSlotsByDay,
-                                  );
-                                } else {
-                                  _restoreWeeklyScheduleSnapshot();
-                                }
-
-                                _useSalonHours = nextValue;
-                              });
-                            },
-                      title: Text(
-                        translateText('Use salon open & close time'),
-                      ),
-                      subtitle: Text(
-                        translateText(
-                          'Apply the salon\'s operating hours instead of defining custom time slots.',
-                        ),
-                      ),
-                      controlAffinity: ListTileControlAffinity.leading,
-                    ),
-                    // if (_useSalonHours)
-                    //   Container(
-                    //     width: double.infinity,
-                    //     margin: const EdgeInsets.only(top: 16),
-                    //     padding: const EdgeInsets.all(12),
-                    //     decoration: BoxDecoration(
-                    //       color: Colors.grey.shade100,
-                    //       borderRadius: BorderRadius.circular(8),
-                    //     ),
-                    //     child: Text(
-                    //       translateText(
-                    //         'Salon operating hours will be used for this team member. Uncheck to set custom slots.',
-                    //       ),
-                    //       style: const TextStyle(fontSize: 14),
-                    //     ),
-                    //   ),
-
-                    // // Important:
-                    // // Always show weekly cards.
-                    // // If _useSalonHours is true, fields are disabled but visible.
-                    // const SizedBox(height: 16),
-                    // ..._weekDays.map(_weeklyHoursCard),
-                    if (_useSalonHours)
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(top: 16),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0EDE9),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFD8C7B3)),
-                        ),
-                        child: Text(
-                          translateText(
-                            'Salon operating hours will be used for this team member.',
-                          ),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF5E564F),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-
-                    _orDivider(),
-
-                    Text(
-                      translateText('Or set custom working hours below'),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: _useSalonHours
-                            ? const Color(0xFF9A928B)
-                            : const Color(0xFF1F1B18),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+                          ],
+                        ],
                       ),
                     ),
-
-                    const SizedBox(height: 12),
-
-                    ..._weekDays.map(_weeklyHoursCard),
-
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Row(

@@ -7,6 +7,7 @@ import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'team_online_availability_screen.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 const Color _assignServicesBackground = Color(0xFFFBFAF8);
 const Color _assignServicesBorder = Color(0xFFE8DED6);
@@ -670,6 +671,13 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   // }
 
   Future<void> _goToOnlineAvailability() async {
+    if (_selectedServiceIds.isEmpty) {
+      Fluttertoast.showToast(
+        msg: translateText('Choose at least one service.'),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
     try {
       // Build normalized body

@@ -7,6 +7,7 @@ import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 const Color _assignServicesBackground = Color(0xFFFBFAF8);
 const Color _assignServicesBorder = Color(0xFFE8DED6);
@@ -585,6 +586,12 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                 child: ElevatedButton(
                   onPressed: () async {
                     final ids = selectedServiceIds;
+                    if (ids.isEmpty) {
+                      Fluttertoast.showToast(
+                        msg: translateText('Choose at least one service.'),
+                      );
+                      return;
+                    }
 
                     // ✅ Add salonId & branchId
                     final payload = {
