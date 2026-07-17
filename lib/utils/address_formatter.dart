@@ -21,16 +21,6 @@ String formatAddressSummary(dynamic rawAddress) {
         .toList();
   }
 
-  bool startsWithParts(List<String> source, List<String> prefix) {
-    if (prefix.isEmpty || source.length < prefix.length) return false;
-    for (var index = 0; index < prefix.length; index++) {
-      if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   void push(dynamic value, {bool preserveInternalDuplicates = false}) {
     for (final cleaned in splitParts(value)) {
       final key = cleaned.toLowerCase();
@@ -47,9 +37,7 @@ String formatAddressSummary(dynamic rawAddress) {
       address['line1'] ?? address['addressLine1'] ?? address['buildingName'];
   final line2 = address['line2'] ?? address['addressLine2'];
   push(line1, preserveInternalDuplicates: true);
-  if (!startsWithParts(splitParts(line1), splitParts(line2))) {
-    push(line2, preserveInternalDuplicates: true);
-  }
+  push(line2, preserveInternalDuplicates: true);
   push(address['village']);
   push(address['district']);
   push(address['city']);

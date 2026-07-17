@@ -2211,16 +2211,6 @@ class _SalonDetailsDialog extends StatelessWidget {
           .toList();
     }
 
-    bool startsWithParts(List<String> source, List<String> prefix) {
-      if (prefix.isEmpty || source.length < prefix.length) return false;
-      for (var index = 0; index < prefix.length; index++) {
-        if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
-          return false;
-        }
-      }
-      return true;
-    }
-
     void push(dynamic value, {bool preserveInternalDuplicates = false}) {
       for (final cleanedPart in splitParts(value)) {
         final key = cleanedPart.toLowerCase();
@@ -2236,9 +2226,7 @@ class _SalonDetailsDialog extends StatelessWidget {
     final line1 = data['line1'] ?? data['addressLine1'] ?? data['buildingName'];
     final line2 = data['line2'] ?? data['addressLine2'];
     push(line1, preserveInternalDuplicates: true);
-    if (!startsWithParts(splitParts(line1), splitParts(line2))) {
-      push(line2, preserveInternalDuplicates: true);
-    }
+    push(line2, preserveInternalDuplicates: true);
     push(data['village']);
     push(data['district']);
     push(data['city']);
@@ -3633,16 +3621,6 @@ class _BranchTileState extends State<_BranchTile> {
           .toList();
     }
 
-    bool startsWithParts(List<String> source, List<String> prefix) {
-      if (prefix.isEmpty || source.length < prefix.length) return false;
-      for (var index = 0; index < prefix.length; index++) {
-        if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
-          return false;
-        }
-      }
-      return true;
-    }
-
     void push(dynamic value, {bool preserveInternalDuplicates = false}) {
       for (final cleanedPart in splitParts(value)) {
         final key = cleanedPart.toLowerCase();
@@ -3658,9 +3636,7 @@ class _BranchTileState extends State<_BranchTile> {
     final line1 = data['line1'] ?? data['addressLine1'] ?? data['buildingName'];
     final line2 = data['line2'] ?? data['addressLine2'];
     push(line1, preserveInternalDuplicates: true);
-    if (!startsWithParts(splitParts(line1), splitParts(line2))) {
-      push(line2, preserveInternalDuplicates: true);
-    }
+    push(line2, preserveInternalDuplicates: true);
     push(data['village']);
     push(data['district']);
     push(data['city']);
