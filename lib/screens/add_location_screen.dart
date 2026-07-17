@@ -943,24 +943,86 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
           _removeOverlay();
         },
         child: SafeArea(
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    children: [
-                      _buildSearchCard(),
-                      const SizedBox(height: 20),
-                      _buildManualAddressCard(),
-                      const SizedBox(height: 18),
-                      _buildProTipCard(),
-                    ],
+          child: Stack(
+            children: [
+              Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Column(
+                        children: [
+                          _buildSearchCard(),
+                          const SizedBox(height: 20),
+                          _buildManualAddressCard(),
+                          const SizedBox(height: 18),
+                          _buildProTipCard(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
+              ),
+              if (_isLoading) _currentLocationLoader(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _currentLocationLoader() {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.28),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: _gold,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    translateText('Please wait...'),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    translateText('Fetching current location'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _muted,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1109,16 +1171,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                 ),
                 backgroundColor: Colors.white,
               ),
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        color: _gold,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.my_location_rounded, size: 18),
+              icon: const Icon(Icons.my_location_rounded, size: 18),
               label: Text(
                 translateText('Use Current Location').toUpperCase(),
                 style: const TextStyle(
