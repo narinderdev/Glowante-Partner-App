@@ -135,6 +135,7 @@ class _TeamScreenState extends State<TeamScreen> {
   Timer? _teamSearchDebounce;
   final Set<int> _statusUpdatingIds = {};
   final Set<int> _deletingMemberIds = {};
+  bool _isOpeningViewMember = false;
 
   @override
   void initState() {
@@ -1195,12 +1196,18 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   Future<void> _openViewMember(Map<String, dynamic> member) async {
+    if (_isOpeningViewMember) return;
+
     final userId = _teamAsInt(member['id']) ?? 0;
     if (userId == 0) return;
 
     final branchId = selectedBranchId ??
         _teamAsInt(_teamFirstAssignmentBranchId(member['userBranches']));
     if (branchId == null) return;
+
+    if (mounted) {
+      setState(() => _isOpeningViewMember = true);
+    }
 
     final ratingSummary =
         _professionalRatings[userId] ?? _TeamRatingSummary.empty;
@@ -1216,19 +1223,25 @@ class _TeamScreenState extends State<TeamScreen> {
       debugPrint('Failed to load team member details: $error');
     }
 
-    if (!mounted) return;
+    try {
+      if (!mounted) return;
 
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TeamMemberDetails(
-          member: detailMember,
-          salons: _salons,
-          professionalRating: ratingSummary.average.toDouble(),
-          professionalReviewCount: ratingSummary.count,
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeamMemberDetails(
+            member: detailMember,
+            salons: _salons,
+            professionalRating: ratingSummary.average.toDouble(),
+            professionalReviewCount: ratingSummary.count,
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningViewMember = false);
+      }
+    }
   }
 
   dynamic _teamFirstAssignmentBranchId(dynamic rawAssignments) {
@@ -1382,6 +1395,7 @@ class _TeamScreenState extends State<TeamScreen> {
                           salons: _salons,
                           statusUpdatingIds: _statusUpdatingIds,
                           deletingMemberIds: _deletingMemberIds,
+                          isViewOpening: _isOpeningViewMember,
                           professionalRatings: _professionalRatings,
                           onEditMember: _openEditMember,
                           onDeleteMember: _deleteMember,
@@ -1430,6 +1444,7 @@ class _TeamMembersGrid extends StatelessWidget {
     required this.salons,
     required this.statusUpdatingIds,
     required this.deletingMemberIds,
+    required this.isViewOpening,
     required this.professionalRatings,
     required this.onEditMember,
     required this.onDeleteMember,
@@ -1446,6 +1461,7 @@ class _TeamMembersGrid extends StatelessWidget {
   final List<Map<String, dynamic>> salons;
   final Set<int> statusUpdatingIds;
   final Set<int> deletingMemberIds;
+  final bool isViewOpening;
   final Map<int, _TeamRatingSummary> professionalRatings;
   final Future<void> Function(Map<String, dynamic> member) onEditMember;
   final Future<void> Function(int userId) onDeleteMember;
@@ -1501,6 +1517,7 @@ class _TeamMembersGrid extends StatelessWidget {
               isActive: isActive,
               isDeleting: isDeleting,
               isStatusUpdating: isStatusUpdating,
+              isViewOpening: isViewOpening,
               isDeleteBlocked: false,
               isDeactivateBlocked: false,
               canAssign: selectedBranch != null && salons.isNotEmpty,
@@ -2352,6 +2369,7 @@ class _TeamMemberCard extends StatelessWidget {
     required this.isActive,
     required this.isDeleting,
     required this.isStatusUpdating,
+    required this.isViewOpening,
     required this.isDeleteBlocked,
     required this.isDeactivateBlocked,
     required this.canAssign,
@@ -2370,6 +2388,7 @@ class _TeamMemberCard extends StatelessWidget {
   final bool isActive;
   final bool isDeleting;
   final bool isStatusUpdating;
+  final bool isViewOpening;
   final bool isDeleteBlocked;
   final bool isDeactivateBlocked;
   final bool canAssign;
@@ -2380,7 +2399,7 @@ class _TeamMemberCard extends StatelessWidget {
   final VoidCallback onView;
   final VoidCallback onAssign;
 
-  bool get _isBusy => isDeleting || isStatusUpdating;
+  bool get _isBusy => isDeleting || isStatusUpdating || isViewOpening;
 
   String _cleanText(dynamic value) {
     return (value?.toString() ?? '').trim();
