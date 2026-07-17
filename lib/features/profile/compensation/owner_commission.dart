@@ -2143,6 +2143,323 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     );
   }
 
+  ProfileTeamMember? get _selectedStaffForEdit {
+    final staffId = widget.initialOverride?.staffId;
+    if (staffId == null) {
+      return null;
+    }
+    for (final member in widget.staff) {
+      if (member.id == staffId) {
+        return member;
+      }
+    }
+    return null;
+  }
+
+  String _rateValidationMessage(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return translateText('Enter a valid override value');
+    }
+    final parsed = double.tryParse(text);
+    if (parsed == null || parsed <= 0) {
+      return translateText('Enter a valid override value');
+    }
+    if (_ruleType == CommissionRuleTypes.percentage) {
+      if (text.length > 2 || parsed > 99) {
+        return translateText('Percentage cannot be more than 2 digits');
+      }
+    } else {
+      final selectedService = _selectedService;
+      final priceRupees = minorAmountToRupees(selectedService?.priceMinor);
+      if (priceRupees != null && parsed > priceRupees) {
+        return translateText(
+          'Fixed amount cannot be greater than Rs. ${_formatOverrideNumber(priceRupees)}',
+        );
+      }
+    }
+    return '';
+  }
+
+  Widget _buildRateInput() {
+    return TextFormField(
+      controller: _valueController,
+      enabled: !_isSaving,
+      autofocus: false,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: _rateInputFormatters,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+      decoration: _dialogInputDecoration(
+        suffix: Text(
+          _ruleType == CommissionRuleTypes.percentage ? '%' : '₹',
+          style: const TextStyle(
+            color: Color(0xFF8A8178),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      validator: (value) {
+        final message = _rateValidationMessage(value);
+        return message.isEmpty ? null : message;
+      },
+      onChanged: _isSaving
+          ? null
+          : (_) {
+              setState(() {});
+              _validateIfNeeded();
+            },
+    );
+  }
+
+  Widget _buildEffectiveDateInput() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: _isSaving ? null : _pickEffectiveDate,
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE1D6CB)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                DateFormat('dd/MM/yyyy').format(_effectiveFrom),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1C1917),
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.calendar_today_outlined,
+              size: 16,
+              color: AppColors.starColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditOverrideBody(
+    BuildContext context,
+    BranchServiceSummary? selectedService,
+  ) {
+    final staff = _selectedStaffForEdit;
+    final override = widget.initialOverride;
+    final staffName = staff?.name ?? override?.staffName ?? context.t('Staff');
+    final staffRole = staff?.role.trim().isNotEmpty == true
+        ? staff!.role
+        : context.t('Team Member');
+
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        autovalidateMode: _autoValidateMode,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F5F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE8DED6)),
+              ),
+              child: Row(
+                children: [
+                  _CommissionInitialsAvatar(name: staffName),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          staffName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1C1917),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          staffRole,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF8A8178),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 82,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          context.t('Service'),
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: Color(0xFFB0A8A1),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          selectedService?.name ?? context.t('Unknown service'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            height: 1.15,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1C1917),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            _CommissionDialogLabel(context.t('Commission type')),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                _CommissionRuleRadio(
+                  label: context.t('Percentage (%)'),
+                  value: CommissionRuleTypes.percentage,
+                  groupValue: _ruleType,
+                  onChanged: _isSaving
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _ruleType = value;
+                            _syncRateFromSelectedService();
+                          });
+                          _validateIfNeeded();
+                        },
+                ),
+                _CommissionRuleRadio(
+                  label: context.t('Fixed Amount (Rs.)'),
+                  value: CommissionRuleTypes.fixed,
+                  groupValue: _ruleType,
+                  onChanged: _isSaving
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _ruleType = value;
+                            _syncRateFromSelectedService();
+                          });
+                          _validateIfNeeded();
+                        },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CommissionDialogLabel(context.t('Rate *')),
+                      _buildRateInput(),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CommissionDialogLabel(context.t('Effective from')),
+                      _buildEffectiveDateInput(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _CommissionDialogLabel(context.t('Notes')),
+            TextFormField(
+              controller: _notesController,
+              enabled: !_isSaving,
+              autofocus: false,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 12),
+              decoration:
+                  _dialogInputDecoration(hintText: context.t('Optional')),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SizedBox(
+                  width: 96,
+                  child: OutlinedButton(
+                    onPressed: _isSaving ? null : _closeDialog,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF4B5563),
+                      side: const BorderSide(color: Color(0xFFE1D6CB)),
+                      minimumSize: const Size.fromHeight(42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: Text(context.t('Cancel')),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 130,
+                  child: ElevatedButton(
+                    onPressed: _canSubmit ? _submit : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.starColor,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(0xFFD8D2CA),
+                      disabledForegroundColor: Colors.white,
+                      elevation: 0,
+                      minimumSize: const Size.fromHeight(42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: Text(
+                      _isSaving ? context.t('Saving...') : widget.submitLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedService = _selectedService;
@@ -2165,16 +2482,20 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                 Text(
                   widget.title,
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF1C1917),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  context.t(
-                    'Set a custom commission rate for one or more staff members.',
-                  ),
+                  _isEdit
+                      ? context.t(
+                          'Update the custom commission rate for this staff member.',
+                        )
+                      : context.t(
+                          'Set a custom commission rate for one or more staff members.',
+                        ),
                   style: const TextStyle(
                     fontSize: 11,
                     height: 1.3,
@@ -2192,248 +2513,210 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
         ],
       ),
       content: SizedBox(
-        width: 520,
+        width: _isEdit ? 360 : 520,
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(context).height * 0.72,
           ),
-          child: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              autovalidateMode: _autoValidateMode,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (selectedService != null) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F5F2),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE8DED6)),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: const Color(0xFFFFEFF2),
-                            child: Text(
-                              _commissionInitials(selectedService.name),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFFE11D48),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  selectedService.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF1C1917),
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  selectedService.categoryName.isEmpty
-                                      ? context.t('Service')
-                                      : selectedService.categoryName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          _CommissionValueBadge(
-                            label:
-                                '${context.t('Default')} ${_serviceDefaultCommissionLabel(selectedService)}',
-                            muted: !selectedService.commissionEnabled,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-                  _CommissionDialogLabel(context.t('Service')),
-                  DropdownButtonFormField<int>(
-                    initialValue: _selectedServiceId,
-                    isExpanded: true,
-                    decoration: _dialogInputDecoration(),
-                    icon:
-                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                    items: widget.services
-                        .map(
-                          (service) => DropdownMenuItem<int>(
-                            value: service.id,
-                            child: Text(
-                              service.categoryName.isEmpty
-                                  ? service.name
-                                  : '${service.name} - ${service.categoryName}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: _isSaving || _isEdit
-                        ? null
-                        : (value) {
-                            if (value == null) {
-                              return;
-                            }
-                            setState(() {
-                              _selectedServiceId = value;
-                              _syncRateFromSelectedService(resetRuleType: true);
-                            });
-                            _validateIfNeeded();
-                          },
-                  ),
-                  const SizedBox(height: 16),
-                  _CommissionDialogLabel(
-                    _isEdit
-                        ? context.t('Selected staff')
-                        : context.t('1. Select staff members'),
-                  ),
-                  if (!_isEdit) ...[
-                    TextField(
-                      controller: _staffSearchController,
-                      enabled: !_isSaving,
-                      autofocus: false,
-                      style: const TextStyle(fontSize: 12),
-                      decoration: _dialogInputDecoration(
-                        hintText: context.t('Search by name, role, or ID'),
-                        prefixIcon: const Icon(Icons.search, size: 17),
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  FormField<Set<int>>(
-                    initialValue: _selectedStaffIds.toSet(),
-                    validator: (_) => _selectedStaffIds.isEmpty
-                        ? translateText('Select at least one staff member')
-                        : null,
-                    builder: (field) {
-                      final visibleStaffIds =
-                          filteredStaff.map((member) => member.id).toSet();
-                      final selectedVisibleCount = visibleStaffIds
-                          .where(_selectedStaffIds.contains)
-                          .length;
-                      final bool? allVisibleSelected = selectedVisibleCount == 0
-                          ? false
-                          : selectedVisibleCount == visibleStaffIds.length
-                              ? true
-                              : null;
-                      final tableHeight = math.min(
-                        232.0,
-                        38.0 + (filteredStaff.length * 58.0),
-                      );
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+          child: _isEdit
+              ? _buildEditOverrideBody(context, selectedService)
+              : SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    autovalidateMode: _autoValidateMode,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (selectedService != null) ...[
                           Container(
-                            height: filteredStaff.isEmpty ? null : tableHeight,
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: const Color(0xFFF8F5F2),
                               borderRadius: BorderRadius.circular(10),
                               border:
                                   Border.all(color: const Color(0xFFE8DED6)),
                             ),
-                            child: filteredStaff.isEmpty
-                                ? Padding(
-                                    padding: const EdgeInsets.all(18),
-                                    child: Text(
-                                      context.t('No staff found'),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF6B7280),
-                                      ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor: const Color(0xFFFFEFF2),
+                                  child: Text(
+                                    _commissionInitials(selectedService.name),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFFE11D48),
                                     ),
-                                  )
-                                : SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: SizedBox(
-                                      width: 760,
-                                      height: tableHeight,
-                                      child: Column(
-                                        children: [
-                                          _StaffPickerHeaderRow(
-                                            value: allVisibleSelected,
-                                            enabled: !_isSaving && !_isEdit,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                if (value ?? false) {
-                                                  _selectedStaffIds
-                                                      .addAll(visibleStaffIds);
-                                                } else {
-                                                  _selectedStaffIds.removeAll(
-                                                    visibleStaffIds,
-                                                  );
-                                                }
-                                              });
-                                              field.didChange(
-                                                _selectedStaffIds.toSet(),
-                                              );
-                                              _validateIfNeeded();
-                                            },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        selectedService.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFF1C1917),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        selectedService.categoryName.isEmpty
+                                            ? context.t('Service')
+                                            : selectedService.categoryName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                _CommissionValueBadge(
+                                  label:
+                                      '${context.t('Default')} ${_serviceDefaultCommissionLabel(selectedService)}',
+                                  muted: !selectedService.commissionEnabled,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        _CommissionDialogLabel(context.t('Service')),
+                        DropdownButtonFormField<int>(
+                          initialValue: _selectedServiceId,
+                          isExpanded: true,
+                          decoration: _dialogInputDecoration(),
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                              size: 18),
+                          items: widget.services
+                              .map(
+                                (service) => DropdownMenuItem<int>(
+                                  value: service.id,
+                                  child: Text(
+                                    service.categoryName.isEmpty
+                                        ? service.name
+                                        : '${service.name} - ${service.categoryName}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: _isSaving || _isEdit
+                              ? null
+                              : (value) {
+                                  if (value == null) {
+                                    return;
+                                  }
+                                  setState(() {
+                                    _selectedServiceId = value;
+                                    _syncRateFromSelectedService(
+                                        resetRuleType: true);
+                                  });
+                                  _validateIfNeeded();
+                                },
+                        ),
+                        const SizedBox(height: 16),
+                        _CommissionDialogLabel(
+                          _isEdit
+                              ? context.t('Selected staff')
+                              : context.t('1. Select staff members'),
+                        ),
+                        if (!_isEdit) ...[
+                          TextField(
+                            controller: _staffSearchController,
+                            enabled: !_isSaving,
+                            autofocus: false,
+                            style: const TextStyle(fontSize: 12),
+                            decoration: _dialogInputDecoration(
+                              hintText:
+                                  context.t('Search by name, role, or ID'),
+                              prefixIcon: const Icon(Icons.search, size: 17),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        FormField<Set<int>>(
+                          initialValue: _selectedStaffIds.toSet(),
+                          validator: (_) => _selectedStaffIds.isEmpty
+                              ? translateText(
+                                  'Select at least one staff member')
+                              : null,
+                          builder: (field) {
+                            final visibleStaffIds = filteredStaff
+                                .map((member) => member.id)
+                                .toSet();
+                            final selectedVisibleCount = visibleStaffIds
+                                .where(_selectedStaffIds.contains)
+                                .length;
+                            final bool? allVisibleSelected =
+                                selectedVisibleCount == 0
+                                    ? false
+                                    : selectedVisibleCount ==
+                                            visibleStaffIds.length
+                                        ? true
+                                        : null;
+                            final tableHeight = math.min(
+                              232.0,
+                              38.0 + (filteredStaff.length * 58.0),
+                            );
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  height: filteredStaff.isEmpty
+                                      ? null
+                                      : tableHeight,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                        color: const Color(0xFFE8DED6)),
+                                  ),
+                                  child: filteredStaff.isEmpty
+                                      ? Padding(
+                                          padding: const EdgeInsets.all(18),
+                                          child: Text(
+                                            context.t('No staff found'),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF6B7280),
+                                            ),
                                           ),
-                                          Expanded(
-                                            child: ListView.separated(
-                                              shrinkWrap: true,
-                                              itemCount: filteredStaff.length,
-                                              separatorBuilder: (_, __) =>
-                                                  const Divider(
-                                                height: 1,
-                                                color: Color(0xFFE8DED6),
-                                              ),
-                                              itemBuilder: (context, index) {
-                                                final member =
-                                                    filteredStaff[index];
-                                                final isSelected =
-                                                    _selectedStaffIds
-                                                        .contains(member.id);
-                                                final existing =
-                                                    _existingOverrideFor(
-                                                  member.id,
-                                                );
-                                                return _StaffPickerRow(
-                                                  member: member,
-                                                  selected: isSelected,
+                                        )
+                                      : SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: SizedBox(
+                                            width: 760,
+                                            height: tableHeight,
+                                            child: Column(
+                                              children: [
+                                                _StaffPickerHeaderRow(
+                                                  value: allVisibleSelected,
                                                   enabled:
                                                       !_isSaving && !_isEdit,
-                                                  currentRate:
-                                                      _commissionRateLabel(
-                                                    existing,
-                                                    fallback: selectedService ==
-                                                            null
-                                                        ? 'No override'
-                                                        : _serviceDefaultCommissionLabel(
-                                                            selectedService,
-                                                          ),
-                                                  ),
                                                   onChanged: (value) {
                                                     setState(() {
-                                                      if (value) {
-                                                        _selectedStaffIds
-                                                            .add(member.id);
+                                                      if (value ?? false) {
+                                                        _selectedStaffIds.addAll(
+                                                            visibleStaffIds);
                                                       } else {
                                                         _selectedStaffIds
-                                                            .remove(
-                                                          member.id,
+                                                            .removeAll(
+                                                          visibleStaffIds,
                                                         );
                                                       }
                                                     });
@@ -2442,224 +2725,288 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                                                     );
                                                     _validateIfNeeded();
                                                   },
-                                                );
-                                              },
+                                                ),
+                                                Expanded(
+                                                  child: ListView.separated(
+                                                    shrinkWrap: true,
+                                                    itemCount:
+                                                        filteredStaff.length,
+                                                    separatorBuilder: (_, __) =>
+                                                        const Divider(
+                                                      height: 1,
+                                                      color: Color(0xFFE8DED6),
+                                                    ),
+                                                    itemBuilder:
+                                                        (context, index) {
+                                                      final member =
+                                                          filteredStaff[index];
+                                                      final isSelected =
+                                                          _selectedStaffIds
+                                                              .contains(
+                                                                  member.id);
+                                                      final existing =
+                                                          _existingOverrideFor(
+                                                        member.id,
+                                                      );
+                                                      return _StaffPickerRow(
+                                                        member: member,
+                                                        selected: isSelected,
+                                                        enabled: !_isSaving &&
+                                                            !_isEdit,
+                                                        currentRate:
+                                                            _commissionRateLabel(
+                                                          existing,
+                                                          fallback:
+                                                              selectedService ==
+                                                                      null
+                                                                  ? 'No override'
+                                                                  : _serviceDefaultCommissionLabel(
+                                                                      selectedService,
+                                                                    ),
+                                                        ),
+                                                        onChanged: (value) {
+                                                          setState(() {
+                                                            if (value) {
+                                                              _selectedStaffIds
+                                                                  .add(member
+                                                                      .id);
+                                                            } else {
+                                                              _selectedStaffIds
+                                                                  .remove(
+                                                                member.id,
+                                                              );
+                                                            }
+                                                          });
+                                                          field.didChange(
+                                                            _selectedStaffIds
+                                                                .toSet(),
+                                                          );
+                                                          _validateIfNeeded();
+                                                        },
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
                                             ),
+                                          ),
+                                        ),
+                                ),
+                                if (field.errorText != null) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    field.errorText!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.red,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _CommissionDialogLabel(
+                            context.t('2. Set commission rate')),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 4,
+                          children: [
+                            _CommissionRuleRadio(
+                              label: context.t('Percentage (%)'),
+                              value: CommissionRuleTypes.percentage,
+                              groupValue: _ruleType,
+                              onChanged: _isSaving
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _ruleType = value;
+                                        _syncRateFromSelectedService();
+                                      });
+                                      _validateIfNeeded();
+                                    },
+                            ),
+                            _CommissionRuleRadio(
+                              label: context.t('Fixed Amount (Rs.)'),
+                              value: CommissionRuleTypes.fixed,
+                              groupValue: _ruleType,
+                              onChanged: _isSaving
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _ruleType = value;
+                                        _syncRateFromSelectedService();
+                                      });
+                                      _validateIfNeeded();
+                                    },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        _CommissionDialogLabel(context.t('Rate *')),
+                        TextFormField(
+                          controller: _valueController,
+                          enabled: !_isSaving,
+                          autofocus: false,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          inputFormatters: _rateInputFormatters,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          decoration: _dialogInputDecoration(
+                            suffix: Text(
+                              _ruleType == CommissionRuleTypes.percentage
+                                  ? '%'
+                                  : '₹',
+                              style: const TextStyle(
+                                color: Color(0xFF8A8178),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          validator: (value) {
+                            final text = (value ?? '').trim();
+                            if (text.isEmpty) {
+                              return translateText(
+                                  'Enter a valid override value');
+                            }
+                            final parsed = double.tryParse(text);
+                            if (parsed == null || parsed <= 0) {
+                              return translateText(
+                                  'Enter a valid override value');
+                            }
+                            if (_ruleType == CommissionRuleTypes.percentage) {
+                              if (text.length > 2 || parsed > 99) {
+                                return translateText(
+                                  'Percentage cannot be more than 2 digits',
+                                );
+                              }
+                            } else {
+                              final selectedService = _selectedService;
+                              final priceRupees = minorAmountToRupees(
+                                  selectedService?.priceMinor);
+                              if (priceRupees != null && parsed > priceRupees) {
+                                return translateText(
+                                  'Fixed amount cannot be greater than Rs. ${_formatOverrideNumber(priceRupees)}',
+                                );
+                              }
+                            }
+                            return null;
+                          },
+                          onChanged: _isSaving
+                              ? null
+                              : (_) {
+                                  setState(() {});
+                                  _validateIfNeeded();
+                                },
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _CommissionDialogLabel(
+                                    context.t('Effective from'),
+                                  ),
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap:
+                                        _isSaving ? null : _pickEffectiveDate,
+                                    child: Ink(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 13,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFFE1D6CB),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              DateFormat('dd/MM/yyyy')
+                                                  .format(_effectiveFrom),
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF1C1917),
+                                              ),
+                                            ),
+                                          ),
+                                          const Icon(
+                                            Icons.calendar_today_outlined,
+                                            size: 16,
+                                            color: AppColors.starColor,
                                           ),
                                         ],
                                       ),
                                     ),
                                   ),
-                          ),
-                          if (field.errorText != null) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              field.errorText!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.red,
+                                ],
                               ),
                             ),
-                          ],
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _CommissionDialogLabel(context.t('2. Set commission rate')),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: [
-                      _CommissionRuleRadio(
-                        label: context.t('Percentage (%)'),
-                        value: CommissionRuleTypes.percentage,
-                        groupValue: _ruleType,
-                        onChanged: _isSaving
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  _ruleType = value;
-                                  _syncRateFromSelectedService();
-                                });
-                                _validateIfNeeded();
-                              },
-                      ),
-                      _CommissionRuleRadio(
-                        label: context.t('Fixed Amount (Rs.)'),
-                        value: CommissionRuleTypes.fixed,
-                        groupValue: _ruleType,
-                        onChanged: _isSaving
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  _ruleType = value;
-                                  _syncRateFromSelectedService();
-                                });
-                                _validateIfNeeded();
-                              },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _CommissionDialogLabel(context.t('Rate *')),
-                  TextFormField(
-                    controller: _valueController,
-                    enabled: !_isSaving,
-                    autofocus: false,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: _rateInputFormatters,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    decoration: _dialogInputDecoration(
-                      suffix: Text(
-                        _ruleType == CommissionRuleTypes.percentage ? '%' : '₹',
-                        style: const TextStyle(
-                          color: Color(0xFF8A8178),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      final text = (value ?? '').trim();
-                      if (text.isEmpty) {
-                        return translateText('Enter a valid override value');
-                      }
-                      final parsed = double.tryParse(text);
-                      if (parsed == null || parsed <= 0) {
-                        return translateText('Enter a valid override value');
-                      }
-                      if (_ruleType == CommissionRuleTypes.percentage) {
-                        if (text.length > 2 || parsed > 99) {
-                          return translateText(
-                            'Percentage cannot be more than 2 digits',
-                          );
-                        }
-                      } else {
-                        final selectedService = _selectedService;
-                        final priceRupees =
-                            minorAmountToRupees(selectedService?.priceMinor);
-                        if (priceRupees != null && parsed > priceRupees) {
-                          return translateText(
-                            'Fixed amount cannot be greater than Rs. ${_formatOverrideNumber(priceRupees)}',
-                          );
-                        }
-                      }
-                      return null;
-                    },
-                    onChanged: _isSaving
-                        ? null
-                        : (_) {
-                            setState(() {});
-                            _validateIfNeeded();
-                          },
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _CommissionDialogLabel(
-                              context.t('Effective from'),
-                            ),
-                            InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: _isSaving ? null : _pickEffectiveDate,
-                              child: Ink(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 13,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: const Color(0xFFE1D6CB),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _CommissionDialogLabel(context.t('Notes')),
+                                  TextFormField(
+                                    controller: _notesController,
+                                    enabled: !_isSaving,
+                                    autofocus: false,
+                                    maxLines: 1,
+                                    style: const TextStyle(fontSize: 12),
+                                    decoration: _dialogInputDecoration(
+                                      hintText: context.t('Optional'),
+                                    ),
                                   ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        DateFormat('dd/MM/yyyy')
-                                            .format(_effectiveFrom),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF1C1917),
-                                        ),
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.calendar_today_outlined,
-                                      size: 16,
-                                      color: AppColors.starColor,
-                                    ),
-                                  ],
-                                ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _CommissionDialogLabel(context.t('Notes')),
-                            TextFormField(
-                              controller: _notesController,
-                              enabled: !_isSaving,
-                              autofocus: false,
-                              maxLines: 1,
-                              style: const TextStyle(fontSize: 12),
-                              decoration: _dialogInputDecoration(
-                                hintText: context.t('Optional'),
-                              ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8E8),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE6C978)),
+                          ),
+                          child: Text(
+                            selectedService == null
+                                ? context.t(
+                                    'This rate overrides the default commission for the selected staff on this service.',
+                                  )
+                                : context.t(
+                                    'This rate overrides the default ${_serviceDefaultCommissionLabel(selectedService)} commission for the selected staff on this service.',
+                                  ),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              height: 1.3,
+                              color: Color(0xFF8A5A00),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF8E8),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE6C978)),
-                    ),
-                    child: Text(
-                      selectedService == null
-                          ? context.t(
-                              'This rate overrides the default commission for the selected staff on this service.',
-                            )
-                          : context.t(
-                              'This rate overrides the default ${_serviceDefaultCommissionLabel(selectedService)} commission for the selected staff on this service.',
-                            ),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        height: 1.3,
-                        color: Color(0xFF8A5A00),
-                      ),
+                        const SizedBox(height: 16),
+                        _buildDialogActionRow(context),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  _buildDialogActionRow(context),
-                ],
-              ),
-            ),
-          ),
+                ),
         ),
       ),
     );

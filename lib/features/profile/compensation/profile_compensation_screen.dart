@@ -2994,8 +2994,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       context: context,
       requestFocus: false,
       builder: (context) => _AddOverrideDialog(
-        title: context.t('Edit Override'),
-        submitLabel: context.t('Update Override'),
+        title: context.t('Edit override'),
+        submitLabel: context.t('Save changes'),
         serviceId: override.serviceId,
         services: _services,
         staff: _activeTeamMembers,

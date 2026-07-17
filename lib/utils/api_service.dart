@@ -307,6 +307,8 @@ class ApiService {
       "v2/branches/$branchId/dashboard";
   static String payrollSetupTeamMembersAPI(int branchId) =>
       "v2/branches/$branchId/payroll-setup/team-members";
+  static String branchCommissionStaffAPI(int branchId) =>
+      "v2/branches/$branchId/commission/staff";
   static String branchEmployeeSalaryHistoryAPI(
     int branchId,
     int employeeId,
@@ -4452,6 +4454,16 @@ class ApiService {
       method: 'GET',
       endpoint: payrollSetupTeamMembersAPI(branchId),
       debugTag: 'PayrollSetupTeamMembersAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getBranchCommissionStaff({
+    required int branchId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: branchCommissionStaffAPI(branchId),
+      debugTag: 'BranchCommissionStaffAPI',
     );
   }
 
