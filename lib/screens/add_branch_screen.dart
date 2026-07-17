@@ -356,6 +356,14 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         .toList();
   }
 
+  List<String> _splitAddressPartsKeepingDuplicates(String value) {
+    return value
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+  }
+
   String _deriveStreetSectorArea(
     String completeAddress, {
     String? line2,
@@ -420,7 +428,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       }
     }
 
-    final line2Parts = _splitAddressParts((address['line2'] ?? '').toString());
+    final line2Parts = _splitAddressPartsKeepingDuplicates(
+      (address['line2'] ?? '').toString(),
+    );
     final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
 
     final streetSectorArea =
@@ -2175,17 +2185,68 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       if (!context.mounted) return;
       final salonId = selection.salonId;
       final branchId = selection.branchId;
-      if (salonId != null && branchId != null) {
-        context.read<SalonListCubit>().setSelectedSalon({
-          'salonId': salonId,
-          'salonName': selection.salonName,
-          'branchId': branchId,
-          'branchName': selection.branchName,
-        });
+      final salonCubit = context.read<SalonListCubit>();
+      await salonCubit.loadSalons();
+      if (!context.mounted) return;
+
+      final selected = _selectionFromFreshSalonList(
+            salonCubit.state.salons,
+            salonId: salonId,
+            branchId: branchId,
+          ) ??
+          (salonId != null && branchId != null
+              ? {
+                  'salonId': salonId,
+                  'salonName': selection.salonName,
+                  'branchId': branchId,
+                  'branchName': selection.branchName,
+                }
+              : null);
+
+      if (selected != null) {
+        salonCubit.setSelectedSalon(selected);
       }
-      await context.read<SalonListCubit>().loadSalons();
+      StylistBranchSelectionStore.notifySalonCatalogChanged();
     } catch (_) {
       // Catalog also reads the persisted branch selection when it opens.
     }
+  }
+
+  Map<String, dynamic>? _selectionFromFreshSalonList(
+    List<Map<String, dynamic>> salons, {
+    required int? salonId,
+    required int? branchId,
+  }) {
+    if (salonId == null || branchId == null) return null;
+
+    for (final salon in salons) {
+      final currentSalonId = _selectionInt(salon['id']);
+      if (currentSalonId != salonId) continue;
+
+      final branches = salon['branches'];
+      if (branches is! List) continue;
+      for (final rawBranch in branches) {
+        if (rawBranch is! Map) continue;
+        final branch = Map<String, dynamic>.from(rawBranch);
+        final currentBranchId = _selectionInt(branch['id']);
+        if (currentBranchId != branchId) continue;
+
+        return {
+          'salonId': currentSalonId,
+          'salonName': salon['name'],
+          'branchId': currentBranchId,
+          'branchName': branch['name'] ?? salon['name'],
+        };
+      }
+    }
+
+    return null;
+  }
+
+  int? _selectionInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
   }
 }

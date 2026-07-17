@@ -457,8 +457,8 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
       _DetailRowData(
           'Complete Address',
           _firstText([
-            addressField(['line1', 'addressLine1', 'buildingName']),
             address,
+            addressField(['line1', 'addressLine1', 'buildingName']),
           ])),
       _DetailRowData('House / Flat', addressField(['city'])),
       _DetailRowData(

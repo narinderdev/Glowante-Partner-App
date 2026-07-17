@@ -11,6 +11,7 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../utils/error_parser.dart';
 import '../utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import 'bottom_nav.dart';
@@ -138,7 +139,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = extractErrorMessage(error);
         _isLoadingDashboard = false;
       });
     }
@@ -203,7 +204,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = extractErrorMessage(error);
         _isLoadingDashboard = false;
       });
     }

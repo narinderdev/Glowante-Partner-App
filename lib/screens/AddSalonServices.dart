@@ -148,18 +148,69 @@ class _AddSalonServicesState extends State<AddSalonServices> {
       if (!context.mounted) return;
       final salonId = selection.salonId;
       final branchId = selection.branchId;
-      if (salonId != null && branchId != null) {
-        context.read<SalonListCubit>().setSelectedSalon({
-          'salonId': salonId,
-          'salonName': selection.salonName,
-          'branchId': branchId,
-          'branchName': selection.branchName,
-        });
+      final salonCubit = context.read<SalonListCubit>();
+      await salonCubit.loadSalons();
+      if (!context.mounted) return;
+
+      final selected = _selectionFromFreshSalonList(
+            salonCubit.state.salons,
+            salonId: salonId,
+            branchId: branchId,
+          ) ??
+          (salonId != null && branchId != null
+              ? {
+                  'salonId': salonId,
+                  'salonName': selection.salonName,
+                  'branchId': branchId,
+                  'branchName': selection.branchName,
+                }
+              : null);
+
+      if (selected != null) {
+        salonCubit.setSelectedSalon(selected);
       }
-      await context.read<SalonListCubit>().loadSalons();
+      StylistBranchSelectionStore.notifySalonCatalogChanged();
     } catch (_) {
       // Catalog also reads the persisted branch selection when it opens.
     }
+  }
+
+  int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  Map<String, dynamic>? _selectionFromFreshSalonList(
+    List<Map<String, dynamic>> salons, {
+    required int? salonId,
+    required int? branchId,
+  }) {
+    if (salonId == null || branchId == null) return null;
+
+    for (final salon in salons) {
+      final currentSalonId = _asInt(salon['id']);
+      if (currentSalonId != salonId) continue;
+
+      final branches = salon['branches'];
+      if (branches is! List) continue;
+      for (final rawBranch in branches) {
+        if (rawBranch is! Map) continue;
+        final branch = Map<String, dynamic>.from(rawBranch);
+        final currentBranchId = _asInt(branch['id']);
+        if (currentBranchId != branchId) continue;
+
+        return {
+          'salonId': currentSalonId,
+          'salonName': salon['name'],
+          'branchId': currentBranchId,
+          'branchName': branch['name'] ?? salon['name'],
+        };
+      }
+    }
+
+    return null;
   }
 
   @override

@@ -423,12 +423,19 @@ class CategoryScreenState extends State<CategoryScreen> {
     final currentBranchId = _asInt(_selectedSalon?['branchId']) ??
         _asInt(_selectedSalon?['salonId']);
     if (persisted.branchId == null || persisted.branchId != currentBranchId) {
-      await _syncFromBookingsSelection(salons);
+      await salonCubit.loadSalons();
+      final refreshedSalons = salonCubit.state.salons
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      await _syncFromBookingsSelection(
+        refreshedSalons.isEmpty ? salons : refreshedSalons,
+      );
       return;
     }
 
     final branchId = currentBranchId;
     if (branchId != null) {
+      if (!mounted) return;
       final categoryCubit = context.read<CategoryCubit>();
       categoryCubit.resetCategories();
       await categoryCubit.loadCategories(branchId);

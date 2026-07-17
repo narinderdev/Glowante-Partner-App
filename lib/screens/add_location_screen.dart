@@ -69,6 +69,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   bool _isSelectingPlace = false;
 
   String _baseCompleteAddress = '';
+  List<String> _lastSyncedManualAddressParts = const [];
 
   final TextEditingController completeAddressController =
       TextEditingController();
@@ -93,10 +94,22 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     }
 
     if (widget.initialCompleteAddress?.isNotEmpty == true) {
-      _baseCompleteAddress = _addressWithoutManualParts(
-        _cleanAddressText(widget.initialCompleteAddress!),
+      final initialCompleteAddress = _cleanAddressText(
+        widget.initialCompleteAddress!,
       );
-      _syncCompleteAddressFromParts();
+      _baseCompleteAddress = _addressWithoutManualParts(initialCompleteAddress);
+
+      if (_initialAddressIncludesManualParts(initialCompleteAddress)) {
+        completeAddressController.value = TextEditingValue(
+          text: initialCompleteAddress,
+          selection: TextSelection.collapsed(
+            offset: initialCompleteAddress.length,
+          ),
+        );
+        _lastSyncedManualAddressParts = _manualAddressParts();
+      } else {
+        _syncCompleteAddressFromParts();
+      }
     }
 
     scoFlatHouseController.addListener(_syncCompleteAddressFromParts);
@@ -137,15 +150,17 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   Future<void> _getCurrentLocation() async {
     FocusScope.of(context).unfocus();
     _removeOverlay();
-    _formKey.currentState?.reset();
 
+    _isSyncingCompleteAddress = true;
     setState(() {
-      _clearManualAddressInputs(clearCompleteAddress: true);
+      completeAddressController.clear();
       _baseCompleteAddress = '';
+      _lastSyncedManualAddressParts = const [];
       latitude = null;
       longitude = null;
       _isLoading = true;
     });
+    _isSyncingCompleteAddress = false;
 
     searchLocationController.clear();
 
@@ -286,7 +301,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         .replaceAll(RegExp(r'\s*,\s*'), ', ')
         .replaceAll(RegExp(r',\s*,'), ',')
         .trim();
-    return _dedupeAddressParts(cleaned);
+    return cleaned;
   }
 
 //   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
@@ -356,24 +371,20 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             .map((value) => value.trim())
             .join(', '),
       );
-      // final derivedStreet = _deriveStreetSectorArea(formattedAddress);
-      final derivedStreet = '';
       _removeOverlay();
 
       _isSyncingCompleteAddress = true;
       setState(() {
         _baseCompleteAddress = formattedAddress;
-
-        scoFlatHouseController.clear();
-        streetSectorAreaController.value = TextEditingValue(
-          text: derivedStreet,
-          selection: TextSelection.collapsed(offset: derivedStreet.length),
-        );
+        _lastSyncedManualAddressParts = const [];
+        final composedAddress = _composeAddressFromParts();
 
         completeAddressController.value = TextEditingValue(
-          text: formattedAddress,
-          selection: TextSelection.collapsed(offset: formattedAddress.length),
+          text: composedAddress,
+          selection: TextSelection.collapsed(offset: composedAddress.length),
         );
+
+        _lastSyncedManualAddressParts = _manualAddressParts();
 
         // Keep search location empty when using current location
         searchLocationController.clear();
@@ -390,19 +401,6 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     } catch (e) {
       debugPrint('Error fetching address: $e');
     }
-  }
-
-  void _clearManualAddressInputs({bool clearCompleteAddress = false}) {
-    _isSyncingCompleteAddress = true;
-
-    scoFlatHouseController.clear();
-    streetSectorAreaController.clear();
-
-    if (clearCompleteAddress) {
-      completeAddressController.clear();
-    }
-
-    _isSyncingCompleteAddress = false;
   }
 
   Future<void> _getPredictions(String input) async {
@@ -623,8 +621,6 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
       if (!mounted) return;
 
-      final derivedStreet = '';
-
       _isSyncingCompleteAddress = true;
       setState(() {
         searchLocationController.value = TextEditingValue(
@@ -633,18 +629,15 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
         _baseCompleteAddress = address;
-
-        scoFlatHouseController.clear();
-        streetSectorAreaController.value = TextEditingValue(
-          text: derivedStreet,
-          selection: TextSelection.collapsed(offset: derivedStreet.length),
-        );
+        _lastSyncedManualAddressParts = const [];
+        final composedAddress = _composeAddressFromParts();
 
         completeAddressController.value = TextEditingValue(
-          text: address,
-          selection: TextSelection.collapsed(offset: address.length),
+          text: composedAddress,
+          selection: TextSelection.collapsed(offset: composedAddress.length),
         );
 
+        _lastSyncedManualAddressParts = _manualAddressParts();
         latitude = lat;
         longitude = lng;
         predictions = [];
@@ -687,8 +680,6 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
       if (!mounted) return;
 
-      final derivedStreet = _deriveStreetSectorArea(cleanFallback);
-
       _isSyncingCompleteAddress = true;
       setState(() {
         searchLocationController.value = TextEditingValue(
@@ -697,18 +688,15 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
         _baseCompleteAddress = cleanFallback;
-
-        scoFlatHouseController.clear();
-        streetSectorAreaController.value = TextEditingValue(
-          text: derivedStreet,
-          selection: TextSelection.collapsed(offset: derivedStreet.length),
-        );
+        _lastSyncedManualAddressParts = const [];
+        final composedAddress = _composeAddressFromParts();
 
         completeAddressController.value = TextEditingValue(
-          text: cleanFallback,
-          selection: TextSelection.collapsed(offset: cleanFallback.length),
+          text: composedAddress,
+          selection: TextSelection.collapsed(offset: composedAddress.length),
         );
 
+        _lastSyncedManualAddressParts = _manualAddressParts();
         latitude = lat;
         longitude = lng;
         predictions = [];
@@ -758,44 +746,109 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     return value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
-  String _dedupeAddressParts(String address) {
-    return _splitAddressParts(address).join(', ');
-  }
+  bool _initialAddressIncludesManualParts(String address) {
+    final manualPartKeys = _manualAddressParts()
+        .map(_addressPartKey)
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (manualPartKeys.isEmpty) return false;
 
-  String _deriveStreetSectorArea(String address) {
-    final remaining = _splitAddressParts(
-      _addressWithoutManualParts(_cleanAddressText(address)),
-    );
-    if (remaining.length >= 3) {
-      return remaining.skip(1).take(2).join(', ');
-    }
-    if (remaining.length >= 2) {
-      return remaining.skip(1).join(', ');
-    }
-    return '';
-  }
-
-  String _addressWithoutManualParts(String address) {
-    final manualPartsLower = _manualAddressParts()
+    final addressPartKeys = _splitAddressParts(address)
         .map(_addressPartKey)
         .where((part) => part.isNotEmpty)
         .toSet();
 
-    if (manualPartsLower.isEmpty) return address.trim();
+    return manualPartKeys.every(addressPartKeys.contains);
+  }
+
+  String _addressWithoutManualParts(String address) {
+    return _addressWithoutParts(address, _manualAddressParts());
+  }
+
+  String _addressWithoutParts(String address, Iterable<String> parts) {
+    final expandedParts = _expandedAddressParts(parts);
+    final partsLower = expandedParts
+        .map(_addressPartKey)
+        .where((part) => part.isNotEmpty)
+        .toSet();
+
+    if (partsLower.isEmpty) return address.trim();
 
     return _splitAddressParts(address)
-        .where((part) => !manualPartsLower.contains(_addressPartKey(part)))
+        .map((part) {
+          if (partsLower.contains(_addressPartKey(part))) return '';
+
+          var remaining = part;
+          var previousRemaining = '';
+          while (remaining.isNotEmpty && remaining != previousRemaining) {
+            previousRemaining = remaining;
+            for (final manualPart in expandedParts) {
+              remaining = _removeLeadingAddressPart(remaining, manualPart);
+              if (remaining.isEmpty) break;
+            }
+          }
+          return remaining;
+        })
+        .where((part) => part.trim().isNotEmpty)
         .join(', ');
+  }
+
+  List<String> _expandedAddressParts(Iterable<String> parts) {
+    final expandedParts = <String>[];
+    final seen = <String>{};
+
+    void addPart(String value) {
+      final cleaned = value.trim();
+      final key = _addressPartKey(cleaned);
+      if (key.isEmpty || !seen.add(key)) return;
+      expandedParts.add(cleaned);
+    }
+
+    for (final part in parts) {
+      addPart(part);
+      for (final splitPart in _splitAddressParts(part)) {
+        addPart(splitPart);
+      }
+    }
+
+    expandedParts.sort((a, b) => b.length.compareTo(a.length));
+    return expandedParts;
+  }
+
+  String _removeLeadingAddressPart(String value, String part) {
+    final valueKey = _addressPartKey(value);
+    final partKey = _addressPartKey(part);
+    if (valueKey.isEmpty || partKey.isEmpty) return value.trim();
+    if (valueKey == partKey) return '';
+    if (!valueKey.startsWith('$partKey ')) return value.trim();
+
+    final pattern =
+        part.trim().split(RegExp(r'\s+')).map(RegExp.escape).join(r'\s+');
+    return value
+        .replaceFirst(
+          RegExp('^\\s*$pattern\\s*,?\\s*', caseSensitive: false),
+          '',
+        )
+        .trim();
   }
 
   String _composeAddressFromParts() {
     final manualParts = _manualAddressParts();
-
-    final baseParts = _splitAddressParts(
-      _addressWithoutManualParts(_baseCompleteAddress),
+    _baseCompleteAddress = _addressWithoutParts(
+      _baseCompleteAddress,
+      _lastSyncedManualAddressParts,
     );
 
-    return _dedupeAddressParts([...manualParts, ...baseParts].join(', '));
+    final addressParts = <String>[...manualParts];
+    final seenNonManualParts = <String>{};
+    for (final basePart in _splitAddressParts(_baseCompleteAddress)) {
+      final key = _addressPartKey(basePart);
+      if (key.isNotEmpty && seenNonManualParts.add(key)) {
+        addressParts.add(basePart);
+      }
+    }
+
+    return addressParts.join(', ');
   }
 
   void _syncCompleteAddressFromParts() {
@@ -811,7 +864,10 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
     final composedAddress = _composeAddressFromParts();
 
-    if (completeAddressController.text == composedAddress) return;
+    if (completeAddressController.text == composedAddress) {
+      _lastSyncedManualAddressParts = _manualAddressParts();
+      return;
+    }
 
     _isSyncingCompleteAddress = true;
 
@@ -820,6 +876,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       offset: completeAddressController.text.length,
     );
 
+    _lastSyncedManualAddressParts = _manualAddressParts();
     _isSyncingCompleteAddress = false;
   }
 
@@ -940,6 +997,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                                   searchLocationController.clear();
                                   completeAddressController.clear();
                                   _baseCompleteAddress = '';
+                                  _lastSyncedManualAddressParts = const [];
                                   predictions = [];
                                   latitude = null;
                                   longitude = null;
@@ -1093,13 +1151,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
               maxLines: 3,
               showScrollbar: true,
               scrollController: _completeAddressFieldScrollController,
-              maxLength: 180,
               keyboardType: TextInputType.streetAddress,
               textCapitalization: TextCapitalization.sentences,
               regex: null,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(180),
-              ],
               suffix: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

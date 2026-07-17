@@ -8,26 +8,54 @@ String formatAddressSummary(dynamic rawAddress) {
 
   final address = Map<String, dynamic>.from(rawAddress);
   final parts = <String>[];
+  final seenParts = <String>{};
 
-  void push(dynamic value) {
+  List<String> splitParts(dynamic value) {
     final text = value?.toString().trim() ?? '';
-    if (text.isEmpty || text.toLowerCase() == 'null') return;
+    if (text.isEmpty || text.toLowerCase() == 'null') return const [];
 
-    for (final part in text.split(',')) {
-      final cleaned = part.trim();
-      if (cleaned.isEmpty || cleaned.toLowerCase() == 'null') continue;
-      parts.add(cleaned);
+    return text
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty && part.toLowerCase() != 'null')
+        .toList();
+  }
+
+  bool startsWithParts(List<String> source, List<String> prefix) {
+    if (prefix.isEmpty || source.length < prefix.length) return false;
+    for (var index = 0; index < prefix.length; index++) {
+      if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void push(dynamic value, {bool preserveInternalDuplicates = false}) {
+    for (final cleaned in splitParts(value)) {
+      final key = cleaned.toLowerCase();
+      if (preserveInternalDuplicates) {
+        parts.add(cleaned);
+        seenParts.add(key);
+      } else if (seenParts.add(key)) {
+        parts.add(cleaned);
+      }
     }
   }
 
-  push(address['line1'] ?? address['addressLine1'] ?? address['buildingName']);
-  push(address['line2'] ?? address['addressLine2']);
+  final line1 =
+      address['line1'] ?? address['addressLine1'] ?? address['buildingName'];
+  final line2 = address['line2'] ?? address['addressLine2'];
+  push(line1, preserveInternalDuplicates: true);
+  if (!startsWithParts(splitParts(line1), splitParts(line2))) {
+    push(line2, preserveInternalDuplicates: true);
+  }
   push(address['village']);
   push(address['district']);
   push(address['city']);
   push(address['state']);
-  push(address['country']);
   push(address['postalCode'] ?? address['pincode'] ?? address['zip']);
+  push(address['country']);
 
   return parts.join(', ');
 }

@@ -374,9 +374,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       _DetailRowData(
           'Complete Address',
           _firstText([
-            addressField(['line1', 'addressLine1', 'buildingName']),
             _composeAddress(address),
             _composeAddress(_branch),
+            addressField(['line1', 'addressLine1', 'buildingName']),
           ])),
       _DetailRowData('House / Flat', addressField(['city'])),
       _DetailRowData(

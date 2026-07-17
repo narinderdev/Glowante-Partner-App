@@ -2200,26 +2200,51 @@ class _SalonDetailsDialog extends StatelessWidget {
     final segments = <String>[];
     final seenParts = <String>{};
 
-    void push(dynamic value) {
+    List<String> splitParts(dynamic value) {
       final text = _cleanText(value);
-      if (text.isEmpty) return;
-      for (final part in text.split(',')) {
-        final cleanedPart = _cleanText(part);
+      if (text.isEmpty) return const [];
+
+      return text
+          .split(',')
+          .map(_cleanText)
+          .where((part) => part.isNotEmpty)
+          .toList();
+    }
+
+    bool startsWithParts(List<String> source, List<String> prefix) {
+      if (prefix.isEmpty || source.length < prefix.length) return false;
+      for (var index = 0; index < prefix.length; index++) {
+        if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    void push(dynamic value, {bool preserveInternalDuplicates = false}) {
+      for (final cleanedPart in splitParts(value)) {
         final key = cleanedPart.toLowerCase();
-        if (cleanedPart.isNotEmpty && seenParts.add(key)) {
+        if (preserveInternalDuplicates) {
+          segments.add(cleanedPart);
+          seenParts.add(key);
+        } else if (seenParts.add(key)) {
           segments.add(cleanedPart);
         }
       }
     }
 
-    push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
-    push(data['line2'] ?? data['addressLine2']);
+    final line1 = data['line1'] ?? data['addressLine1'] ?? data['buildingName'];
+    final line2 = data['line2'] ?? data['addressLine2'];
+    push(line1, preserveInternalDuplicates: true);
+    if (!startsWithParts(splitParts(line1), splitParts(line2))) {
+      push(line2, preserveInternalDuplicates: true);
+    }
     push(data['village']);
     push(data['district']);
     push(data['city']);
     push(data['state']);
-    push(data['country']);
     push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
+    push(data['country']);
     return segments.join(', ');
   }
 
@@ -3597,26 +3622,51 @@ class _BranchTileState extends State<_BranchTile> {
     final segments = <String>[];
     final seenParts = <String>{};
 
-    void push(dynamic value) {
+    List<String> splitParts(dynamic value) {
       final text = _cleanText(value);
-      if (text.isEmpty) return;
-      for (final part in text.split(',')) {
-        final cleanedPart = _cleanText(part);
+      if (text.isEmpty) return const [];
+
+      return text
+          .split(',')
+          .map(_cleanText)
+          .where((part) => part.isNotEmpty)
+          .toList();
+    }
+
+    bool startsWithParts(List<String> source, List<String> prefix) {
+      if (prefix.isEmpty || source.length < prefix.length) return false;
+      for (var index = 0; index < prefix.length; index++) {
+        if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    void push(dynamic value, {bool preserveInternalDuplicates = false}) {
+      for (final cleanedPart in splitParts(value)) {
         final key = cleanedPart.toLowerCase();
-        if (cleanedPart.isNotEmpty && seenParts.add(key)) {
+        if (preserveInternalDuplicates) {
+          segments.add(cleanedPart);
+          seenParts.add(key);
+        } else if (seenParts.add(key)) {
           segments.add(cleanedPart);
         }
       }
     }
 
-    push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
-    push(data['line2'] ?? data['addressLine2']);
+    final line1 = data['line1'] ?? data['addressLine1'] ?? data['buildingName'];
+    final line2 = data['line2'] ?? data['addressLine2'];
+    push(line1, preserveInternalDuplicates: true);
+    if (!startsWithParts(splitParts(line1), splitParts(line2))) {
+      push(line2, preserveInternalDuplicates: true);
+    }
     push(data['village']);
     push(data['district']);
     push(data['city']);
     push(data['state']);
-    push(data['country']);
     push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
+    push(data['country']);
     return segments.join(', ');
   }
 

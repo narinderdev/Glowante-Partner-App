@@ -114,6 +114,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   int _draftOpeningBufferMinutes = 30;
   int _draftLastBookingBufferMinutes = 30;
   int _draftLastSlotOverflowGraceMinutes = 10;
+  String _initialAddressDisplayText = '';
   bool get _isOnboardingFlow =>
       widget.isProceedFrom?.toLowerCase().trim() == 'onboarding';
 
@@ -267,6 +268,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         .map((part) => part.trim())
         .where((part) => part.isNotEmpty)
         .where((part) => seen.add(part.toLowerCase()))
+        .toList();
+  }
+
+  List<String> _splitAddressPartsKeepingDuplicates(String value) {
+    return value
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
         .toList();
   }
 
@@ -548,6 +557,19 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     if (address == null) return null;
 
     final completeAddress = <String>[];
+    final seenAddressParts = <String>{};
+
+    void addAddressParts(dynamic rawValue) {
+      final value = (rawValue ?? '').toString().trim();
+      if (value.isEmpty) return;
+
+      for (final part in _splitAddressParts(value)) {
+        if (seenAddressParts.add(part.toLowerCase())) {
+          completeAddress.add(part);
+        }
+      }
+    }
+
     for (final key in const [
       'line1',
       'line2',
@@ -555,16 +577,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       'district',
       'city',
       'state',
-      'country',
       'postalCode',
     ]) {
-      final value = (address[key] ?? '').toString().trim();
-      if (value.isNotEmpty && !completeAddress.contains(value)) {
-        completeAddress.add(value);
-      }
+      addAddressParts(address[key]);
     }
 
-    final line2Parts = _splitAddressParts((address['line2'] ?? '').toString());
+    final line2Parts = _splitAddressPartsKeepingDuplicates(
+      (address['line2'] ?? '').toString(),
+    );
     final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
     final streetSectorArea =
         line2Parts.length > 1 ? line2Parts.skip(1).join(', ') : '';
@@ -603,6 +623,46 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         salon['lon'],
       ]),
     );
+  }
+
+  String _extractInitialAddressDisplayText(Map<String, dynamic> salon) {
+    final primaryBranch = _resolvePrimaryBranch(salon);
+    final address = _asStringKeyedMap(salon['address']) ??
+        _asStringKeyedMap(primaryBranch?['address']) ??
+        primaryBranch;
+
+    return _composeEditableAddressText(address);
+  }
+
+  String _composeEditableAddressText(Map<String, dynamic>? address) {
+    if (address == null) return '';
+
+    final parts = <String>[];
+    void push(dynamic rawValue) {
+      final value = (rawValue ?? '').toString().trim();
+      if (value.isEmpty || value.toLowerCase() == 'null') return;
+
+      for (final part in value.split(',')) {
+        final cleaned = part.trim();
+        if (cleaned.isNotEmpty && cleaned.toLowerCase() != 'null') {
+          parts.add(cleaned);
+        }
+      }
+    }
+
+    for (final key in const [
+      'line1',
+      'line2',
+      'village',
+      'district',
+      'city',
+      'state',
+      'postalCode',
+    ]) {
+      push(address[key]);
+    }
+
+    return parts.join(', ');
   }
 
   @override
@@ -738,6 +798,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       final initialSalon = widget.initialSalon;
       final initialAddress =
           initialSalon == null ? null : _extractInitialAddress(initialSalon);
+      if (initialSalon != null) {
+        _initialAddressDisplayText =
+            _extractInitialAddressDisplayText(initialSalon);
+      }
 
       final completeAddress = widget.buildingName?.trim() ?? '';
 
@@ -1198,7 +1262,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => AddLocationScreen(
-          initialCompleteAddress: addr?.buildingName,
+          initialCompleteAddress:
+              addr == null ? null : _composeAddressLine1(addr),
           initialScoFlatHouse: addr?.city,
           initialStreetSectorArea: addr?.pincode,
         ),
@@ -1206,6 +1271,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     );
 
     if (!mounted || result == null) return;
+    _initialAddressDisplayText = '';
 
     final completeAddress =
         (result['completeAddress'] as String?)?.trim() ?? '';
@@ -1997,7 +2063,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final hasCompleteAddress = _isAddressComplete(address);
 
     final displayAddress = hasAddressText
-        ? _composeAddressLine1(address)
+        ? (_initialAddressDisplayText.isNotEmpty
+            ? _initialAddressDisplayText
+            : _composeAddressLine1(address))
         : translateText('Add Location');
 
     final showError = _submitted && !widget.isEdit && !hasCompleteAddress;
@@ -2611,17 +2679,61 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       if (!context.mounted) return;
       final salonId = selection.salonId;
       final branchId = selection.branchId;
-      if (salonId != null && branchId != null) {
-        context.read<SalonListCubit>().setSelectedSalon({
-          'salonId': salonId,
-          'salonName': selection.salonName,
-          'branchId': branchId,
-          'branchName': selection.branchName,
-        });
+      final salonCubit = context.read<SalonListCubit>();
+      await salonCubit.loadSalons();
+      if (!context.mounted) return;
+
+      final selected = _selectionFromFreshSalonList(
+            salonCubit.state.salons,
+            salonId: salonId,
+            branchId: branchId,
+          ) ??
+          (salonId != null && branchId != null
+              ? {
+                  'salonId': salonId,
+                  'salonName': selection.salonName,
+                  'branchId': branchId,
+                  'branchName': selection.branchName,
+                }
+              : null);
+
+      if (selected != null) {
+        salonCubit.setSelectedSalon(selected);
       }
-      await context.read<SalonListCubit>().loadSalons();
+      StylistBranchSelectionStore.notifySalonCatalogChanged();
     } catch (_) {
       // The catalog screen can still sync from SharedPreferences after it opens.
     }
+  }
+
+  Map<String, dynamic>? _selectionFromFreshSalonList(
+    List<Map<String, dynamic>> salons, {
+    required int? salonId,
+    required int? branchId,
+  }) {
+    if (salonId == null || branchId == null) return null;
+
+    for (final salon in salons) {
+      final currentSalonId = _readIntValue([salon['id']]);
+      if (currentSalonId != salonId) continue;
+
+      final branches = salon['branches'];
+      if (branches is! List) continue;
+      for (final rawBranch in branches) {
+        if (rawBranch is! Map) continue;
+        final branch = Map<String, dynamic>.from(rawBranch);
+        final currentBranchId = _readIntValue([branch['id']]);
+        if (currentBranchId != branchId) continue;
+
+        return {
+          'salonId': currentSalonId,
+          'salonName': salon['name'],
+          'branchId': currentBranchId,
+          'branchName': branch['name'] ?? salon['name'],
+        };
+      }
+    }
+
+    return null;
   }
 }
