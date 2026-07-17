@@ -168,6 +168,7 @@ class _TeamOnlineAvailabilityScreenState
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (_isSubmitting) return;
         Navigator.pop(context, _previousResult());
       },
       child: Scaffold(
@@ -178,7 +179,9 @@ class _TeamOnlineAvailabilityScreenState
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: () => Navigator.pop(context, _previousResult()),
+            onPressed: _isSubmitting
+                ? null
+                : () => Navigator.pop(context, _previousResult()),
           ),
         ),
         body: SafeArea(

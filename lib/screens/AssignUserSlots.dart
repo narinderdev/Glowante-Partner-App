@@ -1489,6 +1489,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (navigationDisabled) return;
         Navigator.pop(context, _currentStateResult(completed: false));
       },
       child: Scaffold(
@@ -1497,9 +1498,12 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
           title: translateText('Assign User'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: () {
-              Navigator.pop(context, _currentStateResult(completed: false));
-            },
+            onPressed: navigationDisabled
+                ? null
+                : () {
+                    Navigator.pop(
+                        context, _currentStateResult(completed: false));
+                  },
           ),
         ),
         body: SafeArea(

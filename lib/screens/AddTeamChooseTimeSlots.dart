@@ -1970,10 +1970,14 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   @override
   Widget build(BuildContext context) {
+    final navigationDisabled =
+        _isSubmitting || _isLoadingOperatingSchedule || _isApplyingMondayCopy;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (navigationDisabled) return;
         FocusManager.instance.primaryFocus?.unfocus();
         Navigator.pop(context, _currentStateResult(completed: false));
       },
@@ -1983,10 +1987,13 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
           title: translateText('Add TimeSlots'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: () {
-              FocusManager.instance.primaryFocus?.unfocus();
-              Navigator.pop(context, _currentStateResult(completed: false));
-            },
+            onPressed: navigationDisabled
+                ? null
+                : () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    Navigator.pop(
+                        context, _currentStateResult(completed: false));
+                  },
           ),
         ),
         body: Stack(
@@ -2098,7 +2105,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                         children: [
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: _isSubmitting
+                              onPressed: navigationDisabled
                                   ? null
                                   : () {
                                       Navigator.pop(
@@ -2139,7 +2146,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: _isSubmitting
+                              onPressed: navigationDisabled
                                   ? null
                                   : () async {
                                       await _goToSelectServices();
