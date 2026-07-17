@@ -1571,16 +1571,16 @@ class _StaffOverrideRowCard extends StatelessWidget {
     final amount = _staffOverrideAmount(staffOverride);
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F5F2),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE8DED6)),
+        color: const Color(0xFFFCFAF8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFF0E7DF)),
       ),
       child: Row(
         children: [
           _CommissionInitialsAvatar(name: staffOverride.staffName),
-          const SizedBox(width: 10),
+          const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1618,20 +1618,20 @@ class _StaffOverrideRowCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            amount,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: AppColors.starColor,
-            ),
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 96),
+            child: _CommissionValueBadge(label: amount),
           ),
-          const SizedBox(width: 4),
-          _StaffOverrideActionsButton(
-            isActionInProgress: isActionInProgress,
-            onEdit: onEdit,
-            onDelete: onDelete,
+          const SizedBox(width: 2),
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: _StaffOverrideActionsButton(
+              isActionInProgress: isActionInProgress,
+              onEdit: onEdit,
+              onDelete: onDelete,
+            ),
           ),
         ],
       ),
@@ -1677,6 +1677,11 @@ class _StaffOverrideActionsButton extends StatelessWidget {
     return PopupMenuButton<String>(
       enabled: !isActionInProgress,
       tooltip: context.t('Actions'),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(
+        minWidth: 32,
+        minHeight: 32,
+      ),
       icon: const Icon(
         Icons.more_vert_rounded,
         color: Color(0xFF8A8178),
