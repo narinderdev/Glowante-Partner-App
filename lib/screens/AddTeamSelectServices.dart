@@ -725,17 +725,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   }
 
   void _showError(String msg) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Response'),
-        content: Text(msg),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('OK')),
-        ],
-      ),
-    );
+    Fluttertoast.showToast(msg: translateText(msg));
   }
 
   @override

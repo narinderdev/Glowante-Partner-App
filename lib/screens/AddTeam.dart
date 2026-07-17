@@ -1535,14 +1535,12 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         return true;
       }
 
-      await _showValidationDialog([messageFromResponse]);
+      _toast(messageFromResponse);
       return false;
     } catch (error) {
       debugPrint('Team contact validation failed: $error');
       if (mounted) {
-        await _showValidationDialog([
-          _friendlyErrorMessage(error),
-        ]);
+        _toast(_friendlyErrorMessage(error));
       }
       return false;
     } finally {

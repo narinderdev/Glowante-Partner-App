@@ -1728,23 +1728,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   }
 
   void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Response'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
+    Fluttertoast.showToast(msg: translateText(message));
   }
 
   Map<String, dynamic> _currentStateResult({
@@ -1812,7 +1796,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 46),
+                    const SizedBox(height: 10),
                     Center(
                       child: Text(
                         translateText('Set Weekly Working Hours'),
@@ -1824,7 +1808,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    // const SizedBox(height: 10),
                     Container(
                       width: double.infinity,
                       constraints: const BoxConstraints(maxWidth: 532),
@@ -1833,15 +1817,15 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                translateText('Set Working Schedule'),
-                                style: const TextStyle(
-                                  color: Color(0xFF111827),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const Spacer(),
+                              // Text(
+                              //   translateText('Set Working Schedule'),
+                              //   style: const TextStyle(
+                              //     color: Color(0xFF111827),
+                              //     fontSize: 16,
+                              //     fontWeight: FontWeight.w800,
+                              //   ),
+                              // ),
+                              // const Spacer(),
                               const Flexible(
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,

@@ -1221,7 +1221,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 46),
+                  const SizedBox(height: 10),
                   Text(
                     translateText('Set Weekly Working Hours'),
                     textAlign: TextAlign.center,
@@ -1240,15 +1240,15 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              translateText('Set Working Schedule'),
-                              style: const TextStyle(
-                                color: Color(0xFF111827),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const Spacer(),
+                            // Text(
+                            //   translateText('Set Working Schedule'),
+                            //   style: const TextStyle(
+                            //     color: Color(0xFF111827),
+                            //     fontSize: 16,
+                            //     fontWeight: FontWeight.w800,
+                            //   ),
+                            // ),
+                            // const Spacer(),
                             Flexible(
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1278,7 +1278,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 10),
                         IgnorePointer(
                           ignoring: _sameAsBranchTimings,
                           child: AnimatedOpacity(
