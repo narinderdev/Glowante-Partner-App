@@ -399,8 +399,7 @@ class _ServiceCommissionTable extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+        child: _CommissionHorizontalScrollHint(
           child: SizedBox(
             width: 720,
             child: Column(
@@ -447,6 +446,49 @@ class _ServiceCommissionTable extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CommissionHorizontalScrollHint extends StatefulWidget {
+  const _CommissionHorizontalScrollHint({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_CommissionHorizontalScrollHint> createState() =>
+      _CommissionHorizontalScrollHintState();
+}
+
+class _CommissionHorizontalScrollHintState
+    extends State<_CommissionHorizontalScrollHint> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RawScrollbar(
+      controller: _controller,
+      thumbVisibility: true,
+      trackVisibility: true,
+      thickness: 4,
+      radius: const Radius.circular(10),
+      thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+      trackColor: const Color(0xFFFFF3D5),
+      trackBorderColor: const Color(0xFFE8C774),
+      scrollbarOrientation: ScrollbarOrientation.bottom,
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 12),
+        child: widget.child,
       ),
     );
   }
@@ -1235,8 +1277,7 @@ class _AllStaffOverridesCard extends StatelessWidget {
               ),
             )
           else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+            _CommissionHorizontalScrollHint(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 760),
                 child: Column(
