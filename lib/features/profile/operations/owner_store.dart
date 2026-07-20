@@ -472,6 +472,12 @@ class _StoreFormViewState extends State<_StoreFormView> {
         color: Color(0xFF8A8178),
         fontWeight: FontWeight.w700,
       ),
+      errorStyle: const TextStyle(
+        color: Colors.redAccent,
+        fontSize: 11,
+        height: 1.15,
+        fontWeight: FontWeight.w600,
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFFE3D6C8)),
@@ -482,11 +488,11 @@ class _StoreFormViewState extends State<_StoreFormView> {
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE53935), width: 1.2),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE53935), width: 1.4),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
       ),
     );
   }

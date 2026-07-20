@@ -1242,6 +1242,10 @@ bool _hasStartJobWindowPassed(Map<String, dynamic> booking) {
   final status = _normalizeStatus(booking['status']);
   if (!_showsStartAction(status)) return false;
 
+  return _hasBookingActionWindowPassed(booking);
+}
+
+bool _hasBookingActionWindowPassed(Map<String, dynamic> booking) {
   final end = _bookingActionEnd(booking);
   return end != null && DateTime.now().isAfter(end);
 }
@@ -7135,12 +7139,17 @@ class _BookingListCard extends StatelessWidget {
     final visuals = _statusVisuals(context, status);
     final showStartAction =
         _showsStartAction(status) && !_hasStartJobWindowPassed(booking);
+    final showConfirmAction = _showsConfirmAction(
+          status,
+          isOwnerMode: isOwnerMode,
+        ) &&
+        !_hasBookingActionWindowPassed(booking);
     // final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
     //     ? context.t('Accept').toUpperCase()
     //     : (_showsStartAction(status)
     //         ? context.t('Start Job').toUpperCase()
     //         : null);
-    final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
+    final actionLabel = showConfirmAction
         ? context.t('Accept').toUpperCase()
         : (showStartAction
             ? context.t('Start Job').toUpperCase()
@@ -8378,9 +8387,10 @@ class _StylistBookingDetailScreenState
         _showsStartAction(_statusUpper) && !_hasStartJobWindowPassed(_booking);
     final canStartJob = showStartAction && _canStartJob(_booking);
     final isConfirmAction = _showsConfirmAction(
-      _statusUpper,
-      isOwnerMode: widget.isOwnerMode,
-    );
+          _statusUpper,
+          isOwnerMode: widget.isOwnerMode,
+        ) &&
+        !_hasBookingActionWindowPassed(_booking);
 
     final primaryAction = isConfirmAction
         ? context.t('Accept').toUpperCase()
