@@ -1377,7 +1377,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (!mounted) {
       return;
     }
-    setState(() => _openingPayrollReviewRunId = null);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (screenContext) {
@@ -1929,6 +1928,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         },
       ),
     );
+    if (mounted) {
+      setState(() => _openingPayrollReviewRunId = null);
+    }
   }
 
   Future<PayrollRunRecord?> _openEmployeeReview({
