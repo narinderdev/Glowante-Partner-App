@@ -412,6 +412,36 @@ class ProfileCompensationRepository {
     _requireSuccess(response);
   }
 
+  Future<void> updateAdvance({
+    required int branchId,
+    required PayrollAdvanceRecord advance,
+  }) async {
+    final response = await _apiService.updateBranchAdvance(
+      branchId: branchId,
+      advanceId: advance.id,
+      payload: <String, dynamic>{
+        'employeeId': advance.employeeId,
+        'amount': advance.amount,
+        'givenDate': DateFormat('yyyy-MM-dd').format(advance.givenDate),
+        'paymentMode': advance.paymentMode,
+        'paymentReference': advance.paymentReference,
+        'remarks': advance.remarks.isEmpty ? null : advance.remarks,
+      },
+    );
+    _requireSuccess(response);
+  }
+
+  Future<void> deleteAdvance({
+    required int branchId,
+    required int advanceId,
+  }) async {
+    final response = await _apiService.deleteBranchAdvance(
+      branchId: branchId,
+      advanceId: advanceId,
+    );
+    _requireSuccess(response);
+  }
+
   Future<BranchAttendanceOverview> loadBranchAttendanceOverview({
     required int branchId,
     required DateTime month,

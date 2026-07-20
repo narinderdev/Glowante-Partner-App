@@ -80,6 +80,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       TextEditingController();
   final TextEditingController _advanceSearchController =
       TextEditingController();
+  final ScrollController _advanceTableScrollController = ScrollController();
   CompensationModule _module = CompensationModule.payroll;
   _CommissionTab _commissionTab = _CommissionTab.services;
   String _commissionCategoryFilter = _commissionAllCategoriesValue;
@@ -166,6 +167,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   void dispose() {
     _serviceSearchController.dispose();
     _advanceSearchController.dispose();
+    _advanceTableScrollController.dispose();
     super.dispose();
   }
 
@@ -631,6 +633,55 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       details: 'branchId=$branchId, employeeId=${advance.employeeId}',
     );
     _showToast('Advance saved successfully');
+  }
+
+  Future<void> _updateAdvance(PayrollAdvanceRecord advance) async {
+    final branchId = _selectedBranch?.branchId;
+    if (branchId == null) {
+      return;
+    }
+    _logCompensation(
+      'update_advance_started',
+      details:
+          'branchId=$branchId, advanceId=${advance.id}, employeeId=${advance.employeeId}, amount=${advance.amount}',
+    );
+    await _repository.updateAdvance(
+      branchId: branchId,
+      advance: advance,
+    );
+    await _loadAdvanceData(branchId);
+    _logCompensation(
+      'update_advance_success',
+      details: 'branchId=$branchId, advanceId=${advance.id}',
+    );
+    _showToast('Advance updated successfully');
+  }
+
+  Future<void> _deleteAdvance(PayrollAdvanceRecord advance) async {
+    final branchId = _selectedBranch?.branchId;
+    if (branchId == null || _isActionInProgress) {
+      return;
+    }
+    final confirmed = await _confirmDeleteAdvance(advance);
+    if (!confirmed) {
+      return;
+    }
+    _logCompensation(
+      'delete_advance_started',
+      details: 'branchId=$branchId, advanceId=${advance.id}',
+    );
+    await _performAction(() async {
+      await _repository.deleteAdvance(
+        branchId: branchId,
+        advanceId: advance.id,
+      );
+      await _loadAdvanceData(branchId);
+      _logCompensation(
+        'delete_advance_success',
+        details: 'branchId=$branchId, advanceId=${advance.id}',
+      );
+      _showToast('Advance deleted successfully');
+    });
   }
 
   Future<void> _generatePayroll(DateTime period) async {

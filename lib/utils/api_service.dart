@@ -345,6 +345,8 @@ class ApiService {
       "v2/branches/$branchId/advances?month=$month&year=$year";
   static String employeeAdvancesAPI(int branchId, int employeeId) =>
       "v2/branches/$branchId/employees/$employeeId/advances";
+  static String branchAdvanceDetailAPI(int branchId, int advanceId) =>
+      "v2/branches/$branchId/advances/$advanceId";
   static String getStoreDetailsAPI(int branchId, int storeId) =>
       "branches/$branchId/store/$storeId";
   static String getInventoryItemDetailsAPI(int branchId, int inventoryId) =>
@@ -4591,6 +4593,30 @@ class ApiService {
       endpoint: employeeAdvancesAPI(branchId, employeeId),
       body: payload,
       debugTag: 'CreateEmployeeAdvanceAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updateBranchAdvance({
+    required int branchId,
+    required int advanceId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: branchAdvanceDetailAPI(branchId, advanceId),
+      body: payload,
+      debugTag: 'UpdateBranchAdvanceAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteBranchAdvance({
+    required int branchId,
+    required int advanceId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: branchAdvanceDetailAPI(branchId, advanceId),
+      debugTag: 'DeleteBranchAdvanceAPI',
     );
   }
 
