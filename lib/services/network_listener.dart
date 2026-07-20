@@ -14,6 +14,7 @@ class NetworkManager {
   static String? _recoveryHost;
 
   static Stream<bool> get networkStatusStream => _controller.stream;
+  static bool get isConnected => _lastIsConnected ?? true;
 
   static void initialize() {
     unawaited(_refreshConnectionStatus(validateInternet: true));

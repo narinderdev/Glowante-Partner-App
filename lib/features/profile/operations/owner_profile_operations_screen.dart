@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../../../services/stylist_branch_selection.dart';
+import '../../../services/network_listener.dart';
 import '../../../utils/api_service.dart';
 import '../../../utils/colors.dart';
 import '../../../utils/error_parser.dart';
@@ -1549,7 +1550,13 @@ class _OwnerProfileOperationsScreenState
   }
 
   Future<void> _openAddStore() async {
-    _logOperations('open_add_store_warning');
+    if (NetworkManager.isConnected) {
+      _logOperations('open_add_store');
+      _openStoreFormDialog();
+      return;
+    }
+
+    _logOperations('open_add_store_weak_network_warning');
     final proceed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
