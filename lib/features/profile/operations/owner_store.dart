@@ -493,3 +493,196 @@ class _StoreStatusPill extends StatelessWidget {
     );
   }
 }
+
+class _StoreDetailsView extends StatelessWidget {
+  const _StoreDetailsView({
+    required this.detail,
+    required this.onEdit,
+  });
+
+  final Map<String, dynamic> detail;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _firstText(
+      detail,
+      const <String>['name', 'storeName'],
+      fallback: context.t('Store'),
+    );
+    final address = _firstText(detail, const <String>['address']);
+    final binDescription = _firstText(
+      detail,
+      const <String>['binDescription', 'bin'],
+    );
+    final active = _statusLabel(detail) == 'ACTIVE';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFCF8),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE8DED6)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3D5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE8C774)),
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: AppColors.starColor,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF1C1917),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      context.t('Inventory store'),
+                      style: const TextStyle(
+                        color: Color(0xFF78716C),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _StoreStatusPill(active: active),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE8DED6)),
+          ),
+          child: Column(
+            children: [
+              _StoreDetailsTile(
+                icon: Icons.badge_outlined,
+                label: context.t('Name'),
+                value: name,
+              ),
+              if (address.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _StoreDetailsTile(
+                  icon: Icons.location_on_outlined,
+                  label: context.t('Address'),
+                  value: address,
+                ),
+              ],
+              if (binDescription.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _StoreDetailsTile(
+                  icon: Icons.inventory_2_outlined,
+                  label: context.t('Bin Description'),
+                  value: binDescription,
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        ElevatedButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: Text(context.t('Edit Store')),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.starColor,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(0, 48),
+            elevation: 5,
+            shadowColor: AppColors.starColor.withValues(alpha: 0.22),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StoreDetailsTile extends StatelessWidget {
+  const _StoreDetailsTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8E7),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, color: AppColors.starColor, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: const TextStyle(
+                  color: Color(0xFF8A8178),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Color(0xFF1C1917),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

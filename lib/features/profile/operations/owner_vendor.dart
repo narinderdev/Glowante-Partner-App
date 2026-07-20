@@ -493,13 +493,13 @@ class _VendorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onView,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFE8DED6)),
           boxShadow: const [
             BoxShadow(
@@ -644,7 +644,7 @@ class _VendorStatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         context.t(active ? 'Active' : 'Inactive').toUpperCase(),

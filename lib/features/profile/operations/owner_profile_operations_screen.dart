@@ -665,7 +665,7 @@ class _OwnerProfileOperationsScreenState
               ? const EdgeInsets.symmetric(horizontal: 16, vertical: 16)
               : const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(10),
           ),
           clipBehavior: Clip.antiAlias,
           child: ConstrainedBox(
@@ -1160,51 +1160,21 @@ class _OwnerProfileOperationsScreenState
       context: context,
       builder: (dialogContext) {
         return _AsyncDetailsDialog(
-          title: _firstText(
-            store,
-            const <String>['name', 'storeName'],
-            fallback: 'Store Details',
-          ),
-          maxWidth: 520,
-          maxHeight: 420,
+          title: _t('Store Details'),
+          maxWidth: 500,
+          maxHeight: 560,
           future:
               _apiService.getStoreDetails(branchId: branchId, storeId: storeId),
-          builder: (detail) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DetailLine(
-                  label: 'Name',
-                  value: _firstText(detail, const ['name', 'storeName'],
-                      fallback: 'N/A')),
-              _DetailLine(label: 'Status', value: _statusLabel(detail)),
-              _DetailLine(
-                  label: 'Address',
-                  value:
-                      _firstText(detail, const ['address'], fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Bin Description',
-                  value: _firstText(detail, const ['binDescription', 'bin'],
-                      fallback: 'N/A')),
-              const SizedBox(height: 18),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    _logOperations(
-                      'store_edit_from_details',
-                      details: 'branchId=$branchId, storeId=$storeId',
-                    );
-                    _openStoreFormDialog(initialStore: detail);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Edit Store'),
-                ),
-              ),
-            ],
+          builder: (detail) => _StoreDetailsView(
+            detail: detail,
+            onEdit: () {
+              Navigator.of(dialogContext).pop();
+              _logOperations(
+                'store_edit_from_details',
+                details: 'branchId=$branchId, storeId=$storeId',
+              );
+              _openStoreFormDialog(initialStore: detail);
+            },
           ),
         );
       },
@@ -1655,7 +1625,7 @@ class _OwnerProfileOperationsScreenState
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: const Color(0xFF111111),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFF111111)),
       ),
       child: SingleChildScrollView(
@@ -1680,7 +1650,7 @@ class _OwnerProfileOperationsScreenState
                     backgroundColor: const Color(0xFF111111),
                     shape: RoundedRectangleBorder(
                       side: const BorderSide(color: Colors.white24),
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     onSelected: (selected) {
                       if (!selected) return;

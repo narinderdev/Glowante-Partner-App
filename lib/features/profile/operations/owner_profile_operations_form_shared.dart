@@ -17,7 +17,7 @@ class _FormCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFF1EBE6)),
         boxShadow: const [
           BoxShadow(

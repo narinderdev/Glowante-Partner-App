@@ -50,7 +50,7 @@ class _SectionCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFF1EBE6)),
         boxShadow: const [
           BoxShadow(
@@ -168,7 +168,7 @@ class _EmptyStateCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFF1EBE6)),
       ),
       child: Center(
@@ -199,7 +199,7 @@ class _ErrorStateCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFF1EBE6)),
       ),
       child: Column(
@@ -286,6 +286,12 @@ class _AsyncDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      backgroundColor: const Color(0xFFFFFCF8),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFFE8DED6)),
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
         child: Padding(
@@ -294,9 +300,25 @@ class _AsyncDetailsDialog extends StatelessWidget {
             future: future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(
-                  height: 120,
-                  child: Center(child: CircularProgressIndicator()),
+                return SizedBox(
+                  height: 150,
+                  child: Center(
+                    child: Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE8DED6)),
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.starColor,
+                          strokeWidth: 2.4,
+                        ),
+                      ),
+                    ),
+                  ),
                 );
               }
               if (snapshot.hasError) {
