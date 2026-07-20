@@ -1866,6 +1866,28 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     }
   }
 
+  bool _shouldValidateRateImmediately(String value) {
+    if (_ruleType != CommissionRuleTypes.percentage) {
+      return false;
+    }
+    final parsed = double.tryParse(value.trim());
+    return parsed != null && parsed > 100;
+  }
+
+  void _handleRateChanged(String value) {
+    final shouldValidate = _shouldValidateRateImmediately(value);
+    setState(() {
+      if (shouldValidate) {
+        _autoValidateMode = AutovalidateMode.onUserInteraction;
+      }
+    });
+    if (shouldValidate) {
+      _formKey.currentState?.validate();
+    } else {
+      _validateIfNeeded();
+    }
+  }
+
   Future<void> _submit() async {
     if (_isSaving) {
       return;
@@ -1958,7 +1980,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     if (_ruleType == CommissionRuleTypes.percentage) {
       return <TextInputFormatter>[
         FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(2),
+        LengthLimitingTextInputFormatter(3),
       ];
     }
     return <TextInputFormatter>[
@@ -1983,7 +2005,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
       return false;
     }
     if (_ruleType == CommissionRuleTypes.percentage) {
-      return text.length <= 2 && parsed <= 99;
+      return text.length <= 3 && parsed <= 100;
     }
     final priceRupees = minorAmountToRupees(_selectedService?.priceMinor);
     return priceRupees == null || parsed <= priceRupees;
@@ -2052,6 +2074,12 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: AppColors.red, width: 1.2),
       ),
+      errorStyle: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppColors.red,
+      ),
+      errorMaxLines: 2,
     );
   }
 
@@ -2171,8 +2199,8 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
       return translateText('Enter a valid override value');
     }
     if (_ruleType == CommissionRuleTypes.percentage) {
-      if (text.length > 2 || parsed > 99) {
-        return translateText('Percentage cannot be more than 2 digits');
+      if (text.length > 3 || parsed > 100) {
+        return translateText('Percentage cannot be greater than 100');
       }
     } else {
       final selectedService = _selectedService;
@@ -2210,12 +2238,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
         final message = _rateValidationMessage(value);
         return message.isEmpty ? null : message;
       },
-      onChanged: _isSaving
-          ? null
-          : (_) {
-              setState(() {});
-              _validateIfNeeded();
-            },
+      onChanged: _isSaving ? null : _handleRateChanged,
     );
   }
 
@@ -2874,40 +2897,10 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                             ),
                           ),
                           validator: (value) {
-                            final text = (value ?? '').trim();
-                            if (text.isEmpty) {
-                              return translateText(
-                                  'Enter a valid override value');
-                            }
-                            final parsed = double.tryParse(text);
-                            if (parsed == null || parsed <= 0) {
-                              return translateText(
-                                  'Enter a valid override value');
-                            }
-                            if (_ruleType == CommissionRuleTypes.percentage) {
-                              if (text.length > 2 || parsed > 99) {
-                                return translateText(
-                                  'Percentage cannot be more than 2 digits',
-                                );
-                              }
-                            } else {
-                              final selectedService = _selectedService;
-                              final priceRupees = minorAmountToRupees(
-                                  selectedService?.priceMinor);
-                              if (priceRupees != null && parsed > priceRupees) {
-                                return translateText(
-                                  'Fixed amount cannot be greater than Rs. ${_formatOverrideNumber(priceRupees)}',
-                                );
-                              }
-                            }
-                            return null;
+                            final message = _rateValidationMessage(value);
+                            return message.isEmpty ? null : message;
                           },
-                          onChanged: _isSaving
-                              ? null
-                              : (_) {
-                                  setState(() {});
-                                  _validateIfNeeded();
-                                },
+                          onChanged: _isSaving ? null : _handleRateChanged,
                         ),
                         const SizedBox(height: 12),
                         Row(
