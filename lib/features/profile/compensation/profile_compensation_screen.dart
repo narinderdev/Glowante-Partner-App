@@ -77,6 +77,7 @@ class ProfileCompensationScreen extends StatefulWidget {
 class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   final ProfileCompensationRepository _repository =
       ProfileCompensationRepository();
+  late final VoidCallback _branchSelectionListener;
   final TextEditingController _serviceSearchController =
       TextEditingController();
   final TextEditingController _advanceSearchController =
@@ -86,8 +87,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   _CommissionTab _commissionTab = _CommissionTab.services;
   String _commissionCategoryFilter = _commissionAllCategoriesValue;
 
-  List<ProfileBranchOption> _branchOptions = const <ProfileBranchOption>[];
-  ProfileBranchOption? _selectedBranch;
+  List<OwnerBranchOption> _branchOptions = const <OwnerBranchOption>[];
+  OwnerBranchOption? _selectedBranch;
 
   List<ProfileTeamMember> _teamMembers = const <ProfileTeamMember>[];
   List<PayrollSetupRecord> _payrollSetups = const <PayrollSetupRecord>[];
@@ -110,6 +111,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   String? _branchError;
   String? _contentError;
   int? _selectedServiceId;
+  int _contentLoadSerial = 0;
   int _commissionServicesPage = 0;
   DateTime _advanceMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime _leaveMonth = DateTime(DateTime.now().year, DateTime.now().month);
@@ -171,15 +173,48 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       );
       setState(() {});
     });
+    _branchSelectionListener = _handleSharedBranchSelectionChanged;
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
     _loadInitialData();
   }
 
   @override
   void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
     _serviceSearchController.dispose();
     _advanceSearchController.dispose();
     _advanceTableScrollController.dispose();
     super.dispose();
+  }
+
+  void _handleSharedBranchSelectionChanged() {
+    if (!mounted || _branchOptions.isEmpty) return;
+
+    final selection = StylistBranchSelectionStore.selectionNotifier.value;
+    final branchId = selection.branchId;
+    if (branchId == null || branchId == _selectedBranch?.branchId) return;
+
+    final nextBranch = _branchOptions.cast<OwnerBranchOption?>().firstWhere(
+          (item) => item?.branchId == branchId,
+          orElse: () => null,
+        );
+    if (nextBranch == null) {
+      _loadInitialData();
+      return;
+    }
+
+    _logCompensation(
+      'shared_branch_selection_changed',
+      details: 'from=${_selectedBranch?.branchId} to=$branchId',
+    );
+    setState(() {
+      _selectedBranch = nextBranch;
+      _selectedServiceId = null;
+      _contentError = null;
+    });
+    _reloadContent();
   }
 
   Future<void> _loadInitialData() async {
@@ -191,10 +226,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
 
     try {
       final branchOptions = await _repository.loadBranchOptions();
-      ProfileBranchOption? selectedBranch;
+      OwnerBranchOption? selectedBranch;
       final selection = await StylistBranchSelectionStore.load();
       if (selection.branchId != null) {
-        selectedBranch = branchOptions.cast<ProfileBranchOption?>().firstWhere(
+        selectedBranch = branchOptions.cast<OwnerBranchOption?>().firstWhere(
               (item) => item?.branchId == selection.branchId,
               orElse: () => null,
             );
@@ -234,6 +269,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   Future<void> _reloadContent({bool showLoader = true}) async {
+    final requestSerial = ++_contentLoadSerial;
     final selectedBranch = _selectedBranch;
     _logCompensation(
       'reload_content_started',
@@ -272,7 +308,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       } else {
         await _loadCommissionData(selectedBranch.branchId);
       }
-      if (!mounted) {
+      if (!mounted ||
+          requestSerial != _contentLoadSerial ||
+          !_isCurrentBranch(selectedBranch.branchId)) {
         return;
       }
       setState(() {
@@ -285,7 +323,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
             'branchId=${selectedBranch.branchId}, team=${_teamMembers.length}, runs=${_payrollRuns.length}, services=${_services.length}',
       );
     } catch (error) {
-      if (!mounted) {
+      if (!mounted ||
+          requestSerial != _contentLoadSerial ||
+          !_isCurrentBranch(selectedBranch.branchId)) {
         return;
       }
       setState(() {
@@ -466,7 +506,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     );
   }
 
-  Future<void> _loadLeaveData(ProfileBranchOption branch) async {
+  Future<void> _loadLeaveData(OwnerBranchOption branch) async {
     _logCompensation(
       'load_leave_data_started',
       details:
@@ -623,7 +663,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     );
   }
 
-  Future<void> _switchBranch(ProfileBranchOption option) async {
+  Future<void> _switchBranch(OwnerBranchOption option) async {
     if (_selectedBranch?.branchId == option.branchId || _isScreenBusy) {
       return;
     }
@@ -3673,26 +3713,22 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
           else
             Align(
               alignment: Alignment.centerLeft,
-              child: OwnerBranchHeaderSelector<int>(
+              child: OwnerBranchHeaderSelector<OwnerBranchOption>(
                 label: _selectedBranch?.label ?? context.t('Select Branch'),
                 options: _branchOptions
                     .map(
-                      (item) => OwnerBranchHeaderSelectorOption<int>(
-                        value: item.branchId,
+                      (item) =>
+                          OwnerBranchHeaderSelectorOption<OwnerBranchOption>(
+                        value: item,
                         label: item.label,
                         subtitle: item.subtitle,
                       ),
                     )
                     .toList(),
-                selectedValue: _selectedBranch?.branchId,
+                selectedValue: _selectedBranch,
                 placeholder: context.t('Select Branch'),
                 isInteractive: _branchOptions.length > 1 && !_isScreenBusy,
-                onSelected: (branchId) {
-                  final next = _branchOptions.firstWhere(
-                    (item) => item.branchId == branchId,
-                  );
-                  _switchBranch(next);
-                },
+                onSelected: _switchBranch,
               ),
             ),
           if (!_isLoadingBranches &&

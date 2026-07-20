@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/address_formatter.dart';
+
 class StylistBranchSelection {
   const StylistBranchSelection({
     this.salonId,
@@ -37,6 +39,122 @@ class StylistBranchSelection {
 
   @override
   int get hashCode => Object.hash(salonId, branchId, salonName, branchName);
+}
+
+class OwnerBranchOption {
+  const OwnerBranchOption({
+    required this.salonId,
+    required this.branchId,
+    required this.salonName,
+    required this.branchName,
+    required this.address,
+  });
+
+  final int salonId;
+  final int branchId;
+  final String salonName;
+  final String branchName;
+  final String address;
+
+  String get label {
+    if (branchName.trim().isNotEmpty) return branchName.trim();
+    if (salonName.trim().isNotEmpty) return salonName.trim();
+    return 'Branch #$branchId';
+  }
+
+  String get subtitle {
+    if (address.trim().isNotEmpty) return address.trim();
+    return branchName.trim();
+  }
+
+  String get displayLabel => label;
+
+  StylistBranchSelection get selection => StylistBranchSelection(
+        salonId: salonId,
+        branchId: branchId,
+        salonName: salonName,
+        branchName: branchName,
+      );
+
+  Future<void> saveSelection() {
+    return StylistBranchSelectionStore.save(
+      salonId: salonId,
+      branchId: branchId,
+      salonName: salonName,
+      branchName: branchName,
+    );
+  }
+
+  static List<OwnerBranchOption> listFromSalonList(List<dynamic> rawSalons) {
+    final options = <OwnerBranchOption>[];
+    for (final salonEntry in rawSalons) {
+      if (salonEntry is! Map) continue;
+      final salon = Map<String, dynamic>.from(salonEntry);
+      final salonId = _readInt(salon['id'] ?? salon['salonId']);
+      if (salonId == null) continue;
+      final salonName = _readString(salon['name'] ?? salon['salonName']);
+      final branches = (salon['branches'] as List?) ?? const <dynamic>[];
+      for (final branchEntry in branches) {
+        if (branchEntry is! Map) continue;
+        final branch = Map<String, dynamic>.from(branchEntry);
+        final branchId = _readInt(branch['id'] ?? branch['branchId']);
+        if (branchId == null) continue;
+        options.add(
+          OwnerBranchOption(
+            salonId: salonId,
+            branchId: branchId,
+            salonName: salonName,
+            branchName: _readString(branch['name'] ?? branch['branchName']),
+            address: formatAddressSummary(branch['address']),
+          ),
+        );
+      }
+    }
+    return options;
+  }
+
+  static OwnerBranchOption? findByBranchId(
+    List<OwnerBranchOption> options,
+    int? branchId,
+  ) {
+    if (branchId == null) return null;
+    for (final option in options) {
+      if (option.branchId == branchId) return option;
+    }
+    return null;
+  }
+
+  static int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  static String _readString(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.toLowerCase() == 'null') return '';
+    return text;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is OwnerBranchOption &&
+        other.salonId == salonId &&
+        other.branchId == branchId &&
+        other.salonName == salonName &&
+        other.branchName == branchName &&
+        other.address == address;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        salonId,
+        branchId,
+        salonName,
+        branchName,
+        address,
+      );
 }
 
 class StylistBranchSelectionStore {

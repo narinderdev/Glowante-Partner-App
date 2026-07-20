@@ -18,6 +18,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ApiService apiService = ApiService();
+  late final VoidCallback _branchSelectionListener;
 
   // ------- selection (from header) -------
   int? _selectedSalonId;
@@ -58,6 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _branchSelectionListener = _handleSharedBranchSelectionChanged;
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
     _loadCachedSelection();
     _fetchSalons();
 
@@ -119,6 +123,67 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  bool _isCurrentBranch(int branchId) {
+    return mounted && _selectedBranchId == branchId;
+  }
+
+  int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  void _handleSharedBranchSelectionChanged() {
+    if (!mounted || _salons.isEmpty) return;
+
+    final selection = StylistBranchSelectionStore.selectionNotifier.value;
+    final branchId = selection.branchId;
+    if (branchId == null || branchId == _selectedBranchId) return;
+
+    Map<String, dynamic>? matchedSalon;
+    Map<String, dynamic>? matchedBranch;
+    for (final salonEntry in _salons) {
+      if (salonEntry is! Map) continue;
+      final salon = Map<String, dynamic>.from(salonEntry);
+      final branches = salon['branches'];
+      if (branches is! List) continue;
+      for (final branchEntry in branches) {
+        if (branchEntry is! Map) continue;
+        final branch = Map<String, dynamic>.from(branchEntry);
+        if (_readInt(branch['id']) == branchId) {
+          matchedSalon = salon;
+          matchedBranch = branch;
+          break;
+        }
+      }
+      if (matchedSalon != null) break;
+    }
+
+    if (matchedSalon == null) {
+      _fetchSalons();
+      return;
+    }
+
+    final salonName = (matchedSalon['name'] ?? selection.salonName).toString();
+    final branchAddress = formatAddressSummary(matchedBranch?['address']);
+    final address = branchAddress.isEmpty
+        ? translateText('No address available')
+        : branchAddress;
+
+    setState(() {
+      _selectedSalonId = _readInt(matchedSalon!['id']);
+      _selectedBranchId = branchId;
+      this.salonName = salonName;
+      salonAddress = address;
+      _pickerOpen = false;
+      bookings = [];
+      teamMembers = [];
+      timeSlots = [];
+    });
+
+    _loadBranchData(branchId, selectedDate);
+  }
+
   // ------------------ storage ------------------
   Future<void> _loadCachedSelection() async {
     final prefs = await SharedPreferences.getInstance();
@@ -135,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String name,
     required String address,
     int? branchId,
+    String? branchName,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('selected_salon_id', salonId);
@@ -145,7 +211,8 @@ class _HomeScreenState extends State<HomeScreen> {
         salonId: salonId,
         branchId: branchId,
         salonName: name,
-        branchName: name,
+        branchName:
+            branchName?.trim().isNotEmpty == true ? branchName!.trim() : name,
       );
     }
   }
@@ -172,15 +239,23 @@ class _HomeScreenState extends State<HomeScreen> {
         final int? restoredBranchId = _selectedBranchId;
         final int autoBranchId = _pickBranchForSalon(chosen, restoredBranchId);
 
+        final chosenSalonId = _readInt(chosen['id']);
+        if (chosenSalonId == null) return;
+        final selectedBranch = _branchForSalon(chosen, autoBranchId);
+
         await _saveSelection(
-          salonId: chosen['id'] as int,
+          salonId: chosenSalonId,
           name: name,
           address: address,
           branchId: autoBranchId,
+          branchName: selectedBranch == null
+              ? null
+              : (selectedBranch['name'] ?? selectedBranch['branchName'])
+                  ?.toString(),
         );
 
         setState(() {
-          _selectedSalonId = chosen['id'] as int;
+          _selectedSalonId = chosenSalonId;
           _selectedBranchId = autoBranchId;
           salonName = name;
           salonAddress = address;
@@ -198,15 +273,30 @@ class _HomeScreenState extends State<HomeScreen> {
   int _pickBranchForSalon(Map<String, dynamic> salon, int? preferId) {
     final branches = salon['branches'] as List? ?? const [];
     if (branches.isEmpty) return -1;
-    if (preferId != null && branches.any((b) => b['id'] == preferId)) {
+    if (preferId != null &&
+        branches.any((b) => b is Map && _readInt(b['id']) == preferId)) {
       return preferId;
     }
-    return branches.first['id'] as int;
+    final firstBranch = branches.first;
+    return firstBranch is Map ? _readInt(firstBranch['id']) ?? -1 : -1;
+  }
+
+  Map<String, dynamic>? _branchForSalon(
+    Map<String, dynamic> salon,
+    int branchId,
+  ) {
+    final branches = salon['branches'] as List? ?? const [];
+    for (final branchEntry in branches) {
+      if (branchEntry is! Map) continue;
+      final branch = Map<String, dynamic>.from(branchEntry);
+      if (_readInt(branch['id']) == branchId) return branch;
+    }
+    return null;
   }
 
   int? _findSalonIndexById(int? id) {
     if (id == null) return null;
-    final i = _salons.indexWhere((s) => (s is Map && s['id'] == id));
+    final i = _salons.indexWhere((s) => (s is Map && _readInt(s['id']) == id));
     return i >= 0 ? i : null;
   }
 
@@ -220,13 +310,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onPickSalon(Map<String, dynamic> salon) async {
-    final id = salon['id'] as int;
+    final id = _readInt(salon['id']);
+    if (id == null) return;
     final name = (salon['name'] ?? 'Unnamed Salon').toString();
     final address = _formatAddressFromFirstBranch(salon);
     final branchId = _pickBranchForSalon(salon, null);
+    final selectedBranch = _branchForSalon(salon, branchId);
 
     await _saveSelection(
-        salonId: id, name: name, address: address, branchId: branchId);
+      salonId: id,
+      name: name,
+      address: address,
+      branchId: branchId,
+      branchName: selectedBranch == null
+          ? null
+          : (selectedBranch['name'] ?? selectedBranch['branchName'])
+              ?.toString(),
+    );
     setState(() {
       _selectedSalonId = id;
       _selectedBranchId = branchId;
@@ -251,9 +351,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _getTeamMembers(int branchId) async {
     try {
       final response = await ApiService.getTeamMembers(branchId);
-      if (response != null &&
-          response['success'] == true &&
-          response['data'] != null) {
+      if (!_isCurrentBranch(branchId)) return;
+      if (response['success'] == true && response['data'] != null) {
         setState(() =>
             teamMembers = List<Map<String, dynamic>>.from(response['data']));
       } else {
@@ -261,6 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       debugPrint('Error fetching team members: $e');
+      if (!_isCurrentBranch(branchId)) return;
       setState(() => teamMembers = []);
     }
   }
@@ -315,10 +415,9 @@ class _HomeScreenState extends State<HomeScreen> {
       String formattedDate = DateFormat('yyyy-MM-dd').format(date);
       final response =
           await apiService.fetchAppointments(branchId, formattedDate);
+      if (!_isCurrentBranch(branchId)) return;
 
-      if (response != null &&
-          response['success'] == true &&
-          response['data'] != null) {
+      if (response['success'] == true && response['data'] != null) {
         final List<dynamic> appointments = response['data'];
 
         String startTime = '08:00:00';
@@ -645,148 +744,155 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) {
         bool loadingConfirm = false;
 
-        Future<void> onConfirmAll() async {
-          if (_selectedBranchId == null) {
-            Fluttertoast.showToast(
-                msg: translateText('Please select a branch first.'));
-            return;
-          }
-          if (status != 'PENDING' || apptIds.isEmpty) return;
-
-          loadingConfirm = true;
-          (ctx as Element).markNeedsBuild();
-
-          int ok = 0, fail = 0;
-          for (final id in apptIds) {
-            try {
-              final resp = await ApiService().confirmAppointment(
-                branchId: _selectedBranchId!,
-                appointmentId: id,
-              );
-              if (resp['success'] == true) {
-                ok++;
-              } else {
-                fail++;
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            Future<void> onConfirmAll() async {
+              if (_selectedBranchId == null) {
+                Fluttertoast.showToast(
+                    msg: translateText('Please select a branch first.'));
+                return;
               }
-            } catch (_) {
-              fail++;
+              if (status != 'PENDING' || apptIds.isEmpty) return;
+
+              setSheetState(() => loadingConfirm = true);
+
+              int ok = 0, fail = 0;
+              for (final id in apptIds) {
+                try {
+                  final resp = await ApiService().confirmAppointment(
+                    branchId: _selectedBranchId!,
+                    appointmentId: id,
+                  );
+                  if (resp['success'] == true) {
+                    ok++;
+                  } else {
+                    fail++;
+                  }
+                } catch (_) {
+                  fail++;
+                }
+              }
+
+              if (sheetContext.mounted) {
+                setSheetState(() => loadingConfirm = false);
+              }
+
+              if (sheetContext.mounted) {
+                Navigator.pop(sheetContext);
+              }
+              if (_selectedBranchId != null) {
+                await _getBookingsByDate(_selectedBranchId!, selectedDate);
+              }
+
+              final msg = fail == 0
+                  ? 'Confirmed $ok appointment(s).'
+                  : 'Confirmed $ok, failed $fail.';
+              Fluttertoast.showToast(msg: msg);
             }
-          }
 
-          loadingConfirm = false;
-          (ctx as Element).markNeedsBuild();
+            return FractionallySizedBox(
+              heightFactor: 0.60,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(
+                          customerName,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ]),
+                    SizedBox(height: 4),
+                    Text(timeRange,
+                        style: const TextStyle(color: Colors.black54)),
+                    SizedBox(height: 4),
+                    Text('Status: $status',
+                        style: const TextStyle(color: Colors.black54)),
+                    if (priceTotal != null) ...[
+                      SizedBox(height: 4),
+                      Text(
+                        'Total Price: ${formatMinorAmount(priceTotal)}',
+                        style: const TextStyle(color: Colors.black87),
+                      ),
+                    ],
+                    SizedBox(height: 12),
+                    Text(translateText('Services'),
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                    SizedBox(height: 6),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, i) {
+                          final it = items[i];
+                          final String name =
+                              (it['service']?.toString() ?? 'Service');
+                          final int? priceMinor = it['priceMinor'] as int?;
+                          final String priceText = priceMinor != null
+                              ? formatMinorAmount(priceMinor)
+                              : '';
+                          final String range = _fmtTimeRange(
+                              it['start'] as DateTime, it['end'] as DateTime);
 
-          Navigator.pop(context);
-          if (_selectedBranchId != null) {
-            await _getBookingsByDate(_selectedBranchId!, selectedDate);
-          }
-
-          final msg = fail == 0
-              ? 'Confirmed $ok appointment(s).'
-              : 'Confirmed $ok, failed $fail.';
-          Fluttertoast.showToast(msg: msg);
-        }
-
-        return FractionallySizedBox(
-          heightFactor: 0.60,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      customerName,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700),
-                      overflow: TextOverflow.ellipsis,
+                          return ListTile(
+                            dense: true,
+                            title: Text(name,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(range),
+                            trailing: priceText.isNotEmpty
+                                ? Text(priceText,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600))
+                                : null,
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ]),
-                SizedBox(height: 4),
-                Text(timeRange, style: const TextStyle(color: Colors.black54)),
-                SizedBox(height: 4),
-                Text('Status: $status',
-                    style: const TextStyle(color: Colors.black54)),
-                if (priceTotal != null) ...[
-                  SizedBox(height: 4),
-                  Text(
-                    'Total Price: ${formatMinorAmount(priceTotal)}',
-                    style: const TextStyle(color: Colors.black87),
-                  ),
-                ],
-                SizedBox(height: 12),
-                Text(translateText('Services'),
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                SizedBox(height: 6),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, i) {
-                      final it = items[i];
-                      final String name =
-                          (it['service']?.toString() ?? 'Service');
-                      final int? priceMinor = it['priceMinor'] as int?;
-                      final String priceText = priceMinor != null
-                          ? formatMinorAmount(priceMinor)
-                          : '';
-                      final String range = _fmtTimeRange(
-                          it['start'] as DateTime, it['end'] as DateTime);
-
-                      return ListTile(
-                        dense: true,
-                        title: Text(name,
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(range),
-                        trailing: priceText.isNotEmpty
-                            ? Text(priceText,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600))
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (status == 'PENDING' && !loadingConfirm)
+                            ? onConfirmAll
                             : null,
-                      );
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: (status == 'PENDING' && !loadingConfirm)
-                        ? onConfirmAll
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: loadingConfirm
+                            ? SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text(apptIds.length <= 1
+                                ? 'Confirm'
+                                : 'Confirm All (${apptIds.length})'),
+                      ),
                     ),
-                    child: loadingConfirm
-                        ? SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : Text(apptIds.length <= 1
-                            ? 'Confirm'
-                            : 'Confirm All (${apptIds.length})'),
-                  ),
-                ),
-                SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                    SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: Text(translateText('Close')),
+                      ),
                     ),
-                    child: Text(translateText('Close')),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -1426,6 +1532,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
     _timeColumnVController.dispose();
     _gridVController.dispose();
     _headerHController.dispose();

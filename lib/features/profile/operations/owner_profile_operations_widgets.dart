@@ -1,32 +1,5 @@
 part of 'owner_profile_operations_screen.dart';
 
-class _BranchOption {
-  const _BranchOption({
-    required this.salonId,
-    required this.branchId,
-    required this.salonName,
-    required this.branchName,
-    required this.address,
-  });
-
-  final int salonId;
-  final int branchId;
-  final String salonName;
-  final String branchName;
-  final String address;
-
-  String get label {
-    if (branchName.trim().isNotEmpty) return branchName.trim();
-    if (salonName.trim().isNotEmpty) return salonName.trim();
-    return 'Branch #$branchId';
-  }
-
-  String get subtitle {
-    if (address.trim().isNotEmpty) return address;
-    return branchName;
-  }
-}
-
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,

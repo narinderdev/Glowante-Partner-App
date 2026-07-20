@@ -290,11 +290,13 @@ class OwnerProfileOperationsScreen extends StatefulWidget {
 class _OwnerProfileOperationsScreenState
     extends State<OwnerProfileOperationsScreen> {
   final ApiService _apiService = ApiService();
+  late final VoidCallback _branchSelectionListener;
 
-  List<_BranchOption> _branchOptions = const <_BranchOption>[];
-  _BranchOption? _selectedBranch;
+  List<OwnerBranchOption> _branchOptions = const <OwnerBranchOption>[];
+  OwnerBranchOption? _selectedBranch;
   bool _isLoadingBranches = true;
   bool _isLoadingContent = false;
+  int _contentLoadSerial = 0;
   String? _branchError;
   String? _contentError;
 
@@ -337,6 +339,10 @@ class _OwnerProfileOperationsScreenState
   String _t(String key, {Map<String, String>? params}) =>
       translateText(key, params: params);
 
+  bool _isCurrentBranch(int branchId) {
+    return mounted && _selectedBranch?.branchId == branchId;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -347,7 +353,47 @@ class _OwnerProfileOperationsScreenState
       OwnerInventorySection.goodsReceiptNote => _InventoryTab.goodsReceiptNote,
     };
     _logOperations('init');
+    _branchSelectionListener = _handleSharedBranchSelectionChanged;
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
     _loadBranches();
+  }
+
+  @override
+  void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
+    super.dispose();
+  }
+
+  void _handleSharedBranchSelectionChanged() {
+    if (!mounted || _branchOptions.isEmpty) return;
+
+    final selection = StylistBranchSelectionStore.selectionNotifier.value;
+    final branchId = selection.branchId;
+    if (branchId == null || branchId == _selectedBranch?.branchId) return;
+
+    OwnerBranchOption? nextBranch;
+    for (final option in _branchOptions) {
+      if (option.branchId == branchId) {
+        nextBranch = option;
+        break;
+      }
+    }
+    if (nextBranch == null) {
+      _loadBranches();
+      return;
+    }
+
+    _logOperations(
+      'shared_branch_selection_changed',
+      details: 'from=${_selectedBranch?.branchId} to=$branchId',
+    );
+    setState(() {
+      _selectedBranch = nextBranch;
+      _contentError = null;
+    });
+    _reloadCurrent();
   }
 
   Future<void> _loadBranches() async {
@@ -359,34 +405,11 @@ class _OwnerProfileOperationsScreenState
 
     try {
       final response = await _apiService.getSalonListApi();
-      final options = <_BranchOption>[];
       final salons = (response['data'] as List?) ?? const <dynamic>[];
-      for (final salonEntry in salons) {
-        if (salonEntry is! Map) continue;
-        final salon = Map<String, dynamic>.from(salonEntry);
-        final salonId = _toInt(salon['id']);
-        if (salonId == null) continue;
-        final salonName = _stringValue(salon['name']);
-        final branches = (salon['branches'] as List?) ?? const <dynamic>[];
-        for (final branchEntry in branches) {
-          if (branchEntry is! Map) continue;
-          final branch = Map<String, dynamic>.from(branchEntry);
-          final branchId = _toInt(branch['id']);
-          if (branchId == null) continue;
-          options.add(
-            _BranchOption(
-              salonId: salonId,
-              branchId: branchId,
-              salonName: salonName,
-              branchName: _stringValue(branch['name']),
-              address: _branchAddressSummary(branch['address']),
-            ),
-          );
-        }
-      }
+      final options = OwnerBranchOption.listFromSalonList(salons);
 
       final saved = await StylistBranchSelectionStore.load();
-      _BranchOption? selected;
+      OwnerBranchOption? selected;
       if (saved.branchId != null) {
         for (final option in options) {
           if (option.branchId == saved.branchId) {
@@ -422,8 +445,10 @@ class _OwnerProfileOperationsScreenState
     }
   }
 
-  Future<void> _switchBranch(_BranchOption option) async {
-    if (_selectedBranch?.branchId == option.branchId) return;
+  Future<void> _switchBranch(OwnerBranchOption option) async {
+    if (_selectedBranch?.branchId == option.branchId || _isLoadingContent) {
+      return;
+    }
     _logOperations(
       'switch_branch',
       details: 'from=${_selectedBranch?.branchId} to=${option.branchId}',
@@ -441,18 +466,8 @@ class _OwnerProfileOperationsScreenState
     await _reloadCurrent();
   }
 
-  String _branchAddressSummary(dynamic rawAddress) {
-    if (rawAddress is! Map) return '';
-    final address = Map<String, dynamic>.from(rawAddress);
-    final parts = <String>[];
-    for (final key in ['line1', 'line2', 'city', 'state']) {
-      final value = _stringValue(address[key]);
-      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
-    }
-    return parts.take(2).join(', ');
-  }
-
   Future<void> _reloadCurrent({bool showLoader = true}) async {
+    final requestSerial = ++_contentLoadSerial;
     final branchId = _selectedBranch?.branchId;
     if (branchId == null) return;
     _logOperations(
@@ -490,14 +505,22 @@ class _OwnerProfileOperationsScreenState
             break;
         }
       }
-      if (!mounted) return;
+      if (!mounted ||
+          requestSerial != _contentLoadSerial ||
+          _selectedBranch?.branchId != branchId) {
+        return;
+      }
       setState(() {
         _isLoadingContent = false;
       });
       _logOperations('reload_success', details: 'branchId=$branchId');
     } catch (error) {
       _logOperations('reload_failure', details: error);
-      if (!mounted) return;
+      if (!mounted ||
+          requestSerial != _contentLoadSerial ||
+          _selectedBranch?.branchId != branchId) {
+        return;
+      }
       setState(() {
         _isLoadingContent = false;
         _contentError = error.toString();
@@ -522,7 +545,7 @@ class _OwnerProfileOperationsScreenState
       'load_vendors_success',
       details: 'branchId=$branchId, count=${records.length}',
     );
-    if (!mounted) return;
+    if (!_isCurrentBranch(branchId)) return;
     setState(() {
       _vendors = records;
       _contentError = !_responseSuccess(response) && records.isEmpty
@@ -539,7 +562,7 @@ class _OwnerProfileOperationsScreenState
       'load_stores_success',
       details: 'branchId=$branchId, count=${records.length}',
     );
-    if (!mounted) return;
+    if (!_isCurrentBranch(branchId)) return;
     setState(() {
       _stores = records;
       _contentError = !_responseSuccess(response) && records.isEmpty
@@ -570,7 +593,7 @@ class _OwnerProfileOperationsScreenState
       details:
           'branchId=$branchId, page=$page, count=${items.length}, total=${total ?? items.length}',
     );
-    if (!mounted) return;
+    if (!_isCurrentBranch(branchId)) return;
     setState(() {
       _inventoryItems = items;
       _inventoryPage = page;
@@ -598,7 +621,7 @@ class _OwnerProfileOperationsScreenState
       'load_purchase_orders_success',
       details: 'branchId=$branchId, count=${records.length}',
     );
-    if (!mounted) return;
+    if (!_isCurrentBranch(branchId)) return;
     setState(() {
       _vendors = vendors;
       _purchaseOrders = records;
@@ -625,7 +648,7 @@ class _OwnerProfileOperationsScreenState
       'load_grn_success',
       details: 'branchId=$branchId, count=${records.length}',
     );
-    if (!mounted) return;
+    if (!_isCurrentBranch(branchId)) return;
     setState(() {
       _vendors = vendors;
       _goodsReceiptNotes = records;
@@ -1494,7 +1517,7 @@ class _OwnerProfileOperationsScreenState
   //   final selected = _selectedBranch;
   //   final options = _branchOptions
   //       .map(
-  //         (item) => OwnerBranchHeaderSelectorOption<_BranchOption>(
+  //         (item) => OwnerBranchHeaderSelectorOption<OwnerBranchOption>(
   //           value: item,
   //           label: item.label,
   //           subtitle: item.subtitle,
@@ -1511,7 +1534,7 @@ class _OwnerProfileOperationsScreenState
   //     child: Row(
   //       children: [
   //         Expanded(
-  //           child: OwnerBranchHeaderSelector<_BranchOption>(
+  //           child: OwnerBranchHeaderSelector<OwnerBranchOption>(
   //             label: selected?.label ?? context.t('Select Branch'),
   //             options: options,
   //             selectedValue: selected,
@@ -1528,7 +1551,7 @@ class _OwnerProfileOperationsScreenState
     final selected = _selectedBranch;
     final options = _branchOptions
         .map(
-          (item) => OwnerBranchHeaderSelectorOption<_BranchOption>(
+          (item) => OwnerBranchHeaderSelectorOption<OwnerBranchOption>(
             value: item,
             label: item.label,
             subtitle: item.subtitle,
@@ -1536,12 +1559,12 @@ class _OwnerProfileOperationsScreenState
         )
         .toList();
 
-    return OwnerBranchHeaderSelector<_BranchOption>(
+    return OwnerBranchHeaderSelector<OwnerBranchOption>(
       label: selected?.label ?? context.t('Select Branch'),
       options: options,
       selectedValue: selected,
       placeholder: context.t('Select Branch'),
-      isInteractive: _branchOptions.length > 1,
+      isInteractive: _branchOptions.length > 1 && !_isLoadingContent,
       onSelected: _switchBranch,
     );
   }

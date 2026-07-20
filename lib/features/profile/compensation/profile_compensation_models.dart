@@ -95,35 +95,6 @@ class AdvancePaymentModes {
   }
 }
 
-class ProfileBranchOption {
-  const ProfileBranchOption({
-    required this.salonId,
-    required this.branchId,
-    required this.salonName,
-    required this.branchName,
-    required this.address,
-  });
-
-  final int salonId;
-  final int branchId;
-  final String salonName;
-  final String branchName;
-  final String address;
-
-  String get label {
-    if (branchName.trim().isNotEmpty) return branchName.trim();
-    if (salonName.trim().isNotEmpty) return salonName.trim();
-    return 'Branch #$branchId';
-  }
-
-  String get subtitle {
-    if (address.trim().isNotEmpty) {
-      return address;
-    }
-    return branchName;
-  }
-}
-
 class ProfileTeamMember {
   const ProfileTeamMember({
     required this.id,

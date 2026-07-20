@@ -7,8 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/profile/compensation/profile_compensation_screen.dart';
 import '../features/profile/operations/owner_profile_operations_screen.dart';
+import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../services/stylist_branch_selection.dart';
-import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/error_parser.dart';
@@ -23,29 +23,8 @@ import 'profile_screen.dart';
 import 'SalonReviews.dart';
 import 'ad.dart';
 
-const String _dashboardFontFamily = 'Manrope';
-const Color _dashboardAccent = Color(0xFFC19A6B);
 const Color _dashboardPrimaryText = Color(0xFF1C1917);
 const Color _dashboardSecondaryText = Color(0xFF78716C);
-const Color _dashboardBorder = Color(0xFFE7E5E4);
-
-TextStyle _dashboardTextStyle({
-  required double size,
-  FontWeight weight = FontWeight.w400,
-  Color color = _dashboardPrimaryText,
-  double? height,
-  double? letterSpacing,
-}) {
-  return TextStyle(
-    fontFamily: _dashboardFontFamily,
-    fontFamilyFallback: const ['Inter'],
-    fontSize: size,
-    fontWeight: weight,
-    color: color,
-    height: height,
-    letterSpacing: letterSpacing,
-  );
-}
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key, this.onOpenMoreTab});
@@ -57,13 +36,14 @@ class OwnerDashboardScreen extends StatefulWidget {
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
-  final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();
   late final VoidCallback _salonCatalogListener;
+  late final VoidCallback _branchSelectionListener;
   int _notificationPage = 0;
   static const int _notificationPageSize = 4;
-  List<_DashboardBranchOption> _branchOptions = const [];
+  List<OwnerBranchOption> _branchOptions = const [];
   int? _selectedBranchId;
+  int _dashboardLoadSerial = 0;
   DateTime _selectedDate = DateTime.now();
   Map<String, dynamic> _dashboard = const {};
   String _profileImageUrl = '';
@@ -78,8 +58,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       if (!mounted) return;
       _loadData();
     };
+    _branchSelectionListener = _handleSharedBranchSelectionChanged;
     StylistBranchSelectionStore.salonCatalogRevision
         .addListener(_salonCatalogListener);
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
     _loadData();
   }
 
@@ -87,10 +70,38 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   void dispose() {
     StylistBranchSelectionStore.salonCatalogRevision
         .removeListener(_salonCatalogListener);
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
     super.dispose();
   }
 
+  void _handleSharedBranchSelectionChanged() {
+    if (!mounted) return;
+
+    final selection = StylistBranchSelectionStore.selectionNotifier.value;
+    final branchId = selection.branchId;
+    if (branchId == null || branchId == _selectedBranchId) return;
+
+    if (_branchOptions.isEmpty) {
+      _loadData();
+      return;
+    }
+
+    final hasBranch =
+        _branchOptions.any((option) => option.branchId == branchId);
+    if (!hasBranch) {
+      _loadData();
+      return;
+    }
+
+    _loadDashboard(
+      branchId,
+      saveSelection: false,
+    );
+  }
+
   Future<void> _loadData() async {
+    final requestSerial = ++_dashboardLoadSerial;
     setState(() {
       _isLoadingDashboard = true;
       _errorMessage = null;
@@ -107,8 +118,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       _profileImageUrl = _readProfileImageUrl(prefs);
 
       final response = await salonFuture;
+      if (!mounted || requestSerial != _dashboardLoadSerial) return;
       final rawSalons = (response['data'] as List?) ?? const [];
-      final options = _extractBranchOptions(rawSalons);
+      final options = OwnerBranchOption.listFromSalonList(rawSalons);
       final selectedBranchId = options.any(
         (option) => option.branchId == selection.branchId,
       )
@@ -137,6 +149,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         showLoading: false,
       );
     } catch (error) {
+      if (requestSerial != _dashboardLoadSerial) return;
       if (!mounted) return;
       setState(() {
         _errorMessage = extractErrorMessage(error);
@@ -165,6 +178,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     bool saveSelection = true,
     bool showLoading = true,
   }) async {
+    final requestSerial = ++_dashboardLoadSerial;
     if (!mounted) return;
     setState(() {
       _selectedBranchId = branchId;
@@ -193,7 +207,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         date: DateFormat('yyyy-MM-dd').format(_selectedDate),
       );
 
-      if (!mounted) return;
+      if (!mounted ||
+          requestSerial != _dashboardLoadSerial ||
+          _selectedBranchId != branchId) {
+        return;
+      }
       setState(() {
         _dashboard = response['data'] is Map
             ? Map<String, dynamic>.from(response['data'] as Map)
@@ -202,6 +220,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         _isLoadingDashboard = false;
       });
     } catch (error) {
+      if (requestSerial != _dashboardLoadSerial ||
+          _selectedBranchId != branchId) {
+        return;
+      }
       if (!mounted) return;
       setState(() {
         _errorMessage = extractErrorMessage(error);
@@ -233,39 +255,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
-  List<_DashboardBranchOption> _extractBranchOptions(List<dynamic> rawSalons) {
-    final options = <_DashboardBranchOption>[];
-    for (final salonEntry in rawSalons) {
-      if (salonEntry is! Map) continue;
-      final salon = Map<String, dynamic>.from(salonEntry);
-      final salonId = _asIntOrNull(salon['id']);
-      if (salonId == null) continue;
-      final salonName = _cleanText(salon['name']);
-      final branches = (salon['branches'] as List?) ?? const [];
-      for (final branchEntry in branches) {
-        if (branchEntry is! Map) continue;
-        final branch = Map<String, dynamic>.from(branchEntry);
-        final branchId = _asIntOrNull(branch['id']);
-        if (branchId == null) continue;
-        options.add(
-          _DashboardBranchOption(
-            salonId: salonId,
-            branchId: branchId,
-            salonName: salonName,
-            branchName: _cleanText(branch['name']),
-            address: _addressSummary(branch['address']),
-          ),
-        );
-      }
-    }
-    return options;
-  }
-
-  String _addressSummary(dynamic rawAddress) {
-    return formatAddressSummary(rawAddress);
-  }
-
-  _DashboardBranchOption? get _selectedBranchOption {
+  OwnerBranchOption? get _selectedBranchOption {
     final branchId = _selectedBranchId;
     if (branchId == null) return null;
     for (final option in _branchOptions) {
@@ -278,12 +268,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse('${value ?? ''}') ?? 0;
-  }
-
-  int? _asIntOrNull(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse('${value ?? ''}');
   }
 
   double _asDouble(dynamic value) {
@@ -388,62 +372,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
 
     Scaffold.of(scaffoldContext).openDrawer();
-  }
-
-  Future<void> _showBranchPicker() async {
-    if (_branchOptions.length <= 1) return;
-
-    final selectorContext = _branchSelectorKey.currentContext;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    final selectorBox = selectorContext?.findRenderObject() as RenderBox?;
-
-    if (overlay == null || selectorBox == null) return;
-
-    final selectorOffset = selectorBox.localToGlobal(
-      Offset.zero,
-      ancestor: overlay,
-    );
-
-    final selectorRect = selectorOffset & selectorBox.size;
-    final menuWidth = overlay.size.width - 32;
-
-    final selected = await showMenu<_DashboardBranchOption>(
-      context: context,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      elevation: 10,
-      position: RelativeRect.fromLTRB(
-        16,
-        selectorRect.bottom + 8,
-        16,
-        0,
-      ),
-      constraints: BoxConstraints(
-        minWidth: menuWidth,
-        maxWidth: menuWidth,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: _dashboardBorder),
-      ),
-      items: _branchOptions.map((option) {
-        final isSelected = option.branchId == _selectedBranchId;
-
-        return PopupMenuItem<_DashboardBranchOption>(
-          value: option,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: _DashboardBranchDropdownItem(
-            option: option,
-            isSelected: isSelected,
-          ),
-        );
-      }).toList(),
-    );
-
-    if (!mounted || selected == null) return;
-
-    await _loadDashboard(selected.branchId);
   }
 
   List<Map<String, dynamic>> _mapList(String key) {
@@ -570,21 +498,25 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildBranchSelector() {
     final selected = _selectedBranchOption;
-
-    final selectedLabel =
-        selected == null ? context.t('Select Branch') : selected.displayLabel;
-
-    final selectedAddressSummary = selected?.address ?? '';
-    final canChangeBranch = _branchOptions.length > 1;
+    final canChangeBranch = _branchOptions.length > 1 && !_isLoadingDashboard;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: _DashboardHeaderBranchSelector(
-        key: _branchSelectorKey,
-        label: selectedLabel,
-        addressSummary: selectedAddressSummary,
+      child: OwnerBranchHeaderSelector<OwnerBranchOption>(
+        label: selected?.label ?? context.t('Select Branch'),
+        options: _branchOptions
+            .map(
+              (item) => OwnerBranchHeaderSelectorOption<OwnerBranchOption>(
+                value: item,
+                label: item.label,
+                subtitle: item.subtitle,
+              ),
+            )
+            .toList(),
+        selectedValue: selected,
+        placeholder: context.t('Select Branch'),
         isInteractive: canChangeBranch,
-        onTap: canChangeBranch ? _showBranchPicker : null,
+        onSelected: (option) => _loadDashboard(option.branchId),
       ),
     );
   }
@@ -1746,28 +1678,6 @@ class _DashboardAvatarFallback extends StatelessWidget {
         size: 20,
       ),
     );
-  }
-}
-
-class _DashboardBranchOption {
-  const _DashboardBranchOption({
-    required this.salonId,
-    required this.branchId,
-    required this.salonName,
-    required this.branchName,
-    required this.address,
-  });
-
-  final int salonId;
-  final int branchId;
-  final String salonName;
-  final String branchName;
-  final String address;
-
-  String get displayLabel {
-    if (branchName.trim().isNotEmpty) return branchName.trim();
-    if (salonName.trim().isNotEmpty) return salonName.trim();
-    return 'Salon #$salonId';
   }
 }
 
@@ -3735,192 +3645,6 @@ class _NotificationPaginationBar extends StatelessWidget {
           icon: const Icon(Icons.chevron_right_rounded, size: 18),
         ),
       ],
-    );
-  }
-}
-
-class _DashboardHeaderBranchSelector extends StatelessWidget {
-  const _DashboardHeaderBranchSelector({
-    super.key,
-    required this.label,
-    this.addressSummary = '',
-    required this.isInteractive,
-    this.onTap,
-  });
-
-  final String label;
-  final String addressSummary;
-  final bool isInteractive;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: isInteractive ? onTap : null,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 70),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFD9CBBB)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF3E8D1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.location_on_outlined,
-                  color: Color(0xFF8B6500),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: _dashboardPrimaryText,
-                      ),
-                    ),
-                    if (addressSummary.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        addressSummary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _dashboardSecondaryText,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (isInteractive)
-                const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: _dashboardSecondaryText,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DashboardBranchDropdownItem extends StatelessWidget {
-  const _DashboardBranchDropdownItem({
-    required this.option,
-    required this.isSelected,
-  });
-
-  final _DashboardBranchOption option;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? _dashboardAccent.withValues(alpha: 0.12)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSelected ? _dashboardAccent : _dashboardBorder,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _dashboardAccent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.storefront_outlined,
-              color: _dashboardAccent,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  option.displayLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _dashboardTextStyle(
-                    size: 13,
-                    weight: FontWeight.w700,
-                    color: _dashboardPrimaryText,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                if (option.address.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    option.address,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _dashboardTextStyle(
-                      size: 11,
-                      weight: FontWeight.w600,
-                      color: _dashboardSecondaryText,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              color: isSelected ? _dashboardAccent : Colors.transparent,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? _dashboardAccent : _dashboardBorder,
-              ),
-            ),
-            child: isSelected
-                ? const Icon(
-                    Icons.check_rounded,
-                    color: Colors.white,
-                    size: 14,
-                  )
-                : null,
-          ),
-        ],
-      ),
     );
   }
 }

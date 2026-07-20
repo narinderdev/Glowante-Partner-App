@@ -18,57 +18,14 @@ class ProfileCompensationRepository {
   static const String _payrollRunsPrefix = 'profile_payroll_runs_';
   static const String _commissionRulesPrefix = 'profile_commission_rules_';
 
-  Future<List<ProfileBranchOption>> loadBranchOptions() async {
+  Future<List<OwnerBranchOption>> loadBranchOptions() async {
     final response = await _apiService.getSalonListApi();
     final rawSalons = (response['data'] as List?) ?? const <dynamic>[];
-    final options = <ProfileBranchOption>[];
-
-    for (final salonEntry in rawSalons) {
-      if (salonEntry is! Map) {
-        continue;
-      }
-      final salon = Map<String, dynamic>.from(salonEntry);
-      final salonId = _asInt(salon['id']);
-      if (salonId == null) {
-        continue;
-      }
-      final salonName = _cleanText(salon['name']);
-      final branches = (salon['branches'] as List?) ?? const <dynamic>[];
-      for (final branchEntry in branches) {
-        if (branchEntry is! Map) {
-          continue;
-        }
-        final branch = Map<String, dynamic>.from(branchEntry);
-        final branchId = _asInt(branch['id']);
-        if (branchId == null) {
-          continue;
-        }
-        final addressMap = branch['address'] is Map
-            ? Map<String, dynamic>.from(branch['address'] as Map)
-            : null;
-        options.add(
-          ProfileBranchOption(
-            salonId: salonId,
-            branchId: branchId,
-            salonName: salonName,
-            branchName: _cleanText(branch['name']),
-            address: _composeAddress(addressMap),
-          ),
-        );
-      }
-    }
-
-    return options;
+    return OwnerBranchOption.listFromSalonList(rawSalons);
   }
 
-  Future<void> saveBranchSelection(ProfileBranchOption option) {
-    return StylistBranchSelectionStore.save(
-      salonId: option.salonId,
-      branchId: option.branchId,
-      salonName: option.salonName,
-      branchName: option.branchName,
-    );
-  }
+  Future<void> saveBranchSelection(OwnerBranchOption option) =>
+      option.saveSelection();
 
   Future<List<ProfileTeamMember>> loadTeamMembers(int branchId) async {
     final response = await ApiService.getTeamMembers(branchId);
@@ -2162,29 +2119,6 @@ class ProfileCompensationRepository {
       }
     }
     return fallback;
-  }
-
-  String _composeAddress(Map<String, dynamic>? address) {
-    if (address == null || address.isEmpty) {
-      return '';
-    }
-    final parts = <String>[];
-    for (final key in const <String>[
-      'line1',
-      'line2',
-      'village',
-      'district',
-      'city',
-      'state',
-      'country',
-      'postalCode',
-    ]) {
-      final text = _cleanText(address[key]);
-      if (text.isNotEmpty && !parts.contains(text)) {
-        parts.add(text);
-      }
-    }
-    return parts.join(', ');
   }
 
   String _cleanText(dynamic value, {String fallback = ''}) {
