@@ -7,6 +7,7 @@ import '../../../services/navigation_service.dart';
 import '../../../services/stylist_branch_selection.dart';
 import '../../../utils/localization_helper.dart';
 import '../../../utils/price_formatter.dart';
+import '../../../utils/refresh_feedback.dart';
 import '../../salon/widgets/owner_branch_header_selector.dart';
 import '../widgets/profile_subpage_app_bar.dart';
 import '../../../utils/colors.dart';
@@ -1156,6 +1157,13 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 teamMembers: _activeTeamMembers,
                 existingSetups: _setupByUserId,
                 onSave: _savePayrollSetup,
+                onRefresh: () async {
+                  await _loadPayrollData(branchId);
+                  return _PayrollSetupRefreshData(
+                    teamMembers: _activeTeamMembers,
+                    existingSetups: _setupByUserId,
+                  );
+                },
                 onContinue: () {
                   _openPayrollSetupReviewScreen(routeContext);
                 },

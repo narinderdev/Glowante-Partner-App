@@ -10,6 +10,7 @@ import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/stylist_appointments/widgets/stylist_appointment_details_component.dart';
 import '../services/language_listener.dart';
+import '../services/push_notification_service.dart';
 import '../services/stylist_branch_selection.dart';
 import '../services/user_role_session.dart';
 import '../features/stylist_item_entry/stylist_item_entry_feature.dart';
@@ -1886,11 +1887,13 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
   );
 }
 
-class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
+class _StylistBookingsScreenState extends State<StylistBookingsScreen>
+    with WidgetsBindingObserver {
   final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();
   late final VoidCallback _branchSelectionListener;
   late final VoidCallback _salonCatalogListener;
+  StreamSubscription<BookingNotificationPayload>? _bookingPushSub;
 
   List<_SalonBranchOption> _options = const [];
   List<Map<String, dynamic>> _bookings = const [];
@@ -1912,15 +1915,18 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   bool _isLoading = true;
   bool _loadingDate = false;
   bool _suppressBranchSelectionRefresh = false;
+  bool _handlingBookingPush = false;
   int? _confirmingAppointmentId;
   int? _startingAppointmentId;
   int? _completingAppointmentId;
   int _selectedBookingView = 0;
   String? _errorMessage;
+  BookingNotificationPayload? _pendingBookingPush;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _branchSelectionListener = () {
       if (!mounted || _suppressBranchSelectionRefresh) return;
       _loadOptions(showPageLoader: false, showInlineLoader: true);
@@ -1933,6 +1939,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         .addListener(_branchSelectionListener);
     StylistBranchSelectionStore.salonCatalogRevision
         .addListener(_salonCatalogListener);
+    _bookingPushSub =
+        PushNotificationService.instance.bookingNotifications.listen((payload) {
+      if (!mounted) return;
+      _handleBookingPush(payload);
+    });
+    final pendingPush = PushNotificationService.instance.pendingNavigationEvent;
+    if (pendingPush != null) {
+      _pendingBookingPush = pendingPush;
+    }
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _visibleDateStart = _selectedDate;
@@ -1945,16 +1960,27 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       if (mounted) {
         _suppressBranchSelectionRefresh = false;
       }
+      _flushPendingBookingPush();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _bookingPushSub?.cancel();
     StylistBranchSelectionStore.selectionNotifier
         .removeListener(_branchSelectionListener);
     StylistBranchSelectionStore.salonCatalogRevision
         .removeListener(_salonCatalogListener);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted || _isLoading) {
+      return;
+    }
+    unawaited(_reloadBookingsForSelectedOption());
   }
 
   Map<String, List<_BranchDaySlot>> _weeklySlotsFromSchedule(
@@ -2598,6 +2624,72 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _isLoading = false;
       _loadingDate = false;
     });
+    _flushPendingBookingPush();
+  }
+
+  void _flushPendingBookingPush() {
+    final pending = _pendingBookingPush;
+    if (pending == null || _isLoading || _options.isEmpty) return;
+    _pendingBookingPush = null;
+    unawaited(_handleBookingPush(pending));
+  }
+
+  Future<void> _handleBookingPush(BookingNotificationPayload payload) async {
+    if (!mounted) return;
+    if (_handlingBookingPush || _isLoading || _options.isEmpty) {
+      _pendingBookingPush = payload;
+      return;
+    }
+
+    _handlingBookingPush = true;
+    try {
+      final normalizedDate = DateTime(
+        payload.date.year,
+        payload.date.month,
+        payload.date.day,
+      );
+      _SalonBranchOption? matchingOption;
+      for (final option in _options) {
+        if (option.branchId == payload.branchId) {
+          matchingOption = option;
+          break;
+        }
+      }
+      final currentOption = _selectedOption;
+
+      if (matchingOption == null &&
+          currentOption?.branchId != payload.branchId) {
+        await _reloadBookingsForSelectedOption();
+        return;
+      }
+
+      final nextOption = matchingOption ?? currentOption;
+      if (nextOption == null) return;
+
+      if (matchingOption != null &&
+          currentOption?.branchId != matchingOption.branchId) {
+        await StylistBranchSelectionStore.save(
+          salonId: matchingOption.salonId,
+          branchId: matchingOption.branchId,
+          salonName: matchingOption.salonName,
+          branchName: matchingOption.branchName,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _selectedOption = nextOption;
+        _selectedDate = normalizedDate;
+        _visibleDateStart = normalizedDate;
+        _loadingDate = true;
+        _errorMessage = null;
+      });
+
+      await _reloadBookingsForSelectedOption();
+    } finally {
+      _handlingBookingPush = false;
+      _flushPendingBookingPush();
+    }
   }
 
   Future<void> _reloadBookingsForSelectedOption() async {
@@ -2642,6 +2734,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
       _errorMessage = result.errorMessage;
+      _loadingDate = false;
     });
   }
 

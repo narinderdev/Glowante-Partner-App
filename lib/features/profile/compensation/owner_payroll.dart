@@ -433,40 +433,67 @@ class _PayrollSetupView extends StatefulWidget {
     required this.existingSetups,
     required this.onSave,
     required this.onContinue,
+    this.onRefresh,
   });
 
   final List<ProfileTeamMember> teamMembers;
   final Map<int, PayrollSetupRecord> existingSetups;
   final Future<void> Function(PayrollSetupRecord setup) onSave;
   final VoidCallback onContinue;
+  final Future<_PayrollSetupRefreshData> Function()? onRefresh;
 
   @override
   State<_PayrollSetupView> createState() => _PayrollSetupViewState();
 }
 
+class _PayrollSetupRefreshData {
+  const _PayrollSetupRefreshData({
+    required this.teamMembers,
+    required this.existingSetups,
+  });
+
+  final List<ProfileTeamMember> teamMembers;
+  final Map<int, PayrollSetupRecord> existingSetups;
+}
+
 class _PayrollSetupViewState extends State<_PayrollSetupView> {
   final Set<int> _savingIds = <int>{};
+  late List<ProfileTeamMember> _visibleTeamMembers;
   late Map<int, PayrollSetupRecord> _visibleSetups;
 
   @override
   void initState() {
     super.initState();
+    _visibleTeamMembers = List<ProfileTeamMember>.from(widget.teamMembers);
     _visibleSetups = Map<int, PayrollSetupRecord>.from(widget.existingSetups);
   }
 
   @override
   void didUpdateWidget(covariant _PayrollSetupView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _visibleTeamMembers = List<ProfileTeamMember>.from(widget.teamMembers);
     _visibleSetups
       ..clear()
       ..addAll(widget.existingSetups);
   }
 
-  int get _configuredCount => widget.teamMembers
+  int get _configuredCount => _visibleTeamMembers
       .where((member) => _visibleSetups.containsKey(member.id))
       .length;
 
-  int get _pendingCount => widget.teamMembers.length - _configuredCount;
+  int get _pendingCount => _visibleTeamMembers.length - _configuredCount;
+
+  Future<void> _refreshSetupData() async {
+    final refresh = widget.onRefresh;
+    if (refresh == null) return;
+
+    final data = await refresh();
+    if (!mounted) return;
+    setState(() {
+      _visibleTeamMembers = List<ProfileTeamMember>.from(data.teamMembers);
+      _visibleSetups = Map<int, PayrollSetupRecord>.from(data.existingSetups);
+    });
+  }
 
   Future<void> _openEditDialog(ProfileTeamMember member) async {
     final initial = _visibleSetups[member.id];
@@ -546,11 +573,20 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.teamMembers.isEmpty) {
-      return _EmptyStateCard(
-        title: context.t('No staff found for this branch'),
-        subtitle: context.t(
-          'Add or activate team members before configuring payroll.',
+    if (_visibleTeamMembers.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () => RefreshFeedback.playAndRun(_refreshSetupData),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: [
+            _EmptyStateCard(
+              title: context.t('No staff found for this branch'),
+              subtitle: context.t(
+                'Add or activate team members before configuring payroll.',
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -558,178 +594,127 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
     return Column(
       children: [
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(
-                context.t('Setup Payroll'),
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1C1917),
+          child: RefreshIndicator(
+            onRefresh: () => RefreshFeedback.playAndRun(_refreshSetupData),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  context.t('Setup Payroll'),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1C1917),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.t('Set up salary and commission for your team'),
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF6B7280),
+                const SizedBox(height: 8),
+                Text(
+                  context.t('Set up salary and commission for your team'),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const _PayrollSetupStepHeader(currentStep: 1),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBF5),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE7A45B)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Color(0xFFB45309),
-                      child: Icon(
-                        Icons.info_outline_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Set salary and commission for your team',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFB45309),
-                            ),
-                          ),
-                          SizedBox(height: 6),
-                          Text(
-                            'You can update salary or commission anytime. Changes will be used for payroll calculations.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Padding(
+                const SizedBox(height: 24),
+                const _PayrollSetupStepHeader(currentStep: 1),
+                const SizedBox(height: 18),
+                Container(
                   padding: const EdgeInsets.all(16),
-                  child: Column(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBF5),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE7A45B)),
+                  ),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Team Members (${widget.teamMembers.length})',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1C1917),
+                    children: const [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Color(0xFFB45309),
+                        child: Icon(
+                          Icons.info_outline_rounded,
+                          color: Colors.white,
+                          size: 18,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Add salary and commission details for each team member.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF6B7280),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Set salary and commission for your team',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFB45309),
+                              ),
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              'You can update salary or commission anytime. Changes will be used for payroll calculations.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final tableWidth = constraints.maxWidth < 760
-                              ? 760.0
-                              : constraints.maxWidth;
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
-                            child: SizedBox(
-                              width: tableWidth,
-                              child: Column(
-                                children: [
-                                  const Padding(
-                                    padding: EdgeInsets.only(bottom: 12),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            'Team Member',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF6B7280),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            'Payroll Type',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF6B7280),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            'Salary (₹)',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF6B7280),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            'Commission (%)',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF6B7280),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            'Joining Date',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF6B7280),
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          width: 96,
-                                          child: Center(
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Team Members (${_visibleTeamMembers.length})',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1C1917),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Add salary and commission details for each team member.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final tableWidth = constraints.maxWidth < 760
+                                ? 760.0
+                                : constraints.maxWidth;
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: SizedBox(
+                                width: tableWidth,
+                                child: Column(
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(bottom: 12),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            flex: 3,
                                             child: Text(
-                                              'Action',
-                                              textAlign: TextAlign.center,
+                                              'Team Member',
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w700,
@@ -737,205 +722,264 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              'Payroll Type',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              'Salary (₹)',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              'Commission (%)',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              'Joining Date',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 96,
+                                            child: Center(
+                                              child: Text(
+                                                'Action',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF6B7280),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const Divider(height: 1),
-                                  const SizedBox(height: 14),
-                                  ...widget.teamMembers
-                                      .asMap()
-                                      .entries
-                                      .map((entry) {
-                                    final index = entry.key;
-                                    final member = entry.value;
-                                    final setup = _visibleSetups[member.id];
-                                    final payType = setup == null
-                                        ? 'Not configured'
-                                        : PayrollTypes.label(setup.payrollType);
-                                    final salaryText =
-                                        setup == null || setup.salaryMinor == 0
-                                            ? '-'
-                                            : _formatSalaryRupees(
-                                                setup.salaryMinor,
-                                              );
-                                    final commissionText = setup == null ||
-                                            setup.commissionPercent == 0
-                                        ? '-'
-                                        : '${_formatCommissionPercentText(setup.commissionPercent)}%';
-                                    return Column(
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.center,
-                                          children: [
-                                            Expanded(
-                                              flex: 3,
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    member.name,
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    member.role.isEmpty
-                                                        ? context
-                                                            .t('Team member')
-                                                        : member.role,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Color(0xFF6B7280),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Text(
-                                                payType,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                salaryText,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                commissionText,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                setup == null
-                                                    ? '-'
-                                                    : DateFormat('dd MMM yyyy')
-                                                        .format(setup
-                                                            .effectiveDate),
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width: 96,
-                                              child: Center(
-                                                child: OutlinedButton(
-                                                  onPressed: _savingIds
-                                                          .contains(member.id)
-                                                      ? null
-                                                      : () => _openEditDialog(
-                                                            member,
-                                                          ),
-                                                  style:
-                                                      OutlinedButton.styleFrom(
-                                                    foregroundColor:
-                                                        AppColors.starColor,
-                                                    side: BorderSide(
-                                                      color:
-                                                          AppColors.starColor,
-                                                    ),
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                        14,
+                                    const Divider(height: 1),
+                                    const SizedBox(height: 14),
+                                    ..._visibleTeamMembers
+                                        .asMap()
+                                        .entries
+                                        .map((entry) {
+                                      final index = entry.key;
+                                      final member = entry.value;
+                                      final setup = _visibleSetups[member.id];
+                                      final payType = setup == null
+                                          ? 'Not configured'
+                                          : PayrollTypes.label(
+                                              setup.payrollType);
+                                      final salaryText = setup == null ||
+                                              setup.salaryMinor == 0
+                                          ? '-'
+                                          : _formatSalaryRupees(
+                                              setup.salaryMinor,
+                                            );
+                                      final commissionText = setup == null ||
+                                              setup.commissionPercent == 0
+                                          ? '-'
+                                          : '${_formatCommissionPercentText(setup.commissionPercent)}%';
+                                      return Column(
+                                        children: [
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Expanded(
+                                                flex: 3,
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      member.name,
+                                                      style: const TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                       ),
                                                     ),
-                                                  ),
-                                                  child: Text(
-                                                    _savingIds.contains(
-                                                      member.id,
-                                                    )
-                                                        ? context.t(
-                                                            'Saving...',
-                                                          )
-                                                        : context.t('Edit'),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      member.role.isEmpty
+                                                          ? context
+                                                              .t('Team member')
+                                                          : member.role,
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color:
+                                                            Color(0xFF6B7280),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  payType,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        if (index !=
-                                            widget.teamMembers.length - 1)
-                                          const Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              vertical: 14,
-                                            ),
-                                            child: Divider(height: 1),
+                                              Expanded(
+                                                child: Text(
+                                                  salaryText,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  commissionText,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  setup == null
+                                                      ? '-'
+                                                      : DateFormat(
+                                                              'dd MMM yyyy')
+                                                          .format(setup
+                                                              .effectiveDate),
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                              SizedBox(
+                                                width: 96,
+                                                child: Center(
+                                                  child: OutlinedButton(
+                                                    onPressed: _savingIds
+                                                            .contains(member.id)
+                                                        ? null
+                                                        : () => _openEditDialog(
+                                                              member,
+                                                            ),
+                                                    style: OutlinedButton
+                                                        .styleFrom(
+                                                      foregroundColor:
+                                                          AppColors.starColor,
+                                                      side: BorderSide(
+                                                        color:
+                                                            AppColors.starColor,
+                                                      ),
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(
+                                                          14,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      _savingIds.contains(
+                                                        member.id,
+                                                      )
+                                                          ? context.t(
+                                                              'Saving...',
+                                                            )
+                                                          : context.t('Edit'),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                      ],
-                                    );
-                                  }),
-                                ],
+                                          if (index !=
+                                              _visibleTeamMembers.length - 1)
+                                            const Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                vertical: 14,
+                                              ),
+                                              child: Divider(height: 1),
+                                            ),
+                                        ],
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBF0),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFF2D29A)),
+                          ),
+                          child: Text(
+                            '$_configuredCount members have payroll setup • $_pendingCount members need to be added\nTip: You can change payroll type, salary or commission for any team member.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFB26A00),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: widget.onContinue,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.starColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBF0),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFF2D29A)),
-                        ),
-                        child: Text(
-                          '$_configuredCount members have payroll setup • $_pendingCount members need to be added\nTip: You can change payroll type, salary or commission for any team member.',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFFB26A00),
+                            child: const Text('Review'),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: ElevatedButton(
-                          onPressed: widget.onContinue,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 14,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: const Text('Review'),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
