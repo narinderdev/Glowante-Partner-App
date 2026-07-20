@@ -1094,7 +1094,7 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
         pillBackgroundColor: const Color(0xFFF1F5F9),
         pillBorderColor: const Color(0xFFF1F5F9),
         pillTextColor: _bookingsUpcoming,
-        primaryButtonColor: _bookingsAccent,
+        primaryButtonColor: _bookingsGold,
         primaryTextColor: Colors.white,
       );
     case 'UPCOMING':
@@ -1223,12 +1223,36 @@ bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>
     isOwnerMode && status == 'PENDING';
 
 bool _showsStartAction(String status) => status == 'CONFIRMED';
+
+DateTime? _bookingActionEnd(Map<String, dynamic> booking) {
+  final explicitEnd = _bookingEnd(booking);
+  if (explicitEnd != null) return explicitEnd;
+
+  final start = _bookingStart(booking);
+  if (start == null) return null;
+
+  final duration = _bookingDurationMinutes(booking);
+  if (duration <= 0) return null;
+
+  return start.add(Duration(minutes: duration));
+}
+
+bool _hasStartJobWindowPassed(Map<String, dynamic> booking) {
+  final status = _normalizeStatus(booking['status']);
+  if (!_showsStartAction(status)) return false;
+
+  final end = _bookingActionEnd(booking);
+  return end != null && DateTime.now().isAfter(end);
+}
+
 bool _canStartJob(Map<String, dynamic> booking) {
   final status = _normalizeStatus(booking['status']);
   if (!_showsStartAction(status)) return false;
 
   final start = _bookingStart(booking);
   if (start == null) return false;
+
+  if (_hasStartJobWindowPassed(booking)) return false;
 
   final now = DateTime.now();
   final allowedAt = start.subtract(const Duration(minutes: 15));
@@ -4677,28 +4701,21 @@ class _ScheduleBookingContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  _customerName(context, booking),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _bookingTextStyle(
-                    size: 12,
-                    weight: FontWeight.w900,
-                    color: _bookingsPrimaryText,
-                    height: 1.1,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _BookingStatusWithOverdueBadge(
-                booking: booking,
-                visuals: visuals,
-              ),
-            ],
+          Text(
+            _customerName(context, booking),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _bookingTextStyle(
+              size: 12,
+              weight: FontWeight.w900,
+              color: _bookingsPrimaryText,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 5),
+          _BookingStatusWithOverdueBadge(
+            booking: booking,
+            visuals: visuals,
           ),
           const SizedBox(height: 6),
           Text(
@@ -6315,7 +6332,7 @@ class _ScheduleBoardAppointmentCard extends StatelessWidget {
         onTap: onTap,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isCompact = constraints.maxWidth < 120;
+            final isCompact = constraints.maxWidth < 170;
             final isTiny = constraints.maxWidth < 56;
             return Container(
               height: _ScheduleBoard._cardHeight,
@@ -7023,6 +7040,8 @@ class _BookingListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _normalizeStatus(booking['status']);
     final visuals = _statusVisuals(context, status);
+    final showStartAction =
+        _showsStartAction(status) && !_hasStartJobWindowPassed(booking);
     // final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
     //     ? context.t('Accept').toUpperCase()
     //     : (_showsStartAction(status)
@@ -7030,7 +7049,7 @@ class _BookingListCard extends StatelessWidget {
     //         : null);
     final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
         ? context.t('Accept').toUpperCase()
-        : (_showsStartAction(status)
+        : (showStartAction
             ? context.t('Start Job').toUpperCase()
             : (_showsFinishAction(status)
                 ? context.t('Finish Job').toUpperCase()
@@ -7039,7 +7058,7 @@ class _BookingListCard extends StatelessWidget {
     final finishLabel = _showsFinishAction(status)
         ? context.t('Finish Job').toUpperCase()
         : null;
-    final isStartAction = _showsStartAction(status);
+    final isStartAction = showStartAction;
     final isFinishAction = _showsFinishAction(status);
     final customer = _customerName(context, booking);
     final service = _serviceLabel(context, booking);
@@ -7326,6 +7345,8 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: _bookingTextStyle(
           color: textColor,
           size: 10,
@@ -7351,6 +7372,8 @@ class _OverdueBadge extends StatelessWidget {
       ),
       child: Text(
         context.t('Overdue'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: _bookingTextStyle(
           color: const Color(0xFFB91C1C),
           size: 9,
@@ -8258,21 +8281,22 @@ class _StylistBookingDetailScreenState
     //         : (_showsStartAction(_statusUpper)
     //             ? context.t('Start Job').toUpperCase()
     //             : null));
-    final canStartJob = _canStartJob(_booking);
-
-    final primaryAction = _showsConfirmAction(
+    final showStartAction =
+        _showsStartAction(_statusUpper) && !_hasStartJobWindowPassed(_booking);
+    final canStartJob = showStartAction && _canStartJob(_booking);
+    final isConfirmAction = _showsConfirmAction(
       _statusUpper,
       isOwnerMode: widget.isOwnerMode,
-    )
+    );
+
+    final primaryAction = isConfirmAction
         ? context.t('Accept').toUpperCase()
         : (_showsFinishAction(_statusUpper)
             ? context.t('Finish Job').toUpperCase()
-            : (_showsStartAction(_statusUpper)
-                ? context.t('Start Job').toUpperCase()
-                : null));
+            : (showStartAction ? context.t('Start Job').toUpperCase() : null));
 
     final primaryColor =
-        (_showsFinishAction(_statusUpper) || _showsStartAction(_statusUpper))
+        (isConfirmAction || _showsFinishAction(_statusUpper) || showStartAction)
             ? _bookingsGold
             : _bookingsAccent;
     final showNoShowAction = _showsNoShowAction(_statusUpper);
@@ -8328,10 +8352,7 @@ class _StylistBookingDetailScreenState
         //                 : null))),
         onPrimaryAction: _loadingNoShow
             ? null
-            : (_showsConfirmAction(
-                _statusUpper,
-                isOwnerMode: widget.isOwnerMode,
-              )
+            : (isConfirmAction
                 ? _handleConfirmJob
                 : (_showsFinishAction(_statusUpper)
                     ? _handleCompleteJob
