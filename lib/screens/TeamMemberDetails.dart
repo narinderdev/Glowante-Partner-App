@@ -461,9 +461,18 @@ class TeamMemberDetails extends StatelessWidget {
     final roles = _labelList(member['roles'], const ['label', 'name', 'code']);
     final String role = roles.isNotEmpty ? roles.join(', ') : 'Staff';
     final specializations = _labelList(
-      member['specialities'] ?? member['specializations'],
-      const ['name', 'label', 'code'],
-    );
+  member['specialities'] ??
+      member['specializations'] ??
+      member['speciality'] ??
+      member['specialization'],
+  const ['name', 'label', 'code', 'title', 'value'],
+);
+
+debugPrint('Member: $member');
+
+debugPrint(member.keys.toList().toString());
+debugPrint('Specialities: ${member['specialities']}');
+debugPrint('Specializations: ${member['specializations']}');
     final about = _textValue(
       member,
       const [

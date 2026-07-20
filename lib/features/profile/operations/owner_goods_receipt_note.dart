@@ -21,18 +21,22 @@ class _GoodsReceiptNoteFormView extends StatefulWidget {
 class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
+  final _poFieldKey = GlobalKey<FormFieldState<int>>();
+  final _receivedByFieldKey = GlobalKey<FormFieldState<String>>();
   final TextEditingController _receivedByController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   List<Map<String, dynamic>> _purchaseOrders = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _poLineOptions = const <Map<String, dynamic>>[];
   List<_GrnLineInput> _lines = <_GrnLineInput>[_GrnLineInput()];
   int? _selectedPoId;
-  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  final AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   String? _submitError;
   bool _isLoadingOptions = true;
   bool _isLoadingLines = false;
   bool _isSaving = false;
-List<Map<String, dynamic>> _vendors = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _vendors = const <Map<String, dynamic>>[];
+  bool _showPoError = false;
+  bool _showReceivedByError = false;
   bool get _isPoLocked => widget.prefilledPoId != null;
 
   @override
@@ -41,17 +45,18 @@ List<Map<String, dynamic>> _vendors = const <Map<String, dynamic>>[];
     _selectedPoId = widget.prefilledPoId;
     _loadPurchaseOrders();
   }
+
   String _poDropdownLabel(Map<String, dynamic> po) {
-  final poNumber = _firstText(
-    po,
-    const ['poNumber', 'poId', 'id'],
-    fallback: context.t('Purchase Order'),
-  );
+    final poNumber = _firstText(
+      po,
+      const ['poNumber', 'poId', 'id'],
+      fallback: context.t('Purchase Order'),
+    );
 
-  final vendor = _vendorDisplayLabel(po, _vendors);
+    final vendor = _vendorDisplayLabel(po, _vendors);
 
-  return vendor == 'N/A' ? poNumber : '$poNumber - $vendor';
-}
+    return vendor == 'N/A' ? poNumber : '$poNumber - $vendor';
+  }
   // Future<void> _loadPurchaseOrders() async {
   //   final response = await _apiService.getPurchaseOrders(widget.branchId);
   //   if (!mounted) return;
@@ -64,24 +69,25 @@ List<Map<String, dynamic>> _vendors = const <Map<String, dynamic>>[];
   //   }
   // }
 
-Future<void> _loadPurchaseOrders() async {
-  final results = await Future.wait<Map<String, dynamic>>([
-    _apiService.getPurchaseOrders(widget.branchId),
-    _apiService.getBranchVendors(widget.branchId),
-  ]);
+  Future<void> _loadPurchaseOrders() async {
+    final results = await Future.wait<Map<String, dynamic>>([
+      _apiService.getPurchaseOrders(widget.branchId),
+      _apiService.getBranchVendors(widget.branchId),
+    ]);
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  setState(() {
-    _purchaseOrders = _recordList(results[0]);
-    _vendors = _recordList(results[1]);
-    _isLoadingOptions = false;
-  });
+    setState(() {
+      _purchaseOrders = _recordList(results[0]);
+      _vendors = _recordList(results[1]);
+      _isLoadingOptions = false;
+    });
 
-  if (_selectedPoId != null) {
-    await _loadPoLines(_selectedPoId!);
+    if (_selectedPoId != null) {
+      await _loadPoLines(_selectedPoId!);
+    }
   }
-}
+
   Future<void> _loadPoLines(int poId) async {
     setState(() => _isLoadingLines = true);
     final response = await _apiService.getPurchaseOrderDetails(
@@ -161,18 +167,16 @@ Future<void> _loadPurchaseOrders() async {
 
   Future<void> _submit() async {
     setState(() {
-      _autoValidateMode = AutovalidateMode.onUserInteraction;
       _submitError = null;
+      _showPoError = true;
+      _showReceivedByError = true;
+      for (final line in _lines) {
+        line.showReceivedQtyError = true;
+        line.showReturnReasonError = true;
+      }
     });
 
     if (!_formKey.currentState!.validate()) {
-      Fluttertoast.showToast(
-        msg: context.t('Please fix the highlighted fields'),
-      );
-      return;
-    }
-    if (_selectedPoId == null) {
-      Fluttertoast.showToast(msg: context.t('PO is required'));
       return;
     }
     for (final line in _lines) {
@@ -219,6 +223,26 @@ Future<void> _loadPurchaseOrders() async {
     }
   }
 
+  void _clearIntFieldError(
+    GlobalKey<FormFieldState<int>> fieldKey,
+    VoidCallback markClean,
+  ) {
+    markClean();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fieldKey.currentState?.validate();
+    });
+  }
+
+  void _clearStringFieldError(
+    GlobalKey<FormFieldState<String>> fieldKey,
+    VoidCallback markClean,
+  ) {
+    markClean();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fieldKey.currentState?.validate();
+    });
+  }
+
   @override
   void dispose() {
     _receivedByController.dispose();
@@ -235,245 +259,313 @@ Future<void> _loadPurchaseOrders() async {
       title: context.t('Create GRN'),
       onBack: widget.onBack,
       child: _isLoadingOptions
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              autovalidateMode: _autoValidateMode,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<int>(
-                    key: ValueKey<String>('grn-po-$_selectedPoId'),
-                    initialValue: _selectedPoId,
-                    decoration:
-                        InputDecoration(labelText: context.t('Purchase Order')),
-                    isExpanded: true,
-                    menuMaxHeight: 260,
-                    items: _purchaseOrders
-                        .map(
-                          (po) => DropdownMenuItem<int>(
-                            value: _toInt(po['id'] ?? po['poId']),
-                            // child: _dropdownMenuText(
-                            //   _firstText(
-                            //     po,
-                            //     const ['poNumber', 'poId', 'id'],
-                            //     fallback: context.t('Purchase Order'),
-                            //   ),
-                            // ),
-                            child: _dropdownMenuText(_poDropdownLabel(po)),
+          ? const SizedBox(
+              height: 160,
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.starColor),
+              ),
+            )
+          : Theme(
+              data: Theme.of(context).copyWith(
+                inputDecorationTheme: _operationsFormInputDecorationTheme(),
+              ),
+              child: Form(
+                key: _formKey,
+                autovalidateMode: _autoValidateMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InventoryFormSection(
+                      title: context.t('Receipt Details'),
+                      icon: Icons.assignment_turned_in_outlined,
+                      children: [
+                        DropdownButtonFormField<int>(
+                          key: _poFieldKey,
+                          initialValue: _selectedPoId,
+                          decoration: InputDecoration(
+                            labelText: context.t('Purchase Order'),
                           ),
-                        )
-                        .toList(),
-                    validator: (value) =>
-                        value == null ? context.t('PO is required') : null,
-                    onChanged: _isPoLocked
-                        ? null
-                        : (value) {
-                            _clearSubmitError();
-                            setState(() => _selectedPoId = value);
-                            if (value != null) {
-                              _loadPoLines(value);
-                            }
-                          },
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    maxLength: 120,
-                    controller: _receivedByController,
-                    decoration:
-                        InputDecoration(labelText: context.t('Received By')),
-                    validator: (value) => _stringValue(value).isEmpty
-                        ? context.t('Received By is required')
-                        : null,
-                    onChanged: (_) {
-                      _clearSubmitError();
-                      if (_autoValidateMode != AutovalidateMode.disabled) {
-                        _formKey.currentState?.validate();
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    maxLength: 120,
-                    controller: _notesController,
-                    maxLines: 1,
-                    decoration: InputDecoration(labelText: context.t('Notes')),
-                    onChanged: (_) => _clearSubmitError(),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          context.t('Item Lines'),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (_canAddLine)
-                        TextButton.icon(
-                          onPressed: _addLine,
-                          icon: const Icon(Icons.add),
-                          label: Text(context.t('Add Line')),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_isLoadingLines)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else
-                    ..._lines.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final line = entry.value;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8F5F2),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Column(
-                          children: [
-                            TextFormField(
-                              initialValue: line.itemLabel,
-                              enabled: false,
-                              decoration:
-                                  InputDecoration(labelText: context.t('Item')),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              initialValue: line.orderedQty.toString(),
-                              enabled: false,
-                              decoration: InputDecoration(
-                                labelText: context.t('Ordered Qty'),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              maxLength: 15,
-                              controller: line.receivedQtyController,
-                              inputFormatters: _integerInputFormatters(),
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: context.t('Received Qty'),
-                                helperText:
-                                    '${_remainingToReceive(line)} ${context.t('left')}',
-                              ),
-                              validator: (value) {
-                                final qty = _toInt(value);
-                                if (qty == null || qty <= 0) {
-                                  return context.t('Received Qty is required');
-                                }
-                                final remaining = _remainingToReceive(line);
-                                if (qty > remaining) {
-                                  return context.t(
-                                    "Can't be greater than $remaining",
+                          isExpanded: true,
+                          menuMaxHeight: 260,
+                          items: _purchaseOrders
+                              .map(
+                                (po) => DropdownMenuItem<int>(
+                                  value: _toInt(po['id'] ?? po['poId']),
+                                  child:
+                                      _dropdownMenuText(_poDropdownLabel(po)),
+                                ),
+                              )
+                              .toList(),
+                          validator: (value) => _showPoError && value == null
+                              ? context.t('PO is required')
+                              : null,
+                          onChanged: _isPoLocked
+                              ? null
+                              : (value) {
+                                  _clearSubmitError();
+                                  setState(() => _selectedPoId = value);
+                                  _clearIntFieldError(
+                                    _poFieldKey,
+                                    () => setState(() => _showPoError = false),
                                   );
-                                }
-                                return null;
-                              },
-                              onChanged: (_) {
-                                _clearSubmitError();
-                                if (_autoValidateMode !=
-                                    AutovalidateMode.disabled) {
-                                  _formKey.currentState?.validate();
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              maxLength: 15,
-                              controller: line.returnQtyController,
-                              inputFormatters: _integerInputFormatters(),
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: context.t('Return Qty'),
-                              ),
-                              validator: (value) {
-                                final qty = _toInt(value) ?? 0;
-                                if (qty < 0) {
-                                  return context.t('Must be >= 0');
-                                }
-                                return null;
-                              },
-                              onChanged: (_) {
-                                _clearSubmitError();
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              maxLength: 120,
-                              controller: line.returnReasonController,
-                              decoration: InputDecoration(
-                                labelText: context.t('Return Reason'),
-                              ),
-                              validator: (value) {
-                                final returnQty =
-                                    _toInt(line.returnQtyController.text) ?? 0;
-                                if (returnQty > 0 &&
-                                    _stringValue(value).isEmpty) {
-                                  return context.t('Return Reason is required');
-                                }
-                                return null;
-                              },
-                              onChanged: (_) {
-                                _clearSubmitError();
-                              },
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _lines.length == 1
-                                    ? null
-                                    : () => _removeLine(index),
-                                child: Text(context.t('Remove')),
-                              ),
-                            ),
-                          ],
+                                  if (value != null) {
+                                    _loadPoLines(value);
+                                  }
+                                },
                         ),
-                      );
-                    }),
-                  if (_submitError != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF1F1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE57373)),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          key: _receivedByFieldKey,
+                          maxLength: 120,
+                          controller: _receivedByController,
+                          decoration: InputDecoration(
+                              labelText: context.t('Received By')),
+                          validator: (value) => _showReceivedByError &&
+                                  _stringValue(value).isEmpty
+                              ? context.t('Received By is required')
+                              : null,
+                          onChanged: (_) {
+                            _clearSubmitError();
+                            _clearStringFieldError(
+                              _receivedByFieldKey,
+                              () =>
+                                  setState(() => _showReceivedByError = false),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          maxLength: 120,
+                          controller: _notesController,
+                          maxLines: 1,
+                          decoration:
+                              InputDecoration(labelText: context.t('Notes')),
+                          onChanged: (_) => _clearSubmitError(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _InventoryFormSection(
+                      title: context.t('Item Lines'),
+                      icon: Icons.inventory_outlined,
+                      trailing: _canAddLine
+                          ? TextButton.icon(
+                              onPressed: _addLine,
+                              icon: const Icon(Icons.add, size: 18),
+                              label: Text(context.t('Add Line')),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.starColor,
+                              ),
+                            )
+                          : null,
+                      children: [
+                        if (_isLoadingLines)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.starColor,
+                              ),
+                            ),
+                          )
+                        else
+                          ..._lines.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final line = entry.value;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFCF8),
+                                borderRadius: BorderRadius.circular(10),
+                                border:
+                                    Border.all(color: const Color(0xFFE8DED6)),
+                              ),
+                              child: Column(
+                                children: [
+                                  TextFormField(
+                                    initialValue: line.itemLabel,
+                                    enabled: false,
+                                    decoration: InputDecoration(
+                                        labelText: context.t('Item')),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextFormField(
+                                    initialValue: line.orderedQty.toString(),
+                                    enabled: false,
+                                    decoration: InputDecoration(
+                                      labelText: context.t('Ordered Qty'),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextFormField(
+                                    key: line.receivedQtyFieldKey,
+                                    maxLength: 15,
+                                    controller: line.receivedQtyController,
+                                    inputFormatters: _integerInputFormatters(),
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: context.t('Received Qty'),
+                                      helperText:
+                                          '${_remainingToReceive(line)} ${context.t('left')}',
+                                    ),
+                                    validator: (value) {
+                                      if (!line.showReceivedQtyError) {
+                                        return null;
+                                      }
+                                      final qty = _toInt(value);
+                                      if (qty == null || qty <= 0) {
+                                        return context
+                                            .t('Received Qty is required');
+                                      }
+                                      final remaining =
+                                          _remainingToReceive(line);
+                                      if (qty > remaining) {
+                                        return context.t(
+                                          "Can't be greater than $remaining",
+                                        );
+                                      }
+                                      return null;
+                                    },
+                                    onChanged: (_) {
+                                      _clearSubmitError();
+                                      _clearStringFieldError(
+                                        line.receivedQtyFieldKey,
+                                        () => setState(() =>
+                                            line.showReceivedQtyError = false),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextFormField(
+                                    maxLength: 15,
+                                    controller: line.returnQtyController,
+                                    inputFormatters: _integerInputFormatters(),
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: context.t('Return Qty'),
+                                    ),
+                                    validator: (value) {
+                                      final qty = _toInt(value) ?? 0;
+                                      if (qty < 0) {
+                                        return context.t('Must be >= 0');
+                                      }
+                                      return null;
+                                    },
+                                    onChanged: (_) {
+                                      _clearSubmitError();
+                                      _clearStringFieldError(
+                                        line.returnReasonFieldKey,
+                                        () => setState(() =>
+                                            line.showReturnReasonError = false),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextFormField(
+                                    key: line.returnReasonFieldKey,
+                                    maxLength: 120,
+                                    controller: line.returnReasonController,
+                                    decoration: InputDecoration(
+                                      labelText: context.t('Return Reason'),
+                                    ),
+                                    validator: (value) {
+                                      if (!line.showReturnReasonError) {
+                                        return null;
+                                      }
+                                      final returnQty = _toInt(
+                                              line.returnQtyController.text) ??
+                                          0;
+                                      if (returnQty > 0 &&
+                                          _stringValue(value).isEmpty) {
+                                        return context
+                                            .t('Return Reason is required');
+                                      }
+                                      return null;
+                                    },
+                                    onChanged: (_) {
+                                      _clearSubmitError();
+                                      _clearStringFieldError(
+                                        line.returnReasonFieldKey,
+                                        () => setState(() =>
+                                            line.showReturnReasonError = false),
+                                      );
+                                    },
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: _lines.length == 1
+                                          ? null
+                                          : () => _removeLine(index),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppColors.starColor,
+                                        disabledForegroundColor:
+                                            const Color(0xFFB8AFA6),
+                                      ),
+                                      child: Text(context.t('Remove')),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
+                    if (_submitError != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE57373)),
+                        ),
+                        child: Text(
+                          _submitError!,
+                          style: const TextStyle(
+                            color: Color(0xFFC62828),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                      child: Text(
-                        _submitError!,
-                        style: const TextStyle(
-                          color: Color(0xFFC62828),
-                          fontWeight: FontWeight.w600,
+                    ],
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: _isSaving ? null : _submit,
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.check_circle_rounded, size: 18),
+                        label: Text(
+                          _isSaving
+                              ? context.t('Saving...')
+                              : context.t('Save GRN'),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.starColor,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor:
+                              AppColors.starColor.withValues(alpha: 0.55),
+                          minimumSize: const Size(0, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.starColor,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text(
-                        _isSaving
-                            ? context.t('Saving...')
-                            : context.t('Save GRN'),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
     );
@@ -518,9 +610,13 @@ class _GrnLineInput {
   String itemLabel;
   int orderedQty;
   int receivedSoFarQty;
+  final receivedQtyFieldKey = GlobalKey<FormFieldState<String>>();
+  final returnReasonFieldKey = GlobalKey<FormFieldState<String>>();
   final TextEditingController receivedQtyController;
   final TextEditingController returnQtyController;
   final TextEditingController returnReasonController;
+  bool showReceivedQtyError = false;
+  bool showReturnReasonError = false;
 
   void dispose() {
     receivedQtyController.dispose();

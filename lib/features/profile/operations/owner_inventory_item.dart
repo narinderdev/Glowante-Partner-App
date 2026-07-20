@@ -707,11 +707,13 @@ class _InventoryFormSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.children,
+    this.trailing,
   });
 
   final String title;
   final IconData icon;
   final List<Widget> children;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -749,6 +751,10 @@ class _InventoryFormSection extends StatelessWidget {
                   ),
                 ),
               ),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing!,
+              ],
             ],
           ),
           const SizedBox(height: 14),

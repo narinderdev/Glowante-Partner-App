@@ -1,5 +1,52 @@
 part of 'owner_profile_operations_screen.dart';
 
+InputDecorationTheme _operationsFormInputDecorationTheme() {
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: const BorderSide(color: Color(0xFFE8DED6)),
+  );
+  return InputDecorationTheme(
+    filled: true,
+    fillColor: Colors.white,
+    counterStyle: const TextStyle(
+      color: Color(0xFF8A8178),
+      fontWeight: FontWeight.w700,
+    ),
+    labelStyle: const TextStyle(
+      color: Color(0xFF6F675F),
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+    ),
+    prefixIconColor: AppColors.starColor,
+    suffixIconColor: AppColors.starColor,
+    errorStyle: const TextStyle(
+      color: Colors.redAccent,
+      fontSize: 11,
+      height: 1.15,
+      fontWeight: FontWeight.w600,
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    border: border,
+    enabledBorder: border,
+    disabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: Color(0xFFE8DED6)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: AppColors.starColor, width: 1.4),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+    ),
+  );
+}
+
 class _PurchaseOrderFormView extends StatefulWidget {
   const _PurchaseOrderFormView({
     required this.branchId,
@@ -18,10 +65,14 @@ class _PurchaseOrderFormView extends StatefulWidget {
 class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
+  final _vendorFieldKey = GlobalKey<FormFieldState<int>>();
+  final _storeFieldKey = GlobalKey<FormFieldState<int>>();
+  final _createdByFieldKey = GlobalKey<FormFieldState<String>>();
+  final _requiredDateFieldKey = GlobalKey<FormFieldState<DateTime?>>();
   final TextEditingController _createdByController = TextEditingController();
   final TextEditingController _departmentController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
-  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  final AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   List<Map<String, dynamic>> _vendors = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _stores = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _items = const <Map<String, dynamic>>[];
@@ -33,6 +84,10 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
   DateTime? _requiredDate;
   bool _isLoadingOptions = true;
   bool _isSaving = false;
+  bool _showVendorError = false;
+  bool _showStoreError = false;
+  bool _showCreatedByError = false;
+  bool _showRequiredDateError = false;
 
   @override
   void initState() {
@@ -129,25 +184,21 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
   bool get _canAddLine => _items.isNotEmpty && _lines.length < _items.length;
 
   Future<void> _submit() async {
-    final vendorRequired = translateText('Vendor is required');
-    final deliveryAddressRequired =
-        translateText('Delivery Address is required');
     final lineRequired =
         translateText('Each line must have an item and ordered qty');
 
     setState(() {
-      _autoValidateMode = AutovalidateMode.onUserInteraction;
+      _showVendorError = true;
+      _showStoreError = true;
+      _showCreatedByError = true;
+      _showRequiredDateError = true;
+      for (final line in _lines) {
+        line.showItemError = true;
+        line.showQtyError = true;
+      }
     });
 
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedVendorId == null) {
-      Fluttertoast.showToast(msg: vendorRequired);
-      return;
-    }
-    if (_selectedStoreId == null) {
-      Fluttertoast.showToast(msg: deliveryAddressRequired);
-      return;
-    }
     for (final line in _lines) {
       if (line.itemId == null || (_toInt(line.qtyController.text) ?? 0) <= 0) {
         Fluttertoast.showToast(msg: lineRequired);
@@ -193,6 +244,36 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
     }
   }
 
+  void _clearIntFieldError(
+    GlobalKey<FormFieldState<int>> fieldKey,
+    VoidCallback markClean,
+  ) {
+    markClean();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fieldKey.currentState?.validate();
+    });
+  }
+
+  void _clearStringFieldError(
+    GlobalKey<FormFieldState<String>> fieldKey,
+    VoidCallback markClean,
+  ) {
+    markClean();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fieldKey.currentState?.validate();
+    });
+  }
+
+  void _clearDateFieldError(
+    GlobalKey<FormFieldState<DateTime?>> fieldKey,
+    VoidCallback markClean,
+  ) {
+    markClean();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fieldKey.currentState?.validate();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final vendorRequired = translateText('Vendor is required');
@@ -207,291 +288,367 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
       title: context.t('Add Purchase Order'),
       onBack: widget.onBack,
       child: _isLoadingOptions
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              autovalidateMode: _autoValidateMode,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<int>(
-                    key: ValueKey<String>('po-vendor-$_selectedVendorId'),
-                    initialValue: _selectedVendorId,
-                    decoration: InputDecoration(labelText: context.t('Vendor')),
-                    isExpanded: true,
-                    menuMaxHeight: 260,
-                    items: _vendors
-                        .map(
-                          (vendor) => DropdownMenuItem<int>(
-                            value: _toInt(vendor['id']),
-                            child: _dropdownMenuText(
-                              _firstText(
-                                vendor,
-                                const ['name', 'vendorName'],
-                                fallback: context.t('Vendor'),
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    validator: (value) => value == null ? vendorRequired : null,
-                    onChanged: (value) =>
-                        setState(() => _selectedVendorId = value),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<int>(
-                    key: ValueKey<String>('po-store-$_selectedStoreId'),
-                    initialValue: _selectedStoreId,
-                    decoration: InputDecoration(
-                      labelText: context.t('Delivery Address (Store)'),
-                    ),
-                    isExpanded: true,
-                    menuMaxHeight: 260,
-                    items: _stores
-                        .map(
-                          (store) => DropdownMenuItem<int>(
-                            value: _toInt(store['id']),
-                            child: _dropdownMenuText(
-                              _firstText(
-                                store,
-                                const ['name', 'storeName'],
-                                fallback: context.t('Store'),
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    validator: (value) =>
-                        value == null ? deliveryAddressRequired : null,
-                    onChanged: (value) =>
-                        setState(() => _selectedStoreId = value),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    maxLength: 50,
-                    controller: _createdByController,
-                    decoration:
-                        InputDecoration(labelText: context.t('Created By')),
-                    validator: (value) =>
-                        _stringValue(value).isEmpty ? createdByRequired : null,
-                    onChanged: (_) {
-                      if (_autoValidateMode != AutovalidateMode.disabled) {
-                        _formKey.currentState?.validate();
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  FormField<DateTime?>(
-                    initialValue: _requiredDate,
-                    autovalidateMode: _autoValidateMode,
-                    validator: (value) {
-                      if (value == null) {
-                        return requiredDateRequired;
-                      }
-                      if (value.isBefore(
-                          DateTime.now().subtract(const Duration(days: 1)))) {
-                        return translateText(
-                          'Required date cannot be in the past',
-                        );
-                      }
-                      return null;
-                    },
-                    builder: (field) {
-                      return InkWell(
-                        onTap: () async {
-                          final selected = await showDatePicker(
-                            context: context,
-                            initialDate: _requiredDate ?? DateTime.now(),
-                            firstDate: DateTime.now(),
-                            lastDate:
-                                DateTime.now().add(const Duration(days: 365)),
-                          initialEntryMode: DatePickerEntryMode.calendarOnly,
-                          );
-                          if (selected == null) return;
-                          setState(() => _requiredDate = selected);
-                          field.didChange(selected);
-                          if (_autoValidateMode != AutovalidateMode.disabled) {
-                            _formKey.currentState?.validate();
-                          }
-                        },
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: context.t('Required Delivery Date'),
-                            border: const OutlineInputBorder(),
-                            errorText: field.errorText,
-                          ),
-                          child: Text(
-                            _requiredDate == null
-                                ? context.t('Select date')
-                                : DateFormat('dd MMM yyyy')
-                                    .format(_requiredDate!),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    maxLength: 50,
-                    controller: _departmentController,
-                    decoration:
-                        InputDecoration(labelText: context.t('Department')),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    maxLength: 100,
-                    controller: _remarksController,
-                    maxLines: 1,
-                    decoration:
-                        InputDecoration(labelText: context.t('Remarks')),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          context.t('Item Lines'),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (_canAddLine)
-                        TextButton.icon(
-                          onPressed: _addLine,
-                          icon: const Icon(Icons.add),
-                          label: Text(context.t('Add Line')),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ..._lines.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final line = entry.value;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F5F2),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        children: [
-                          DropdownButtonFormField<int>(
-                            key: ValueKey<String>(
-                                'po-line-$index-${line.itemId}'),
-                            initialValue: line.itemId,
-                            decoration:
-                                InputDecoration(labelText: context.t('Item')),
-                            isExpanded: true,
-                            menuMaxHeight: 260,
-                            items: _availableItemsForLine(index)
-                                .map(
-                                  (item) => DropdownMenuItem<int>(
-                                    value: _toInt(item['id']),
-                                    child: _dropdownMenuText(
-                                      _firstText(
-                                        item,
-                                        const ['itemName', 'name', 'title'],
-                                        fallback: context.t('Item'),
-                                      ),
+          ? const SizedBox(
+              height: 160,
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.starColor),
+              ),
+            )
+          : Theme(
+              data: Theme.of(context).copyWith(
+                inputDecorationTheme: _operationsFormInputDecorationTheme(),
+              ),
+              child: Form(
+                key: _formKey,
+                autovalidateMode: _autoValidateMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InventoryFormSection(
+                      title: context.t('Purchase Details'),
+                      icon: Icons.receipt_long_outlined,
+                      children: [
+                        DropdownButtonFormField<int>(
+                          key: _vendorFieldKey,
+                          initialValue: _selectedVendorId,
+                          decoration:
+                              InputDecoration(labelText: context.t('Vendor')),
+                          isExpanded: true,
+                          menuMaxHeight: 260,
+                          items: _vendors
+                              .map(
+                                (vendor) => DropdownMenuItem<int>(
+                                  value: _toInt(vendor['id']),
+                                  child: _dropdownMenuText(
+                                    _firstText(
+                                      vendor,
+                                      const ['name', 'vendorName'],
+                                      fallback: context.t('Vendor'),
                                     ),
                                   ),
-                                )
-                                .toList(),
-                            validator: (value) {
-                              if (value == null) return itemRequired;
-                              if (_selectedItemIds(excludeIndex: index)
-                                  .contains(value)) {
-                                return context.t(
-                                  'Item already selected in another line',
+                                ),
+                              )
+                              .toList(),
+                          validator: (value) =>
+                              _showVendorError && value == null
+                                  ? vendorRequired
+                                  : null,
+                          onChanged: (value) {
+                            setState(() => _selectedVendorId = value);
+                            _clearIntFieldError(
+                              _vendorFieldKey,
+                              () => setState(() => _showVendorError = false),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<int>(
+                          key: _storeFieldKey,
+                          initialValue: _selectedStoreId,
+                          decoration: InputDecoration(
+                            labelText: context.t('Delivery Address (Store)'),
+                          ),
+                          isExpanded: true,
+                          menuMaxHeight: 260,
+                          items: _stores
+                              .map(
+                                (store) => DropdownMenuItem<int>(
+                                  value: _toInt(store['id']),
+                                  child: _dropdownMenuText(
+                                    _firstText(
+                                      store,
+                                      const ['name', 'storeName'],
+                                      fallback: context.t('Store'),
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          validator: (value) => _showStoreError && value == null
+                              ? deliveryAddressRequired
+                              : null,
+                          onChanged: (value) {
+                            setState(() => _selectedStoreId = value);
+                            _clearIntFieldError(
+                              _storeFieldKey,
+                              () => setState(() => _showStoreError = false),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          key: _createdByFieldKey,
+                          maxLength: 50,
+                          controller: _createdByController,
+                          decoration: InputDecoration(
+                              labelText: context.t('Created By')),
+                          validator: (value) =>
+                              _showCreatedByError && _stringValue(value).isEmpty
+                                  ? createdByRequired
+                                  : null,
+                          onChanged: (_) => _clearStringFieldError(
+                            _createdByFieldKey,
+                            () => setState(() => _showCreatedByError = false),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        FormField<DateTime?>(
+                          key: _requiredDateFieldKey,
+                          initialValue: _requiredDate,
+                          autovalidateMode: _autoValidateMode,
+                          validator: (value) {
+                            if (!_showRequiredDateError) return null;
+                            if (value == null) {
+                              return requiredDateRequired;
+                            }
+                            if (value.isBefore(DateTime.now()
+                                .subtract(const Duration(days: 1)))) {
+                              return translateText(
+                                'Required date cannot be in the past',
+                              );
+                            }
+                            return null;
+                          },
+                          builder: (field) {
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () async {
+                                final selected = await showDatePicker(
+                                  context: context,
+                                  initialDate: _requiredDate ?? DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now()
+                                      .add(const Duration(days: 365)),
+                                  initialEntryMode:
+                                      DatePickerEntryMode.calendarOnly,
                                 );
-                              }
-                              return null;
-                            },
-                            onChanged: (value) => setState(() {
-                              _syncLinePrice(line, value);
-                              if (_autoValidateMode !=
-                                  AutovalidateMode.disabled) {
-                                _formKey.currentState?.validate();
-                              }
-                            }),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            maxLength: 15,
-                            controller: line.qtyController,
-                            inputFormatters: _integerInputFormatters(),
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: context.t('Ordered Qty'),
-                            ),
-                            validator: (value) {
-                              final text = _stringValue(value);
-                              if (text.isEmpty) {
-                                return orderedQtyRequired;
-                              }
-                              final qty = _toInt(text);
-                              if (qty == null || qty <= 0) {
-                                return orderedQtyRequired;
-                              }
-                              return null;
-                            },
-                            onChanged: (_) {
-                              if (_autoValidateMode !=
-                                  AutovalidateMode.disabled) {
-                                _formKey.currentState?.validate();
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            maxLength: 15,
-                            controller: line.unitPriceController,
-                            enabled: false,
-                            inputFormatters: _decimalInputFormatters(),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: InputDecoration(
-                              labelText: context.t('Unit Price'),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            maxLength: 15,
-                            controller: line.remarksController,
-                            decoration: InputDecoration(
-                                labelText: context.t('Remarks')),
-                          ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _lines.length == 1
-                                  ? null
-                                  : () => _removeLine(index),
-                              child: Text(context.t('Remove')),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.starColor,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text(_isSaving
-                          ? context.t('Saving...')
-                          : context.t('Save Purchase Order')),
+                                if (selected == null) return;
+                                field.didChange(selected);
+                                setState(() => _requiredDate = selected);
+                                _clearDateFieldError(
+                                  _requiredDateFieldKey,
+                                  () => setState(
+                                      () => _showRequiredDateError = false),
+                                );
+                              },
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText:
+                                      context.t('Required Delivery Date'),
+                                  errorText: field.errorText,
+                                  suffixIcon:
+                                      const Icon(Icons.calendar_today_outlined),
+                                ),
+                                child: Text(
+                                  _requiredDate == null
+                                      ? context.t('Select date')
+                                      : DateFormat('dd MMM yyyy')
+                                          .format(_requiredDate!),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          maxLength: 50,
+                          controller: _departmentController,
+                          decoration: InputDecoration(
+                              labelText: context.t('Department')),
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          maxLength: 100,
+                          controller: _remarksController,
+                          maxLines: 1,
+                          decoration:
+                              InputDecoration(labelText: context.t('Remarks')),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    _InventoryFormSection(
+                      title: context.t('Item Lines'),
+                      icon: Icons.playlist_add_check_outlined,
+                      trailing: _canAddLine
+                          ? TextButton.icon(
+                              onPressed: _addLine,
+                              icon: const Icon(Icons.add, size: 18),
+                              label: Text(context.t('Add Line')),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.starColor,
+                              ),
+                            )
+                          : null,
+                      children: [
+                        ..._lines.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final line = entry.value;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFCF8),
+                              borderRadius: BorderRadius.circular(10),
+                              border:
+                                  Border.all(color: const Color(0xFFE8DED6)),
+                            ),
+                            child: Column(
+                              children: [
+                                DropdownButtonFormField<int>(
+                                  key: line.itemFieldKey,
+                                  initialValue: line.itemId,
+                                  decoration: InputDecoration(
+                                      labelText: context.t('Item')),
+                                  isExpanded: true,
+                                  menuMaxHeight: 260,
+                                  items: _availableItemsForLine(index)
+                                      .map(
+                                        (item) => DropdownMenuItem<int>(
+                                          value: _toInt(item['id']),
+                                          child: _dropdownMenuText(
+                                            _firstText(
+                                              item,
+                                              const [
+                                                'itemName',
+                                                'name',
+                                                'title'
+                                              ],
+                                              fallback: context.t('Item'),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                  validator: (value) {
+                                    if (!line.showItemError) return null;
+                                    if (value == null) return itemRequired;
+                                    if (_selectedItemIds(excludeIndex: index)
+                                        .contains(value)) {
+                                      return context.t(
+                                        'Item already selected in another line',
+                                      );
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _syncLinePrice(line, value);
+                                      line.showItemError = false;
+                                    });
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                      if (mounted) {
+                                        line.itemFieldKey.currentState
+                                            ?.validate();
+                                      }
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  key: line.qtyFieldKey,
+                                  maxLength: 15,
+                                  controller: line.qtyController,
+                                  inputFormatters: _integerInputFormatters(),
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: context.t('Ordered Qty'),
+                                  ),
+                                  validator: (value) {
+                                    if (!line.showQtyError) return null;
+                                    final text = _stringValue(value);
+                                    if (text.isEmpty) {
+                                      return orderedQtyRequired;
+                                    }
+                                    final qty = _toInt(text);
+                                    if (qty == null || qty <= 0) {
+                                      return orderedQtyRequired;
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (_) => _clearStringFieldError(
+                                    line.qtyFieldKey,
+                                    () => setState(
+                                        () => line.showQtyError = false),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  maxLength: 15,
+                                  controller: line.unitPriceController,
+                                  enabled: false,
+                                  inputFormatters: _decimalInputFormatters(),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  decoration: InputDecoration(
+                                    labelText: context.t('Unit Price'),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  maxLength: 15,
+                                  controller: line.remarksController,
+                                  decoration: InputDecoration(
+                                      labelText: context.t('Remarks')),
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: _lines.length == 1
+                                        ? null
+                                        : () => _removeLine(index),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.starColor,
+                                      disabledForegroundColor:
+                                          const Color(0xFFB8AFA6),
+                                    ),
+                                    child: Text(context.t('Remove')),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: _isSaving ? null : _submit,
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.check_circle_rounded, size: 18),
+                        label: Text(
+                          _isSaving
+                              ? context.t('Saving...')
+                              : context.t('Save Purchase Order'),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.starColor,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor:
+                              AppColors.starColor.withValues(alpha: 0.55),
+                          minimumSize: const Size(0, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
     );
@@ -508,9 +665,13 @@ class _PurchaseOrderLineInput {
         remarksController = TextEditingController(text: remarks);
 
   int? itemId;
+  final itemFieldKey = GlobalKey<FormFieldState<int>>();
+  final qtyFieldKey = GlobalKey<FormFieldState<String>>();
   final TextEditingController qtyController;
   final TextEditingController unitPriceController;
   final TextEditingController remarksController;
+  bool showItemError = false;
+  bool showQtyError = false;
 
   void dispose() {
     qtyController.dispose();
