@@ -366,11 +366,11 @@ class ApiService {
   static String payrollReviewDetailsAPI(int branchId, String payrollId) =>
       "v2/branches/$branchId/review/payroll/$payrollId";
   static String payrollEmployeeReviewAPI(
-    int _, {
+    int branchId, {
     required int employeeId,
     required String payrollId,
   }) =>
-      "payroll/$employeeId?payrollId=${Uri.encodeComponent(payrollId)}";
+      "v2/branches/$branchId/review/employees/$employeeId?payrollId=${Uri.encodeComponent(payrollId)}";
   static String payrollEmployeePayAPI(int payrollEmployeeId) =>
       "v2/payroll/employees/$payrollEmployeeId/pay";
   static String payrollPaidLeavesReviewAPI(
@@ -4515,7 +4515,7 @@ class ApiService {
     required Map<String, dynamic> payload,
   }) {
     return _authorizedJsonRequest(
-      method: 'PATCH',
+      method: 'POST',
       endpoint: payrollEmployeePayAPI(payrollEmployeeId),
       body: payload,
       debugTag: 'PayrollEmployeePayAPI',
