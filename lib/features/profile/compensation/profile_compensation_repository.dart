@@ -1342,14 +1342,56 @@ class ProfileCompensationRepository {
     required int branchId,
     required String runId,
     required int userId,
+    required int payrollEmployeeId,
     required PaymentRecord payment,
+    PayrollRunRecord? fallbackRun,
   }) async {
+    final resolvedPayrollEmployeeId =
+        payrollEmployeeId > 0 ? payrollEmployeeId : userId;
+    final paidDate = payment.paidDate;
+    final paidAt = DateTime.utc(
+      paidDate.year,
+      paidDate.month,
+      paidDate.day,
+      12,
+    );
+    final response = await _apiService.markPayrollEmployeePaid(
+      payrollEmployeeId: resolvedPayrollEmployeeId,
+      payload: <String, dynamic>{
+        'paidAt': paidAt.toIso8601String(),
+        'paymentMode': _paymentModeForApi(payment.mode),
+        'reference': payment.reference,
+        'notes': payment.notes,
+      },
+    );
+    _requireSuccess(response);
     return refreshEmployeeAdjustments(
       branchId: branchId,
       runId: runId,
       userId: userId,
-      payrollEmployeeId: userId,
+      payrollEmployeeId: resolvedPayrollEmployeeId,
+      fallbackRun: fallbackRun,
     );
+  }
+
+  String _paymentModeForApi(String mode) {
+    switch (_cleanText(mode).trim().toLowerCase().replaceAll(' ', '_')) {
+      case 'bank_transfer':
+        return 'bank_transfer';
+      case 'cash':
+        return 'cash';
+      case 'upi':
+        return 'upi';
+      case 'google_pay':
+        return 'google_pay';
+      case 'paytm':
+        return 'paytm';
+      case 'phone_pe':
+      case 'phonepe':
+        return 'phone_pe';
+      default:
+        return _cleanText(mode).trim().toLowerCase().replaceAll(' ', '_');
+    }
   }
 
   Future<List<CommissionServiceRule>> loadCommissionRules(int branchId) async {
@@ -1709,6 +1751,14 @@ class ProfileCompensationRepository {
     final paidAt = DateTime.tryParse(_cleanText(employeeMap['paidAt']));
     final paymentMode = _cleanText(employeeMap['paymentMode']);
     final reference = _cleanText(employeeMap['reference']);
+    final employeeMetadata = employeeMap['metadata'] is Map
+        ? Map<String, dynamic>.from(employeeMap['metadata'] as Map)
+        : const <String, dynamic>{};
+    final paymentNotes = _cleanText(
+      employeeMap['notes'] ??
+          employeeMap['paymentNotes'] ??
+          employeeMetadata['paymentNotes'],
+    );
     final resolvedPayrollEmployeeId =
         _asInt(employeeMap['payrollEmployeeId']) ?? payrollEmployeeId;
     final reviewAdjustments = List<PayrollAdjustmentRecord>.from(adjustments);
@@ -1836,7 +1886,7 @@ class ProfileCompensationRepository {
               mode: paymentMode,
               reference: reference,
               paidDate: paidAt,
-              notes: '',
+              notes: paymentNotes,
             ).toJson(),
       'adjustments': reviewAdjustments.map((item) => item.toJson()).toList(),
     });

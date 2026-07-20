@@ -2019,33 +2019,70 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 child: Align(
                                                   alignment: Alignment.center,
                                                   child: OutlinedButton(
-                                                    onPressed: () async {
-                                                      final updated =
-                                                          await _openEmployeeReview(
-                                                        run: currentRun,
-                                                        employee: employee,
-                                                      );
-                                                      if (updated != null &&
-                                                          context.mounted &&
-                                                          screenContext
-                                                              .mounted) {
-                                                        await refreshRun(
-                                                            updated);
-                                                        if (context.mounted) {
-                                                          setSheetState(
-                                                            () => currentRun =
-                                                                updated,
-                                                          );
-                                                        }
-                                                      }
-                                                    },
+                                                    onPressed: isReviewBusy
+                                                        ? null
+                                                        : () async {
+                                                            setSheetState(() {
+                                                              isReviewBusy =
+                                                                  true;
+                                                              reviewBusyAction =
+                                                                  'employee_review_${employee.userId}';
+                                                            });
+                                                            try {
+                                                              final updated =
+                                                                  await _openEmployeeReview(
+                                                                run: currentRun,
+                                                                employee:
+                                                                    employee,
+                                                              );
+                                                              if (updated !=
+                                                                      null &&
+                                                                  context
+                                                                      .mounted &&
+                                                                  screenContext
+                                                                      .mounted) {
+                                                                await refreshRun(
+                                                                  updated,
+                                                                );
+                                                                if (context
+                                                                    .mounted) {
+                                                                  setSheetState(
+                                                                    () => currentRun =
+                                                                        updated,
+                                                                  );
+                                                                }
+                                                              }
+                                                            } finally {
+                                                              if (context
+                                                                  .mounted) {
+                                                                setSheetState(
+                                                                  () {
+                                                                    isReviewBusy =
+                                                                        false;
+                                                                    reviewBusyAction =
+                                                                        null;
+                                                                  },
+                                                                );
+                                                              }
+                                                            }
+                                                          },
                                                     style: OutlinedButton
                                                         .styleFrom(
                                                       foregroundColor:
                                                           AppColors.starColor,
+                                                      disabledForegroundColor:
+                                                          AppColors.starColor
+                                                              .withValues(
+                                                        alpha: 0.55,
+                                                      ),
                                                       side: BorderSide(
                                                         color:
                                                             AppColors.starColor,
+                                                      ),
+                                                      disabledBackgroundColor:
+                                                          AppColors.starColor
+                                                              .withValues(
+                                                        alpha: 0.06,
                                                       ),
                                                       padding: const EdgeInsets
                                                           .symmetric(
@@ -2065,9 +2102,19 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                             FontWeight.w800,
                                                       ),
                                                     ),
-                                                    child: Text(
-                                                      'View',
-                                                    ),
+                                                    child: reviewBusyAction ==
+                                                            'employee_review_${employee.userId}'
+                                                        ? SizedBox(
+                                                            width: 16,
+                                                            height: 16,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              color: AppColors
+                                                                  .starColor,
+                                                            ),
+                                                          )
+                                                        : const Text('View'),
                                                   ),
                                                 ),
                                               ),
@@ -2405,13 +2452,19 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                     details:
                         'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}',
                   );
-                  final updated = await _repository.refreshEmployeeAdjustments(
+                  final updated = await _repository.recordEmployeePayment(
                     branchId: branchId,
                     runId: currentRun.id,
                     userId: currentEmployee.userId,
                     payrollEmployeeId: currentEmployee.payrollEmployeeId > 0
                         ? currentEmployee.payrollEmployeeId
                         : currentEmployee.userId,
+                    payment: PaymentRecord(
+                      mode: paymentModeController.text.trim(),
+                      reference: paymentReferenceController.text.trim(),
+                      paidDate: paymentDate,
+                      notes: paymentNotesController.text.trim(),
+                    ),
                     fallbackRun: currentRun,
                   );
                   await refreshEmployee(updated);
