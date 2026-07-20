@@ -1,5 +1,33 @@
 part of 'owner_profile_operations_screen.dart';
 
+final RegExp _vendorNameAllowedInputPattern = RegExp(r'[A-Za-z0-9 ]');
+final RegExp _vendorNameAllowedPattern = RegExp(r'^[A-Za-z0-9 ]+$');
+final RegExp _vendorEmailPattern =
+    RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+
+bool _isValidVendorEmail(String value) {
+  if (!_vendorEmailPattern.hasMatch(value)) return false;
+  if (value.contains('..')) return false;
+
+  final parts = value.split('@');
+  if (parts.length != 2) return false;
+
+  final local = parts.first;
+  final domain = parts.last.toLowerCase();
+  if (local.startsWith('.') || local.endsWith('.')) return false;
+
+  final domainLabels = domain.split('.');
+  if (domainLabels.length < 2) return false;
+  for (final label in domainLabels) {
+    if (label.isEmpty || label.startsWith('-') || label.endsWith('-')) {
+      return false;
+    }
+  }
+
+  final tld = domainLabels.last;
+  return RegExp(r'^[a-z]{2,10}$').hasMatch(tld);
+}
+
 class _VendorFormView extends StatefulWidget {
   const _VendorFormView({
     required this.isEdit,
@@ -79,6 +107,8 @@ class _VendorFormViewState extends State<_VendorFormView> {
   @override
   Widget build(BuildContext context) {
     final vendorNameRequired = translateText('Vendor name is required');
+    final vendorNameInvalid =
+        translateText('Only letters, numbers, and spaces are allowed');
     final phoneRequired = translateText('Phone is required');
     final emailRequired = translateText('Email is required');
     final emailInvalid = translateText('Enter a valid email');
@@ -100,8 +130,20 @@ class _VendorFormViewState extends State<_VendorFormView> {
               hint: context.t('Enter vendor name'),
               maxLength: 120,
               textInputAction: TextInputAction.next,
-              validator: (value) =>
-                  _stringValue(value).isEmpty ? vendorNameRequired : null,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(
+                  _vendorNameAllowedInputPattern,
+                ),
+                LengthLimitingTextInputFormatter(120),
+              ],
+              validator: (value) {
+                final name = _stringValue(value);
+                if (name.isEmpty) return vendorNameRequired;
+                if (!_vendorNameAllowedPattern.hasMatch(name)) {
+                  return vendorNameInvalid;
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 14),
             _VendorRequiredLabel(context.t('Phone')),
@@ -149,8 +191,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
               validator: (value) {
                 final email = _stringValue(value);
                 if (email.isEmpty) return emailRequired;
-                final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
-                if (!regex.hasMatch(email)) {
+                if (!_isValidVendorEmail(email)) {
                   return emailInvalid;
                 }
                 return null;
