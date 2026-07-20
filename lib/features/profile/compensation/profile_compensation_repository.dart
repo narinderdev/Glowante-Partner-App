@@ -1117,25 +1117,29 @@ class ProfileCompensationRepository {
     required int userId,
     required PayrollAdjustmentRecord adjustment,
   }) async {
-    final response = await _apiService.updatePayrollEmployeeAdjustment(
-      payrollEmployeeId: adjustment.payrollEmployeeId > 0
-          ? adjustment.payrollEmployeeId
-          : userId,
-      adjustmentId: adjustment.id,
-      payload: <String, dynamic>{
-        'type': adjustment.type,
-        'amount': adjustment.amountMinor,
-        'remarks': adjustment.remarks,
-      },
-    );
+    final payrollEmployeeId = adjustment.payrollEmployeeId > 0
+        ? adjustment.payrollEmployeeId
+        : userId;
+    final payload = <String, dynamic>{
+      'payrollEmployeeId': payrollEmployeeId,
+      'amount': adjustment.amountMinor,
+      'remarks': adjustment.remarks,
+    };
+    final response = adjustment.type.toUpperCase() == AdjustmentTypes.deduction
+        ? await _apiService.updatePayrollDeduction(
+            deductionId: adjustment.id,
+            payload: payload,
+          )
+        : await _apiService.updatePayrollAdditionalCharge(
+            chargeId: adjustment.id,
+            payload: payload,
+          );
     _requireSuccess(response);
     return refreshEmployeeAdjustments(
       branchId: branchId,
       runId: runId,
       userId: userId,
-      payrollEmployeeId: adjustment.payrollEmployeeId > 0
-          ? adjustment.payrollEmployeeId
-          : userId,
+      payrollEmployeeId: payrollEmployeeId,
     );
   }
 
@@ -1145,29 +1149,38 @@ class ProfileCompensationRepository {
     required int userId,
     required PayrollAdjustmentRecord adjustment,
   }) async {
-    final response = await _apiService.deletePayrollEmployeeAdjustment(
-      payrollEmployeeId: adjustment.payrollEmployeeId > 0
-          ? adjustment.payrollEmployeeId
-          : userId,
-      adjustmentId: adjustment.id,
-    );
+    final payrollEmployeeId = adjustment.payrollEmployeeId > 0
+        ? adjustment.payrollEmployeeId
+        : userId;
+    final response = adjustment.type.toUpperCase() == AdjustmentTypes.deduction
+        ? await _apiService.deletePayrollDeduction(
+            deductionId: adjustment.id,
+          )
+        : await _apiService.deletePayrollAdditionalCharge(
+            chargeId: adjustment.id,
+          );
     _requireSuccess(response);
     return refreshEmployeeAdjustments(
       branchId: branchId,
       runId: runId,
       userId: userId,
-      payrollEmployeeId: adjustment.payrollEmployeeId > 0
-          ? adjustment.payrollEmployeeId
-          : userId,
+      payrollEmployeeId: payrollEmployeeId,
     );
   }
 
   Future<List<PayrollAdjustmentRecord>> loadEmployeeAdjustments({
     required int userId,
     required int payrollEmployeeId,
+    String? payrollId,
   }) async {
-    final additionsResponse = await _apiService.getPayrollAdditionalCharges();
-    final deductionsResponse = await _apiService.getPayrollDeductions();
+    final deductionsResponse = await _apiService.getPayrollDeductions(
+      payrollEmployeeId: payrollEmployeeId,
+      payrollId: payrollId,
+    );
+    final additionsResponse = await _apiService.getPayrollAdditionalCharges(
+      payrollEmployeeId: payrollEmployeeId,
+      payrollId: payrollId,
+    );
 
     _requireSuccess(additionsResponse);
     _requireSuccess(deductionsResponse);
@@ -1207,12 +1220,20 @@ class ProfileCompensationRepository {
     }
 
     final additions = extractItems(additionsResponse['data'])
-        .where((item) => _asInt(item['payrollEmployeeId']) == payrollEmployeeId)
+        .where(
+          (item) =>
+              _asInt(item['payrollEmployeeId']) == payrollEmployeeId &&
+              _matchesPayrollId(item, payrollId),
+        )
         .map((item) => adjustmentFromMap(item, AdjustmentTypes.addition))
         .toList();
 
     final deductions = extractItems(deductionsResponse['data'])
-        .where((item) => _asInt(item['payrollEmployeeId']) == payrollEmployeeId)
+        .where(
+          (item) =>
+              _asInt(item['payrollEmployeeId']) == payrollEmployeeId &&
+              _matchesPayrollId(item, payrollId),
+        )
         .map((item) => adjustmentFromMap(item, AdjustmentTypes.deduction))
         .toList();
 
@@ -1229,32 +1250,92 @@ class ProfileCompensationRepository {
     required String runId,
     required int userId,
     required int payrollEmployeeId,
+    PayrollRunRecord? fallbackRun,
   }) async {
-    final adjustments = await loadEmployeeAdjustments(
+    final reviewResponse = await _apiService.getPayrollEmployeeReview(
+      branchId: branchId,
+      payrollId: runId,
+      employeeId: userId,
+    );
+    _requireSuccess(reviewResponse);
+    final reviewEmployeeWithoutAdjustments = _employeeReviewFromResponse(
+      reviewResponse,
       userId: userId,
       payrollEmployeeId: payrollEmployeeId,
+      adjustments: const <PayrollAdjustmentRecord>[],
     );
-    final resolvedPayrollEmployeeId = adjustments.isNotEmpty
-        ? adjustments.first.payrollEmployeeId
-        : payrollEmployeeId;
-    final runs = await loadPayrollRuns(branchId);
-    final updated = runs.map((run) {
-      if (run.id != runId) {
-        return run;
-      }
-      final employees = run.employees.map((employee) {
+    final reviewPayrollEmployeeId =
+        reviewEmployeeWithoutAdjustments.payrollEmployeeId > 0
+            ? reviewEmployeeWithoutAdjustments.payrollEmployeeId
+            : payrollEmployeeId;
+    final employeeReview = reviewEmployeeWithoutAdjustments.copyWith(
+      payrollEmployeeId: reviewPayrollEmployeeId,
+    );
+    final resolvedPayrollEmployeeId = employeeReview.payrollEmployeeId > 0
+        ? employeeReview.payrollEmployeeId
+        : employeeReview.adjustments.isNotEmpty
+            ? employeeReview.adjustments.first.payrollEmployeeId
+            : payrollEmployeeId;
+    final resolvedEmployeeReview = employeeReview.copyWith(
+      payrollEmployeeId: resolvedPayrollEmployeeId,
+    );
+    final reviewData = reviewResponse['data'];
+    final reviewMap = reviewData is Map<String, dynamic>
+        ? reviewData
+        : reviewData is Map
+            ? Map<String, dynamic>.from(reviewData)
+            : const <String, dynamic>{};
+    final payroll = reviewMap['payroll'] is Map
+        ? Map<String, dynamic>.from(reviewMap['payroll'] as Map)
+        : const <String, dynamic>{};
+    final periodStart = DateTime.tryParse(_cleanText(payroll['periodStart']));
+    final periodEnd = DateTime.tryParse(_cleanText(payroll['periodEnd']));
+    final generatedAt = DateTime.tryParse(_cleanText(payroll['generatedAt'])) ??
+        periodEnd ??
+        periodStart ??
+        DateTime.now();
+
+    if (fallbackRun != null) {
+      var foundEmployee = false;
+      final employees = fallbackRun.employees.map((employee) {
         if (employee.userId != userId) {
           return employee;
         }
-        return employee.copyWith(
-          payrollEmployeeId: resolvedPayrollEmployeeId,
-          adjustments: adjustments,
-        );
+        foundEmployee = true;
+        return resolvedEmployeeReview;
       }).toList();
-      return run.copyWith(employees: employees);
-    }).toList();
-    await _persistPayrollRuns(branchId, updated);
-    return updated.firstWhere((item) => item.id == runId);
+      if (!foundEmployee) {
+        employees.add(resolvedEmployeeReview);
+      }
+      return fallbackRun.copyWith(
+        id: _cleanText(payroll['payrollId']).isEmpty
+            ? fallbackRun.id
+            : _cleanText(payroll['payrollId']),
+        periodLabel: _cleanText(payroll['payrollName']).isEmpty
+            ? fallbackRun.periodLabel
+            : _cleanText(payroll['payrollName']),
+        generatedAt: generatedAt,
+        approvedAt: DateTime.tryParse(_cleanText(payroll['reviewedAt'])) ??
+            fallbackRun.approvedAt,
+        backendStatus: _cleanText(payroll['status']).isEmpty
+            ? fallbackRun.backendStatus
+            : _cleanText(payroll['status']),
+        employees: employees,
+      );
+    }
+
+    return PayrollRunRecord(
+      id: _cleanText(payroll['payrollId']).isEmpty
+          ? runId
+          : _cleanText(payroll['payrollId']),
+      periodKey:
+          periodStart == null ? '' : DateFormat('yyyy-MM').format(periodStart),
+      periodLabel: _cleanText(payroll['payrollName']),
+      generatedAt: generatedAt,
+      approvedAt: DateTime.tryParse(_cleanText(payroll['reviewedAt'])),
+      employees: <PayrollRunEmployeeRecord>[resolvedEmployeeReview],
+      backendStatus: _cleanText(payroll['status']),
+    );
   }
 
   Future<PayrollRunRecord> recordEmployeePayment({
@@ -1263,24 +1344,12 @@ class ProfileCompensationRepository {
     required int userId,
     required PaymentRecord payment,
   }) async {
-    final runs = await loadPayrollRuns(branchId);
-    final updated = runs.map((run) {
-      if (run.id != runId) {
-        return run;
-      }
-      final employees = run.employees.map((employee) {
-        if (employee.userId != userId) {
-          return employee;
-        }
-        return employee.copyWith(payment: payment);
-      }).toList();
-      return run.copyWith(
-        approvedAt: run.approvedAt ?? DateTime.now(),
-        employees: employees,
-      );
-    }).toList();
-    await _persistPayrollRuns(branchId, updated);
-    return updated.firstWhere((item) => item.id == runId);
+    return refreshEmployeeAdjustments(
+      branchId: branchId,
+      runId: runId,
+      userId: userId,
+      payrollEmployeeId: userId,
+    );
   }
 
   Future<List<CommissionServiceRule>> loadCommissionRules(int branchId) async {
@@ -1555,6 +1624,10 @@ class ProfileCompensationRepository {
             localEmployee?.commissionPercent,
         'commissionAmount': employeeMap['commissionAmount'] ??
             localEmployee?.commissionAmountMinor,
+        'totalServicesCount': employeeMap['totalServicesCount'] ??
+            employeeMap['servicesCount'] ??
+            localEmployee?.servicesCount,
+        'servicesPerformed': employeeMap['servicesPerformed'],
         'grossPay': employeeMap['grossPay'],
         'additionsAmount': employeeMap['additionsAmount'],
         'deductionsAmount': employeeMap['deductionsAmount'],
@@ -1606,6 +1679,167 @@ class ProfileCompensationRepository {
       'branchId=$branchId payrollId=$payrollId employees=${employees.length}',
     );
     return reviewRun;
+  }
+
+  bool _matchesPayrollId(Map<String, dynamic> item, String? payrollId) {
+    if (payrollId == null || payrollId.trim().isEmpty) {
+      return true;
+    }
+    final itemPayrollId = _cleanText(
+      item['payrollId'] ?? item['payroll_id'] ?? item['payroll']?['id'],
+    );
+    return itemPayrollId.isEmpty || itemPayrollId == payrollId.trim();
+  }
+
+  PayrollRunEmployeeRecord _employeeReviewFromResponse(
+    Map<String, dynamic> response, {
+    required int userId,
+    required int payrollEmployeeId,
+    required List<PayrollAdjustmentRecord> adjustments,
+  }) {
+    final data = response['data'];
+    final map = data is Map<String, dynamic>
+        ? data
+        : data is Map
+            ? Map<String, dynamic>.from(data)
+            : const <String, dynamic>{};
+    final employeeMap = map['employee'] is Map
+        ? Map<String, dynamic>.from(map['employee'] as Map)
+        : const <String, dynamic>{};
+    final paidAt = DateTime.tryParse(_cleanText(employeeMap['paidAt']));
+    final paymentMode = _cleanText(employeeMap['paymentMode']);
+    final reference = _cleanText(employeeMap['reference']);
+    final resolvedPayrollEmployeeId =
+        _asInt(employeeMap['payrollEmployeeId']) ?? payrollEmployeeId;
+    final reviewAdjustments = List<PayrollAdjustmentRecord>.from(adjustments);
+
+    void addAdjustmentRecords({
+      required List<dynamic> records,
+      required String type,
+      required String idPrefix,
+    }) {
+      for (final rawRecord in records.whereType<Map>()) {
+        final record = Map<String, dynamic>.from(rawRecord);
+        final amount = _asInt(record['amount'] ?? record['amountMinor']) ?? 0;
+        if (amount <= 0) {
+          continue;
+        }
+        final recordId = _cleanText(
+          record['id'] ??
+              record['additionalChargeId'] ??
+              record['additional_charge_id'] ??
+              record['deductionId'] ??
+              record['deduction_id'],
+        );
+        final createdAt = DateTime.tryParse(
+              _cleanText(
+                record['createdAt'] ??
+                    record['created_at'] ??
+                    record['updatedAt'] ??
+                    record['updated_at'],
+              ),
+            ) ??
+            DateTime.now();
+        reviewAdjustments.add(
+          PayrollAdjustmentRecord(
+            id: recordId.isEmpty
+                ? '$idPrefix-${reviewAdjustments.length}'
+                : recordId,
+            payrollEmployeeId: _asInt(record['payrollEmployeeId']) ??
+                resolvedPayrollEmployeeId,
+            type: type,
+            amountMinor: amount,
+            remarks: _cleanText(record['remarks'] ?? record['reason']),
+            createdAt: createdAt,
+            isDeleted: false,
+          ),
+        );
+      }
+    }
+
+    addAdjustmentRecords(
+      records: (employeeMap['additionRecords'] as List?) ??
+          (employeeMap['additionsRecords'] as List?) ??
+          (employeeMap['additionalChargeRecords'] as List?) ??
+          (employeeMap['additionalCharges'] as List?) ??
+          const <dynamic>[],
+      type: AdjustmentTypes.addition,
+      idPrefix: 'addition',
+    );
+    addAdjustmentRecords(
+      records: (employeeMap['deductionRecords'] as List?) ??
+          (employeeMap['deductionsRecords'] as List?) ??
+          const <dynamic>[],
+      type: AdjustmentTypes.deduction,
+      idPrefix: 'deduction',
+    );
+
+    final advanceRecords =
+        (employeeMap['advanceRecords'] as List?) ?? const <dynamic>[];
+    for (final rawAdvance in advanceRecords.whereType<Map>()) {
+      final advance = Map<String, dynamic>.from(rawAdvance);
+      final amount = _asInt(advance['amount']) ?? 0;
+      if (amount <= 0) {
+        continue;
+      }
+      final advanceId = _cleanText(advance['advanceId'] ?? advance['id']);
+      final details = _cleanText(
+        advance['paymentReference'] ?? advance['remarks'] ?? 'Advance',
+      );
+      reviewAdjustments.add(
+        PayrollAdjustmentRecord(
+          id: 'advance-${advanceId.isEmpty ? reviewAdjustments.length : advanceId}',
+          payrollEmployeeId: resolvedPayrollEmployeeId,
+          type: AdjustmentTypes.deduction,
+          amountMinor: amount,
+          remarks: details.isEmpty ? 'Advance' : details,
+          createdAt: DateTime.tryParse(_cleanText(advance['givenDate'])) ??
+              DateTime.now(),
+        ),
+      );
+    }
+    final servicesPerformedCount =
+        (employeeMap['servicesPerformed'] as List?)?.length ?? 0;
+    final reportedServicesCount = _asInt(employeeMap['totalServicesCount']);
+    final servicesCount =
+        reportedServicesCount != null && reportedServicesCount > 0
+            ? reportedServicesCount
+            : servicesPerformedCount > 0
+                ? servicesPerformedCount
+                : 0;
+
+    return PayrollRunEmployeeRecord.fromJson(<String, dynamic>{
+      'userId':
+          _asInt(employeeMap['employeeId'] ?? employeeMap['userId']) ?? userId,
+      'payrollEmployeeId': resolvedPayrollEmployeeId,
+      'teamMemberName': employeeMap['employeeName'] ?? employeeMap['name'],
+      'name': employeeMap['name'] ?? employeeMap['employeeName'],
+      'role': employeeMap['role'] ?? 'Team Member',
+      'payrollType': employeeMap['payrollType'] ?? employeeMap['salaryType'],
+      'salaryAmount': employeeMap['salaryAmount'] ?? employeeMap['baseSalary'],
+      'commissionPercentage': employeeMap['commissionPercentage'] ??
+          employeeMap['commissionPercent'],
+      'commissionAmount': employeeMap['commissionAmount'],
+      'totalServicesCount': servicesCount,
+      'grossPay': employeeMap['grossPay'],
+      'additionsAmount':
+          employeeMap['additions'] ?? employeeMap['additionsAmount'],
+      'deductionsAmount':
+          employeeMap['deductions'] ?? employeeMap['deductionsAmount'],
+      'advanceAmount': employeeMap['advanceAmount'] ?? employeeMap['advances'],
+      'effectiveFrom': employeeMap['effectiveFrom'],
+      'netPayable': employeeMap['netPayable'],
+      'status': employeeMap['status'],
+      'payment': paidAt == null
+          ? null
+          : PaymentRecord(
+              mode: paymentMode,
+              reference: reference,
+              paidDate: paidAt,
+              notes: '',
+            ).toJson(),
+      'adjustments': reviewAdjustments.map((item) => item.toJson()).toList(),
+    });
   }
 
   void _requireSuccess(Map<String, dynamic> response) {

@@ -493,6 +493,7 @@ class PayrollRunEmployeeRecord {
     required this.commissionAmountMinor,
     required this.effectiveDate,
     required this.adjustments,
+    this.servicesCount = 0,
     this.grossPayOverrideMinor,
     this.additionsOverrideMinor,
     this.deductionsOverrideMinor,
@@ -512,6 +513,7 @@ class PayrollRunEmployeeRecord {
   final int commissionAmountMinor;
   final DateTime effectiveDate;
   final List<PayrollAdjustmentRecord> adjustments;
+  final int servicesCount;
   final int? grossPayOverrideMinor;
   final int? additionsOverrideMinor;
   final int? deductionsOverrideMinor;
@@ -538,24 +540,22 @@ class PayrollRunEmployeeRecord {
 
   int get grossPayMinor =>
       grossPayOverrideMinor ??
-      salaryMinor +
-          commissionAmountMinor +
-          additionsDisplayMinor -
-          advancesDisplayMinor;
+      salaryMinor + commissionAmountMinor + additionsDisplayMinor;
 
   int get netPayableMinor =>
       netPayableOverrideMinor ??
       salaryMinor +
           commissionAmountMinor +
-          additionsTotalMinor -
-          deductionsTotalMinor;
+          additionsDisplayMinor -
+          deductionsDisplayMinor -
+          advancesDisplayMinor;
 
   String get statusLabel {
     final normalizedStatus = _asString(backendStatus).trim().toLowerCase();
     if (payment != null) {
       return 'Paid';
     }
-    if (normalizedStatus == 'paid') {
+    if (normalizedStatus == 'paid' || normalizedStatus.contains('paid')) {
       return 'Paid';
     }
     return 'Pending';
@@ -572,6 +572,7 @@ class PayrollRunEmployeeRecord {
     int? commissionAmountMinor,
     DateTime? effectiveDate,
     List<PayrollAdjustmentRecord>? adjustments,
+    int? servicesCount,
     int? grossPayOverrideMinor,
     int? additionsOverrideMinor,
     int? deductionsOverrideMinor,
@@ -594,6 +595,7 @@ class PayrollRunEmployeeRecord {
       effectiveDate: effectiveDate ?? this.effectiveDate,
       adjustments:
           adjustments ?? List<PayrollAdjustmentRecord>.from(this.adjustments),
+      servicesCount: servicesCount ?? this.servicesCount,
       grossPayOverrideMinor:
           grossPayOverrideMinor ?? this.grossPayOverrideMinor,
       additionsOverrideMinor:
@@ -621,6 +623,7 @@ class PayrollRunEmployeeRecord {
       'commissionAmountMinor': commissionAmountMinor,
       'effectiveDate': effectiveDate.toIso8601String(),
       'adjustments': adjustments.map((item) => item.toJson()).toList(),
+      'servicesCount': servicesCount,
       'grossPayOverrideMinor': grossPayOverrideMinor,
       'additionsOverrideMinor': additionsOverrideMinor,
       'deductionsOverrideMinor': deductionsOverrideMinor,
@@ -632,6 +635,17 @@ class PayrollRunEmployeeRecord {
   }
 
   factory PayrollRunEmployeeRecord.fromJson(Map<String, dynamic> json) {
+    final servicesPerformedCount =
+        (json['servicesPerformed'] as List?)?.length ?? 0;
+    final reportedServicesCount =
+        _asInt(json['servicesCount'] ?? json['totalServicesCount']);
+    final servicesCount =
+        reportedServicesCount != null && reportedServicesCount > 0
+            ? reportedServicesCount
+            : servicesPerformedCount > 0
+                ? servicesPerformedCount
+                : 0;
+
     return PayrollRunEmployeeRecord(
       userId: _asInt(json['userId']) ?? 0,
       payrollEmployeeId: _asInt(
@@ -667,6 +681,7 @@ class PayrollRunEmployeeRecord {
                 Map<String, dynamic>.from(item)),
           )
           .toList(),
+      servicesCount: servicesCount,
       grossPayOverrideMinor:
           _asInt(json['grossPayOverrideMinor'] ?? json['grossPay']),
       additionsOverrideMinor:

@@ -365,6 +365,12 @@ class ApiService {
       "branches/$branchId/procurement/grn/$grnId";
   static String payrollReviewDetailsAPI(int branchId, String payrollId) =>
       "v2/branches/$branchId/review/payroll/$payrollId";
+  static String payrollEmployeeReviewAPI(
+    int branchId, {
+    required int employeeId,
+    required String payrollId,
+  }) =>
+      "v2/branches/$branchId/review/employees/$employeeId?payrollId=${Uri.encodeComponent(payrollId)}";
   static String payrollPaidLeavesReviewAPI(
     int branchId, {
     String? payrollId,
@@ -381,13 +387,40 @@ class ApiService {
   ) =>
       "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
 
-  static const String payrollAdditionalChargesAPI =
-      "payroll/additional-charges";
+  static String payrollAdditionalChargesAPI({
+    int? payrollEmployeeId,
+    String? payrollId,
+  }) {
+    final query = <String>[];
+    if (payrollEmployeeId != null && payrollEmployeeId > 0) {
+      query.add('payrollEmployeeId=$payrollEmployeeId');
+    }
+    if (payrollId != null && payrollId.trim().isNotEmpty) {
+      query.add('payrollId=${Uri.encodeComponent(payrollId)}');
+    }
+    return query.isEmpty
+        ? "payroll/additional-charges"
+        : "payroll/additional-charges?${query.join('&')}";
+  }
 
   static String payrollAdditionalChargeDetailsAPI(String chargeId) =>
       "payroll/additional-charges/$chargeId";
 
-  static const String payrollDeductionsAPI = "payroll/deductions";
+  static String payrollDeductionsAPI({
+    int? payrollEmployeeId,
+    String? payrollId,
+  }) {
+    final query = <String>[];
+    if (payrollEmployeeId != null && payrollEmployeeId > 0) {
+      query.add('payrollEmployeeId=$payrollEmployeeId');
+    }
+    if (payrollId != null && payrollId.trim().isNotEmpty) {
+      query.add('payrollId=${Uri.encodeComponent(payrollId)}');
+    }
+    return query.isEmpty
+        ? "payroll/deductions"
+        : "payroll/deductions?${query.join('&')}";
+  }
 
   static String payrollDeductionDetailsAPI(String deductionId) =>
       "payroll/deductions/$deductionId";
@@ -4339,16 +4372,22 @@ class ApiService {
   }) {
     return _authorizedJsonRequest(
       method: 'POST',
-      endpoint: payrollAdditionalChargesAPI,
+      endpoint: payrollAdditionalChargesAPI(),
       body: payload,
       debugTag: 'CreatePayrollAdditionalChargeAPI',
     );
   }
 
-  Future<Map<String, dynamic>> getPayrollAdditionalCharges() {
+  Future<Map<String, dynamic>> getPayrollAdditionalCharges({
+    int? payrollEmployeeId,
+    String? payrollId,
+  }) {
     return _authorizedJsonRequest(
       method: 'GET',
-      endpoint: payrollAdditionalChargesAPI,
+      endpoint: payrollAdditionalChargesAPI(
+        payrollEmployeeId: payrollEmployeeId,
+        payrollId: payrollId,
+      ),
       debugTag: 'PayrollAdditionalChargesListAPI',
     );
   }
@@ -4390,16 +4429,22 @@ class ApiService {
   }) {
     return _authorizedJsonRequest(
       method: 'POST',
-      endpoint: payrollDeductionsAPI,
+      endpoint: payrollDeductionsAPI(),
       body: payload,
       debugTag: 'CreatePayrollDeductionAPI',
     );
   }
 
-  Future<Map<String, dynamic>> getPayrollDeductions() {
+  Future<Map<String, dynamic>> getPayrollDeductions({
+    int? payrollEmployeeId,
+    String? payrollId,
+  }) {
     return _authorizedJsonRequest(
       method: 'GET',
-      endpoint: payrollDeductionsAPI,
+      endpoint: payrollDeductionsAPI(
+        payrollEmployeeId: payrollEmployeeId,
+        payrollId: payrollId,
+      ),
       debugTag: 'PayrollDeductionsListAPI',
     );
   }
@@ -4444,6 +4489,22 @@ class ApiService {
       method: 'GET',
       endpoint: payrollReviewDetailsAPI(branchId, payrollId),
       debugTag: 'PayrollReviewDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollEmployeeReview({
+    required int branchId,
+    required String payrollId,
+    required int employeeId,
+  }) async {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollEmployeeReviewAPI(
+        branchId,
+        employeeId: employeeId,
+        payrollId: payrollId,
+      ),
+      debugTag: 'PayrollEmployeeReviewAPI',
     );
   }
 

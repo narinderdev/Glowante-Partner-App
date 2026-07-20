@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -1473,6 +1474,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (!mounted) {
       return;
     }
+    final payrollReviewTableScrollController = ScrollController();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (screenContext) {
@@ -1779,6 +1781,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                           child: DropdownButtonFormField<String>(
                             initialValue: selectedStatus,
                             isDense: true,
+                            isExpanded: true,
+                            menuMaxHeight: 220,
+                            borderRadius: BorderRadius.circular(10),
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.white,
@@ -1801,15 +1806,24 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                             items: const [
                               DropdownMenuItem(
                                 value: 'All Status',
-                                child: Text('All Status'),
+                                child: Text(
+                                  'All Status',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               DropdownMenuItem(
                                 value: 'Paid',
-                                child: Text('Paid'),
+                                child: Text(
+                                  'Paid',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               DropdownMenuItem(
                                 value: 'Pending',
-                                child: Text('Pending'),
+                                child: Text(
+                                  'Pending',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                             onChanged: (value) {
@@ -1851,30 +1865,128 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                   return matchesSearch && matchesStatus;
                                 }).toList();
 
-                                return SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  physics: const BouncingScrollPhysics(),
-                                  child: SizedBox(
-                                    width: tableWidth,
-                                    child: ListView.separated(
-                                      padding: const EdgeInsets.all(16),
-                                      itemCount: filteredEmployees.length + 1,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      shrinkWrap: true,
-                                      separatorBuilder: (_, __) =>
-                                          const Divider(height: 24),
-                                      itemBuilder: (context, index) {
-                                        if (index == 0) {
-                                          return const Row(
+                                return RawScrollbar(
+                                  controller:
+                                      payrollReviewTableScrollController,
+                                  thumbVisibility: true,
+                                  trackVisibility: true,
+                                  thickness: 4,
+                                  radius: const Radius.circular(10),
+                                  thumbColor: AppColors.starColor
+                                      .withValues(alpha: 0.72),
+                                  trackColor: const Color(0xFFFFF3D5),
+                                  trackBorderColor: const Color(0xFFE8C774),
+                                  scrollbarOrientation:
+                                      ScrollbarOrientation.bottom,
+                                  child: SingleChildScrollView(
+                                    controller:
+                                        payrollReviewTableScrollController,
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const BouncingScrollPhysics(),
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: SizedBox(
+                                      width: tableWidth,
+                                      child: ListView.separated(
+                                        padding: const EdgeInsets.all(16),
+                                        itemCount: filteredEmployees.length + 1,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        shrinkWrap: true,
+                                        separatorBuilder: (_, __) =>
+                                            const Divider(height: 24),
+                                        itemBuilder: (context, index) {
+                                          if (index == 0) {
+                                            return const Row(
+                                              children: [
+                                                Expanded(
+                                                  flex: 3,
+                                                  child: Text(
+                                                    'Employee',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Color(0xFF6B7280),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    'Role',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Color(0xFF6B7280),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    'Net Payable (₹)',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Color(0xFF6B7280),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    'Status',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Color(0xFF6B7280),
+                                                    ),
+                                                  ),
+                                                ),
+                                                SizedBox(
+                                                  width: 96,
+                                                  child: Text(
+                                                    'Action',
+                                                    textAlign: TextAlign.right,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Color(0xFF6B7280),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          }
+
+                                          final employee =
+                                              filteredEmployees[index - 1];
+                                          final status = employee.statusLabel;
+                                          return Row(
                                             children: [
                                               Expanded(
                                                 flex: 3,
                                                 child: Text(
-                                                  'Employee',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
+                                                  employee.userName,
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
                                                     fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF1C1917),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  employee.role.isEmpty
+                                                      ? 'Team Member'
+                                                      : employee.role,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
                                                     color: Color(0xFF6B7280),
                                                   ),
                                                 ),
@@ -1882,134 +1994,87 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                               Expanded(
                                                 flex: 2,
                                                 child: Text(
-                                                  'Role',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
+                                                  _formatCurrency(
+                                                    employee.netPayableMinor,
+                                                  ),
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
                                                     fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF6B7280),
                                                   ),
                                                 ),
                                               ),
                                               Expanded(
                                                 flex: 2,
-                                                child: Text(
-                                                  'Net Payable (₹)',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF6B7280),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Text(
-                                                  'Status',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF6B7280),
+                                                child: Align(
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: _StatusPill(
+                                                    label: status,
+                                                    color: _statusColor(status),
                                                   ),
                                                 ),
                                               ),
                                               SizedBox(
                                                 width: 96,
-                                                child: Text(
-                                                  'Action',
-                                                  textAlign: TextAlign.right,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF6B7280),
+                                                child: Align(
+                                                  alignment: Alignment.center,
+                                                  child: OutlinedButton(
+                                                    onPressed: () async {
+                                                      final updated =
+                                                          await _openEmployeeReview(
+                                                        run: currentRun,
+                                                        employee: employee,
+                                                      );
+                                                      if (updated != null &&
+                                                          context.mounted &&
+                                                          screenContext
+                                                              .mounted) {
+                                                        await refreshRun(
+                                                            updated);
+                                                        if (context.mounted) {
+                                                          setSheetState(
+                                                            () => currentRun =
+                                                                updated,
+                                                          );
+                                                        }
+                                                      }
+                                                    },
+                                                    style: OutlinedButton
+                                                        .styleFrom(
+                                                      foregroundColor:
+                                                          AppColors.starColor,
+                                                      side: BorderSide(
+                                                        color:
+                                                            AppColors.starColor,
+                                                      ),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 16,
+                                                        vertical: 10,
+                                                      ),
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
+                                                      ),
+                                                      textStyle:
+                                                          const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      'View',
+                                                    ),
                                                   ),
                                                 ),
                                               ),
                                             ],
                                           );
-                                        }
-
-                                        final employee =
-                                            filteredEmployees[index - 1];
-                                        final status = employee.statusLabel;
-                                        return Row(
-                                          children: [
-                                            Expanded(
-                                              flex: 3,
-                                              child: Text(
-                                                employee.userName,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF1C1917),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Text(
-                                                employee.role.isEmpty
-                                                    ? 'Team Member'
-                                                    : employee.role,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color: Color(0xFF6B7280),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Text(
-                                                _formatCurrency(
-                                                  employee.netPayableMinor,
-                                                ),
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Align(
-                                                alignment: Alignment.centerLeft,
-                                                child: _StatusPill(
-                                                  label: status,
-                                                  color: _statusColor(status),
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width: 96,
-                                              child: Align(
-                                                alignment: Alignment.center,
-                                                child: OutlinedButton(
-                                                  onPressed: () async {
-                                                    final updated =
-                                                        await _openEmployeeReview(
-                                                      run: currentRun,
-                                                      employee: employee,
-                                                    );
-                                                    if (updated != null &&
-                                                        screenContext.mounted) {
-                                                      await refreshRun(updated);
-                                                      setSheetState(
-                                                        () => currentRun =
-                                                            updated,
-                                                      );
-                                                    }
-                                                  },
-                                                  child: Text(
-                                                    status.toLowerCase() ==
-                                                            'paid'
-                                                        ? 'View'
-                                                        : 'Review',
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
+                                        },
+                                      ),
                                     ),
                                   ),
                                 );
@@ -2024,6 +2089,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         },
       ),
     );
+    payrollReviewTableScrollController.dispose();
     if (mounted) {
       setState(() => _openingPayrollReviewRunId = null);
     }
@@ -2050,6 +2116,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         payrollEmployeeId: employee.payrollEmployeeId > 0
             ? employee.payrollEmployeeId
             : employee.userId,
+        fallbackRun: run,
       );
       employee =
           run.employees.firstWhere((item) => item.userId == employee.userId);
@@ -2058,6 +2125,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         'load_employee_adjustments_failed',
         details: _errorText(error),
       );
+      _showToast(_errorText(error), isError: true);
+      return null;
     }
 
     PayrollRunRecord currentRun = run;
@@ -2065,889 +2134,741 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     final paymentModeController = TextEditingController(text: 'Bank Transfer');
     final paymentReferenceController = TextEditingController();
     final paymentNotesController = TextEditingController();
-    final adjustmentAmountController = TextEditingController();
-    final adjustmentRemarksController = TextEditingController();
+    final paySummaryScrollController = ScrollController();
     DateTime paymentDate = DateTime.now();
-    String adjustmentType = AdjustmentTypes.addition;
 
     if (!mounted) {
       return null;
     }
 
-    final result = await showGeneralDialog<PayrollRunRecord>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Payroll employee review',
-      barrierColor: Colors.black.withValues(alpha: 0.35),
-      pageBuilder: (_, __, ___) {
-        return const SizedBox.shrink();
-      },
-      transitionDuration: const Duration(milliseconds: 220),
-      transitionBuilder: (dialogContext, animation, _, __) {
-        bool isBusy = false;
+    final result = await Navigator.of(context).push<PayrollRunRecord>(
+      MaterialPageRoute<PayrollRunRecord>(
+        builder: (screenContext) {
+          bool isBusy = false;
 
-        Future<void> refreshEmployee(PayrollRunRecord updatedRun) async {
-          currentRun = updatedRun;
-          currentEmployee = updatedRun.employees.firstWhere(
-            (item) => item.userId == employee.userId,
-          );
-          await _loadPayrollData(branchId);
-        }
+          Future<void> refreshEmployee(PayrollRunRecord updatedRun) async {
+            currentRun = updatedRun;
+            currentEmployee = updatedRun.employees.firstWhere(
+              (item) => item.userId == employee.userId,
+            );
+            await _loadPayrollData(branchId);
+          }
 
-        return StatefulBuilder(
-          builder: (sheetContext, setSheetState) {
-            Future<void> addAdjustmentInline() async {
-              if (isBusy) {
-                return;
-              }
-              final amount =
-                  int.tryParse(adjustmentAmountController.text.trim()) ?? 0;
-              if (amount <= 0) {
-                _showToast('Enter a valid amount', isError: true);
-                return;
-              }
-              if (adjustmentRemarksController.text.trim().isEmpty) {
-                _showToast('Remarks are required', isError: true);
-                return;
-              }
-              final adjustment = PayrollAdjustmentRecord(
-                id: '',
-                payrollEmployeeId: currentEmployee.payrollEmployeeId > 0
-                    ? currentEmployee.payrollEmployeeId
-                    : currentEmployee.userId,
-                type: adjustmentType,
-                amountMinor: rupeesToMinorAmount(amount),
-                remarks: adjustmentRemarksController.text.trim(),
-                createdAt: DateTime.now(),
-              );
-              setSheetState(() => isBusy = true);
-              try {
-                _logCompensation(
-                  'add_adjustment_started',
-                  details:
-                      'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, type=$adjustmentType',
-                );
-                final updated = await _repository.addEmployeeAdjustment(
-                  branchId: branchId,
-                  runId: currentRun.id,
-                  userId: currentEmployee.userId,
-                  adjustment: adjustment,
-                );
-                await refreshEmployee(updated);
-                if (sheetContext.mounted) {
-                  setSheetState(() {});
+          return StatefulBuilder(
+            builder: (sheetContext, setSheetState) {
+              Future<void> addAdjustmentDialog(String type) async {
+                if (isBusy) {
+                  return;
                 }
-                adjustmentAmountController.clear();
-                adjustmentRemarksController.clear();
-                _logCompensation(
-                  'add_adjustment_success',
-                  details:
-                      'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, type=$adjustmentType',
-                );
-                _showToast('Adjustment saved successfully');
-              } catch (error) {
-                _logCompensation(
-                  'add_adjustment_failed',
-                  details: _errorText(error),
-                );
-                _showToast(_errorText(error), isError: true);
-              } finally {
-                if (sheetContext.mounted) {
-                  setSheetState(() => isBusy = false);
-                }
-              }
-            }
-
-            Future<void> editAdjustment(
-              PayrollAdjustmentRecord existing,
-            ) async {
-              if (isBusy) {
-                return;
-              }
-              final updatedAdjustment = await _showAdjustmentDialog(
-                existing.type,
-                payrollEmployeeId: existing.payrollEmployeeId,
-                initialAdjustment: existing,
-                onSubmit: (updatedAdjustment) async {
-                  setSheetState(() => isBusy = true);
-                  try {
-                    _logCompensation(
-                      'edit_adjustment_started',
-                      details:
-                          'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
-                    );
-                    final updated = await _repository.updateEmployeeAdjustment(
-                      branchId: branchId,
-                      runId: currentRun.id,
-                      userId: currentEmployee.userId,
-                      adjustment: updatedAdjustment,
-                    );
-                    await refreshEmployee(updated);
-                    if (sheetContext.mounted) {
-                      setSheetState(() {});
-                    }
-                    _logCompensation(
-                      'edit_adjustment_success',
-                      details:
-                          'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
-                    );
-                    _showToast('Adjustment updated successfully');
-                  } catch (error) {
-                    _logCompensation(
-                      'edit_adjustment_failed',
-                      details: _errorText(error),
-                    );
-                    _showToast(_errorText(error), isError: true);
-                    rethrow;
-                  } finally {
-                    if (sheetContext.mounted) {
-                      setSheetState(() => isBusy = false);
-                    }
-                  }
-                },
-              );
-              if (updatedAdjustment == null) {
-                _logCompensation(
-                  'edit_adjustment_cancelled',
-                  details:
-                      'id=${existing.id}, userId=${currentEmployee.userId}',
-                );
-                return;
-              }
-            }
-
-            Future<void> deleteAdjustment(
-              PayrollAdjustmentRecord existing,
-            ) async {
-              if (isBusy) {
-                return;
-              }
-              final deleted = await showDialog<bool>(
-                context: sheetContext,
-                builder: (context) {
-                  bool isDeleting = false;
-                  return StatefulBuilder(
-                    builder: (dialogContext, setDialogState) {
-                      Future<void> confirmDelete() async {
-                        if (isDeleting) {
-                          return;
-                        }
-                        setDialogState(() => isDeleting = true);
-                        setSheetState(() => isBusy = true);
-                        try {
-                          _logCompensation(
-                            'delete_adjustment_started',
-                            details:
-                                'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
-                          );
-                          final updated =
-                              await _repository.deleteEmployeeAdjustment(
-                            branchId: branchId,
-                            runId: currentRun.id,
-                            userId: currentEmployee.userId,
-                            adjustment: existing,
-                          );
-                          await refreshEmployee(updated);
-                          if (sheetContext.mounted) {
-                            setSheetState(() {});
-                          }
-                          _logCompensation(
-                            'delete_adjustment_success',
-                            details:
-                                'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
-                          );
-                          _showToast('Adjustment deleted successfully');
-                          if (dialogContext.mounted) {
-                            Navigator.pop(dialogContext, true);
-                          }
-                        } catch (error) {
-                          _logCompensation(
-                            'delete_adjustment_failed',
-                            details: _errorText(error),
-                          );
-                          _showToast(_errorText(error), isError: true);
-                          if (dialogContext.mounted) {
-                            setDialogState(() => isDeleting = false);
-                          }
-                        } finally {
-                          if (sheetContext.mounted) {
-                            setSheetState(() => isBusy = false);
-                          }
-                        }
+                await _showAdjustmentDialog(
+                  type,
+                  payrollEmployeeId: currentEmployee.payrollEmployeeId > 0
+                      ? currentEmployee.payrollEmployeeId
+                      : currentEmployee.userId,
+                  onSubmit: (adjustment) async {
+                    setSheetState(() => isBusy = true);
+                    try {
+                      _logCompensation(
+                        'add_adjustment_started',
+                        details:
+                            'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, type=$type',
+                      );
+                      final updated = await _repository.addEmployeeAdjustment(
+                        branchId: branchId,
+                        runId: currentRun.id,
+                        userId: currentEmployee.userId,
+                        adjustment: adjustment,
+                      );
+                      await refreshEmployee(updated);
+                      if (sheetContext.mounted) {
+                        setSheetState(() {});
                       }
+                      _logCompensation(
+                        'add_adjustment_success',
+                        details:
+                            'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, type=$type',
+                      );
+                      _showToast('Adjustment saved successfully');
+                    } catch (error) {
+                      _logCompensation(
+                        'add_adjustment_failed',
+                        details: _errorText(error),
+                      );
+                      _showToast(_errorText(error), isError: true);
+                      rethrow;
+                    } finally {
+                      if (sheetContext.mounted) {
+                        setSheetState(() => isBusy = false);
+                      }
+                    }
+                  },
+                );
+              }
 
-                      return AlertDialog(
-                        title: const Text('Delete adjustment'),
-                        content: const Text(
-                          'This will remove the adjustment from payroll calculations.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: isDeleting
-                                ? null
-                                : () => Navigator.pop(dialogContext, false),
-                            child: const Text('Cancel'),
+              Future<void> editAdjustment(
+                PayrollAdjustmentRecord existing,
+              ) async {
+                if (isBusy) {
+                  return;
+                }
+                final updatedAdjustment = await _showAdjustmentDialog(
+                  existing.type,
+                  payrollEmployeeId: existing.payrollEmployeeId,
+                  initialAdjustment: existing,
+                  onSubmit: (updatedAdjustment) async {
+                    setSheetState(() => isBusy = true);
+                    try {
+                      _logCompensation(
+                        'edit_adjustment_started',
+                        details:
+                            'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
+                      );
+                      final updated =
+                          await _repository.updateEmployeeAdjustment(
+                        branchId: branchId,
+                        runId: currentRun.id,
+                        userId: currentEmployee.userId,
+                        adjustment: updatedAdjustment,
+                      );
+                      await refreshEmployee(updated);
+                      if (sheetContext.mounted) {
+                        setSheetState(() {});
+                      }
+                      _logCompensation(
+                        'edit_adjustment_success',
+                        details:
+                            'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
+                      );
+                      _showToast('Adjustment updated successfully');
+                    } catch (error) {
+                      _logCompensation(
+                        'edit_adjustment_failed',
+                        details: _errorText(error),
+                      );
+                      _showToast(_errorText(error), isError: true);
+                      rethrow;
+                    } finally {
+                      if (sheetContext.mounted) {
+                        setSheetState(() => isBusy = false);
+                      }
+                    }
+                  },
+                );
+                if (updatedAdjustment == null) {
+                  _logCompensation(
+                    'edit_adjustment_cancelled',
+                    details:
+                        'id=${existing.id}, userId=${currentEmployee.userId}',
+                  );
+                  return;
+                }
+              }
+
+              Future<void> deleteAdjustment(
+                PayrollAdjustmentRecord existing,
+              ) async {
+                if (isBusy) {
+                  return;
+                }
+                final deleted = await showDialog<bool>(
+                  context: sheetContext,
+                  builder: (context) {
+                    bool isDeleting = false;
+                    return StatefulBuilder(
+                      builder: (dialogContext, setDialogState) {
+                        Future<void> confirmDelete() async {
+                          if (isDeleting) {
+                            return;
+                          }
+                          setDialogState(() => isDeleting = true);
+                          setSheetState(() => isBusy = true);
+                          try {
+                            _logCompensation(
+                              'delete_adjustment_started',
+                              details:
+                                  'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
+                            );
+                            final updated =
+                                await _repository.deleteEmployeeAdjustment(
+                              branchId: branchId,
+                              runId: currentRun.id,
+                              userId: currentEmployee.userId,
+                              adjustment: existing,
+                            );
+                            await refreshEmployee(updated);
+                            if (sheetContext.mounted) {
+                              setSheetState(() {});
+                            }
+                            _logCompensation(
+                              'delete_adjustment_success',
+                              details:
+                                  'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
+                            );
+                            _showToast('Adjustment deleted successfully');
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext, true);
+                            }
+                          } catch (error) {
+                            _logCompensation(
+                              'delete_adjustment_failed',
+                              details: _errorText(error),
+                            );
+                            _showToast(_errorText(error), isError: true);
+                            if (dialogContext.mounted) {
+                              setDialogState(() => isDeleting = false);
+                            }
+                          } finally {
+                            if (sheetContext.mounted) {
+                              setSheetState(() => isBusy = false);
+                            }
+                          }
+                        }
+
+                        return AlertDialog(
+                          title: const Text('Delete adjustment'),
+                          content: const Text(
+                            'This will remove the adjustment from payroll calculations.',
                           ),
-                          ElevatedButton(
-                            onPressed: confirmDelete,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFB02A37),
-                              foregroundColor: Colors.white,
+                          actions: [
+                            TextButton(
+                              onPressed: isDeleting
+                                  ? null
+                                  : () => Navigator.pop(dialogContext, false),
+                              child: const Text('Cancel'),
                             ),
-                            child: isDeleting
-                                ? const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                            Colors.white,
+                            ElevatedButton(
+                              onPressed: confirmDelete,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFB02A37),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: isDeleting
+                                  ? const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text('Deleting...'),
-                                    ],
-                                  )
-                                : const Text('Delete'),
-                          ),
-                        ],
-                      );
-                    },
+                                        SizedBox(width: 8),
+                                        Text('Deleting...'),
+                                      ],
+                                    )
+                                  : const Text('Delete'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                );
+                if (deleted != true) {
+                  _logCompensation(
+                    'delete_adjustment_cancelled',
+                    details:
+                        'id=${existing.id}, userId=${currentEmployee.userId}',
                   );
-                },
-              );
-              if (deleted != true) {
-                _logCompensation(
-                  'delete_adjustment_cancelled',
-                  details:
-                      'id=${existing.id}, userId=${currentEmployee.userId}',
-                );
-                return;
-              }
-            }
-
-            Future<void> recordEmployeePayment() async {
-              if (isBusy) {
-                return;
-              }
-              if (paymentModeController.text.trim().isEmpty) {
-                _showToast('Payment method is required', isError: true);
-                return;
-              }
-              setSheetState(() => isBusy = true);
-              try {
-                _logCompensation(
-                  'record_employee_payment_started',
-                  details:
-                      'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}',
-                );
-                final updated = await _repository.recordEmployeePayment(
-                  branchId: branchId,
-                  runId: currentRun.id,
-                  userId: currentEmployee.userId,
-                  payment: PaymentRecord(
-                    mode: paymentModeController.text.trim(),
-                    reference: paymentReferenceController.text.trim(),
-                    paidDate: paymentDate,
-                    notes: paymentNotesController.text.trim(),
-                  ),
-                );
-                await refreshEmployee(updated);
-                if (sheetContext.mounted) {
-                  setSheetState(() {});
-                }
-                _logCompensation(
-                  'record_employee_payment_success',
-                  details:
-                      'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}',
-                );
-                _showToast('Employee payment recorded successfully');
-              } catch (error) {
-                _logCompensation(
-                  'record_employee_payment_failed',
-                  details: _errorText(error),
-                );
-                _showToast(_errorText(error), isError: true);
-              } finally {
-                if (sheetContext.mounted) {
-                  setSheetState(() => isBusy = false);
+                  return;
                 }
               }
-            }
 
-            final status = currentEmployee.statusLabel;
-            final isPaid = status.toLowerCase() == 'paid';
-            final panelWidth = MediaQuery.of(dialogContext).size.width >= 900
-                ? 420.0
-                : MediaQuery.of(dialogContext).size.width * 0.92;
+              Future<bool> recordEmployeePayment() async {
+                if (isBusy) {
+                  return false;
+                }
+                if (paymentModeController.text.trim().isEmpty) {
+                  _showToast('Payment method is required', isError: true);
+                  return false;
+                }
+                if (paymentReferenceController.text.trim().isEmpty) {
+                  _showToast(
+                    'Reference / Transaction ID is required',
+                    isError: true,
+                  );
+                  return false;
+                }
+                if (paymentNotesController.text.trim().isEmpty) {
+                  _showToast('Notes are required', isError: true);
+                  return false;
+                }
+                setSheetState(() => isBusy = true);
+                try {
+                  _logCompensation(
+                    'record_employee_payment_started',
+                    details:
+                        'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}',
+                  );
+                  final updated = await _repository.refreshEmployeeAdjustments(
+                    branchId: branchId,
+                    runId: currentRun.id,
+                    userId: currentEmployee.userId,
+                    payrollEmployeeId: currentEmployee.payrollEmployeeId > 0
+                        ? currentEmployee.payrollEmployeeId
+                        : currentEmployee.userId,
+                    fallbackRun: currentRun,
+                  );
+                  await refreshEmployee(updated);
+                  if (sheetContext.mounted) {
+                    setSheetState(() {});
+                  }
+                  final refreshedEmployee = updated.employees.firstWhere(
+                    (item) => item.userId == currentEmployee.userId,
+                    orElse: () => currentEmployee,
+                  );
+                  final refreshedStatus =
+                      refreshedEmployee.statusLabel.toLowerCase();
+                  final paymentConfirmed = refreshedEmployee.payment != null ||
+                      refreshedStatus.contains('paid') ||
+                      (refreshedEmployee.backendStatus ?? '')
+                          .trim()
+                          .toLowerCase()
+                          .contains('paid');
+                  _logCompensation(
+                    paymentConfirmed
+                        ? 'record_employee_payment_success'
+                        : 'record_employee_payment_not_confirmed',
+                    details:
+                        'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}',
+                  );
+                  _showToast(
+                    paymentConfirmed
+                        ? 'Employee payment recorded successfully'
+                        : 'Payment status was not updated by the API yet.',
+                    isError: !paymentConfirmed,
+                  );
+                  return paymentConfirmed;
+                } catch (error) {
+                  _logCompensation(
+                    'record_employee_payment_failed',
+                    details: _errorText(error),
+                  );
+                  _showToast(_errorText(error), isError: true);
+                  return false;
+                } finally {
+                  if (sheetContext.mounted) {
+                    setSheetState(() => isBusy = false);
+                  }
+                }
+              }
 
-            final panel = DefaultTabController(
-              length: isPaid ? 1 : 2,
-              child: Material(
-                color: Colors.white,
-                child: SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    currentEmployee.userName,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF1C1917),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    currentEmployee.role.isEmpty
-                                        ? 'Team Member'
-                                        : currentEmployee.role,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ],
-                              ),
+              Future<void> openRecordPaymentDialog() async {
+                if (isBusy) {
+                  return;
+                }
+
+                final formKey = GlobalKey<FormState>();
+                final referenceController = TextEditingController(
+                  text: paymentReferenceController.text,
+                );
+                final notesController = TextEditingController(
+                  text: paymentNotesController.text,
+                );
+                var selectedMode = paymentModeController.text.trim().isEmpty
+                    ? 'Bank Transfer'
+                    : paymentModeController.text.trim();
+                var selectedDate = paymentDate;
+                var isSavingPayment = false;
+                var hasSubmittedPayment = false;
+
+                try {
+                  await showDialog<void>(
+                    context: sheetContext,
+                    barrierDismissible: false,
+                    builder: (dialogContext) {
+                      return StatefulBuilder(
+                        builder: (dialogContext, setDialogState) {
+                          Future<void> submitPayment() async {
+                            if (isSavingPayment) {
+                              return;
+                            }
+                            setDialogState(() => hasSubmittedPayment = true);
+                            if (!(formKey.currentState?.validate() ?? false)) {
+                              return;
+                            }
+                            paymentModeController.text = selectedMode;
+                            paymentReferenceController.text =
+                                referenceController.text.trim();
+                            paymentNotesController.text =
+                                notesController.text.trim();
+                            paymentDate = selectedDate;
+                            setDialogState(() => isSavingPayment = true);
+                            final saved = await recordEmployeePayment();
+                            if (!dialogContext.mounted) {
+                              return;
+                            }
+                            if (saved) {
+                              Navigator.pop(dialogContext);
+                            } else {
+                              setDialogState(() => isSavingPayment = false);
+                            }
+                          }
+
+                          return Dialog(
+                            insetPadding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 24,
                             ),
-                            IconButton(
-                              onPressed: () {
-                                Navigator.pop(sheetContext, currentRun);
-                              },
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                color: Color(0xFF6B7280),
-                              ),
+                            backgroundColor: Colors.white,
+                            surfaceTintColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      if (!isPaid)
-                        const TabBar(
-                          labelColor: Color(0xFFB45309),
-                          unselectedLabelColor: Color(0xFF6B7280),
-                          indicatorColor: Color(0xFFB45309),
-                          tabs: [
-                            Tab(text: 'Pay Summary'),
-                            Tab(text: 'Deductions & Additions'),
-                          ],
-                        )
-                      else
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Center(
-                                  child: Text(
-                                    'Pay Summary',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFFB45309),
-                                    ),
-                                  ),
-                                ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: 560,
+                                maxHeight:
+                                    MediaQuery.sizeOf(dialogContext).height *
+                                        0.86,
                               ),
-                            ],
-                          ),
-                        ),
-                      Expanded(
-                        child: TabBarView(
-                          physics: isPaid
-                              ? const NeverScrollableScrollPhysics()
-                              : null,
-                          children: [
-                            SingleChildScrollView(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(14),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: const Color(0xFFE5E7EB),
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
+                              child: SingleChildScrollView(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(18),
+                                  child: Form(
+                                    key: formKey,
+                                    autovalidateMode: hasSubmittedPayment
+                                        ? AutovalidateMode.onUserInteraction
+                                        : AutovalidateMode.disabled,
                                     child: Column(
+                                      mainAxisSize: MainAxisSize.min,
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Row(
+                                        Row(
                                           children: [
-                                            Expanded(
+                                            const Expanded(
                                               child: Text(
-                                                'Pay Breakdown',
+                                                'Record Payment',
                                                 style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Color(0xFF111827),
                                                 ),
                                               ),
                                             ),
-                                            Text(
-                                              'Amount (₹)',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Color(0xFF6B7280),
-                                              ),
+                                            IconButton(
+                                              onPressed: isSavingPayment
+                                                  ? null
+                                                  : () => Navigator.pop(
+                                                        dialogContext,
+                                                      ),
+                                              icon: const Icon(Icons.close),
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 14),
-                                        _SummaryLine(
-                                          label: 'Base Salary',
-                                          value: _formatSalaryRupees(
-                                            currentEmployee.salaryMinor,
-                                          ),
-                                        ),
-                                        _SummaryLine(
-                                          label:
-                                              'Commission (${currentEmployee.commissionPercent.toStringAsFixed(0)}%)',
-                                          value: _formatCurrency(
-                                            currentEmployee
-                                                .commissionAmountMinor,
-                                          ),
-                                        ),
-                                        _SummaryLine(
-                                          label: 'Gross Pay',
-                                          value: _formatCurrency(
-                                            currentEmployee.grossPayMinor,
-                                          ),
-                                        ),
-                                        _SummaryLine(
-                                          label: 'Additions',
-                                          value: _formatCurrency(
-                                            currentEmployee
-                                                .additionsDisplayMinor,
-                                          ),
-                                        ),
-                                        _SummaryLine(
-                                          label: 'Advances',
-                                          value: _formatCurrency(
-                                            currentEmployee
-                                                .advancesDisplayMinor,
-                                          ),
-                                        ),
-                                        _SummaryLine(
-                                          label: 'Deductions',
-                                          value: _formatCurrency(
-                                            currentEmployee
-                                                .deductionsDisplayMinor,
-                                          ),
-                                        ),
-                                        Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 12,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFFF7ED),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              const Expanded(
-                                                child: Text(
-                                                  'Net Payable',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFFB45309),
+                                        const SizedBox(height: 12),
+                                        LayoutBuilder(
+                                          builder: (context, constraints) {
+                                            final compact =
+                                                constraints.maxWidth < 440;
+                                            final methodField =
+                                                DropdownButtonFormField<String>(
+                                              initialValue: selectedMode,
+                                              isExpanded: true,
+                                              menuMaxHeight: 220,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              decoration: InputDecoration(
+                                                labelText: 'Payment Method *',
+                                                filled: true,
+                                                fillColor:
+                                                    const Color(0xFFFCFAF8),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                              ),
+                                              items: const [
+                                                DropdownMenuItem(
+                                                  value: 'Bank Transfer',
+                                                  child: Text(
+                                                    'Bank Transfer',
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
-                                              ),
-                                              Text(
-                                                _formatCurrency(
-                                                  currentEmployee
-                                                      .netPayableMinor,
+                                                DropdownMenuItem(
+                                                  value: 'Cash',
+                                                  child: Text(
+                                                    'Cash',
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
                                                 ),
-                                                style: const TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFFB45309),
+                                                DropdownMenuItem(
+                                                  value: 'UPI',
+                                                  child: Text(
+                                                    'UPI',
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                              validator: (value) => (value ??
+                                                          '')
+                                                      .trim()
+                                                      .isEmpty
+                                                  ? 'Payment method is required'
+                                                  : null,
+                                              onChanged: isSavingPayment
+                                                  ? null
+                                                  : (value) {
+                                                      if (value != null) {
+                                                        setDialogState(
+                                                          () => selectedMode =
+                                                              value,
+                                                        );
+                                                        if (hasSubmittedPayment) {
+                                                          formKey.currentState
+                                                              ?.validate();
+                                                        }
+                                                      }
+                                                    },
+                                            );
+                                            final referenceField =
+                                                _LabeledTextField(
+                                              label:
+                                                  'Reference / Transaction ID *',
+                                              controller: referenceController,
+                                              enabled: !isSavingPayment,
+                                              maxLength: 120,
+                                              onChanged: (_) {
+                                                setDialogState(() {});
+                                                if (hasSubmittedPayment) {
+                                                  formKey.currentState
+                                                      ?.validate();
+                                                }
+                                              },
+                                              validator: (value) => (value
+                                                              ?.trim() ??
+                                                          '')
+                                                      .isEmpty
+                                                  ? 'Reference / Transaction ID is required'
+                                                  : null,
+                                            );
+                                            final dateField = _DateFieldButton(
+                                              label: 'Paid On *',
+                                              value: selectedDate,
+                                              onTap: isSavingPayment
+                                                  ? () {}
+                                                  : () async {
+                                                      final picked =
+                                                          await showDatePicker(
+                                                        context: dialogContext,
+                                                        initialDate:
+                                                            selectedDate,
+                                                        firstDate:
+                                                            DateTime(2022),
+                                                        lastDate:
+                                                            DateTime(2100),
+                                                        builder:
+                                                            (context, child) {
+                                                          return Theme(
+                                                            data: Theme.of(
+                                                              context,
+                                                            ).copyWith(
+                                                              colorScheme: Theme
+                                                                      .of(
+                                                                context,
+                                                              )
+                                                                  .colorScheme
+                                                                  .copyWith(
+                                                                    primary:
+                                                                        AppColors
+                                                                            .starColor,
+                                                                  ),
+                                                            ),
+                                                            child: child!,
+                                                          );
+                                                        },
+                                                      );
+                                                      if (picked != null) {
+                                                        setDialogState(
+                                                          () => selectedDate =
+                                                              picked,
+                                                        );
+                                                      }
+                                                    },
+                                            );
+                                            final notesField =
+                                                _LabeledTextField(
+                                              label: 'Notes *',
+                                              controller: notesController,
+                                              enabled: !isSavingPayment,
+                                              maxLines: 1,
+                                              maxLength: 120,
+                                              onChanged: (_) {
+                                                setDialogState(() {});
+                                                if (hasSubmittedPayment) {
+                                                  formKey.currentState
+                                                      ?.validate();
+                                                }
+                                              },
+                                              validator: (value) =>
+                                                  (value?.trim() ?? '').isEmpty
+                                                      ? 'Notes are required'
+                                                      : null,
+                                            );
+
+                                            if (compact) {
+                                              return Column(
+                                                children: [
+                                                  methodField,
+                                                  const SizedBox(height: 12),
+                                                  referenceField,
+                                                  const SizedBox(height: 12),
+                                                  dateField,
+                                                  const SizedBox(height: 12),
+                                                  notesField,
+                                                ],
+                                              );
+                                            }
+
+                                            return Column(
+                                              children: [
+                                                Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Expanded(
+                                                        child: methodField),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: referenceField,
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Expanded(child: dateField),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(child: notesField),
+                                                  ],
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            OutlinedButton(
+                                              onPressed: isSavingPayment
+                                                  ? null
+                                                  : () => Navigator.pop(
+                                                        dialogContext,
+                                                      ),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor:
+                                                    AppColors.starColor,
+                                                side: BorderSide(
+                                                  color: AppColors.starColor,
                                                 ),
                                               ),
-                                            ],
-                                          ),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            ElevatedButton(
+                                              onPressed: isSavingPayment
+                                                  ? null
+                                                  : submitPayment,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    AppColors.starColor,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              child: isSavingPayment
+                                                  ? const Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        SizedBox(
+                                                          width: 16,
+                                                          height: 16,
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            valueColor:
+                                                                AlwaysStoppedAnimation<
+                                                                    Color>(
+                                                              Colors.white,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        SizedBox(width: 8),
+                                                        Text('Saving...'),
+                                                      ],
+                                                    )
+                                                  : const Text('Save Payment'),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
                                   ),
-                                  if (!isPaid) ...[
-                                    const SizedBox(height: 12),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: const Color(0xFFE5E7EB),
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Record Payment',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          DropdownButtonFormField<String>(
-                                            initialValue:
-                                                paymentModeController.text,
-                                            decoration: const InputDecoration(
-                                              labelText: 'Payment Method',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            items: const [
-                                              DropdownMenuItem(
-                                                value: 'Bank Transfer',
-                                                child: Text('Bank Transfer'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: 'Cash',
-                                                child: Text('Cash'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: 'UPI',
-                                                child: Text('UPI'),
-                                              ),
-                                            ],
-                                            onChanged: isBusy
-                                                ? null
-                                                : (value) {
-                                                    if (value != null) {
-                                                      paymentModeController
-                                                          .text = value;
-                                                    }
-                                                  },
-                                          ),
-                                          const SizedBox(height: 10),
-                                          _LabeledTextField(
-                                            label: 'Reference / Transaction ID',
-                                            controller:
-                                                paymentReferenceController,
-                                            enabled: !isBusy,
-                                          ),
-                                          const SizedBox(height: 10),
-                                          _DateFieldButton(
-                                            label: 'Paid On',
-                                            value: paymentDate,
-                                            onTap: isBusy
-                                                ? () {}
-                                                : () async {
-                                                    final picked =
-                                                        await showDatePicker(
-                                                      context: sheetContext,
-                                                      initialDate: paymentDate,
-                                                      firstDate: DateTime(2022),
-                                                      lastDate: DateTime(2100),
-                                                    );
-                                                    if (picked != null) {
-                                                      setSheetState(() =>
-                                                          paymentDate = picked);
-                                                    }
-                                                  },
-                                          ),
-                                          const SizedBox(height: 10),
-                                          _LabeledTextField(
-                                            label: 'Notes (Optional)',
-                                            controller: paymentNotesController,
-                                            enabled: !isBusy,
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: OutlinedButton(
-                                                  onPressed: () {
-                                                    Navigator.pop(
-                                                      sheetContext,
-                                                      currentRun,
-                                                    );
-                                                  },
-                                                  child: const Text('Cancel'),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: ElevatedButton(
-                                                  onPressed: isBusy
-                                                      ? null
-                                                      : recordEmployeePayment,
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        AppColors.starColor,
-                                                    foregroundColor:
-                                                        Colors.white,
-                                                  ),
-                                                  child: Text(
-                                                    isBusy
-                                                        ? 'Saving...'
-                                                        : 'Save Payment',
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            if (!isPaid)
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    DropdownButtonFormField<String>(
-                                      initialValue: adjustmentType,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Type',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: AdjustmentTypes.addition,
-                                          child: Text('Addition'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: AdjustmentTypes.deduction,
-                                          child: Text('Deduction'),
-                                        ),
-                                      ],
-                                      onChanged: isBusy
-                                          ? null
-                                          : (value) {
-                                              if (value != null) {
-                                                setSheetState(() =>
-                                                    adjustmentType = value);
-                                              }
-                                            },
-                                    ),
-                                    const SizedBox(height: 12),
-                                    _LabeledTextField(
-                                      label: 'Amount',
-                                      controller: adjustmentAmountController,
-                                      enabled: !isBusy,
-                                      keyboardType: TextInputType.number,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    _LabeledTextField(
-                                      label: 'Remarks',
-                                      controller: adjustmentRemarksController,
-                                      enabled: !isBusy,
-                                      maxLines: 1,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton(
-                                        onPressed:
-                                            isBusy ? null : addAdjustmentInline,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.starColor,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        child: isBusy
-                                            ? const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  SizedBox(
-                                                    width: 16,
-                                                    height: 16,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      valueColor:
-                                                          AlwaysStoppedAnimation<
-                                                                  Color>(
-                                                              Colors.white),
-                                                    ),
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  Text('Saving...'),
-                                                ],
-                                              )
-                                            : const Text('Save Adjustment'),
-                                      ),
-                                    ),
-                                    if (currentEmployee.adjustments.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 16),
-                                        child: ListView.separated(
-                                          shrinkWrap: true,
-                                          physics:
-                                              const NeverScrollableScrollPhysics(),
-                                          itemCount: currentEmployee
-                                              .adjustments.length,
-                                          separatorBuilder: (_, __) =>
-                                              const SizedBox(height: 10),
-                                          itemBuilder: (context, index) {
-                                            final adjustment = currentEmployee
-                                                .adjustments[index];
-                                            final isAddition =
-                                                adjustment.type ==
-                                                    AdjustmentTypes.addition;
-                                            return Container(
-                                              padding: const EdgeInsets.all(12),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                  color:
-                                                      const Color(0xFFE5E7EB),
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          adjustment.remarks
-                                                                  .isEmpty
-                                                              ? 'No remarks'
-                                                              : adjustment
-                                                                  .remarks,
-                                                          style:
-                                                              const TextStyle(
-                                                            fontSize: 13,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 4,
-                                                        ),
-                                                        Text(
-                                                          _formatDate(
-                                                            adjustment
-                                                                .createdAt,
-                                                          ),
-                                                          style:
-                                                              const TextStyle(
-                                                            fontSize: 12,
-                                                            color: Color(
-                                                              0xFF6B7280,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  _StatusPill(
-                                                    label: isAddition
-                                                        ? 'Addition'
-                                                        : 'Deduction',
-                                                    color: isAddition
-                                                        ? const Color(
-                                                            0xFF157347,
-                                                          )
-                                                        : const Color(
-                                                            0xFFB02A37,
-                                                          ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  PopupMenuButton<String>(
-                                                    onSelected: (value) {
-                                                      if (value == 'edit') {
-                                                        editAdjustment(
-                                                          adjustment,
-                                                        );
-                                                        return;
-                                                      }
-                                                      if (value == 'delete') {
-                                                        deleteAdjustment(
-                                                          adjustment,
-                                                        );
-                                                      }
-                                                    },
-                                                    itemBuilder: (context) =>
-                                                        const [
-                                                      PopupMenuItem<String>(
-                                                        value: 'edit',
-                                                        child: Text('Edit'),
-                                                      ),
-                                                      PopupMenuItem<String>(
-                                                        value: 'delete',
-                                                        child: Text('Delete'),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                  ],
                                 ),
                               ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                } finally {
+                  referenceController.dispose();
+                  notesController.dispose();
+                }
+              }
 
-            return FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(1, 0),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: SizedBox(
-                    width: panelWidth,
-                    height: double.infinity,
-                    child: panel,
-                  ),
+              final status = currentEmployee.statusLabel;
+              final employeeBackendStatus =
+                  (currentEmployee.backendStatus ?? '').trim().toLowerCase();
+              final isPaid = currentEmployee.payment != null ||
+                  status.toLowerCase().contains('paid') ||
+                  employeeBackendStatus.contains('paid');
+              final panel = _PayrollEmployeeCalculationScreen(
+                run: currentRun,
+                employee: currentEmployee,
+                isBusy: isBusy,
+                isPaid: isPaid,
+                scrollController: paySummaryScrollController,
+                onBack: () => Navigator.pop(sheetContext, currentRun),
+                onRecordPayment: openRecordPaymentDialog,
+                onAddAddition: () => addAdjustmentDialog(
+                  AdjustmentTypes.addition,
                 ),
-              ),
-            );
-          },
-        );
-      },
+                onAddDeduction: () => addAdjustmentDialog(
+                  AdjustmentTypes.deduction,
+                ),
+                onEditAdjustment: editAdjustment,
+                onDeleteAdjustment: deleteAdjustment,
+              );
+
+              return Scaffold(
+                backgroundColor: const Color(0xFFFBF9F8),
+                body: panel,
+              );
+            },
+          );
+        },
+      ),
     );
     Future<void>.delayed(const Duration(milliseconds: 300), () {
       paymentModeController.dispose();
       paymentReferenceController.dispose();
       paymentNotesController.dispose();
-      adjustmentAmountController.dispose();
-      adjustmentRemarksController.dispose();
+      paySummaryScrollController.dispose();
     });
     return result;
   }
@@ -2958,7 +2879,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     PayrollAdjustmentRecord? initialAdjustment,
     Future<void> Function(PayrollAdjustmentRecord adjustment)? onSubmit,
   }) async {
-    final typeController = TextEditingController(text: type);
     final amountController = TextEditingController(
       text: initialAdjustment == null
           ? ''
@@ -2970,15 +2890,29 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       text: initialAdjustment?.remarks ?? '',
     );
     final formKey = GlobalKey<FormState>();
+    final isAddition = type == AdjustmentTypes.addition;
+    final isEditing = initialAdjustment != null;
+    final title = isEditing
+        ? (isAddition ? 'Edit Addition' : 'Edit Deduction')
+        : (isAddition ? 'Add Addition' : 'Add Deduction');
+    final subtitle = isAddition
+        ? 'Record an additional payroll amount for this employee.'
+        : 'Record a payroll deduction for this employee.';
     bool isSaving = false;
+    bool hasSubmitted = false;
 
     final result = await showDialog<PayrollAdjustmentRecord>(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             Future<void> submit() async {
-              if (isSaving || !formKey.currentState!.validate()) {
+              if (isSaving) {
+                return;
+              }
+              setDialogState(() => hasSubmitted = true);
+              if (!formKey.currentState!.validate()) {
                 return;
               }
               final adjustment = PayrollAdjustmentRecord(
@@ -3011,89 +2945,291 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
               }
             }
 
-            return AlertDialog(
-              title: Text(
-                initialAdjustment == null
-                    ? (type == AdjustmentTypes.addition
-                        ? 'Add Addition'
-                        : 'Add Deduction')
-                    : (type == AdjustmentTypes.addition
-                        ? 'Edit Addition'
-                        : 'Edit Deduction'),
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 24,
               ),
-              content: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _LabeledTextField(
-                      label: 'Type',
-                      controller: typeController,
-                      enabled: false,
-                    ),
-                    const SizedBox(height: 12),
-                    _LabeledTextField(
-                      label: 'Amount',
-                      controller: amountController,
-                      enabled: !isSaving,
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        final parsed = int.tryParse(value?.trim() ?? '');
-                        if (parsed == null || parsed <= 0) {
-                          return 'Enter a valid amount';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _LabeledTextField(
-                      label: 'Remarks',
-                      controller: remarksController,
-                      enabled: !isSaving,
-                      maxLines: 1,
-                      validator: (value) {
-                        if ((value?.trim() ?? '').isEmpty) {
-                          return 'Remarks are required';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
-              actions: [
-                TextButton(
-                  onPressed:
-                      isSaving ? null : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: isSaving
-                      ? const Row(
-                          mainAxisSize: MainAxisSize.min,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 360),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Form(
+                    key: formKey,
+                    autovalidateMode: hasSubmitted
+                        ? AutovalidateMode.onUserInteraction
+                        : AutovalidateMode.disabled,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF111827),
                                 ),
                               ),
                             ),
-                            SizedBox(width: 8),
-                            Text('Saving...'),
+                            IconButton(
+                              onPressed: isSaving
+                                  ? null
+                                  : () => Navigator.pop(dialogContext),
+                              style: IconButton.styleFrom(
+                                foregroundColor: const Color(0xFF94A3B8),
+                                side: const BorderSide(
+                                  color: Color(0xFFE0E7FF),
+                                ),
+                                minimumSize: const Size(30, 30),
+                                fixedSize: const Size(30, 30),
+                                padding: EdgeInsets.zero,
+                              ),
+                              icon: const Icon(Icons.close, size: 16),
+                            ),
                           ],
-                        )
-                      : const Text('Save'),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            height: 1.35,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'Amount *',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        TextFormField(
+                          controller: amountController,
+                          enabled: !isSaving,
+                          cursorColor: AppColors.starColor,
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setDialogState(() {}),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          validator: (value) {
+                            final parsed = int.tryParse(value?.trim() ?? '');
+                            if (parsed == null || parsed <= 0) {
+                              return 'Enter a valid amount';
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Amount',
+                            counterText: '',
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            errorMaxLines: 2,
+                            errorStyle: const TextStyle(
+                              color: Color(0xFFD32F2F),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: AppColors.starColor,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFD32F2F),
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFD32F2F),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${amountController.text.length}/6',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Remarks *',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        TextFormField(
+                          controller: remarksController,
+                          enabled: !isSaving,
+                          cursorColor: AppColors.starColor,
+                          maxLines: 1,
+                          onChanged: (_) => setDialogState(() {}),
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(50),
+                          ],
+                          validator: (value) {
+                            if ((value?.trim() ?? '').isEmpty) {
+                              return 'Remarks are required';
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            hintText:
+                                isAddition ? 'Festival bonus' : 'Late penalty',
+                            counterText: '',
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            errorMaxLines: 2,
+                            errorStyle: const TextStyle(
+                              color: Color(0xFFD32F2F),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: AppColors.starColor,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFD32F2F),
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFD32F2F),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${remarksController.text.length}/50',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: isSaving
+                                  ? null
+                                  : () => Navigator.pop(dialogContext),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF1E293B),
+                                side: const BorderSide(
+                                  color: Color(0xFFCBD5E1),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                            const SizedBox(width: 10),
+                            ElevatedButton(
+                              onPressed: isSaving ? null : submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.starColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              child: isSaving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : const Text('Save'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
+              ),
             );
           },
         );
@@ -3101,7 +3237,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     );
 
     Future<void>.delayed(const Duration(milliseconds: 300), () {
-      typeController.dispose();
       amountController.dispose();
       remarksController.dispose();
     });
@@ -3983,26 +4118,958 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
+class _PayrollEmployeeCalculationScreen extends StatelessWidget {
+  const _PayrollEmployeeCalculationScreen({
+    required this.run,
+    required this.employee,
+    required this.isBusy,
+    required this.isPaid,
+    required this.scrollController,
+    required this.onBack,
+    required this.onRecordPayment,
+    required this.onAddAddition,
+    required this.onAddDeduction,
+    required this.onEditAdjustment,
+    required this.onDeleteAdjustment,
+  });
+
+  final PayrollRunRecord run;
+  final PayrollRunEmployeeRecord employee;
+  final bool isBusy;
+  final bool isPaid;
+  final ScrollController scrollController;
+  final VoidCallback onBack;
+  final VoidCallback onRecordPayment;
+  final VoidCallback onAddAddition;
+  final VoidCallback onAddDeduction;
+  final Future<void> Function(PayrollAdjustmentRecord adjustment)
+      onEditAdjustment;
+  final Future<void> Function(PayrollAdjustmentRecord adjustment)
+      onDeleteAdjustment;
+
+  @override
+  Widget build(BuildContext context) {
+    final additions = employee.adjustments
+        .where((item) => item.type == AdjustmentTypes.addition)
+        .toList();
+    final deductions = employee.adjustments
+        .where((item) => item.type == AdjustmentTypes.deduction)
+        .toList();
+    final totalEarningsMinor =
+        employee.salaryMinor + employee.commissionAmountMinor;
+    final totalDeductionsMinor =
+        employee.deductionsDisplayMinor + employee.advancesDisplayMinor;
+
+    return SafeArea(
+      child: Stack(
+        children: [
+          RawScrollbar(
+            controller: scrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            thickness: 4,
+            radius: const Radius.circular(10),
+            thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+            trackColor: const Color(0xFFFFF3D5),
+            trackBorderColor: const Color(0xFFE8C774),
+            padding: const EdgeInsets.only(top: 8, right: 4, bottom: 8),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(12, 12, 22, 28),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final useSidebar = constraints.maxWidth >= 820;
+                  final mainContent = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _PayrollEmployeeSummaryCard(
+                        run: run,
+                        employee: employee,
+                      ),
+                      const SizedBox(height: 14),
+                      _PayrollSectionCard(
+                        title: '1. Earnings',
+                        child: _EarningsTable(
+                          salaryMinor: employee.salaryMinor,
+                          serviceDetails: _serviceCommissionDetails(employee),
+                          commissionMinor: employee.commissionAmountMinor,
+                          totalEarningsMinor: totalEarningsMinor,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _AdjustmentListSection(
+                        title: '2. Additions',
+                        emptyText: 'No additions added.',
+                        adjustments: additions,
+                        color: const Color(0xFF157347),
+                        totalMinor: employee.additionsDisplayMinor,
+                        totalLabel: 'Total Additions',
+                        typeHeader: 'Addition',
+                        addLabel: 'Add Addition',
+                        onAdd: isPaid ? null : onAddAddition,
+                        onEdit: onEditAdjustment,
+                        onDelete: onDeleteAdjustment,
+                        allowActions: !isPaid,
+                      ),
+                      const SizedBox(height: 14),
+                      _AdjustmentListSection(
+                        title: '3. Deductions',
+                        emptyText: 'No deductions added.',
+                        adjustments: deductions,
+                        color: const Color(0xFFB02A37),
+                        totalMinor: totalDeductionsMinor,
+                        totalLabel: 'Total Deductions',
+                        typeHeader: 'Deduction Type',
+                        addLabel: 'Add Deduction',
+                        onAdd: isPaid ? null : onAddDeduction,
+                        onEdit: onEditAdjustment,
+                        onDelete: onDeleteAdjustment,
+                        allowActions: !isPaid,
+                      ),
+                      if (isPaid && employee.payment != null) ...[
+                        const SizedBox(height: 14),
+                        _PayrollSectionCard(
+                          title: 'Payment',
+                          child: Column(
+                            children: [
+                              _SummaryLine(
+                                label: 'Method',
+                                value: employee.payment!.mode,
+                              ),
+                              _SummaryLine(
+                                label: 'Reference',
+                                value: employee.payment!.reference.isEmpty
+                                    ? '-'
+                                    : employee.payment!.reference,
+                              ),
+                              _SummaryLine(
+                                label: 'Paid On',
+                                value: DateFormat('dd MMM yyyy')
+                                    .format(employee.payment!.paidDate),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                  final sidebar = Column(
+                    children: [
+                      _PayrollCalculationSummaryCard(
+                        totalEarningsMinor: totalEarningsMinor,
+                        totalAdditionsMinor: employee.additionsDisplayMinor,
+                        grossPayMinor: employee.grossPayMinor,
+                        totalDeductionsMinor: totalDeductionsMinor,
+                        netPayableMinor: employee.netPayableMinor,
+                      ),
+                      const SizedBox(height: 14),
+                      const _PayrollCalculationNoteCard(),
+                    ],
+                  );
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: isBusy ? null : onBack,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.starColor,
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: const Size(0, 28),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.arrow_back_rounded,
+                                    size: 16,
+                                  ),
+                                  label: const Text(
+                                    'Back to Payroll Runs',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Payroll Calculation',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Review all earnings, additions and deductions before marking as paid.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isPaid)
+                            ElevatedButton(
+                              onPressed: isBusy ? null : onRecordPayment,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.starColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                isBusy ? 'Saving...' : 'Mark as Paid',
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      if (useSidebar)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: mainContent),
+                            const SizedBox(width: 18),
+                            SizedBox(width: 260, child: sidebar),
+                          ],
+                        )
+                      else ...[
+                        mainContent,
+                        const SizedBox(height: 14),
+                        sidebar,
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          if (isBusy)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  color: const Color(0x55FFFCF8),
+                  alignment: Alignment.center,
+                  child: CircularProgressIndicator(
+                    color: AppColors.starColor,
+                    strokeWidth: 3,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _serviceCommissionDetails(PayrollRunEmployeeRecord employee) {
+    final details = <String>[];
+    if (employee.servicesCount > 0) {
+      details.add(
+        '${employee.servicesCount} '
+        '${employee.servicesCount == 1 ? 'service' : 'services'}',
+      );
+    }
+    if (employee.commissionPercent > 0) {
+      details.add(
+          '${_formatCommissionPercentText(employee.commissionPercent)}% commission');
+    }
+    return details.isEmpty ? '-' : details.join(' • ');
+  }
+}
+
+class _PayrollEmployeeSummaryCard extends StatelessWidget {
+  const _PayrollEmployeeSummaryCard({
+    required this.run,
+    required this.employee,
+  });
+
+  final PayrollRunRecord run;
+  final PayrollRunEmployeeRecord employee;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = employee.statusLabel;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD8E1EE)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 700;
+          final employeeInfo = Row(
+            children: [
+              CircleAvatar(
+                radius: 25,
+                backgroundColor: const Color(0xFFFFF1DC),
+                child: Text(
+                  employee.userName.trim().isEmpty
+                      ? 'TM'
+                      : employee.userName
+                          .trim()
+                          .substring(
+                            0,
+                            math.min(2, employee.userName.trim().length),
+                          )
+                          .toUpperCase(),
+                  style: const TextStyle(
+                    color: Color(0xFFB45309),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      employee.userName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _StatusPill(
+                      label:
+                          employee.role.isEmpty ? 'Team Member' : employee.role,
+                      color: AppColors.starColor,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+          final meta = [
+            _PayrollMetaBlock(
+              label: 'Payroll Type',
+              value: PayrollTypes.label(employee.payrollType),
+            ),
+            _PayrollMetaBlock(label: 'Pay Period', value: run.periodLabel),
+            _PayrollMetaBlock(
+              label: 'Effective From',
+              value: DateFormat('d MMM yyyy').format(employee.effectiveDate),
+            ),
+            _PayrollMetaBlock(
+              label: 'Status',
+              valueWidget: _StatusPill(
+                label: status,
+                color: status.toLowerCase().contains('paid')
+                    ? const Color(0xFF157347)
+                    : const Color(0xFFB45309),
+              ),
+            ),
+          ];
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                employeeInfo,
+                const SizedBox(height: 14),
+                Wrap(spacing: 16, runSpacing: 12, children: meta),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(flex: 2, child: employeeInfo),
+              for (final item in meta) ...[
+                const SizedBox(width: 18),
+                const SizedBox(
+                  height: 54,
+                  child: VerticalDivider(color: Color(0xFFE1E8F0)),
+                ),
+                const SizedBox(width: 18),
+                Expanded(child: item),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PayrollMetaBlock extends StatelessWidget {
+  const _PayrollMetaBlock({
+    required this.label,
+    this.value,
+    this.valueWidget,
+  });
+
+  final String label;
+  final String? value;
+  final Widget? valueWidget;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 150,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          valueWidget ??
+              Text(
+                value ?? '-',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF111827),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PayrollSectionCard extends StatelessWidget {
+  const _PayrollSectionCard({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _EarningsTable extends StatelessWidget {
+  const _EarningsTable({
+    required this.salaryMinor,
+    required this.serviceDetails,
+    required this.commissionMinor,
+    required this.totalEarningsMinor,
+  });
+
+  final int salaryMinor;
+  final String serviceDetails;
+  final int commissionMinor;
+  final int totalEarningsMinor;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PayrollTable(
+      headers: const ['Earning Type', 'Details', 'Amount (₹)'],
+      minWidth: 640,
+      rows: [
+        _PayrollTableRowData(
+          cells: [
+            'Base Salary',
+            'Monthly salary',
+            _formatCurrency(salaryMinor),
+          ],
+        ),
+        _PayrollTableRowData(
+          cells: [
+            'Service Commission',
+            serviceDetails,
+            _formatCurrency(commissionMinor),
+          ],
+        ),
+      ],
+      totalLabel: 'Total Earnings',
+      totalValue: _formatCurrency(totalEarningsMinor),
+      totalColor: const Color(0xFF157347),
+    );
+  }
+}
+
+class _PayrollCalculationSummaryCard extends StatelessWidget {
+  const _PayrollCalculationSummaryCard({
+    required this.totalEarningsMinor,
+    required this.totalAdditionsMinor,
+    required this.grossPayMinor,
+    required this.totalDeductionsMinor,
+    required this.netPayableMinor,
+  });
+
+  final int totalEarningsMinor;
+  final int totalAdditionsMinor;
+  final int grossPayMinor;
+  final int totalDeductionsMinor;
+  final int netPayableMinor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD8E1EE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Payroll Summary',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _SummaryLine(
+            label: 'Total Earnings',
+            value: _formatCurrency(totalEarningsMinor),
+            valueColor: const Color(0xFF157347),
+            compact: true,
+          ),
+          _SummaryLine(
+            label: 'Total Additions',
+            value: _formatCurrency(totalAdditionsMinor),
+            valueColor: const Color(0xFF2563EB),
+            compact: true,
+          ),
+          const Divider(height: 18),
+          _SummaryLine(
+            label: 'Gross Pay',
+            value: _formatCurrency(grossPayMinor),
+            compact: true,
+          ),
+          const Divider(height: 18),
+          _SummaryLine(
+            label: 'Total Deductions',
+            value: _formatCurrency(totalDeductionsMinor),
+            valueColor: const Color(0xFFB02A37),
+            compact: true,
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'Net Payable',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFB45309),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _formatCurrency(netPayableMinor),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFD06A00),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PayrollCalculationNoteCard extends StatelessWidget {
+  const _PayrollCalculationNoteCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFF2D29A)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Note',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFFB45309),
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Please review all details. Once marked as paid, this payroll entry should not be modified.',
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.4,
+              color: Color(0xFF7C6A55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PayrollTableRowData {
+  const _PayrollTableRowData({
+    required this.cells,
+    this.isReadOnly = false,
+  });
+
+  final List<String> cells;
+  final bool isReadOnly;
+}
+
+class _PayrollTable extends StatefulWidget {
+  const _PayrollTable({
+    required this.headers,
+    required this.rows,
+    required this.totalLabel,
+    required this.totalValue,
+    required this.totalColor,
+    this.emptyText,
+    this.onEdit,
+    this.onDelete,
+    this.allowActions = false,
+    this.minWidth = 720,
+  });
+
+  final List<String> headers;
+  final List<_PayrollTableRowData> rows;
+  final String totalLabel;
+  final String totalValue;
+  final Color totalColor;
+  final String? emptyText;
+  final Future<void> Function(int index)? onEdit;
+  final Future<void> Function(int index)? onDelete;
+  final bool allowActions;
+  final double minWidth;
+
+  @override
+  State<_PayrollTable> createState() => _PayrollTableState();
+}
+
+class _PayrollTableState extends State<_PayrollTable> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.minScrollExtent);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final columnCount = widget.headers.length;
+    final hasActionColumn = widget.onEdit != null || widget.onDelete != null;
+    final isDeductionTotal =
+        widget.totalLabel.toLowerCase().contains('deduction');
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = constraints.maxWidth < widget.minWidth
+            ? widget.minWidth
+            : constraints.maxWidth;
+        return Directionality(
+          textDirection: ui.TextDirection.ltr,
+          child: RawScrollbar(
+            controller: _scrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            thickness: 4,
+            radius: const Radius.circular(10),
+            thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+            trackColor: const Color(0xFFFFF3D5),
+            trackBorderColor: const Color(0xFFE8C774),
+            scrollbarOrientation: ScrollbarOrientation.bottom,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SizedBox(
+                width: tableWidth,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE1E9F4)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        _PayrollTableLine(
+                          cells: widget.headers,
+                          backgroundColor: const Color(0xFFF8FAFC),
+                          textColor: const Color(0xFF526783),
+                          isHeader: true,
+                          trailing: hasActionColumn
+                              ? const Text(
+                                  'Action',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF526783),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        if (widget.rows.isEmpty)
+                          Container(
+                            height: 64,
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                top: BorderSide(color: Color(0xFFE6EEF7)),
+                              ),
+                            ),
+                            child: Text(
+                              widget.emptyText ?? 'No records added.',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          )
+                        else
+                          ...widget.rows.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final row = entry.value;
+                            return _PayrollTableLine(
+                              cells: row.cells,
+                              showTopBorder: true,
+                              trailing: hasActionColumn
+                                  ? widget.allowActions && !row.isReadOnly
+                                      ? PopupMenuButton<String>(
+                                          tooltip: 'Actions',
+                                          onSelected: (value) {
+                                            if (value == 'edit') {
+                                              widget.onEdit?.call(index);
+                                            } else if (value == 'delete') {
+                                              widget.onDelete?.call(index);
+                                            }
+                                          },
+                                          itemBuilder: (context) => const [
+                                            PopupMenuItem(
+                                              value: 'edit',
+                                              child: Text('Edit'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              child: Text('Delete'),
+                                            ),
+                                          ],
+                                        )
+                                      : const Text(
+                                          '-',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                          ),
+                                        )
+                                  : null,
+                            );
+                          }),
+                        _PayrollTableLine(
+                          cells: [
+                            widget.totalLabel,
+                            ...List<String>.filled(
+                              math.max(columnCount - 2, 0),
+                              '',
+                            ),
+                            widget.totalValue,
+                          ],
+                          backgroundColor: isDeductionTotal
+                              ? const Color(0xFFFFF5F5)
+                              : widget.totalColor.withValues(alpha: 0.06),
+                          textColor: widget.totalColor,
+                          isTotal: true,
+                          showTopBorder: true,
+                          trailing:
+                              hasActionColumn ? const SizedBox.shrink() : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PayrollTableLine extends StatelessWidget {
+  const _PayrollTableLine({
+    required this.cells,
+    this.backgroundColor = Colors.white,
+    this.textColor = const Color(0xFF111827),
+    this.isHeader = false,
+    this.isTotal = false,
+    this.showTopBorder = false,
+    this.trailing,
+  });
+
+  final List<String> cells;
+  final Color backgroundColor;
+  final Color textColor;
+  final bool isHeader;
+  final bool isTotal;
+  final bool showTopBorder;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(minHeight: isHeader ? 36 : 44),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: showTopBorder
+            ? const Border(top: BorderSide(color: Color(0xFFE6EEF7)))
+            : null,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          for (var index = 0; index < cells.length; index++) ...[
+            Expanded(
+              flex: index == 1 ? 3 : 2,
+              child: Text(
+                cells[index],
+                maxLines: isHeader ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: index == cells.length - 1 ? TextAlign.right : null,
+                style: TextStyle(
+                  fontSize: isHeader ? 11 : 12,
+                  fontWeight:
+                      isHeader || isTotal ? FontWeight.w800 : FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+            ),
+            if (index != cells.length - 1) const SizedBox(width: 12),
+          ],
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            SizedBox(width: 54, child: Center(child: trailing)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _SummaryLine extends StatelessWidget {
   const _SummaryLine({
     required this.label,
     required this.value,
+    this.valueColor,
+    this.compact = false,
   });
 
   final String label;
   final String value;
+  final Color? valueColor;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(bottom: compact ? 10 : 14),
       child: Row(
         children: [
           Expanded(
             child: Text(
               label,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 color: Color(0xFF6B7280),
               ),
             ),
@@ -4012,12 +5079,120 @@ class _SummaryLine extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 14,
+              style: TextStyle(
+                fontSize: compact ? 12 : 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1C1917),
+                color: valueColor ?? const Color(0xFF1C1917),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdjustmentListSection extends StatelessWidget {
+  const _AdjustmentListSection({
+    required this.title,
+    required this.emptyText,
+    required this.adjustments,
+    required this.color,
+    required this.totalMinor,
+    required this.totalLabel,
+    required this.typeHeader,
+    required this.addLabel,
+    this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+    this.allowActions = true,
+  });
+
+  final String title;
+  final String emptyText;
+  final List<PayrollAdjustmentRecord> adjustments;
+  final Color color;
+  final int totalMinor;
+  final String totalLabel;
+  final String typeHeader;
+  final String addLabel;
+  final VoidCallback? onAdd;
+  final Future<void> Function(PayrollAdjustmentRecord adjustment) onEdit;
+  final Future<void> Function(PayrollAdjustmentRecord adjustment) onDelete;
+  final bool allowActions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1C1917),
+                  ),
+                ),
+              ),
+              if (onAdd != null)
+                OutlinedButton(
+                  onPressed: onAdd,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.starColor,
+                    side: BorderSide(color: AppColors.starColor),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: Text(addLabel),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _PayrollTable(
+            headers: [typeHeader, 'Details', 'Amount (₹)'],
+            rows: adjustments.map((adjustment) {
+              final isBackendAdvance = adjustment.id.startsWith('advance-');
+              return _PayrollTableRowData(
+                isReadOnly: isBackendAdvance,
+                cells: [
+                  isBackendAdvance
+                      ? 'Advance'
+                      : adjustment.type == AdjustmentTypes.addition
+                          ? 'Addition'
+                          : 'Deduction',
+                  adjustment.remarks.isEmpty ? '-' : adjustment.remarks,
+                  _formatCurrency(adjustment.amountMinor),
+                ],
+              );
+            }).toList(),
+            totalLabel: totalLabel,
+            totalValue: _formatCurrency(totalMinor),
+            totalColor: color,
+            emptyText: emptyText,
+            allowActions: allowActions,
+            onEdit: (index) => onEdit(adjustments[index]),
+            onDelete: (index) => onDelete(adjustments[index]),
           ),
         ],
       ),
@@ -4163,6 +5338,7 @@ class _LabeledTextField extends StatelessWidget {
     this.enabled = true,
     this.maxLength = 120,
     this.inputFormatters = const <TextInputFormatter>[],
+    this.onChanged,
   });
 
   final String label;
@@ -4173,6 +5349,7 @@ class _LabeledTextField extends StatelessWidget {
   final bool enabled;
   final int maxLength;
   final List<TextInputFormatter> inputFormatters;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -4184,6 +5361,7 @@ class _LabeledTextField extends StatelessWidget {
       keyboardType: keyboardType,
       maxLines: maxLines,
       enabled: enabled,
+      onChanged: onChanged,
       inputFormatters: [
         ...inputFormatters,
         if (maxLength > 0) LengthLimitingTextInputFormatter(maxLength),
