@@ -133,6 +133,16 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         _ => false,
       };
 
+  bool get _isScreenBusy =>
+      _isLoadingContent || _isRefreshingContent || _isActionInProgress;
+
+  bool get _shouldShowContentLoader =>
+      _isLoadingContent || _isRefreshingContent;
+
+  bool _isCurrentBranch(int branchId) {
+    return mounted && _selectedBranch?.branchId == branchId;
+  }
+
   void _logCompensation(String event, {Object? details}) {
     debugPrint(
       '[OwnerCompensation:$_moduleLogLabel] $event${details == null ? '' : ' | $details'}',
@@ -330,7 +340,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         setups: payrollSetups,
       );
 
-      if (!mounted) {
+      if (!_isCurrentBranch(branchId)) {
+        _logCompensation(
+          'load_payroll_data_ignored_stale',
+          details:
+              'loadedBranchId=$branchId, selectedBranchId=${_selectedBranch?.branchId}',
+        );
         return;
       }
 
@@ -396,7 +411,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       selectedServiceId = services.first.id;
     }
 
-    if (!mounted) {
+    if (!_isCurrentBranch(branchId)) {
+      _logCompensation(
+        'load_commission_data_ignored_stale',
+        details:
+            'loadedBranchId=$branchId, selectedBranchId=${_selectedBranch?.branchId}',
+      );
       return;
     }
 
@@ -425,7 +445,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       teamMembers: teamMembers,
     );
 
-    if (!mounted) {
+    if (!_isCurrentBranch(branchId)) {
+      _logCompensation(
+        'load_advance_data_ignored_stale',
+        details:
+            'loadedBranchId=$branchId, selectedBranchId=${_selectedBranch?.branchId}',
+      );
       return;
     }
 
@@ -452,7 +477,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         month: _leaveMonth,
       );
 
-      if (!mounted) {
+      if (!_isCurrentBranch(branch.branchId)) {
+        _logCompensation(
+          'load_leave_data_ignored_stale',
+          details:
+              'loadedBranchId=${branch.branchId}, selectedBranchId=${_selectedBranch?.branchId}',
+        );
         return;
       }
 
@@ -474,7 +504,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         branchName: branch.label,
       );
 
-      if (!mounted) {
+      if (!_isCurrentBranch(branch.branchId)) {
+        _logCompensation(
+          'load_leave_data_ignored_stale',
+          details:
+              'loadedBranchId=${branch.branchId}, selectedBranchId=${_selectedBranch?.branchId}',
+        );
         return;
       }
 
@@ -496,7 +531,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         month: _leaveMonth,
       );
 
-      if (!mounted) {
+      if (!_isCurrentBranch(branch.branchId)) {
+        _logCompensation(
+          'load_leave_data_ignored_stale',
+          details:
+              'loadedBranchId=${branch.branchId}, selectedBranchId=${_selectedBranch?.branchId}',
+        );
         return;
       }
 
@@ -555,7 +595,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       month: effectiveMonth,
     );
 
-    if (!mounted) {
+    if (!_isCurrentBranch(branch.branchId)) {
+      _logCompensation(
+        'load_leave_data_ignored_stale',
+        details:
+            'loadedBranchId=${branch.branchId}, selectedBranchId=${_selectedBranch?.branchId}',
+      );
       return;
     }
 
@@ -578,7 +623,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   Future<void> _switchBranch(ProfileBranchOption option) async {
-    if (_selectedBranch?.branchId == option.branchId) {
+    if (_selectedBranch?.branchId == option.branchId || _isScreenBusy) {
       return;
     }
     _logCompensation(
@@ -3367,25 +3412,56 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(title: title),
-      body: Column(
+      body: Stack(
         children: [
-          _buildHeader(),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: _buildBody(),
-            ),
+          Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: _buildBody(),
+                ),
+              ),
+            ],
           ),
+          if (_shouldShowContentLoader)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: const Color(0x66FFFCF8),
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: 74,
+                    height: 74,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFCF8),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE8DED6)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          blurRadius: 18,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: CircularProgressIndicator(
+                      color: AppColors.starColor,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildHeader() {
-    if (!_isLoadingBranches &&
-        _branchOptions.length <= 1 &&
-        !_isRefreshingContent &&
-        !_isActionInProgress) {
+    if (!_isLoadingBranches && _branchOptions.length <= 1 && !_isScreenBusy) {
       return const SizedBox.shrink();
     }
 
@@ -3422,7 +3498,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                     .toList(),
                 selectedValue: _selectedBranch?.branchId,
                 placeholder: context.t('Select Branch'),
-                isInteractive: _branchOptions.length > 1,
+                isInteractive: _branchOptions.length > 1 && !_isScreenBusy,
                 onSelected: (branchId) {
                   final next = _branchOptions.firstWhere(
                     (item) => item.branchId == branchId,
@@ -3468,9 +3544,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     }
 
     if (_isLoadingContent) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.starColor),
-      );
+      return const SizedBox.shrink();
     }
 
     if (_contentError != null) {
