@@ -24,6 +24,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
   late final TextEditingController _emailController;
   bool _active = true;
   bool _isSaving = false;
+  bool _showValidationErrors = false;
 
   @override
   void initState() {
@@ -53,6 +54,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
   }
 
   Future<void> _submit() async {
+    setState(() => _showValidationErrors = true);
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
     try {
@@ -116,7 +118,12 @@ class _VendorFormViewState extends State<_VendorFormView> {
               maxLength: 10,
               validator: (value) {
                 final phone = _stringValue(value);
-                if (phone.isEmpty) return phoneRequired;
+                if (phone.isEmpty) {
+                  return _showValidationErrors ? phoneRequired : null;
+                }
+                final canShowError =
+                    _showValidationErrors || phone.length == 10;
+                if (phone.length < 10 && !canShowError) return null;
                 if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(phone)) {
                   return translateText(
                     'Enter a valid 10-digit phone number starting with 6, 7, 8, or 9',
@@ -332,7 +339,7 @@ class _VendorTextField extends StatelessWidget {
       autocorrect: autocorrect,
       textCapitalization: textCapitalization,
       validator: validator,
-       autovalidateMode: AutovalidateMode.onUserInteraction,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       style: const TextStyle(
         color: Color(0xFF1C1917),
         fontSize: 13,
