@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -138,10 +139,23 @@ enum _NoTeamMembersForDateReason {
   notScheduled,
 }
 
+class _ProfessionalRatingSummary {
+  const _ProfessionalRatingSummary({
+    required this.average,
+    required this.count,
+  });
+
+  static const empty = _ProfessionalRatingSummary(average: 0, count: 0);
+
+  final num average;
+  final int count;
+}
+
 class _TeamMemberDirectory {
   const _TeamMemberDirectory({
     this.serviceNames = const <String, List<String>>{},
     this.workingHours = const <String, List<_WorkingDayHours>>{},
+    this.ratingsByMember = const <String, _ProfessionalRatingSummary>{},
     this.namesByUserId = const <int, String>{},
     this.namesByUserBranchId = const <int, String>{},
     this.noMembersReason = _NoTeamMembersForDateReason.none,
@@ -149,6 +163,7 @@ class _TeamMemberDirectory {
 
   final Map<String, List<String>> serviceNames;
   final Map<String, List<_WorkingDayHours>> workingHours;
+  final Map<String, _ProfessionalRatingSummary> ratingsByMember;
   final Map<int, String> namesByUserId;
   final Map<int, String> namesByUserBranchId;
   final _NoTeamMembersForDateReason noMembersReason;
@@ -345,6 +360,13 @@ bool _isSameDay(DateTime first, DateTime second) {
   return first.year == second.year &&
       first.month == second.month &&
       first.day == second.day;
+}
+
+String _noBookingsMessageForDate(BuildContext context, DateTime selectedDate) {
+  if (_isSameDay(selectedDate, DateTime.now())) {
+    return context.t('No bookings for today');
+  }
+  return '${context.t('No bookings for')} ${DateFormat('d MMMM yyyy').format(selectedDate)}';
 }
 
 List<Map<String, dynamic>> _bookingItems(Map<String, dynamic> booking) {
@@ -1853,6 +1875,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       const <String, List<String>>{};
   Map<String, List<_WorkingDayHours>> _teamMemberWorkingHours =
       const <String, List<_WorkingDayHours>>{};
+  Map<String, _ProfessionalRatingSummary> _teamMemberRatings =
+      const <String, _ProfessionalRatingSummary>{};
   Map<int, String> _teamMemberNamesByUserId = const <int, String>{};
   Map<int, String> _teamMemberNamesByUserBranchId = const <int, String>{};
   _NoTeamMembersForDateReason _noTeamMembersForDateReason =
@@ -2300,11 +2324,63 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return const _TeamMemberDirectory();
   }
 
+  Future<Map<int, _ProfessionalRatingSummary>> _loadProfessionalRatings(
+    int branchId,
+  ) async {
+    try {
+      final data = await ApiService.fetchBranchRatings(branchId);
+      final appointments = data['data']?['appointments'];
+      if (data['success'] != true || appointments is! List) {
+        return const {};
+      }
+
+      final buckets = <int, List<num>>{};
+      for (final appointment in appointments) {
+        if (appointment is! Map) continue;
+        final reviews = appointment['professionalReviews'];
+        if (reviews is! List) continue;
+
+        for (final review in reviews) {
+          if (review is! Map) continue;
+          final rating = review['rating'];
+          if (rating is! num) continue;
+
+          final professional = review['professional'];
+          final professionalMap = professional is Map
+              ? Map<String, dynamic>.from(professional)
+              : const <String, dynamic>{};
+          final professionalId = _asInt(review['professionalId']) ??
+              _asInt(review['professionalUserId']) ??
+              _asInt(professionalMap['id']) ??
+              _asInt(professionalMap['userId']);
+          if (professionalId == null) continue;
+
+          buckets.putIfAbsent(professionalId, () => <num>[]).add(rating);
+        }
+      }
+
+      return buckets.map((professionalId, ratings) {
+        final total = ratings.fold<num>(0, (sum, rating) => sum + rating);
+        return MapEntry(
+          professionalId,
+          _ProfessionalRatingSummary(
+            average: ratings.isEmpty ? 0 : total / ratings.length,
+            count: ratings.length,
+          ),
+        );
+      });
+    } catch (e) {
+      debugPrint('[BookingsProfessionalRatings] failed=$e');
+      return const {};
+    }
+  }
+
   Future<_TeamMemberDirectory> _fetchTeamMemberDirectory(
     int branchId, {
     required DateTime date,
   }) async {
     try {
+      final ratingsByUserId = await _loadProfessionalRatings(branchId);
       final response = await ApiService.getTeamMembers(
         branchId,
         date: date,
@@ -2313,6 +2389,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       final data = (response['data'] as List?) ?? const [];
       final serviceNamesByMember = <String, List<String>>{};
       final workingHoursByMember = <String, List<_WorkingDayHours>>{};
+      final ratingsByMember = <String, _ProfessionalRatingSummary>{};
       final namesByUserId = <int, String>{};
       final namesByUserBranchId = <int, String>{};
 
@@ -2325,6 +2402,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         final memberUserId = _asInt(member['id']);
         if (memberUserId != null) {
           namesByUserId[memberUserId] = name;
+          ratingsByMember[name] =
+              ratingsByUserId[memberUserId] ?? _ProfessionalRatingSummary.empty;
         }
 
         final services = <String>[];
@@ -2396,6 +2475,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       return _TeamMemberDirectory(
         serviceNames: serviceNamesByMember,
         workingHours: workingHoursByMember,
+        ratingsByMember: ratingsByMember,
         namesByUserId: namesByUserId,
         namesByUserBranchId: namesByUserBranchId,
         noMembersReason: _NoTeamMembersForDateReason.none,
@@ -2486,6 +2566,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
       _teamMemberWorkingHours = teamMemberDirectory.workingHours;
+      _teamMemberRatings = teamMemberDirectory.ratingsByMember;
       _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
@@ -2510,6 +2591,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         : _TeamMemberDirectory(
             serviceNames: _teamMemberServiceNames,
             workingHours: _teamMemberWorkingHours,
+            ratingsByMember: _teamMemberRatings,
             namesByUserId: _teamMemberNamesByUserId,
             namesByUserBranchId: _teamMemberNamesByUserBranchId,
             noMembersReason: _noTeamMembersForDateReason,
@@ -2531,6 +2613,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
       _teamMemberWorkingHours = teamMemberDirectory.workingHours;
+      _teamMemberRatings = teamMemberDirectory.ratingsByMember;
       _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
@@ -2561,6 +2644,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _TeamMemberDirectory teamMemberDirectory = _TeamMemberDirectory(
         serviceNames: _teamMemberServiceNames,
         workingHours: _teamMemberWorkingHours,
+        ratingsByMember: _teamMemberRatings,
         namesByUserId: _teamMemberNamesByUserId,
         namesByUserBranchId: _teamMemberNamesByUserBranchId,
         noMembersReason: _noTeamMembersForDateReason,
@@ -2592,6 +2676,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         _teamMemberNames = teamMemberNames;
         _teamMemberServiceNames = teamMemberServiceNames;
         _teamMemberWorkingHours = teamMemberDirectory.workingHours;
+        _teamMemberRatings = teamMemberDirectory.ratingsByMember;
         _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
         _teamMemberNamesByUserBranchId =
             teamMemberDirectory.namesByUserBranchId;
@@ -2620,6 +2705,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     _TeamMemberDirectory teamMemberDirectory = _TeamMemberDirectory(
       serviceNames: _teamMemberServiceNames,
       workingHours: _teamMemberWorkingHours,
+      ratingsByMember: _teamMemberRatings,
       namesByUserId: _teamMemberNamesByUserId,
       namesByUserBranchId: _teamMemberNamesByUserBranchId,
       noMembersReason: _noTeamMembersForDateReason,
@@ -2648,6 +2734,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         _teamMemberNames = teamMemberDirectory.names;
         _teamMemberServiceNames = teamMemberDirectory.serviceNames;
         _teamMemberWorkingHours = teamMemberDirectory.workingHours;
+        _teamMemberRatings = teamMemberDirectory.ratingsByMember;
         _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
         _teamMemberNamesByUserBranchId =
             teamMemberDirectory.namesByUserBranchId;
@@ -3013,6 +3100,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           serviceNames: _teamMemberServiceNames[staffName] ?? const [],
           workingHours: _teamMemberWorkingHours[staffName] ?? const [],
           salonWorkingHours: _workingHoursFromBranchOption(selectedOption),
+          ratingSummary:
+              _teamMemberRatings[staffName] ?? _ProfessionalRatingSummary.empty,
           selectedDate: _selectedDate,
           branchId: selectedOption?.branchId,
           branchStartMinute: selectedStartMinute,
@@ -3620,6 +3709,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     )
                   else if (selectedBookingView == _BookingViewTab.teamMembers)
                     _TeamMembersBoard(
+                      selectedDate: _selectedDate,
                       staffGroups: _groupBookingsByStaff(
                         context,
                         visibleBookings,
@@ -3807,12 +3897,14 @@ class _BookingViewTabs extends StatelessWidget {
 
 class _TeamMembersBoard extends StatelessWidget {
   const _TeamMembersBoard({
+    required this.selectedDate,
     required this.staffGroups,
     required this.onStaffTap,
     required this.onBookingTap,
     required this.onAddBookingTap,
   });
 
+  final DateTime selectedDate;
   final Map<String, List<Map<String, dynamic>>> staffGroups;
   final void Function(String staffName, List<Map<String, dynamic>> bookings)
       onStaffTap;
@@ -3835,6 +3927,7 @@ class _TeamMembersBoard extends StatelessWidget {
             });
 
           return _TeamMemberSlotsRow(
+            selectedDate: selectedDate,
             staffName: entry.key,
             bookings: sortedBookings,
             onStaffTap: () => onStaffTap(entry.key, sortedBookings),
@@ -3849,6 +3942,7 @@ class _TeamMembersBoard extends StatelessWidget {
 
 class _TeamMemberSlotsRow extends StatefulWidget {
   const _TeamMemberSlotsRow({
+    required this.selectedDate,
     required this.staffName,
     required this.bookings,
     required this.onStaffTap,
@@ -3856,6 +3950,7 @@ class _TeamMemberSlotsRow extends StatefulWidget {
     required this.onAddBookingTap,
   });
 
+  final DateTime selectedDate;
   final String staffName;
   final List<Map<String, dynamic>> bookings;
   final VoidCallback onStaffTap;
@@ -3889,7 +3984,12 @@ class _TeamMemberSlotsRowState extends State<_TeamMemberSlotsRow> {
         ? widget.bookings
         : <Map<String, dynamic>>[selectedBooking];
     final visibleSlots = widget.bookings.isEmpty
-        ? <Widget>[_TeamMemberNoBookingsCard(staffName: widget.staffName)]
+        ? <Widget>[
+            _TeamMemberNoBookingsCard(
+              staffName: widget.staffName,
+              selectedDate: widget.selectedDate,
+            ),
+          ]
         : bookingsToShow
             .map(
               (booking) => _TeamMemberSlotCard(
@@ -4036,7 +4136,10 @@ class _TeamMemberSlotsRowState extends State<_TeamMemberSlotsRow> {
           ),
           const SizedBox(height: 14),
           if (widget.bookings.isEmpty)
-            _TeamMemberNoBookingsCard(staffName: widget.staffName)
+            _TeamMemberNoBookingsCard(
+              staffName: widget.staffName,
+              selectedDate: widget.selectedDate,
+            )
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -4266,9 +4369,13 @@ class _TeamMemberCardIconButton extends StatelessWidget {
 }
 
 class _TeamMemberNoBookingsCard extends StatelessWidget {
-  const _TeamMemberNoBookingsCard({required this.staffName});
+  const _TeamMemberNoBookingsCard({
+    required this.staffName,
+    required this.selectedDate,
+  });
 
   final String staffName;
+  final DateTime selectedDate;
 
   @override
   Widget build(BuildContext context) {
@@ -4303,7 +4410,7 @@ class _TeamMemberNoBookingsCard extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            context.t('No bookings for today'),
+            _noBookingsMessageForDate(context, selectedDate),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -4758,6 +4865,7 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
     required this.serviceNames,
     required this.workingHours,
     required this.salonWorkingHours,
+    required this.ratingSummary,
     required this.selectedDate,
     required this.onBookingTap,
     this.branchId,
@@ -4770,6 +4878,7 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
   final List<String> serviceNames;
   final List<_WorkingDayHours> workingHours;
   final List<_WorkingDayHours> salonWorkingHours;
+  final _ProfessionalRatingSummary ratingSummary;
   final DateTime selectedDate;
   final int? branchId;
   final int? branchStartMinute;
@@ -5109,6 +5218,8 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
         ? null
         : _formatMinutesLabel(widget.branchEndMinute!);
     final isSelectedDateClosed = _isSelectedDateClosed();
+    final rating = widget.ratingSummary.average.toDouble();
+    final filledStars = rating.round().clamp(0, 5);
 
     return Scaffold(
       backgroundColor: _bookingsPage,
@@ -5205,15 +5316,17 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                           children: [
                             ...List.generate(
                               5,
-                              (_) => const Icon(
-                                Icons.star_rounded,
+                              (index) => Icon(
+                                index < filledStars
+                                    ? Icons.star_rounded
+                                    : Icons.star_border_rounded,
                                 color: _bookingsGold,
                                 size: 14,
                               ),
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '4.9',
+                              rating.toStringAsFixed(1),
                               style: _bookingTextStyle(
                                 size: 11,
                                 weight: FontWeight.w800,
@@ -5573,7 +5686,7 @@ class _TeamMemberTimeline extends StatelessWidget {
         _TeamMemberTimelineItem(
           startMinute: startMinute,
           endMinute: endMinute,
-          message: context.t('No bookings for today'),
+          message: _noBookingsMessageForDate(context, selectedDate),
           isTailGap: true,
         ),
       ];
