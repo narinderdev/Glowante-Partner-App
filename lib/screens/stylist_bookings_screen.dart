@@ -223,6 +223,28 @@ int? _asInt(dynamic value) {
   return null;
 }
 
+int? _appointmentIdForAction(Map<String, dynamic> booking) {
+  for (final key in const [
+    'appointmentId',
+    'appointmentID',
+    'appointment_id',
+    'bookingId',
+    'booking_id',
+    'id',
+  ]) {
+    final value = _asInt(booking[key]);
+    if (value != null) return value;
+  }
+
+  final appointment = booking['appointment'];
+  if (appointment is Map) {
+    final value = _asInt(appointment['id']);
+    if (value != null) return value;
+  }
+
+  return null;
+}
+
 String _normalizeStatus(dynamic value) {
   final normalized = (value ?? '').toString().trim().toUpperCase();
   return normalized.replaceAll('-', '_').replaceAll(' ', '_');
@@ -1418,7 +1440,7 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(dialogCtx),
+                onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
                 child: Text(translateText('Cancel')),
               ),
               ElevatedButton(
@@ -1450,6 +1472,7 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
                         final message = resp['message']?.toString() ??
                             (success ? 'Job started' : 'Invalid OTP');
 
+                        if (!dialogCtx.mounted) return;
                         setDialogState(() => isSubmitting = false);
 
                         if (!success) {
@@ -3114,11 +3137,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
                   ? () => _handleCompleteFromList(booking)
                   : null,
       isProcessing: (_confirmingAppointmentId != null &&
-              _confirmingAppointmentId == _asInt(booking['id'])) ||
+              _confirmingAppointmentId == _appointmentIdForAction(booking)) ||
           (_startingAppointmentId != null &&
-              _startingAppointmentId == _asInt(booking['id'])) ||
+              _startingAppointmentId == _appointmentIdForAction(booking)) ||
           (_completingAppointmentId != null &&
-              _completingAppointmentId == _asInt(booking['id'])),
+              _completingAppointmentId == _appointmentIdForAction(booking)),
     );
   }
 
@@ -3301,7 +3324,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
 
   Future<void> _handleConfirmFromList(Map<String, dynamic> booking) async {
     final selected = _selectedOption;
-    final appointmentId = _asInt(booking['id']);
+    final appointmentId = _appointmentIdForAction(booking);
     if (selected == null ||
         appointmentId == null ||
         _confirmingAppointmentId != null) {
@@ -3547,7 +3570,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   // }
   Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
     final selected = _selectedOption;
-    final appointmentId = _asInt(booking['id']);
+    final appointmentId = _appointmentIdForAction(booking);
 
     if (!_canStartJob(booking)) {
       Fluttertoast.showToast(
@@ -3590,7 +3613,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
 
   Future<void> _handleCompleteFromList(Map<String, dynamic> booking) async {
     final selected = _selectedOption;
-    final appointmentId = _asInt(booking['id']);
+    final appointmentId = _appointmentIdForAction(booking);
     if (selected == null ||
         appointmentId == null ||
         _completingAppointmentId != null) {
@@ -7590,12 +7613,18 @@ class _StylistBookingDetailScreenState
 
     if (_loadingStart) return;
 
+    final appointmentId = _appointmentIdForAction(_booking);
+    if (appointmentId == null) {
+      Fluttertoast.showToast(msg: translateText('Invalid appointment'));
+      return;
+    }
+
     setState(() => _loadingStart = true);
 
     final resp = await _showStartJobOtpDialog(
       context,
       branchId: widget.branchId,
-      appointmentId: _booking['id'] as int,
+      appointmentId: appointmentId,
     );
 
     if (!mounted) return;
@@ -7621,10 +7650,16 @@ class _StylistBookingDetailScreenState
   Future<void> _handleConfirmJob() async {
     if (_loadingConfirm) return;
 
+    final appointmentId = _appointmentIdForAction(_booking);
+    if (appointmentId == null) {
+      Fluttertoast.showToast(msg: translateText('Invalid appointment'));
+      return;
+    }
+
     setState(() => _loadingConfirm = true);
     final resp = await ApiService().confirmAppointment(
       branchId: widget.branchId,
-      appointmentId: _booking['id'] as int,
+      appointmentId: appointmentId,
     );
     if (!mounted) return;
 
@@ -7658,10 +7693,16 @@ class _StylistBookingDetailScreenState
     );
     if (feedback == null) return;
 
+    final appointmentId = _appointmentIdForAction(_booking);
+    if (appointmentId == null) {
+      Fluttertoast.showToast(msg: translateText('Invalid appointment'));
+      return;
+    }
+
     setState(() => _loadingComplete = true);
     final resp = await ApiService().completeAppointment(
       branchId: widget.branchId,
-      appointmentId: _booking['id'] as int,
+      appointmentId: appointmentId,
       rating: feedback['rating'] as int,
       comment: feedback['comment'] as String,
       serviceIds: _completionServiceIds(),
@@ -7702,7 +7743,7 @@ class _StylistBookingDetailScreenState
     final confirmed = await _showNoShowConfirmationDialog(context);
     if (!confirmed || !mounted) return;
 
-    final appointmentId = _asInt(_booking['id']);
+    final appointmentId = _appointmentIdForAction(_booking);
     final branchId = _bookingBranchId(_booking) ?? widget.branchId;
     if (appointmentId == null) {
       Fluttertoast.showToast(msg: translateText('Invalid appointment'));
@@ -8273,11 +8314,13 @@ class _StylistBookingDetailScreenState
               .toList()
           : const <Map<String, dynamic>>[];
 
-      final appointmentId = _asInt(_booking['id']);
+      final appointmentId = _appointmentIdForAction(_booking);
       final refreshed = appointmentId == null
           ? null
           : bookings.cast<Map<String, dynamic>?>().firstWhere(
-                (item) => _asInt(item?['id']) == appointmentId,
+                (item) =>
+                    item != null &&
+                    _appointmentIdForAction(item) == appointmentId,
                 orElse: () => null,
               );
 
