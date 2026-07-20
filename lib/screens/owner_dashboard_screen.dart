@@ -742,6 +742,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         );
         final staffCard = _StaffLiveStatusCard(
           data: _mapValue('staff_live_status'),
+          appointmentsData: _mapValue('todays_appointments'),
           cleanText: _cleanText,
           isExpanded: _staffLiveStatusExpanded,
           onToggleExpanded: () {
@@ -2129,16 +2130,6 @@ class _RevenueOverviewCard extends StatelessWidget {
       ),
     );
   }
-
-  String _plainNumber(dynamic value) {
-    final text = cleanText(value);
-    if (text.isEmpty) return '0';
-    final parsed = asDouble(value);
-    if (parsed == parsed.roundToDouble()) {
-      return parsed.toStringAsFixed(0);
-    }
-    return parsed.toStringAsFixed(2);
-  }
 }
 
 class _RevenueSourceCard extends StatelessWidget {
@@ -2438,21 +2429,6 @@ class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
         ],
       ),
     );
-  }
-
-  Color _appointmentFilterColor(String key) {
-    switch (key) {
-      case 'completed':
-        return const Color(0xFFEAF9F1);
-      case 'cancelled':
-        return const Color(0xFFFDEDEF);
-      case 'in_progress':
-        return const Color(0xFFFFFBEC);
-      case 'upcoming':
-        return const Color(0xFFFFF6EB);
-      default:
-        return const Color(0xFFFAF6F0);
-    }
   }
 
   String _appointmentFilterKey(Map<String, dynamic> appointment) {
@@ -2906,12 +2882,14 @@ class _AppointmentEmptyBookNow extends StatelessWidget {
 class _StaffLiveStatusCard extends StatelessWidget {
   const _StaffLiveStatusCard({
     required this.data,
+    required this.appointmentsData,
     required this.cleanText,
     required this.isExpanded,
     required this.onToggleExpanded,
   });
 
   final Map<String, dynamic> data;
+  final Map<String, dynamic> appointmentsData;
   final String Function(dynamic value) cleanText;
   final bool isExpanded;
   final VoidCallback onToggleExpanded;
@@ -2920,6 +2898,12 @@ class _StaffLiveStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final staff = data['staff'] is List
         ? (data['staff'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
+        : <Map<String, dynamic>>[];
+    final appointments = appointmentsData['appointments'] is List
+        ? (appointmentsData['appointments'] as List)
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
             .toList()
@@ -2985,6 +2969,7 @@ class _StaffLiveStatusCard extends StatelessWidget {
               ...staff.map(
                 (member) => _StaffDashboardRow(
                   member: member,
+                  appointments: appointments,
                   cleanText: cleanText,
                 ),
               ),
@@ -3109,10 +3094,12 @@ class _AppointmentDashboardRow extends StatelessWidget {
 class _StaffDashboardRow extends StatelessWidget {
   const _StaffDashboardRow({
     required this.member,
+    required this.appointments,
     required this.cleanText,
   });
 
   final Map<String, dynamic> member;
+  final List<Map<String, dynamic>> appointments;
   final String Function(dynamic value) cleanText;
 
   @override
@@ -3120,6 +3107,7 @@ class _StaffDashboardRow extends StatelessWidget {
     final name = cleanText(member['name']);
     final status = _cleanStaffStatus(member);
     final initial = name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
+    final completedCount = _completedBookingCount();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -3156,10 +3144,127 @@ class _StaffDashboardRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _DashboardStatusPill(label: status),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _DashboardStatusPill(label: status),
+              const SizedBox(height: 4),
+              Text(
+                '$completedCount ${context.t('completed')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF9A8D81),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  int _completedBookingCount() {
+    final direct = _directCompletedCount();
+    if (direct != null) return direct;
+
+    return appointments.where((appointment) {
+      if (!_isCompletedAppointment(appointment)) return false;
+      return _appointmentBelongsToMember(appointment);
+    }).length;
+  }
+
+  int? _directCompletedCount() {
+    const keys = [
+      'completed',
+      'completed_items',
+      'completedItems',
+      'completed_count',
+      'completedCount',
+      'completed_bookings',
+      'completedBookings',
+      'completed_appointments',
+      'completedAppointments',
+      'completed_appointments_count',
+      'completedAppointmentsCount',
+      'appointments_completed',
+      'appointmentsCompleted',
+      'today_completed',
+      'todayCompleted',
+    ];
+
+    for (final key in keys) {
+      final value = member[key];
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      final parsed = int.tryParse('${value ?? ''}');
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  bool _isCompletedAppointment(Map<String, dynamic> appointment) {
+    final status = '${appointment['status'] ?? ''}'.toLowerCase();
+    final label = '${appointment['status_label'] ?? ''}'.toLowerCase();
+    return status.contains('complete') || label.contains('complete');
+  }
+
+  bool _appointmentBelongsToMember(Map<String, dynamic> appointment) {
+    final memberIds = <String>{
+      _normalizeLookupKey(member['id']),
+      _normalizeLookupKey(member['user_id']),
+      _normalizeLookupKey(member['userId']),
+      _normalizeLookupKey(member['team_member_id']),
+      _normalizeLookupKey(member['teamMemberId']),
+      _normalizeLookupKey(member['professional_id']),
+      _normalizeLookupKey(member['professionalId']),
+    }..remove('');
+
+    final appointmentIds = <String>{
+      _normalizeLookupKey(appointment['professional_id']),
+      _normalizeLookupKey(appointment['professionalId']),
+      _normalizeLookupKey(appointment['professional_user_id']),
+      _normalizeLookupKey(appointment['professionalUserId']),
+      _normalizeLookupKey(appointment['team_member_id']),
+      _normalizeLookupKey(appointment['teamMemberId']),
+      _normalizeLookupKey(appointment['staff_id']),
+      _normalizeLookupKey(appointment['staffId']),
+      _normalizeLookupKey(appointment['assigned_to_id']),
+      _normalizeLookupKey(appointment['assignedToId']),
+    }..remove('');
+
+    if (memberIds.isNotEmpty &&
+        appointmentIds.any((id) => memberIds.contains(id))) {
+      return true;
+    }
+
+    final memberNames = <String>{
+      _normalizeLookupKey(member['name']),
+      _normalizeLookupKey(member['full_name']),
+      _normalizeLookupKey(member['fullName']),
+      _normalizeLookupKey(
+        '${cleanText(member['firstName'])} ${cleanText(member['lastName'])}',
+      ),
+    }..remove('');
+
+    final appointmentNames = <String>{
+      _normalizeLookupKey(appointment['professional_name']),
+      _normalizeLookupKey(appointment['professionalName']),
+      _normalizeLookupKey(appointment['staff_name']),
+      _normalizeLookupKey(appointment['staffName']),
+      _normalizeLookupKey(appointment['assigned_to']),
+      _normalizeLookupKey(appointment['assignedTo']),
+    }..remove('');
+
+    return memberNames.isNotEmpty &&
+        appointmentNames.any((name) => memberNames.contains(name));
+  }
+
+  String _normalizeLookupKey(dynamic value) {
+    return cleanText(value).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   String _cleanStaffStatus(Map<String, dynamic> member) {
