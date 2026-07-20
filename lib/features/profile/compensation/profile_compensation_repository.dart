@@ -842,28 +842,22 @@ class ProfileCompensationRepository {
     required List<ProfileTeamMember> teamMembers,
   }) async {
     final activeMembers = teamMembers.where((item) => item.isActive).toList();
-    if (activeMembers.isEmpty) {
-      throw Exception('No active team members available for payroll.');
-    }
 
     final setups = await loadPayrollSetups(branchId);
     final setupByUser = <int, PayrollSetupRecord>{
       for (final item in setups) item.userId: item,
     };
-
-    final missingMembers = activeMembers
-        .where((item) => !setupByUser.containsKey(item.id))
-        .map((item) => item.name)
+    final configuredMembers = activeMembers
+        .where((item) => setupByUser.containsKey(item.id))
         .toList();
-    if (missingMembers.isNotEmpty) {
-      throw Exception('Complete payroll setup for all active team members.');
-    }
+    final payrollMembers =
+        configuredMembers.isNotEmpty ? configuredMembers : activeMembers;
 
     final periodKey = DateFormat('yyyy-MM').format(period);
     final periodLabel = DateFormat('MMMM yyyy').format(period);
     final runs = await loadPayrollRuns(
       branchId,
-      teamMembers: activeMembers,
+      teamMembers: payrollMembers,
       setups: setups,
     );
     if (runs.any((item) => item.periodKey == periodKey)) {
@@ -920,7 +914,7 @@ class ProfileCompensationRepository {
 
     final refreshedRuns = await loadPayrollRuns(
       branchId,
-      teamMembers: activeMembers,
+      teamMembers: payrollMembers,
       setups: setups,
     );
 
@@ -944,7 +938,7 @@ class ProfileCompensationRepository {
       approvedAt: null,
       payment: null,
       employees: _buildDashboardRunEmployees(
-        activeMembers: activeMembers,
+        activeMembers: payrollMembers,
         setupByUser: setupByUser,
         effectiveDate: period,
         paidAt: null,

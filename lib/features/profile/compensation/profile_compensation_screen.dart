@@ -42,7 +42,7 @@ void _printPayrollSetupRefresh(String message) {
 }
 
 String _formatCurrency(num minorAmount) {
-  return '₹${(minorAmount / 100).toStringAsFixed(2)}';
+  return formatMinorAmount(minorAmount, trimZeroDecimals: true);
 }
 
 String _formatSalaryRupees(num minorAmount) {
@@ -925,14 +925,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     };
   }
 
-  bool get _isPayrollConfiguredForAllTeam {
-    final activeMembers = _activeTeamMembers;
-    if (activeMembers.isEmpty) {
-      return false;
-    }
-    return activeMembers.every((item) => _setupByUserId.containsKey(item.id));
-  }
-
   BranchServiceSummary? get _selectedService {
     for (final service in _services) {
       if (service.id == _selectedServiceId) {
@@ -1118,23 +1110,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       default:
         return const Color(0xFFB26A00);
     }
-  }
-
-  Future<void> _openGeneratePayrollDialog() async {
-    _logCompensation('open_generate_payroll_dialog');
-    final selected = await showDialog<DateTime>(
-      context: context,
-      builder: (context) => const _GeneratePayrollDialog(),
-    );
-    if (selected == null) {
-      _logCompensation('generate_payroll_dialog_cancelled');
-      return;
-    }
-    _logCompensation(
-      'generate_payroll_dialog_selected',
-      details: selected.toIso8601String(),
-    );
-    await _generatePayroll(selected);
   }
 
   Future<void> _openPayrollSetupScreen() async {
@@ -2511,44 +2486,30 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                             enabled: !isBusy,
                                           ),
                                           const SizedBox(height: 10),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: _DateFieldButton(
-                                                  label: 'Paid On',
-                                                  value: paymentDate,
-                                                  onTap: isBusy
-                                                      ? () {}
-                                                      : () async {
-                                                          final picked =
-                                                              await showDatePicker(
-                                                            context:
-                                                                sheetContext,
-                                                            initialDate:
-                                                                paymentDate,
-                                                            firstDate:
-                                                                DateTime(2022),
-                                                            lastDate:
-                                                                DateTime(2100),
-                                                          );
-                                                          if (picked != null) {
-                                                            setSheetState(() =>
-                                                                paymentDate =
-                                                                    picked);
-                                                          }
-                                                        },
-                                                ),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: _LabeledTextField(
-                                                  label: 'Notes (Optional)',
-                                                  controller:
-                                                      paymentNotesController,
-                                                  enabled: !isBusy,
-                                                ),
-                                              ),
-                                            ],
+                                          _DateFieldButton(
+                                            label: 'Paid On',
+                                            value: paymentDate,
+                                            onTap: isBusy
+                                                ? () {}
+                                                : () async {
+                                                    final picked =
+                                                        await showDatePicker(
+                                                      context: sheetContext,
+                                                      initialDate: paymentDate,
+                                                      firstDate: DateTime(2022),
+                                                      lastDate: DateTime(2100),
+                                                    );
+                                                    if (picked != null) {
+                                                      setSheetState(() =>
+                                                          paymentDate = picked);
+                                                    }
+                                                  },
+                                          ),
+                                          const SizedBox(height: 10),
+                                          _LabeledTextField(
+                                            label: 'Notes (Optional)',
+                                            controller: paymentNotesController,
+                                            enabled: !isBusy,
                                           ),
                                           const SizedBox(height: 12),
                                           Row(
