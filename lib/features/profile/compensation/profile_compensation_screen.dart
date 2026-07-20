@@ -104,6 +104,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   bool _isRefreshingContent = false;
   bool _isActionInProgress = false;
   bool _isOpeningPayrollSetup = false;
+  String? _openingPayrollReviewRunId;
   String? _branchError;
   String? _contentError;
   int? _selectedServiceId;
@@ -287,30 +288,91 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   Future<void> _loadPayrollData(int branchId) async {
-    _logCompensation('load_payroll_data_started',
-        details: 'branchId=$branchId');
-    final teamMembers = await _repository.loadTeamMembers(branchId);
-    final payrollSetups = await _repository.loadPayrollSetups(branchId);
-    final payrollRuns = await _repository.loadPayrollRuns(
-      branchId,
-      teamMembers: teamMembers,
-      setups: payrollSetups,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _teamMembers = List<ProfileTeamMember>.from(teamMembers);
-      _payrollSetups = List<PayrollSetupRecord>.from(payrollSetups);
-      _payrollRuns = List<PayrollRunRecord>.from(payrollRuns);
-    });
     _logCompensation(
-      'load_payroll_data_success',
-      details:
-          'branchId=$branchId, team=${_teamMembers.length}, setups=${_payrollSetups.length}, runs=${_payrollRuns.length}',
+      'load_payroll_data_started',
+      details: 'branchId=$branchId',
     );
+
+    try {
+      final teamMembers = await _repository.loadTeamMembers(branchId);
+
+      final payrollSetups = await _repository.loadPayrollSetups(branchId);
+
+      debugPrint('================ PAYROLL DEBUG ================');
+      debugPrint('Branch ID: $branchId');
+      debugPrint('Team members count: ${teamMembers.length}');
+      debugPrint('Payroll setups count: ${payrollSetups.length}');
+
+      for (final member in teamMembers) {
+        debugPrint(
+          'TEAM MEMBER -> '
+          'id=${member.id}, '
+          'name=${member.name}, '
+          'role=${member.role}, '
+          'active=${member.isActive}',
+        );
+      }
+
+      for (final setup in payrollSetups) {
+        debugPrint(
+          'PAYROLL SETUP -> '
+          'userId=${setup.userId}, '
+          'salaryMinor=${setup.salaryMinor}, '
+          'payrollType=${setup.payrollType}',
+        );
+      }
+
+      final payrollRuns = await _repository.loadPayrollRuns(
+        branchId,
+        teamMembers: teamMembers,
+        setups: payrollSetups,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _teamMembers = List<ProfileTeamMember>.from(teamMembers);
+
+        _payrollSetups = List<PayrollSetupRecord>.from(payrollSetups);
+
+        _payrollRuns = List<PayrollRunRecord>.from(payrollRuns);
+      });
+
+      debugPrint('Active members count: ${_activeTeamMembers.length}');
+      debugPrint('Setup map keys: ${_setupByUserId.keys.toList()}');
+
+      for (final member in _activeTeamMembers) {
+        debugPrint(
+          'MATCH CHECK -> '
+          'memberId=${member.id}, '
+          'name=${member.name}, '
+          'hasSetup=${_setupByUserId.containsKey(member.id)}',
+        );
+      }
+
+      debugPrint('================================================');
+
+      _logCompensation(
+        'load_payroll_data_success',
+        details: 'branchId=$branchId, '
+            'team=${_teamMembers.length}, '
+            'activeTeam=${_activeTeamMembers.length}, '
+            'setups=${_payrollSetups.length}, '
+            'runs=${_payrollRuns.length}',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('PAYROLL LOAD ERROR: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      _logCompensation(
+        'load_payroll_data_failed',
+        details: _errorText(error),
+      );
+
+      rethrow;
+    }
   }
 
   Future<void> _loadCommissionData(int branchId) async {
@@ -1281,9 +1343,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
 
   Future<void> _openPayrollReview(PayrollRunRecord initialRun) async {
     final branchId = _selectedBranch?.branchId;
-    if (branchId == null) {
+    if (branchId == null || _openingPayrollReviewRunId != null) {
       return;
     }
+    setState(() => _openingPayrollReviewRunId = initialRun.id);
     _logCompensation(
       'open_payroll_review',
       details: 'branchId=$branchId, runId=${initialRun.id}',
@@ -1314,6 +1377,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (!mounted) {
       return;
     }
+    setState(() => _openingPayrollReviewRunId = null);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (screenContext) {
@@ -1334,6 +1398,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                   .where((employee) =>
                       employee.statusLabel.toLowerCase() == 'paid')
                   .length;
+              final hasPaidEmployee =
+                  paidEmployeesCount > 0 || currentRun.paidAmountMinor > 0;
               final unpaidEmployeesCount = currentRun.employees
                   .where((employee) =>
                       employee.statusLabel.toLowerCase() != 'paid')
@@ -1510,7 +1576,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                 },
                                 filled: true,
                               ),
-                              if (reviewStatus != 'cancelled')
+                              if (reviewStatus != 'cancelled' &&
+                                  !hasPaidEmployee)
                                 _ActionChipButton(
                                   label: 'Cancel Payroll',
                                   isLoading:
@@ -2994,6 +3061,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     required bool showReason,
     VoidCallback? onSetupTap,
   }) {
+    final emptyMessage = showReason
+        ? 'No excluded team members found.'
+        : 'No included team members found.';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -3025,8 +3096,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             color: const Color(0xFFF8FAFC),
             child: Row(
-              children: const [
-                Expanded(
+              children: [
+                const Expanded(
                   flex: 3,
                   child: Text(
                     'Team Member',
@@ -3036,27 +3107,36 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Reason',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    showReason ? 'Reason' : 'Payroll Type',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ),
                 SizedBox(
-                  width: 80,
+                  width: showReason ? 80 : 90,
                   child: Text(
-                    'Action',
+                    showReason ? 'Action' : 'Salary (₹)',
                     textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           if (members.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 14),
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
               child: Text(
-                'No team members found.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                emptyMessage,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                ),
               ),
             )
           else
@@ -3448,7 +3528,7 @@ class _PayrollRunTile extends StatelessWidget {
 
   final PayrollRunRecord run;
   final Color statusColor;
-  final VoidCallback onOpen;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -3951,7 +4031,6 @@ class _LabeledTextField extends StatelessWidget {
     required this.label,
     required this.controller,
     this.validator,
-    this.onChanged,
     this.keyboardType,
     this.maxLines = 1,
     this.enabled = true,
@@ -3962,7 +4041,6 @@ class _LabeledTextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final String? Function(String?)? validator;
-  final ValueChanged<String>? onChanged;
   final TextInputType? keyboardType;
   final int maxLines;
   final bool enabled;
@@ -3975,7 +4053,7 @@ class _LabeledTextField extends StatelessWidget {
       maxLength: maxLength,
       controller: controller,
       validator: validator,
-      onChanged: onChanged,
+      cursorColor: AppColors.starColor,
       keyboardType: keyboardType,
       maxLines: maxLines,
       enabled: enabled,
@@ -3987,6 +4065,12 @@ class _LabeledTextField extends StatelessWidget {
         labelText: label,
         filled: true,
         fillColor: enabled ? const Color(0xFFF8F5F2) : const Color(0xFFF2F2F2),
+        errorMaxLines: 2,
+        errorStyle: const TextStyle(
+          color: Color(0xFFD32F2F),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

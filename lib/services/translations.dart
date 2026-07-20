@@ -633,8 +633,8 @@ class AppTranslations {
       'Choose File': 'Choose File',
       'Choose a service to edit its default commission rule and staff overrides.':
           'Choose a service to edit its default commission rule and staff overrides.',
-      'Commission must be between 0 and 100':
-          'Commission must be between 0 and 100',
+      'Commission cannot exceed 100%':
+          'Commission cannot exceed 100%',
       'Configured': 'Configured',
       'Continue / Review': 'Continue / Review',
       'Convert to GRN': 'Convert to GRN',
@@ -1563,8 +1563,8 @@ class AppTranslations {
       'Choose File': 'फ़ाइल चुनें',
       'Choose a service to edit its default commission rule and staff overrides.':
           'डिफ़ॉल्ट कमीशन नियम और स्टाफ ओवरराइड संपादित करने के लिए एक सेवा चुनें।',
-      'Commission must be between 0 and 100':
-          'कमीशन 0 और 100 के बीच होना चाहिए',
+      'Commission cannot exceed 100%':
+          'कमीशन 100% से अधिक नहीं हो सकता',
       'Configured': 'कॉन्फ़िगर किया गया',
       'Continue / Review': 'जारी रखें / समीक्षा करें',
       'Convert to GRN': 'जीआरएन में बदलें',
