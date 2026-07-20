@@ -1,6 +1,6 @@
 part of 'owner_profile_operations_screen.dart';
 
-class _FormCard extends StatelessWidget {
+class _FormCard extends StatefulWidget {
   const _FormCard({
     required this.title,
     required this.onBack,
@@ -10,6 +10,25 @@ class _FormCard extends StatelessWidget {
   final String title;
   final VoidCallback onBack;
   final Widget child;
+
+  @override
+  State<_FormCard> createState() => _FormCardState();
+}
+
+class _FormCardState extends State<_FormCard> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +69,7 @@ class _FormCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  title,
+                  widget.title,
                   style: const TextStyle(
                     color: Color(0xFF1C1917),
                     fontSize: 19,
@@ -62,7 +81,7 @@ class _FormCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 child: IconButton(
-                  onPressed: onBack,
+                  onPressed: widget.onBack,
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   icon: const Icon(Icons.close_rounded, size: 20),
                   color: const Color(0xFF78716C),
@@ -73,29 +92,23 @@ class _FormCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(top: 8),
-              child: child,
+            child: RawScrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              thickness: 4,
+              radius: const Radius.circular(10),
+              thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+              trackColor: const Color(0xFFFFF3D5),
+              trackBorderColor: const Color(0xFFE8C774),
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(top: 8, right: 12),
+                child: widget.child,
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FormSectionTitle extends StatelessWidget {
-  const _FormSectionTitle(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
       ),
     );
   }

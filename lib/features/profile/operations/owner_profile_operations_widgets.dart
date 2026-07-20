@@ -268,7 +268,7 @@ class _DetailLine extends StatelessWidget {
   }
 }
 
-class _AsyncDetailsDialog extends StatelessWidget {
+class _AsyncDetailsDialog extends StatefulWidget {
   const _AsyncDetailsDialog({
     required this.title,
     required this.future,
@@ -284,6 +284,25 @@ class _AsyncDetailsDialog extends StatelessWidget {
   final double maxHeight;
 
   @override
+  State<_AsyncDetailsDialog> createState() => _AsyncDetailsDialogState();
+}
+
+class _AsyncDetailsDialogState extends State<_AsyncDetailsDialog> {
+  late final ScrollController _contentScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _contentScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _contentScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: const Color(0xFFFFFCF8),
@@ -293,11 +312,14 @@ class _AsyncDetailsDialog extends StatelessWidget {
         side: const BorderSide(color: Color(0xFFE8DED6)),
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
+        constraints: BoxConstraints(
+          maxWidth: widget.maxWidth,
+          maxHeight: widget.maxHeight,
+        ),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: FutureBuilder<Map<String, dynamic>>(
-            future: future,
+            future: widget.future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return SizedBox(
@@ -330,7 +352,7 @@ class _AsyncDetailsDialog extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            title,
+                            widget.title,
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
@@ -360,7 +382,7 @@ class _AsyncDetailsDialog extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          title,
+                          widget.title,
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
@@ -376,8 +398,20 @@ class _AsyncDetailsDialog extends StatelessWidget {
                   const SizedBox(height: 12),
                   Flexible(
                     fit: FlexFit.loose,
-                    child: SingleChildScrollView(
-                      child: builder(detail),
+                    child: RawScrollbar(
+                      controller: _contentScrollController,
+                      thumbVisibility: true,
+                      trackVisibility: true,
+                      thickness: 4,
+                      radius: const Radius.circular(10),
+                      thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+                      trackColor: const Color(0xFFFFF3D5),
+                      trackBorderColor: const Color(0xFFE8C774),
+                      child: SingleChildScrollView(
+                        controller: _contentScrollController,
+                        padding: const EdgeInsets.only(right: 12),
+                        child: widget.builder(detail),
+                      ),
                     ),
                   ),
                 ],
@@ -390,7 +424,7 @@ class _AsyncDetailsDialog extends StatelessWidget {
   }
 }
 
-class _LinesTable extends StatelessWidget {
+class _LinesTable extends StatefulWidget {
   const _LinesTable({
     required this.headers,
     required this.rows,
@@ -400,41 +434,73 @@ class _LinesTable extends StatelessWidget {
   final List<List<String>> rows;
 
   @override
+  State<_LinesTable> createState() => _LinesTableState();
+}
+
+class _LinesTableState extends State<_LinesTable> {
+  late final ScrollController _horizontalScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _horizontalScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: headers
-            .map(
-              (header) => DataColumn(
-                label: Text(
-                  header,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+    return RawScrollbar(
+      controller: _horizontalScrollController,
+      thumbVisibility: true,
+      trackVisibility: true,
+      thickness: 4,
+      radius: const Radius.circular(10),
+      thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+      trackColor: const Color(0xFFFFF3D5),
+      trackBorderColor: const Color(0xFFE8C774),
+      scrollbarOrientation: ScrollbarOrientation.bottom,
+      child: SingleChildScrollView(
+        controller: _horizontalScrollController,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(bottom: 12),
+        child: DataTable(
+          columns: widget.headers
+              .map(
+                (header) => DataColumn(
+                  label: Text(
+                    header,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            )
-            .toList(),
-        rows: rows
-            .map(
-              (row) => DataRow(
-                cells: row
-                    .map(
-                      (cell) => DataCell(
-                        SizedBox(
-                          width: 110,
-                          child: Text(
-                            cell,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+              )
+              .toList(),
+          rows: widget.rows
+              .map(
+                (row) => DataRow(
+                  cells: row
+                      .map(
+                        (cell) => DataCell(
+                          SizedBox(
+                            width: 110,
+                            child: Text(
+                              cell,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                    .toList(),
-              ),
-            )
-            .toList(),
+                      )
+                      .toList(),
+                ),
+              )
+              .toList(),
+        ),
       ),
     );
   }
