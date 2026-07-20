@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,6 +75,45 @@ class _SalonReviewsState extends State<SalonReviews>
   double _avg(List<int> values) {
     if (values.isEmpty) return 0;
     return values.reduce((a, b) => a + b) / values.length;
+  }
+
+  String _fullNameFromMap(dynamic value, {String fallback = ''}) {
+    if (value is! Map) return fallback;
+    final map = Map<String, dynamic>.from(value);
+    final name =
+        '${_cleanText(map['firstName'])} ${_cleanText(map['lastName'])}'.trim();
+    return name.isEmpty ? fallback : name;
+  }
+
+  List<_ReviewGroup> _groupReviewsByPerson({
+    required List<Map<String, dynamic>> reviews,
+    required String idKey,
+    required String nameKey,
+    required String fallbackTitle,
+  }) {
+    final groups = <String, List<Map<String, dynamic>>>{};
+    final names = <String, String>{};
+
+    for (final review in reviews) {
+      final rawId = _cleanText(review[idKey]);
+      final name = _cleanText(review[nameKey]);
+      final groupKey =
+          rawId.isNotEmpty ? rawId : (name.isNotEmpty ? name : fallbackTitle);
+      groups.putIfAbsent(groupKey, () => <Map<String, dynamic>>[]).add(review);
+      names[groupKey] = name.isNotEmpty ? name : fallbackTitle;
+    }
+
+    final result = groups.entries
+        .map(
+          (entry) => _ReviewGroup(
+            title: names[entry.key] ?? fallbackTitle,
+            reviews: entry.value,
+          ),
+        )
+        .toList();
+    result
+        .sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    return result;
   }
 
   Future<void> _loadBranchesAndReviews() async {
@@ -205,9 +246,8 @@ class _SalonReviewsState extends State<SalonReviews>
           final start = DateTime.parse(appt["startAt"]).toLocal();
           final end = DateTime.parse(appt["endAt"]).toLocal();
 
-          final clientName =
-              "${appt["client"]?["firstName"] ?? ""} ${appt["client"]?["lastName"] ?? ""}"
-                  .trim();
+          final clientName = _fullNameFromMap(appt['client']);
+          final clientId = _cleanText(appt['client']?['id']);
 
           final common = {
             "appointmentId": appt["appointmentId"].toString(),
@@ -241,9 +281,10 @@ class _SalonReviewsState extends State<SalonReviews>
 
               professionalList.add({
                 ...common,
+                "professionalId": _cleanText(r["professional"]?["id"]),
                 "professional":
-                    "${r["professional"]?["firstName"] ?? "Unknown"} ${r["professional"]?["lastName"] ?? ""}"
-                        .trim(),
+                    _fullNameFromMap(r["professional"], fallback: 'Unknown'),
+                "reviewer": _fullNameFromMap(r["reviewer"]),
                 "rating": rating,
                 "comment": _cleanText(r["comment"]),
                 "date": DateTime.parse(r["createdAt"]).toLocal(),
@@ -259,14 +300,13 @@ class _SalonReviewsState extends State<SalonReviews>
 
             clientList.add({
               ...common,
+              "clientId": _cleanText(r["targetUser"]?["id"]).isNotEmpty
+                  ? _cleanText(r["targetUser"]?["id"])
+                  : clientId,
               "rating": rating,
               "comment": _cleanText(r["comment"]),
-              "reviewer":
-                  "${r["recordedBy"]?["firstName"] ?? ""} ${r["recordedBy"]?["lastName"] ?? ""}"
-                      .trim(),
-              "target":
-                  "${r["targetUser"]?["firstName"] ?? ""} ${r["targetUser"]?["lastName"] ?? ""}"
-                      .trim(),
+              "reviewer": _fullNameFromMap(r["recordedBy"]),
+              "target": _fullNameFromMap(r["targetUser"], fallback: clientName),
               "date": DateTime.parse(r["createdAt"]).toLocal(),
             });
           }
@@ -627,6 +667,162 @@ class _SalonReviewsState extends State<SalonReviews>
     );
   }
 
+  Widget _reviewGroupSection({
+    required _ReviewGroup group,
+    required String sectionLabel,
+    required String cardTitle,
+    String? extraLabel,
+    String? extraKey,
+    bool showReviewer = true,
+    bool showTarget = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _reviewBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x05000000),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: _reviewSoftGold,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  group.average.toStringAsFixed(1),
+                  style: const TextStyle(
+                    color: _reviewGold,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      translateText(sectionLabel),
+                      style: const TextStyle(
+                        color: _reviewMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      group.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _reviewInk,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        buildStars(group.average),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${group.count} ${translateText(group.count == 1 ? 'Review' : 'Reviews')}',
+                          style: const TextStyle(
+                            color: _reviewMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...group.reviews.map(
+            (review) => _reviewCard(
+              review: review,
+              title: cardTitle,
+              extraLabel: extraLabel,
+              extraValue: extraKey == null ? null : review[extraKey],
+              showReviewer: showReviewer,
+              showTarget: showTarget,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _groupedTabContent({
+    required List<Map<String, dynamic>> reviews,
+    required String emptyTitle,
+    required String emptyMessage,
+    required String sectionLabel,
+    required String cardTitle,
+    required String idKey,
+    required String nameKey,
+    required String fallbackTitle,
+    String? extraLabel,
+    String? extraKey,
+    bool showReviewer = true,
+    bool showTarget = false,
+  }) {
+    if (reviews.isEmpty) {
+      return _statePanel(
+        icon: Icons.reviews_outlined,
+        title: emptyTitle,
+        message: emptyMessage,
+      );
+    }
+
+    final groups = _groupReviewsByPerson(
+      reviews: reviews,
+      idKey: idKey,
+      nameKey: nameKey,
+      fallbackTitle: fallbackTitle,
+    );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: groups
+            .map(
+              (group) => _reviewGroupSection(
+                group: group,
+                sectionLabel: sectionLabel,
+                cardTitle: cardTitle,
+                extraLabel: extraLabel,
+                extraKey: extraKey,
+                showReviewer: showReviewer,
+                showTarget: showTarget,
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
   Widget _buildReviewsContent(BuildContext context) {
     if (loading) {
       return _statePanel(
@@ -663,25 +859,31 @@ class _SalonReviewsState extends State<SalonReviews>
           emptyMessage: 'Salon reviews will appear here after appointments.',
           cardTitle: 'Salon Review',
         ),
-        _tabContent(
+        _groupedTabContent(
           reviews: professionalReviews,
-          rating: professionalRating,
           emptyTitle: 'No professional reviews yet',
           emptyMessage:
               'Professional reviews will appear here after appointments.',
+          sectionLabel: 'Professional',
           cardTitle: 'Professional Review',
-          extraLabel: 'Professional',
-          extraKey: 'professional',
+          idKey: 'professionalId',
+          nameKey: 'professional',
+          fallbackTitle: 'Unknown Professional',
+          extraLabel: 'Reviewer',
+          extraKey: 'reviewer',
           showReviewer: false,
         ),
-        _tabContent(
+        _groupedTabContent(
           reviews: clientReviews,
-          rating: clientRating,
           emptyTitle: 'No client reviews yet',
           emptyMessage: 'Reviews given to clients will appear here.',
+          sectionLabel: 'Client',
           cardTitle: 'Review Given To Client',
+          idKey: 'clientId',
+          nameKey: 'target',
+          fallbackTitle: 'Unknown Client',
           showReviewer: true,
-          showTarget: true,
+          showTarget: false,
         ),
       ],
     );
@@ -755,5 +957,28 @@ class _ReviewBranchOption {
     if (branchName.trim().isNotEmpty) return branchName.trim();
     if (salonName.trim().isNotEmpty) return salonName.trim();
     return 'Branch #$branchId';
+  }
+}
+
+class _ReviewGroup {
+  const _ReviewGroup({
+    required this.title,
+    required this.reviews,
+  });
+
+  final String title;
+  final List<Map<String, dynamic>> reviews;
+
+  int get count => reviews.length;
+
+  double get average {
+    if (reviews.isEmpty) return 0;
+    final ratings = reviews
+        .map((review) => review['rating'])
+        .whereType<num>()
+        .map((rating) => rating.toDouble())
+        .toList();
+    if (ratings.isEmpty) return 0;
+    return ratings.reduce((a, b) => a + b) / ratings.length;
   }
 }

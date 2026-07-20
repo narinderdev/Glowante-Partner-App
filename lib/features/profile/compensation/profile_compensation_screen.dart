@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../services/navigation_service.dart';
 import '../../../services/stylist_branch_selection.dart';
 import '../../../utils/localization_helper.dart';
+import '../../../utils/api_service.dart';
 import '../../../utils/price_formatter.dart';
 import '../../../utils/refresh_feedback.dart';
 import '../../salon/widgets/owner_branch_header_selector.dart';
@@ -34,6 +35,11 @@ enum _CommissionTab { services, overrides }
 
 const String _commissionAllCategoriesValue = '__all_categories__';
 const String _commissionUncategorizedValue = '__uncategorized__';
+
+void _printPayrollSetupRefresh(String message) {
+  // ignore: avoid_print
+  print(message);
+}
 
 String _formatCurrency(num minorAmount) {
   return '₹${(minorAmount / 100).toStringAsFixed(2)}';
@@ -1158,7 +1164,22 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 existingSetups: _setupByUserId,
                 onSave: _savePayrollSetup,
                 onRefresh: () async {
+                  _printPayrollSetupRefresh(
+                    '[SetupPayrollRefresh] refresh started | branchId=$branchId',
+                  );
+                  _printPayrollSetupRefresh(
+                    '[SetupPayrollRefresh] GET ${ApiService.baseUrl}${ApiService.getTeamMember(branchId)}',
+                  );
+                  _printPayrollSetupRefresh(
+                    '[SetupPayrollRefresh] GET ${ApiService.baseUrl}${ApiService.payrollSetupTeamMembersAPI(branchId)}',
+                  );
+                  _printPayrollSetupRefresh(
+                    '[SetupPayrollRefresh] GET ${ApiService.baseUrl}${ApiService.branchDashboardAPI(branchId)}',
+                  );
                   await _loadPayrollData(branchId);
+                  _printPayrollSetupRefresh(
+                    '[SetupPayrollRefresh] refresh success | branchId=$branchId',
+                  );
                   return _PayrollSetupRefreshData(
                     teamMembers: _activeTeamMembers,
                     existingSetups: _setupByUserId,

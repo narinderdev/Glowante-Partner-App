@@ -8,176 +8,182 @@ extension _OwnerPayrollUi on _ProfileCompensationScreenState {
         .length;
     final pendingTeamCount = activeTeamCount - configuredTeamCount;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFFFCF8),
-                Colors.white,
+    return RefreshIndicator(
+      onRefresh: () => RefreshFeedback.playAndRun(
+        () => _reloadContent(showLoader: false),
+      ),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFFFCF8),
+                  Colors.white,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFF1EBE6)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x11000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
               ],
             ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFF1EBE6)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x11000000),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Payroll Runs',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1917),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Payroll Runs',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1C1917),
+                        ),
                       ),
                     ),
-                  ),
-                  _ActionChipButton(
-                    label: _isOpeningPayrollSetup
-                        ? context.t('Opening...')
-                        : 'Manage Team Setup',
-                    icon: Icons.manage_accounts_outlined,
-                    isLoading: _isOpeningPayrollSetup,
-                    onTap: (_isActionInProgress || _isOpeningPayrollSetup)
-                        ? null
-                        : _openPayrollSetupScreen,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _DashboardStatChip(
-                    icon: Icons.receipt_long_outlined,
-                    label: context.t('Runs'),
-                    value: '${_payrollRuns.length}',
-                  ),
-                  _DashboardStatChip(
-                    icon: Icons.verified_outlined,
-                    label: context.t('Configured'),
-                    value: '$configuredTeamCount',
-                  ),
-                  _DashboardStatChip(
-                    icon: Icons.schedule_outlined,
-                    label: context.t('Pending'),
-                    value: '$pendingTeamCount',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              if (_payrollRuns.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFFFCFAF8),
-                        Color(0xFFFFFBF5),
-                      ],
+                    _ActionChipButton(
+                      label: _isOpeningPayrollSetup
+                          ? context.t('Opening...')
+                          : 'Manage Team Setup',
+                      icon: Icons.manage_accounts_outlined,
+                      isLoading: _isOpeningPayrollSetup,
+                      onTap: (_isActionInProgress || _isOpeningPayrollSetup)
+                          ? null
+                          : _openPayrollSetupScreen,
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFE9DFD1)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF2D7),
-                              borderRadius: BorderRadius.circular(14),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _DashboardStatChip(
+                      icon: Icons.receipt_long_outlined,
+                      label: context.t('Runs'),
+                      value: '${_payrollRuns.length}',
+                    ),
+                    _DashboardStatChip(
+                      icon: Icons.verified_outlined,
+                      label: context.t('Configured'),
+                      value: '$configuredTeamCount',
+                    ),
+                    _DashboardStatChip(
+                      icon: Icons.schedule_outlined,
+                      label: context.t('Pending'),
+                      value: '$pendingTeamCount',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                if (_payrollRuns.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFFFCFAF8),
+                          Color(0xFFFFFBF5),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE9DFD1)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF2D7),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.payments_outlined,
+                                color: Color(0xFFB45309),
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.payments_outlined,
-                              color: Color(0xFFB45309),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'No payroll runs available',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF1C1917),
+                                    ),
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    'Complete team setup first. Generated payroll periods will appear here for review.',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'No payroll runs available',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1C1917),
-                                  ),
-                                ),
-                                SizedBox(height: 6),
-                                Text(
-                                  'Complete team setup first. Generated payroll periods will appear here for review.',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ],
+                          ],
+                        ),
+                        if (_isPayrollConfiguredForAllTeam) ...[
+                          const SizedBox(height: 16),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: _ActionChipButton(
+                              label: _isActionInProgress
+                                  ? context.t('Generating...')
+                                  : context.t('Generate Payroll'),
+                              filled: true,
+                              isLoading: _isActionInProgress,
+                              onTap: _isActionInProgress
+                                  ? null
+                                  : _openGeneratePayrollDialog,
                             ),
                           ),
                         ],
-                      ),
-                      if (_isPayrollConfiguredForAllTeam) ...[
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: _ActionChipButton(
-                            label: _isActionInProgress
-                                ? context.t('Generating...')
-                                : context.t('Generate Payroll'),
-                            filled: true,
-                            isLoading: _isActionInProgress,
-                            onTap: _isActionInProgress
-                                ? null
-                                : _openGeneratePayrollDialog,
-                          ),
-                        ),
                       ],
-                    ],
-                  ),
-                )
-              else
-                ..._payrollRuns.map(
-                  (run) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _PayrollRunTile(
-                      run: run,
-                      statusColor: _statusColor(run.statusLabel),
-                      onOpen: () {
-                        _openPayrollReview(run);
-                      },
+                    ),
+                  )
+                else
+                  ..._payrollRuns.map(
+                    (run) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _PayrollRunTile(
+                        run: run,
+                        statusColor: _statusColor(run.statusLabel),
+                        onOpen: () {
+                          _openPayrollReview(run);
+                        },
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
