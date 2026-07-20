@@ -47,12 +47,17 @@ class _VendorFormView extends StatefulWidget {
 
 class _VendorFormViewState extends State<_VendorFormView> {
   final _formKey = GlobalKey<FormState>();
+  final _nameFieldKey = GlobalKey<FormFieldState<String>>();
+  final _phoneFieldKey = GlobalKey<FormFieldState<String>>();
+  final _emailFieldKey = GlobalKey<FormFieldState<String>>();
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
   bool _active = true;
   bool _isSaving = false;
-  bool _showValidationErrors = false;
+  bool _showNameError = false;
+  bool _showPhoneError = false;
+  bool _showEmailError = false;
 
   @override
   void initState() {
@@ -82,7 +87,11 @@ class _VendorFormViewState extends State<_VendorFormView> {
   }
 
   Future<void> _submit() async {
-    setState(() => _showValidationErrors = true);
+    setState(() {
+      _showNameError = true;
+      _showPhoneError = true;
+      _showEmailError = true;
+    });
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
     try {
@@ -102,6 +111,16 @@ class _VendorFormViewState extends State<_VendorFormView> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _clearFieldError(
+    GlobalKey<FormFieldState<String>> fieldKey,
+    VoidCallback markClean,
+  ) {
+    markClean();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fieldKey.currentState?.validate();
+    });
   }
 
   @override
@@ -126,10 +145,15 @@ class _VendorFormViewState extends State<_VendorFormView> {
             _VendorRequiredLabel(context.t('Vendor Name')),
             const SizedBox(height: 8),
             _VendorTextField(
+              fieldKey: _nameFieldKey,
               controller: _nameController,
               hint: context.t('Enter vendor name'),
               maxLength: 120,
               textInputAction: TextInputAction.next,
+              onChanged: (_) => _clearFieldError(
+                _nameFieldKey,
+                () => setState(() => _showNameError = false),
+              ),
               inputFormatters: <TextInputFormatter>[
                 FilteringTextInputFormatter.allow(
                   _vendorNameAllowedInputPattern,
@@ -137,6 +161,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
                 LengthLimitingTextInputFormatter(120),
               ],
               validator: (value) {
+                if (!_showNameError) return null;
                 final name = _stringValue(value);
                 if (name.isEmpty) return vendorNameRequired;
                 if (!_vendorNameAllowedPattern.hasMatch(name)) {
@@ -149,6 +174,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
             _VendorRequiredLabel(context.t('Phone')),
             const SizedBox(height: 8),
             _VendorTextField(
+              fieldKey: _phoneFieldKey,
               controller: _phoneController,
               hint: context.t('Enter phone number'),
               keyboardType: TextInputType.phone,
@@ -158,14 +184,14 @@ class _VendorFormViewState extends State<_VendorFormView> {
                 LengthLimitingTextInputFormatter(10),
               ],
               maxLength: 10,
+              onChanged: (_) => _clearFieldError(
+                _phoneFieldKey,
+                () => setState(() => _showPhoneError = false),
+              ),
               validator: (value) {
+                if (!_showPhoneError) return null;
                 final phone = _stringValue(value);
-                if (phone.isEmpty) {
-                  return _showValidationErrors ? phoneRequired : null;
-                }
-                final canShowError =
-                    _showValidationErrors || phone.length == 10;
-                if (phone.length < 10 && !canShowError) return null;
+                if (phone.isEmpty) return phoneRequired;
                 if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(phone)) {
                   return translateText(
                     'Enter a valid 10-digit phone number starting with 6, 7, 8, or 9',
@@ -178,6 +204,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
             _VendorRequiredLabel(context.t('Email')),
             const SizedBox(height: 8),
             _VendorTextField(
+              fieldKey: _emailFieldKey,
               controller: _emailController,
               hint: context.t('Enter email address'),
               keyboardType: TextInputType.emailAddress,
@@ -188,7 +215,12 @@ class _VendorFormViewState extends State<_VendorFormView> {
                 FilteringTextInputFormatter.deny(RegExp(r'\s')),
               ],
               maxLength: 120,
+              onChanged: (_) => _clearFieldError(
+                _emailFieldKey,
+                () => setState(() => _showEmailError = false),
+              ),
               validator: (value) {
+                if (!_showEmailError) return null;
                 final email = _stringValue(value);
                 if (email.isEmpty) return emailRequired;
                 if (!_isValidVendorEmail(email)) {
@@ -348,6 +380,7 @@ class _VendorRequiredLabel extends StatelessWidget {
 
 class _VendorTextField extends StatelessWidget {
   const _VendorTextField({
+    required this.fieldKey,
     required this.controller,
     required this.hint,
     required this.validator,
@@ -357,8 +390,10 @@ class _VendorTextField extends StatelessWidget {
     this.inputFormatters,
     this.autocorrect = true,
     this.textCapitalization = TextCapitalization.words,
+    this.onChanged,
   });
 
+  final GlobalKey<FormFieldState<String>> fieldKey;
   final TextEditingController controller;
   final String hint;
   final String? Function(String?) validator;
@@ -368,10 +403,12 @@ class _VendorTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final bool autocorrect;
   final TextCapitalization textCapitalization;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      key: fieldKey,
       controller: controller,
       maxLength: maxLength,
       keyboardType: keyboardType,
@@ -379,8 +416,8 @@ class _VendorTextField extends StatelessWidget {
       inputFormatters: inputFormatters,
       autocorrect: autocorrect,
       textCapitalization: textCapitalization,
+      onChanged: onChanged,
       validator: validator,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
       style: const TextStyle(
         color: Color(0xFF1C1917),
         fontSize: 13,

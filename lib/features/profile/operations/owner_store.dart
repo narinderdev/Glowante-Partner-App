@@ -14,8 +14,10 @@ String? _storeTextValidator(
   BuildContext context,
   String? value, {
   required String requiredMessage,
+  required bool shouldValidate,
   bool required = false,
 }) {
+  if (!shouldValidate) return null;
   final text = _stringValue(value);
   if (required && text.isEmpty) return context.t(requiredMessage);
   if (text.isNotEmpty && !_storeAllowedTextPattern.hasMatch(text)) {
@@ -160,15 +162,21 @@ class _StoreFormView extends StatefulWidget {
 // }
 class _StoreFormViewState extends State<_StoreFormView> {
   final _formKey = GlobalKey<FormState>();
+  final _nameFieldKey = GlobalKey<FormFieldState<String>>();
+  final _addressFieldKey = GlobalKey<FormFieldState<String>>();
+  final _binFieldKey = GlobalKey<FormFieldState<String>>();
 
   late final TextEditingController _nameController;
   late final TextEditingController _addressController;
   late final TextEditingController _binController;
 
-  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  final AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   bool _active = true;
   bool _isSaving = false;
+  bool _showNameError = false;
+  bool _showAddressError = false;
+  bool _showBinError = false;
 
   @override
   void initState() {
@@ -201,7 +209,9 @@ class _StoreFormViewState extends State<_StoreFormView> {
 
   Future<void> _submit() async {
     setState(() {
-      _autoValidateMode = AutovalidateMode.onUserInteraction;
+      _showNameError = true;
+      _showAddressError = true;
+      _showBinError = true;
     });
 
     if (!_formKey.currentState!.validate()) return;
@@ -224,6 +234,16 @@ class _StoreFormViewState extends State<_StoreFormView> {
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  void _clearFieldError(
+    GlobalKey<FormFieldState<String>> fieldKey,
+    VoidCallback markClean,
+  ) {
+    markClean();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fieldKey.currentState?.validate();
+    });
   }
 
   @override
@@ -283,6 +303,7 @@ class _StoreFormViewState extends State<_StoreFormView> {
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
+                    key: _nameFieldKey,
                     maxLength: 50,
                     controller: _nameController,
                     inputFormatters: _storeTextInputFormatters(maxLength: 50),
@@ -297,15 +318,16 @@ class _StoreFormViewState extends State<_StoreFormView> {
                       value,
                       requiredMessage: 'Store name is required',
                       required: true,
+                      shouldValidate: _showNameError,
                     ),
-                    onChanged: (_) {
-                      if (_autoValidateMode != AutovalidateMode.disabled) {
-                        _formKey.currentState?.validate();
-                      }
-                    },
+                    onChanged: (_) => _clearFieldError(
+                      _nameFieldKey,
+                      () => setState(() => _showNameError = false),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
+                    key: _addressFieldKey,
                     maxLength: 50,
                     controller: _addressController,
                     inputFormatters: _storeTextInputFormatters(maxLength: 50),
@@ -320,15 +342,16 @@ class _StoreFormViewState extends State<_StoreFormView> {
                       context,
                       value,
                       requiredMessage: 'Address is required',
+                      shouldValidate: _showAddressError,
                     ),
-                    onChanged: (_) {
-                      if (_autoValidateMode != AutovalidateMode.disabled) {
-                        _formKey.currentState?.validate();
-                      }
-                    },
+                    onChanged: (_) => _clearFieldError(
+                      _addressFieldKey,
+                      () => setState(() => _showAddressError = false),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
+                    key: _binFieldKey,
                     maxLength: 100,
                     controller: _binController,
                     inputFormatters: _storeTextInputFormatters(maxLength: 100),
@@ -342,12 +365,12 @@ class _StoreFormViewState extends State<_StoreFormView> {
                       context,
                       value,
                       requiredMessage: 'Bin Description is required',
+                      shouldValidate: _showBinError,
                     ),
-                    onChanged: (_) {
-                      if (_autoValidateMode != AutovalidateMode.disabled) {
-                        _formKey.currentState?.validate();
-                      }
-                    },
+                    onChanged: (_) => _clearFieldError(
+                      _binFieldKey,
+                      () => setState(() => _showBinError = false),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Container(
@@ -379,7 +402,9 @@ class _StoreFormViewState extends State<_StoreFormView> {
                           fontSize: 12,
                         ),
                       ),
-                      activeColor: AppColors.starColor,
+                      activeThumbColor: AppColors.starColor,
+                      activeTrackColor:
+                          AppColors.starColor.withValues(alpha: 0.35),
                       value: _active,
                       onChanged: _isSaving
                           ? null

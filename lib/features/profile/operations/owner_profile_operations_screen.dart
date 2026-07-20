@@ -1193,92 +1193,24 @@ class _OwnerProfileOperationsScreenState
       context: context,
       builder: (dialogContext) {
         return _AsyncDetailsDialog(
-          title: _firstText(
-            item,
-            const <String>['itemName', 'name', 'title'],
-            fallback: 'Inventory Item Details',
-          ),
+          title: _t('Inventory Item Details'),
+          maxWidth: 540,
+          maxHeight: 620,
           future: _apiService.getInventoryItemDetails(
             branchId: branchId,
             inventoryId: inventoryId,
           ),
-          builder: (detail) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DetailLine(
-                  label: 'Item ID',
-                  value: _firstText(detail, const ['id', 'itemId'],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'SKU',
-                  value: _firstText(detail, const ['skuNumber', 'sku'],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Category',
-                  value: _firstText(detail, const ['category', 'categoryName'],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Brand',
-                  value: _firstText(detail, const ['brand', 'manufacturer'],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Stock Level',
-                  value: _firstText(detail,
-                      const ['stockLevel', 'availableStock', 'currentStock'],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Max Stock Level',
-                  value: _firstText(
-                      detail, const ['maxStockLevel', 'maximumStock'],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Reorder Point',
-                  value: _firstText(detail, const ['reorderPoint'],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Reorder Qty',
-                  value: _firstText(
-                      detail, const ['reorderQuantity', 'reorderQty'],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Cost Per Unit',
-                  value: _formatCurrency(
-                      detail['costPerUnit'] ?? detail['unitPrice'])),
-              _DetailLine(
-                  label: 'Vendor',
-                  value: _firstText(
-                      detail,
-                      const [
-                        'primaryVendorName',
-                        'vendorName',
-                        'vendorId',
-                        'primaryVendorId',
-                        'primaryVendorDbId',
-                      ],
-                      fallback: 'N/A')),
-              _DetailLine(
-                  label: 'Store', value: _storeDisplayLabel(detail, _stores)),
-              _DetailLine(label: 'Status', value: _statusLabel(detail)),
-              const SizedBox(height: 18),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    _logOperations(
-                      'inventory_item_edit_from_details',
-                      details: 'branchId=$branchId, inventoryId=$inventoryId',
-                    );
-                    _openInventoryItemFormDialog(initialItem: detail);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Edit Inventory Item'),
-                ),
-              ),
-            ],
+          builder: (detail) => _InventoryItemDetailsView(
+            detail: detail,
+            stores: _stores,
+            onEdit: () {
+              Navigator.of(dialogContext).pop();
+              _logOperations(
+                'inventory_item_edit_from_details',
+                details: 'branchId=$branchId, inventoryId=$inventoryId',
+              );
+              _openInventoryItemFormDialog(initialItem: detail);
+            },
           ),
         );
       },
@@ -1675,7 +1607,9 @@ class _OwnerProfileOperationsScreenState
 
   Widget _buildBodyContent() {
     if (_isLoadingBranches) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.starColor),
+      );
     }
     if (_branchError != null) {
       return _ErrorStateCard(
@@ -1945,7 +1879,9 @@ class _OwnerProfileOperationsScreenState
     if (_isLoadingContent) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.starColor),
+        ),
       );
     }
     if (records.isEmpty) {
