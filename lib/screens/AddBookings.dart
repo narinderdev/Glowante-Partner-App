@@ -64,6 +64,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   TimeOfDay? _endTime;
   TimeOfDay? _branchStartTime;
   TimeOfDay? _branchEndTime;
+  String _branchName = '';
+  Map<String, List<Map<String, dynamic>>> _branchWeeklySchedule = {};
   String? _serviceError;
 
   bool get _hasCustomerDetails {
@@ -305,27 +307,342 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return TimeOfDay(hour: hour, minute: minute);
   }
 
+  bool _isBranchClosedOn(DateTime date) {
+    if (_branchWeeklySchedule.isEmpty) {
+      return false;
+    }
+
+    final day = _weekdayKey(date);
+    final slots = _branchWeeklySchedule[day] ?? const <Map<String, dynamic>>[];
+
+    return slots.isEmpty;
+  }
+
+  String _weekdayKey(DateTime date) {
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+
+    return days[date.weekday - 1];
+  }
+
+// Map<String, List<Map<String, dynamic>>> _parseBranchWeeklySchedule(
+//   dynamic rawSchedule,
+// ) {
+//   final result = <String, List<Map<String, dynamic>>>{};
+
+//   void addSlot(String day, dynamic rawSlot) {
+//     if (rawSlot is! Map) return;
+
+//     final slot = Map<String, dynamic>.from(rawSlot);
+
+//     final start = slot['startTime'] ?? slot['start'];
+//     final end = slot['endTime'] ?? slot['end'];
+
+//     if (_parseApiTimeOfDay(start) == null ||
+//         _parseApiTimeOfDay(end) == null) {
+//       return;
+//     }
+
+//     result.putIfAbsent(day, () => <Map<String, dynamic>>[]).add(slot);
+//   }
+
+//   if (rawSchedule is Map) {
+//     rawSchedule.forEach((key, value) {
+//       final day = key.toString().trim().toLowerCase();
+
+//       if (day.isEmpty) return;
+
+//       result.putIfAbsent(day, () => <Map<String, dynamic>>[]);
+
+//       if (value is List) {
+//         for (final slot in value) {
+//           addSlot(day, slot);
+//         }
+//       } else if (value is Map) {
+//         final nestedSlots = value['slots'];
+
+//         if (nestedSlots is List) {
+//           for (final slot in nestedSlots) {
+//             addSlot(day, slot);
+//           }
+//         } else {
+//           addSlot(day, value);
+//         }
+//       }
+//     });
+//   } else if (rawSchedule is List) {
+//     for (final rawDay in rawSchedule) {
+//       if (rawDay is! Map) continue;
+
+//       final dayMap = Map<String, dynamic>.from(rawDay);
+//       final day =
+//           (dayMap['day'] ?? '').toString().trim().toLowerCase();
+
+//       if (day.isEmpty) continue;
+
+//       result.putIfAbsent(day, () => <Map<String, dynamic>>[]);
+
+//       final slots = dayMap['slots'];
+
+//       if (slots is List) {
+//         for (final slot in slots) {
+//           addSlot(day, slot);
+//         }
+//       } else {
+//         addSlot(day, dayMap);
+//       }
+//     }
+//   }
+
+//   return result;
+// }
+  Map<String, List<Map<String, dynamic>>> _parseBranchWeeklySchedule(
+    dynamic rawSchedule,
+  ) {
+    final result = <String, List<Map<String, dynamic>>>{
+      'monday': <Map<String, dynamic>>[],
+      'tuesday': <Map<String, dynamic>>[],
+      'wednesday': <Map<String, dynamic>>[],
+      'thursday': <Map<String, dynamic>>[],
+      'friday': <Map<String, dynamic>>[],
+      'saturday': <Map<String, dynamic>>[],
+      'sunday': <Map<String, dynamic>>[],
+    };
+
+    String normalizeDay(dynamic value) {
+      final raw = value?.toString().trim().toLowerCase() ?? '';
+
+      const aliases = {
+        'mon': 'monday',
+        'monday': 'monday',
+        'tue': 'tuesday',
+        'tues': 'tuesday',
+        'tuesday': 'tuesday',
+        'wed': 'wednesday',
+        'wednesday': 'wednesday',
+        'thu': 'thursday',
+        'thur': 'thursday',
+        'thurs': 'thursday',
+        'thursday': 'thursday',
+        'fri': 'friday',
+        'friday': 'friday',
+        'sat': 'saturday',
+        'saturday': 'saturday',
+        'sun': 'sunday',
+        'sunday': 'sunday',
+      };
+
+      return aliases[raw] ?? raw;
+    }
+
+    bool readBool(dynamic value) {
+      if (value is bool) return value;
+
+      final text = value?.toString().trim().toLowerCase() ?? '';
+
+      return text == 'true' || text == '1' || text == 'yes' || text == 'closed';
+    }
+
+    void addSlot(String rawDay, dynamic rawSlot) {
+      final day = normalizeDay(rawDay);
+
+      if (!result.containsKey(day) || rawSlot is! Map) {
+        return;
+      }
+
+      final slot = Map<String, dynamic>.from(rawSlot);
+
+      final isClosed = readBool(
+        slot['isClosed'] ?? slot['closed'] ?? slot['is_closed'],
+      );
+
+      if (isClosed) {
+        result[day] = <Map<String, dynamic>>[];
+        return;
+      }
+
+      final start = slot['startTime'] ??
+          slot['start'] ??
+          slot['openTime'] ??
+          slot['openingTime'] ??
+          slot['from'];
+
+      final end = slot['endTime'] ??
+          slot['end'] ??
+          slot['closeTime'] ??
+          slot['closingTime'] ??
+          slot['to'];
+
+      if (_parseApiTimeOfDay(start) == null ||
+          _parseApiTimeOfDay(end) == null) {
+        return;
+      }
+
+      result[day]!.add({
+        ...slot,
+        'startTime': start,
+        'endTime': end,
+      });
+    }
+
+    void parseDayEntry(dynamic rawEntry, {String? mapDay}) {
+      if (rawEntry is! Map) return;
+
+      final entry = Map<String, dynamic>.from(rawEntry);
+
+      final day = normalizeDay(
+        mapDay ??
+            entry['day'] ??
+            entry['dayOfWeek'] ??
+            entry['weekday'] ??
+            entry['name'],
+      );
+
+      if (!result.containsKey(day)) return;
+
+      final isClosed = readBool(
+        entry['isClosed'] ?? entry['closed'] ?? entry['is_closed'],
+      );
+
+      if (isClosed) {
+        result[day] = <Map<String, dynamic>>[];
+        return;
+      }
+
+      final slots = entry['slots'] ??
+          entry['workingHours'] ??
+          entry['hours'] ??
+          entry['timeSlots'];
+
+      if (slots is List) {
+        for (final slot in slots) {
+          addSlot(day, slot);
+        }
+        return;
+      }
+
+      addSlot(day, entry);
+    }
+
+    if (rawSchedule is List) {
+      for (final entry in rawSchedule) {
+        parseDayEntry(entry);
+      }
+    } else if (rawSchedule is Map) {
+      final scheduleMap = Map<dynamic, dynamic>.from(rawSchedule);
+
+      for (final entry in scheduleMap.entries) {
+        final day = normalizeDay(entry.key);
+
+        if (result.containsKey(day)) {
+          final value = entry.value;
+
+          if (value is List) {
+            for (final slot in value) {
+              addSlot(day, slot);
+            }
+          } else {
+            parseDayEntry(value, mapDay: day);
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  // Future<void> _loadBranchTiming() async {
+  //   final branchId = widget.branchId;
+  //   if (branchId == null) return;
+  //   try {
+  //     final response = await ApiService().getBranchDetail(branchId);
+  //     final data = response['data'];
+  //     if (data is! Map) return;
+  //     final details = Map<String, dynamic>.from(data);
+  //     final start = _parseApiTimeOfDay(details['startTime']);
+  //     final end = _parseApiTimeOfDay(details['endTime']);
+  //     if (!mounted) return;
+  //     setState(() {
+  //       _branchStartTime = start;
+  //       _branchEndTime = end;
+  //       if (start != null) {
+  //         _startTime = start;
+  //         _syncEndTimeWithDuration();
+  //       }
+  //     });
+  //   } catch (_) {
+  //     // Fallback to default values when branch details are unavailable.
+  //   }
+  // }
   Future<void> _loadBranchTiming() async {
     final branchId = widget.branchId;
     if (branchId == null) return;
+
     try {
       final response = await ApiService().getBranchDetail(branchId);
-      final data = response['data'];
-      if (data is! Map) return;
-      final details = Map<String, dynamic>.from(data);
-      final start = _parseApiTimeOfDay(details['startTime']);
-      final end = _parseApiTimeOfDay(details['endTime']);
+
+      final rawData = response['data'];
+      if (rawData is! Map) return;
+
+      final details = Map<String, dynamic>.from(rawData);
+
+      final start = _parseApiTimeOfDay(
+        details['startTime'],
+      );
+
+      final end = _parseApiTimeOfDay(
+        details['endTime'],
+      );
+
+      final rawSchedule = details['schedule'] ??
+          details['schedules'] ??
+          details['workingHours'] ??
+          details['weeklySchedule'] ??
+          details['businessHours'] ??
+          details['openingHours'];
+
+      final weeklySchedule = _parseBranchWeeklySchedule(
+        rawSchedule,
+      );
+
+      debugPrint(
+        '[AddBooking] branch details keys: ${details.keys.toList()}',
+      );
+      debugPrint(
+        '[AddBooking] raw schedule: $rawSchedule',
+      );
+      debugPrint(
+        '[AddBooking] parsed weekly schedule: $weeklySchedule',
+      );
+
       if (!mounted) return;
+
       setState(() {
         _branchStartTime = start;
         _branchEndTime = end;
+        _branchWeeklySchedule = weeklySchedule;
+_branchName = (
+    details['name'] ??
+    details['branchName'] ??
+    details['salon']?['name'] ??
+    'Salon'
+  ).toString().trim();
         if (start != null) {
           _startTime = start;
           _syncEndTimeWithDuration();
         }
       });
-    } catch (_) {
-      // Fallback to default values when branch details are unavailable.
+    } catch (e) {
+      debugPrint(
+        'Error loading branch timings: $e',
+      );
     }
   }
 
@@ -3431,20 +3748,62 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     await WidgetsBinding.instance.endOfFrame;
 
     try {
+      // final selectedDate = _selectedDate ?? DateTime.now();
+
+      // // Always fetch latest salon timing before opening Select Time.
+      // await _loadBranchTiming();
+
+      // if (!mounted) return;
+
+      // final teamMembers = await _loadTeamMembers(
+      //   date: selectedDate,
+      //   allowOnlineBooking: true,
+      // );
+
+      //     if (!mounted) return;
+
+      //     final serviceMembers = _buildServiceMembersMap(
+      //       services: _selectedServices,
+      //       teamMembers: teamMembers,
+      //       selectedDate: selectedDate,
+      //     );
       final selectedDate = _selectedDate ?? DateTime.now();
 
-      final teamMembers = await _loadTeamMembers(
-        allowOnlineBooking: true,
-      );
+// Fetch the latest weekly salon schedule.
+      await _loadBranchTiming();
 
       if (!mounted) return;
 
-      final serviceMembers = _buildServiceMembersMap(
-        services: _selectedServices,
-        teamMembers: teamMembers,
-        selectedDate: selectedDate,
-      );
+      final isClosed = _isBranchClosedOn(selectedDate);
 
+      List<Map<String, dynamic>> teamMembers = const <Map<String, dynamic>>[];
+
+      Map<int, List<Map<String, dynamic>>> serviceMembers =
+          <int, List<Map<String, dynamic>>>{};
+
+// Do not call team-member API for a closed date.
+      if (!isClosed) {
+        teamMembers = await _loadTeamMembers(
+          date: selectedDate,
+          allowOnlineBooking: true,
+        );
+
+        if (!mounted) return;
+
+        serviceMembers = _buildServiceMembersMap(
+          services: _selectedServices,
+          teamMembers: teamMembers,
+          selectedDate: selectedDate,
+        );
+      }
+
+      debugPrint(
+        '[AddBooking] selectedDate=$selectedDate, isClosed=$isClosed',
+      );
+      debugPrint(
+        '[AddBooking] schedule passed to Select Time: '
+        '$_branchWeeklySchedule',
+      );
       final result = await Navigator.push<Map<String, dynamic>>(
         context,
         MaterialPageRoute(
@@ -3452,6 +3811,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             customerName: _customerFullName(),
             customerPhone: _mobileCtrl.text.trim(),
             customerUserId: _selectedCustomerId,
+            branchName: _branchName,
             services: _selectedServices,
             professionals: Map<int, String>.from(
               _professionalByService,
@@ -3468,6 +3828,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             initialStartTime: _startTime,
             branchStartTime: _branchStartTime,
             branchEndTime: _branchEndTime,
+            branchWeeklySchedule: Map<String, List<Map<String, dynamic>>>.from(
+              _branchWeeklySchedule,
+            ),
             durationMinutes: _totalSelectedDurationMinutes(),
             selectedProfessionals: _selectedProfessionalLabels(),
             reloadServiceMembers: (date) async {
@@ -4716,6 +5079,7 @@ class _BookingScheduleSelection {
 
 class _BookingScheduleScreen extends StatefulWidget {
   const _BookingScheduleScreen({
+    required this.branchName,
     required this.customerName,
     required this.customerPhone,
     required this.customerUserId,
@@ -4736,6 +5100,8 @@ class _BookingScheduleScreen extends StatefulWidget {
     required this.reloadServiceMembers,
     required this.onProfessionalsChanged,
     required this.onConfirmBooking,
+    required this.branchWeeklySchedule,
+    super.key,
   });
 
   final String customerName;
@@ -4753,6 +5119,8 @@ class _BookingScheduleScreen extends StatefulWidget {
   final TimeOfDay? initialStartTime;
   final TimeOfDay? branchStartTime;
   final TimeOfDay? branchEndTime;
+  final String branchName;
+  final Map<String, List<Map<String, dynamic>>> branchWeeklySchedule;
   final int durationMinutes;
   final List<String> selectedProfessionals;
   final Future<Map<int, List<Map<String, dynamic>>>> Function(DateTime date)
@@ -4821,9 +5189,28 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
+      if (_isSelectedDateClosed) {
+        setState(() {
+          _selectedTime = null;
+          _availabilitySlots = [];
+          _availabilityLoaded = false;
+          // _selectedProfessionals.clear();
+          // _serviceMembers = {};
+        });
+
+        // widget.onProfessionalsChanged(
+        //   const <int, String>{},
+        // );
+
+        return;
+      }
+
       unawaited(() async {
         await _reloadServiceMembers();
+
         if (!mounted) return;
+
         await _refreshAvailabilityFromCart();
       }());
     });
@@ -4844,6 +5231,37 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     return _serviceMembers[serviceId] ??
         widget.serviceMembers[serviceId] ??
         const <Map<String, dynamic>>[];
+  }
+
+  String _weekdayKey(DateTime date) {
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+
+    return days[date.weekday - 1];
+  }
+
+  bool _isSalonClosedOn(DateTime date) {
+    // No weekly schedule means use normal branch start/end timing.
+    if (widget.branchWeeklySchedule.isEmpty) {
+      return false;
+    }
+
+    final day = _weekdayKey(date);
+    final slots =
+        widget.branchWeeklySchedule[day] ?? const <Map<String, dynamic>>[];
+
+    return slots.isEmpty;
+  }
+
+  bool get _isSelectedDateClosed {
+    return _isSalonClosedOn(_selectedDate);
   }
 
   // Future<void> _reloadServiceMembers() async {
@@ -5048,6 +5466,192 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     }
   }
 
+// Widget _closedSalonCard() {
+//   final weekday = DateFormat('EEEE').format(
+//     _selectedDate,
+//   );
+
+//   return Container(
+//     width: double.infinity,
+//     padding: const EdgeInsets.fromLTRB(
+//       22,
+//       36,
+//       22,
+//       36,
+//     ),
+//     decoration: BoxDecoration(
+//       color: Colors.white,
+//       borderRadius: BorderRadius.circular(12),
+//       border: Border.all(
+//         color: _bookingBorder,
+//       ),
+//       boxShadow: const [
+//         BoxShadow(
+//           color: Color(0x08000000),
+//           blurRadius: 12,
+//           offset: Offset(0, 5),
+//         ),
+//       ],
+//     ),
+//     child: Column(
+//       children: [
+//         Container(
+//           width: 56,
+//           height: 56,
+//           decoration: BoxDecoration(
+//             color: const Color(0xFFF7EBD6),
+//             borderRadius: BorderRadius.circular(12),
+//           ),
+//           child: const Icon(
+//             Icons.event_busy_rounded,
+//             color: _bookingGold,
+//             size: 31,
+//           ),
+//         ),
+//         const SizedBox(height: 20),
+//         Text(
+//           '${translateText('Salon is closed on')} '
+//           '${translateText(weekday)}',
+//           textAlign: TextAlign.center,
+//           style: const TextStyle(
+//             color: _bookingInk,
+//             fontSize: 20,
+//             fontWeight: FontWeight.w900,
+//             height: 1.3,
+//           ),
+//         ),
+//         const SizedBox(height: 12),
+//         Text(
+//           translateText(
+//             'No working hours were provided for this day. Please choose another date to continue with the booking.',
+//           ),
+//           textAlign: TextAlign.center,
+//           style: const TextStyle(
+//             color: _bookingMuted,
+//             fontSize: 13,
+//             fontWeight: FontWeight.w600,
+//             height: 1.5,
+//           ),
+//         ),
+//       ],
+//     ),
+//   );
+// // }
+//   Widget _closedSalonCard() {
+//     final weekday = DateFormat('EEEE').format(
+//       _selectedDate,
+//     );
+
+//     return Container(
+//       width: double.infinity,
+//       constraints: const BoxConstraints(
+//         minHeight: 260,
+//       ),
+//       padding: const EdgeInsets.fromLTRB(
+//         24,
+//         42,
+//         24,
+//         42,
+//       ),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(16),
+//         border: Border.all(
+//           color: _bookingBorder,
+//         ),
+//       ),
+//       child: Column(
+//         mainAxisAlignment: MainAxisAlignment.center,
+//         children: [
+//           const Icon(
+//             Icons.event_busy_outlined,
+//             color: _bookingGoldLight,
+//             size: 52,
+//           ),
+//           const SizedBox(height: 22),
+//           Text(
+//             '${translateText('Salon is closed on')} '
+//             '${translateText(weekday)}',
+//             textAlign: TextAlign.center,
+//             style: const TextStyle(
+//               color: _bookingInk,
+//               fontSize: 22,
+//               fontWeight: FontWeight.w900,
+//               height: 1.25,
+//             ),
+//           ),
+//           const SizedBox(height: 16),
+//           Text(
+//             translateText(
+//               'No working hours were provided for this day. Please choose another date to continue with the booking.',
+//             ),
+//             textAlign: TextAlign.center,
+//             style: const TextStyle(
+//               color: _bookingMuted,
+//               fontSize: 14,
+//               fontWeight: FontWeight.w600,
+//               height: 1.5,
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+Widget _closedSalonCard() {
+  final weekday = DateFormat('EEEE').format(_selectedDate);
+
+  final branchLabel = widget.branchName.trim().isEmpty
+      ? translateText('Salon')
+      : widget.branchName.trim();
+
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(
+      horizontal: 24,
+      vertical: 30,
+    ),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: _bookingBorder,
+      ),
+    ),
+    child: Column(
+      children: [
+        const Icon(
+          Icons.event_busy_outlined,
+          size: 34,
+          color: _bookingGoldLight,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '$branchLabel ${translateText('is closed on')} '
+          '${translateText(weekday)}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: _bookingInk,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          translateText(
+            'No working hours were provided for this day. Please choose another date to view or add bookings.',
+          ),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: _bookingMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            height: 1.45,
+          ),
+        ),
+      ],
+    ),
+  );
+}
   List<dynamic> _availabilityListFrom(dynamic value) {
     if (value is List) return value;
     if (value is! Map) return const [];
@@ -5298,8 +5902,134 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   //   await _loadAppointmentsForDate();
   // }
 
+  // Future<void> _selectScheduleDate(DateTime day) async {
+  //   if (_loadingAppointments || DateUtils.isSameDay(day, _selectedDate)) {
+  //     return;
+  //   }
+
+  //   final previousDate = _selectedDate;
+
+  //   setState(() {
+  //     _loadingAppointments = true;
+  //     _selectedDate = _dateOnly(day);
+  //     _selectedTime = null;
+  //     _availabilitySlots = [];
+  //     _availabilityLoaded = false;
+  //   });
+
+  //   await WidgetsBinding.instance.endOfFrame;
+
+  //   try {
+  //     await _reloadServiceMembers();
+
+  //     if (!mounted) return;
+
+  //     await _refreshAvailabilityFromCart();
+  //   } catch (e) {
+  //     debugPrint(
+  //       '[AddBookingSchedule] failed to change date: $e',
+  //     );
+
+  //     if (mounted) {
+  //       setState(() {
+  //         _selectedDate = previousDate;
+  //       });
+  //     }
+
+  //     Fluttertoast.showToast(
+  //       msg: 'Failed to load booking availability',
+  //     );
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() {
+  //         _loadingAppointments = false;
+  //       });
+  //     }
+  //   }
+  // }
+// Future<void> _selectScheduleDate(DateTime day) async {
+//   if (_loadingAppointments) return;
+
+//   final previousDate = _selectedDate;
+//   final normalizedDate = _dateOnly(day);
+
+//   setState(() {
+//     _selectedDate = normalizedDate;
+//     _selectedTime = null;
+//     _availabilitySlots = [];
+//     _availabilityLoaded = false;
+//   });
+
+//   if (_isSalonClosedOn(normalizedDate)) {
+//     setState(() {
+//       _selectedProfessionals.clear();
+//       _serviceMembers = {};
+//       _loadingAppointments = false;
+//     });
+
+//     widget.onProfessionalsChanged(
+//       const <int, String>{},
+//     );
+
+//     return;
+//   }
+
+//   setState(() {
+//     _loadingAppointments = true;
+//   });
+
+//   await WidgetsBinding.instance.endOfFrame;
+
+//   try {
+//     await _reloadServiceMembers();
+
+//     if (!mounted) return;
+
+//     await _refreshAvailabilityFromCart();
+//   } catch (e) {
+//     if (!mounted) return;
+
+//     setState(() {
+//       _selectedDate = previousDate;
+//       _selectedTime = null;
+//       _availabilitySlots = [];
+//       _availabilityLoaded = false;
+//     });
+
+//     Fluttertoast.showToast(
+//       msg: translateText(
+//         'Unable to load availability for the selected date',
+//       ),
+//     );
+//   } finally {
+//     if (mounted) {
+//       setState(() {
+//         _loadingAppointments = false;
+//       });
+//     }
+//   }
+// }
   Future<void> _selectScheduleDate(DateTime day) async {
-    if (_loadingAppointments || DateUtils.isSameDay(day, _selectedDate)) {
+    if (_loadingAppointments) return;
+
+    final normalizedDate = _dateOnly(day);
+    final isClosed = _isSalonClosedOn(normalizedDate);
+
+    // Closed date: select it and update UI only.
+    // Do not call any API.
+    if (isClosed) {
+      setState(() {
+        _selectedDate = normalizedDate;
+        _selectedTime = null;
+        _availabilitySlots = [];
+        _availabilityLoaded = false;
+        _loadingAppointments = false;
+      });
+
+      return;
+    }
+
+    if (DateUtils.isSameDay(normalizedDate, _selectedDate)) {
       return;
     }
 
@@ -5307,7 +6037,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
     setState(() {
       _loadingAppointments = true;
-      _selectedDate = _dateOnly(day);
+      _selectedDate = normalizedDate;
       _selectedTime = null;
       _availabilitySlots = [];
       _availabilityLoaded = false;
@@ -5322,18 +6052,19 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
       await _refreshAvailabilityFromCart();
     } catch (e) {
-      debugPrint(
-        '[AddBookingSchedule] failed to change date: $e',
-      );
+      if (!mounted) return;
 
-      if (mounted) {
-        setState(() {
-          _selectedDate = previousDate;
-        });
-      }
+      setState(() {
+        _selectedDate = previousDate;
+        _selectedTime = null;
+        _availabilitySlots = [];
+        _availabilityLoaded = false;
+      });
 
       Fluttertoast.showToast(
-        msg: 'Failed to load booking availability',
+        msg: translateText(
+          'Unable to load availability for the selected date',
+        ),
       );
     } finally {
       if (mounted) {
@@ -5738,59 +6469,245 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
+                      // children: days.map((day) {
+                      //   final selected =
+                      //       DateUtils.isSameDay(day, _selectedDate);
+
+                      //   return Padding(
+                      //     padding: const EdgeInsets.only(right: 8),
+                      //     child: InkWell(
+                      //       onTap: () {
+                      //         if (DateUtils.isSameDay(
+                      //           day,
+                      //           _selectedDate,
+                      //         )) {
+                      //           return;
+                      //         }
+
+                      //         unawaited(
+                      //           _selectScheduleDate(day),
+                      //         );
+                      //       },
+                      //       borderRadius: BorderRadius.circular(7),
+                      //       child: Container(
+                      //         width: 50,
+                      //         padding: const EdgeInsets.symmetric(vertical: 9),
+                      //         decoration: BoxDecoration(
+                      //           color: selected ? _bookingGold : Colors.white,
+                      //           borderRadius: BorderRadius.circular(7),
+                      //           border: Border.all(
+                      //             color:
+                      //                 selected ? _bookingGold : _bookingBorder,
+                      //           ),
+                      //         ),
+                      //         child: Column(
+                      //           children: [
+                      //             Text(
+                      //               DateFormat('E').format(day),
+                      //               style: TextStyle(
+                      //                 color: selected
+                      //                     ? Colors.white
+                      //                     : _bookingMuted,
+                      //                 fontSize: 10,
+                      //                 fontWeight: FontWeight.w700,
+                      //               ),
+                      //             ),
+                      //             const SizedBox(height: 4),
+                      //             Text(
+                      //               DateFormat('d').format(day),
+                      //               style: TextStyle(
+                      //                 color:
+                      //                     selected ? Colors.white : _bookingInk,
+                      //                 fontSize: 15,
+                      //                 fontWeight: FontWeight.w800,
+                      //               ),
+                      //             ),
+                      //           ],
+                      //         ),
+                      //       ),
+                      //     ),
+                      //   );
+                      // }).toList(),
+//                       children: days.map((day) {
+//   final selected = DateUtils.isSameDay(
+//     day,
+//     _selectedDate,
+//   );
+
+//   final isClosed = _isSalonClosedOn(day);
+
+//   return Padding(
+//     padding: const EdgeInsets.only(right: 8),
+//     child: InkWell(
+//       onTap: _loadingAppointments
+//           ? null
+//           : () {
+//               unawaited(
+//                 _selectScheduleDate(day),
+//               );
+//             },
+//       borderRadius: BorderRadius.circular(12),
+//       child: Container(
+//         width: 48,
+//         height: 62,
+//         padding: const EdgeInsets.symmetric(
+//           horizontal: 4,
+//           vertical: 8,
+//         ),
+//         decoration: BoxDecoration(
+//           color: selected
+//               ? isClosed
+//                   ? const Color(0xFFFFEEEE)
+//                   : _bookingGold
+//               : isClosed
+//                   ? const Color(0xFFFFEEEE)
+//                   : Colors.white,
+//           borderRadius: BorderRadius.circular(12),
+//           border: Border.all(
+//             color: selected
+//                 ? isClosed
+//                     ? _bookingGold
+//                     : _bookingGold
+//                 : isClosed
+//                     ? const Color(0xFFF0B6B6)
+//                     : _bookingBorder,
+//             width: selected ? 1.8 : 1,
+//           ),
+//         ),
+//         child: Column(
+//           mainAxisAlignment: MainAxisAlignment.center,
+//           children: [
+//             Text(
+//               DateFormat('E').format(day),
+//               style: TextStyle(
+//                 color: isClosed
+//                     ? const Color(0xFF9F4545)
+//                     : selected
+//                         ? Colors.white
+//                         : _bookingMuted,
+//                 fontSize: 10,
+//                 fontWeight: FontWeight.w700,
+//               ),
+//             ),
+//             const SizedBox(height: 4),
+//             Text(
+//               DateFormat('d').format(day),
+//               style: TextStyle(
+//                 color: isClosed
+//                     ? const Color(0xFF9F4545)
+//                     : selected
+//                         ? Colors.white
+//                         : _bookingInk,
+//                 fontSize: 17,
+//                 fontWeight: FontWeight.w900,
+//               ),
+//             ),
+//             if (isClosed) ...[
+//               const SizedBox(height: 4),
+//               Text(
+//                 translateText('CLOSED'),
+//                 style: const TextStyle(
+//                   color: _bookingGold,
+//                   fontSize: 9,
+//                   fontWeight: FontWeight.w900,
+//                   letterSpacing: 0.2,
+//                 ),
+//               ),
+//             ],
+//           ],
+//         ),
+//       ),
+//     ),
+//   );
+// }).toList(),
                       children: days.map((day) {
-                        final selected =
-                            DateUtils.isSameDay(day, _selectedDate);
+                        final selected = DateUtils.isSameDay(
+                          day,
+                          _selectedDate,
+                        );
+
+                        final isClosed = _isSalonClosedOn(day);
 
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: InkWell(
-                            onTap: () {
-                              if (DateUtils.isSameDay(
-                                day,
-                                _selectedDate,
-                              )) {
-                                return;
-                              }
-
-                              unawaited(
-                                _selectScheduleDate(day),
-                              );
-                            },
+                            onTap: _loadingAppointments
+                                ? null
+                                : () {
+                                    unawaited(
+                                      _selectScheduleDate(day),
+                                    );
+                                  },
                             borderRadius: BorderRadius.circular(7),
                             child: Container(
-                              width: 50,
-                              padding: const EdgeInsets.symmetric(vertical: 9),
+                              width: 48,
+                              height: 62,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
-                                color: selected ? _bookingGold : Colors.white,
+                                color: isClosed
+                                    ? const Color(0xFFFFEBEE)
+                                    : selected
+                                        ? _bookingGold
+                                        : Colors.white,
                                 borderRadius: BorderRadius.circular(7),
-                                border: Border.all(
-                                  color:
-                                      selected ? _bookingGold : _bookingBorder,
-                                ),
+                             border: Border.all(
+  color: selected
+      ? _bookingGold
+      : isClosed
+          ? const Color(0xFFE57373)
+          : _bookingBorder,
+  width: selected || isClosed ? 1.4 : 1,
+),
                               ),
                               child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
                                     DateFormat('E').format(day),
+                                    maxLines: 1,
                                     style: TextStyle(
-                                      color: selected
-                                          ? Colors.white
-                                          : _bookingMuted,
-                                      fontSize: 10,
+                                      color: isClosed
+                                          ? const Color(0xFFC62828)
+                                          : selected
+                                              ? Colors.white
+                                              : _bookingMuted,
+                                      fontSize: 9,
+                                      height: 1,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 3),
                                   Text(
                                     DateFormat('d').format(day),
+                                    maxLines: 1,
                                     style: TextStyle(
-                                      color:
-                                          selected ? Colors.white : _bookingInk,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800,
+                                      color: isClosed
+                                          ? const Color(0xFFC62828)
+                                          : selected
+                                              ? Colors.white
+                                              : _bookingInk,
+                                      fontSize: 14,
+                                      height: 1,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
+                                  if (isClosed) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      translateText('CLOSED'),
+                                      maxLines: 1,
+                                      style: const TextStyle(
+                                        color: Color(0xFFC62828),
+                                        fontSize: 7,
+                                        height: 1,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -5799,337 +6716,379 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                       }).toList(),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  _selectedServicesTeamSection(),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Text(
-                        translateText('Available Slots'),
-                        style: const TextStyle(
-                          color: _bookingInk,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (slotPeriodLabel.isNotEmpty) ...[
-                        const Icon(
-                          Icons.wb_sunny_outlined,
-                          size: 13,
-                          color: _bookingMuted,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          slotPeriodLabel,
-                          style: const TextStyle(
-                            color: _bookingMuted,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // if (_loadingAppointments)
-                  //   Container(
-                  //     width: double.infinity,
-                  //     padding: const EdgeInsets.symmetric(vertical: 24),
-                  //     decoration: BoxDecoration(
-                  //       color: Colors.white,
-                  //       borderRadius: BorderRadius.circular(9),
-                  //       border: Border.all(color: _bookingBorder),
+                  // const SizedBox(height: 24),
+                  // Row(
+                  //   children: [
+                  //     Text(
+                  //       translateText('Available Slots'),
+                  //       style: const TextStyle(
+                  //         color: _bookingInk,
+                  //         fontSize: 17,
+                  //         fontWeight: FontWeight.w800,
+                  //       ),
                   //     ),
-                  //     child: const Center(
-                  //       child: SizedBox(
-                  //         width: 22,
-                  //         height: 22,
-                  //         child: CircularProgressIndicator(
-                  //           color: _bookingGold,
-                  //           strokeWidth: 2,
+                  //     const Spacer(),
+                  //     if (slotPeriodLabel.isNotEmpty) ...[
+                  //       const Icon(
+                  //         Icons.wb_sunny_outlined,
+                  //         size: 13,
+                  //         color: _bookingMuted,
+                  //       ),
+                  //       const SizedBox(width: 5),
+                  //       Text(
+                  //         slotPeriodLabel,
+                  //         style: const TextStyle(
+                  //           color: _bookingMuted,
+                  //           fontSize: 10,
+                  //           fontWeight: FontWeight.w700,
                   //         ),
                   //       ),
-                  //     ),
-                  //   )
-                  // else if (slots.isEmpty)
-                  //   Container(
-                  //     width: double.infinity,
-                  //     padding:
-                  //         const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-                  //     decoration: BoxDecoration(
-                  //       color: Colors.white,
-                  //       borderRadius: BorderRadius.circular(9),
-                  //       border: Border.all(color: _bookingBorder),
-                  //     ),
-                  //     child: Text(
-                  //       translateText(
-                  //         'No available slots for the selected date and artisan.',
-                  //       ),
-                  //       textAlign: TextAlign.center,
-                  //       style: const TextStyle(
-                  //         color: _bookingMuted,
-                  //         fontSize: 12,
-                  //         fontWeight: FontWeight.w700,
-                  //         height: 1.4,
-                  //       ),
-                  //     ),
-                  //   )
-                  // else
-                  //   LayoutBuilder(
-                  if (!hasTeamMemberSelections)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(color: _bookingBorder),
-                      ),
-                      child: Text(
-                        translateText(
-                          'Please select a team member to view available slots.',
+                  //     ],
+                  //   ],
+                  // ),
+                  const SizedBox(height: 24),
+
+                  if (_isSelectedDateClosed)
+                    _closedSalonCard()
+                  else ...[
+                    _selectedServicesTeamSection(),
+                    const SizedBox(height: 24),
+
+                    Row(
+                      children: [
+                        Text(
+                          translateText('Available Slots'),
+                          style: const TextStyle(
+                            color: _bookingInk,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _bookingMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          height: 1.4,
-                        ),
-                      ),
-                    )
-                  else if (slots.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(color: _bookingBorder),
-                      ),
-                      child: Text(
-                        translateText(
-                          'No available slots for the selected date and team member.',
-                        ),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _bookingMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          height: 1.4,
-                        ),
-                      ),
-                    )
-                  else
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        const columns = 3;
-                        const gap = 9.0;
-                        final slotWidth =
-                            (constraints.maxWidth - (gap * (columns - 1))) /
-                                columns;
-                        return Wrap(
-                          spacing: gap,
-                          runSpacing: 9,
-                          children: slots.map((slot) {
-                            final selected = _selectedTime != null &&
-                                _toMinutes(_selectedTime!) == _toMinutes(slot);
-                            return InkWell(
-                              onTap: () => setState(() => _selectedTime = slot),
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                width: slotWidth,
-                                height: 40,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: selected ? _bookingGold : Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: selected
-                                        ? _bookingGold
-                                        : _bookingBorder,
-                                  ),
-                                ),
-                                child: Text(
-                                  _formatTime(slot),
-                                  style: TextStyle(
-                                    color:
-                                        selected ? Colors.white : _bookingInk,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        );
-                      },
-                    ),
-                  const SizedBox(height: 26),
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _bookingBorder),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0A000000),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
+                        const Spacer(),
+                        if (slotPeriodLabel.isNotEmpty) ...[
+                          const Icon(
+                            Icons.wb_sunny_outlined,
+                            size: 13,
+                            color: _bookingMuted,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            slotPeriodLabel,
+                            style: const TextStyle(
+                              color: _bookingMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Image.asset(
-                          'assets/images/salon2.jpeg',
-                          height: 150,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
+
+                    const SizedBox(height: 12),
+                    // if (_loadingAppointments)
+                    //   Container(
+                    //     width: double.infinity,
+                    //     padding: const EdgeInsets.symmetric(vertical: 24),
+                    //     decoration: BoxDecoration(
+                    //       color: Colors.white,
+                    //       borderRadius: BorderRadius.circular(9),
+                    //       border: Border.all(color: _bookingBorder),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 22,
+                    //         height: 22,
+                    //         child: CircularProgressIndicator(
+                    //           color: _bookingGold,
+                    //           strokeWidth: 2,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   )
+                    // else if (slots.isEmpty)
+                    //   Container(
+                    //     width: double.infinity,
+                    //     padding:
+                    //         const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+                    //     decoration: BoxDecoration(
+                    //       color: Colors.white,
+                    //       borderRadius: BorderRadius.circular(9),
+                    //       border: Border.all(color: _bookingBorder),
+                    //     ),
+                    //     child: Text(
+                    //       translateText(
+                    //         'No available slots for the selected date and artisan.',
+                    //       ),
+                    //       textAlign: TextAlign.center,
+                    //       style: const TextStyle(
+                    //         color: _bookingMuted,
+                    //         fontSize: 12,
+                    //         fontWeight: FontWeight.w700,
+                    //         height: 1.4,
+                    //       ),
+                    //     ),
+                    //   )
+                    // else
+                    //   LayoutBuilder(
+                    if (!hasTeamMemberSelections)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(color: _bookingBorder),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Text(
+                          translateText(
+                            'Please select a team member to view available slots.',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: _bookingMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            height: 1.4,
+                          ),
+                        ),
+                      )
+                    else if (slots.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(color: _bookingBorder),
+                        ),
+                        child: Text(
+                          translateText(
+                            'No available slots for the selected date and team member.',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: _bookingMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            height: 1.4,
+                          ),
+                        ),
+                      )
+                    else
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          const columns = 3;
+                          const gap = 9.0;
+                          final slotWidth =
+                              (constraints.maxWidth - (gap * (columns - 1))) /
+                                  columns;
+                          return Wrap(
+                            spacing: gap,
+                            runSpacing: 9,
+                            children: slots.map((slot) {
+                              final selected = _selectedTime != null &&
+                                  _toMinutes(_selectedTime!) ==
+                                      _toMinutes(slot);
+                              return InkWell(
+                                onTap: () =>
+                                    setState(() => _selectedTime = slot),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  width: slotWidth,
+                                  height: 40,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        selected ? _bookingGold : Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: selected
+                                          ? _bookingGold
+                                          : _bookingBorder,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _formatTime(slot),
+                                    style: TextStyle(
+                                      color:
+                                          selected ? Colors.white : _bookingInk,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    const SizedBox(height: 26),
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _bookingBorder),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0A000000),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Image.asset(
+                            'assets/images/salon2.jpeg',
+                            height: 150,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  translateText('Treatment Focus')
+                                      .toUpperCase(),
+                                  style: const TextStyle(
+                                    color: _bookingGold,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: .6,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  translateText(
+                                    'Ensure your client arrives 15 minutes before the selected time slot.',
+                                  ),
+                                  style: const TextStyle(
+                                    color: _bookingMuted,
+                                    fontSize: 12,
+                                    height: 1.45,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _bookingBorder),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0A000000),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
                             children: [
-                              Text(
-                                translateText('Treatment Focus').toUpperCase(),
-                                style: const TextStyle(
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5EAD2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.timer_outlined,
                                   color: _bookingGold,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: .6,
+                                  size: 18,
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                translateText(
-                                  'Ensure your client arrives 15 minutes before the selected time slot.',
-                                ),
-                                style: const TextStyle(
-                                  color: _bookingMuted,
-                                  fontSize: 12,
-                                  height: 1.45,
-                                  fontWeight: FontWeight.w600,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      translateText('Duration').toUpperCase(),
+                                      style: const TextStyle(
+                                        color: _bookingMuted,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: .7,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${translateText('Total')}: ${widget.durationMinutes} min',
+                                      style: const TextStyle(
+                                        color: _bookingInk,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _bookingBorder),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0A000000),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 34,
-                              height: 34,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF5EAD2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.timer_outlined,
-                                color: _bookingGold,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    translateText('Duration').toUpperCase(),
-                                    style: const TextStyle(
-                                      color: _bookingMuted,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: .7,
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: _bookingInk,
+                                    side:
+                                        const BorderSide(color: _bookingBorder),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(7),
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${translateText('Total')}: ${widget.durationMinutes} min',
-                                    style: const TextStyle(
-                                      color: _bookingInk,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
+                                  child: Text(translateText('Back')),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                flex: 2,
+                                child: ElevatedButton.icon(
+                                  onPressed: _confirm,
+                                  icon: const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 18,
+                                  ),
+                                  label: Text(translateText('Confirm Time')),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _bookingGold,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(7),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _bookingInk,
-                                  side: const BorderSide(color: _bookingBorder),
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(7),
-                                  ),
-                                ),
-                                child: Text(translateText('Back')),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 2,
-                              child: ElevatedButton.icon(
-                                onPressed: _confirm,
-                                icon: const Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(translateText('Confirm Time')),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _bookingGold,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(7),
-                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
