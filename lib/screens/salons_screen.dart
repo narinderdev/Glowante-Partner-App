@@ -278,6 +278,7 @@ class SalonsScreenState extends State<SalonsScreen> {
     }
     if (updated == true && mounted) {
       await _refreshSalons();
+      StylistBranchSelectionStore.notifySalonCatalogChanged();
     }
   }
 
@@ -439,6 +440,7 @@ class SalonsScreenState extends State<SalonsScreen> {
     }
     if (updated == true && mounted) {
       await _refreshSalons();
+      StylistBranchSelectionStore.notifySalonCatalogChanged();
     }
   }
 

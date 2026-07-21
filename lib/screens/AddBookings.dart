@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../utils/api_service.dart';
 import 'package:flutter/services.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../services/stylist_branch_selection.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import '../widgets/fixed_slot_otp_field.dart';
@@ -147,6 +148,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   bool _isSaving = false;
   bool _isOpeningSchedule = false;
   bool _loadingCart = false;
+  late final VoidCallback _salonCatalogListener;
 
   // Focused/active service (drives Professional filtering)
   int? _selectedServiceId;
@@ -161,6 +163,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   @override
   void initState() {
     super.initState();
+    _salonCatalogListener = () {
+      if (!mounted || widget.branchId == null) return;
+      unawaited(_loadBranchTiming());
+    };
+    StylistBranchSelectionStore.salonCatalogRevision
+        .addListener(_salonCatalogListener);
     _loadServices();
     _resetScheduleDefaults();
     _loadTeamMembers(allowOnlineBooking: true);
@@ -168,7 +176,17 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant AddBookingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.branchId != widget.branchId) {
+      unawaited(_loadBranchTiming());
+    }
+  }
+
+  @override
   void dispose() {
+    StylistBranchSelectionStore.salonCatalogRevision
+        .removeListener(_salonCatalogListener);
     _clientfNameCtrl.dispose();
     _clientlNameCtrl.dispose();
     _clientIdCtrl.dispose();
@@ -628,12 +646,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         _branchStartTime = start;
         _branchEndTime = end;
         _branchWeeklySchedule = weeklySchedule;
-_branchName = (
-    details['name'] ??
-    details['branchName'] ??
-    details['salon']?['name'] ??
-    'Salon'
-  ).toString().trim();
+        _branchName = (details['name'] ??
+                details['branchName'] ??
+                details['salon']?['name'] ??
+                'Salon')
+            .toString()
+            .trim();
         if (start != null) {
           _startTime = start;
           _syncEndTimeWithDuration();
@@ -5597,61 +5615,62 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 //       ),
 //     );
 //   }
-Widget _closedSalonCard() {
-  final weekday = DateFormat('EEEE').format(_selectedDate);
+  Widget _closedSalonCard() {
+    final weekday = DateFormat('EEEE').format(_selectedDate);
 
-  final branchLabel = widget.branchName.trim().isEmpty
-      ? translateText('Salon')
-      : widget.branchName.trim();
+    final branchLabel = widget.branchName.trim().isEmpty
+        ? translateText('Salon')
+        : widget.branchName.trim();
 
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(
-      horizontal: 24,
-      vertical: 30,
-    ),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: _bookingBorder,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 30,
       ),
-    ),
-    child: Column(
-      children: [
-        const Icon(
-          Icons.event_busy_outlined,
-          size: 34,
-          color: _bookingGoldLight,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _bookingBorder,
         ),
-        const SizedBox(height: 12),
-        Text(
-          '$branchLabel ${translateText('is closed on')} '
-          '${translateText(weekday)}',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _bookingInk,
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.event_busy_outlined,
+            size: 34,
+            color: _bookingGoldLight,
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          translateText(
-            'No working hours were provided for this day. Please choose another date to view or add bookings.',
+          const SizedBox(height: 12),
+          Text(
+            '$branchLabel ${translateText('is closed on')} '
+            '${translateText(weekday)}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _bookingInk,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _bookingMuted,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1.45,
+          const SizedBox(height: 8),
+          Text(
+            translateText(
+              'No working hours were provided for this day. Please choose another date to view or add bookings.',
+            ),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _bookingMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
+
   List<dynamic> _availabilityListFrom(dynamic value) {
     if (value is List) return value;
     if (value is! Map) return const [];
@@ -6653,14 +6672,14 @@ Widget _closedSalonCard() {
                                         ? _bookingGold
                                         : Colors.white,
                                 borderRadius: BorderRadius.circular(7),
-                             border: Border.all(
-  color: selected
-      ? _bookingGold
-      : isClosed
-          ? const Color(0xFFE57373)
-          : _bookingBorder,
-  width: selected || isClosed ? 1.4 : 1,
-),
+                                border: Border.all(
+                                  color: selected
+                                      ? _bookingGold
+                                      : isClosed
+                                          ? const Color(0xFFE57373)
+                                          : _bookingBorder,
+                                  width: selected || isClosed ? 1.4 : 1,
+                                ),
                               ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,

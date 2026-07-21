@@ -349,6 +349,10 @@ bool _hasProvidedWeeklySchedule(dynamic rawSchedule) {
 dynamic _rawScheduleValue(Map<dynamic, dynamic> source) {
   if (source.containsKey('schedule')) return source['schedule'];
   if (source.containsKey('schedules')) return source['schedules'];
+  if (source.containsKey('workingHours')) return source['workingHours'];
+  if (source.containsKey('weeklySchedule')) return source['weeklySchedule'];
+  if (source.containsKey('businessHours')) return source['businessHours'];
+  if (source.containsKey('openingHours')) return source['openingHours'];
   return null;
 }
 
@@ -2190,6 +2194,81 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     return options;
   }
 
+  _SalonBranchOption _optionFromLatestBranchDetail(
+    _SalonBranchOption current,
+    Map<String, dynamic> details,
+  ) {
+    final rawBranch = details['branch'];
+    final branch =
+        rawBranch is Map ? Map<String, dynamic>.from(rawBranch) : details;
+    final rawSalon = branch['salon'] ?? details['salon'];
+    final salon = rawSalon is Map ? Map<String, dynamic>.from(rawSalon) : null;
+    final rawSchedule = _effectiveBranchSchedule(branch, salon) ??
+        _effectiveBranchSchedule(details, salon);
+
+    final branchId =
+        _asInt(branch['id'] ?? branch['branchId']) ?? current.branchId;
+    final salonId =
+        _asInt(salon?['id'] ?? details['salonId']) ?? current.salonId;
+    final branchName =
+        (branch['name'] ?? branch['branchName'] ?? current.branchName)
+            .toString()
+            .trim();
+    final salonName =
+        (salon?['name'] ?? details['salonName'] ?? current.salonName)
+            .toString()
+            .trim();
+    final addressSummary = _branchAddressSummary(
+      branch['address'] ?? details['address'],
+    );
+
+    return _SalonBranchOption(
+      salonId: salonId,
+      branchId: branchId,
+      salonName: salonName.isEmpty ? current.salonName : salonName,
+      branchName: branchName.isEmpty ? current.branchName : branchName,
+      addressSummary:
+          addressSummary.isEmpty ? current.addressSummary : addressSummary,
+      isMain: branch['isMain'] == true || current.isMain,
+      isSalonActive: salon?['active'] != false && current.isSalonActive,
+      isBranchActive: branch['active'] != false,
+      startMinute: _clockMinutes(branch['startTime'] ?? details['startTime']) ??
+          current.startMinute,
+      endMinute: _clockMinutes(branch['endTime'] ?? details['endTime']) ??
+          current.endMinute,
+      hasWeeklySchedule: _hasProvidedWeeklySchedule(rawSchedule),
+      weeklySlots: _weeklySlotsFromSchedule(rawSchedule),
+    );
+  }
+
+  Future<_SalonBranchOption> _loadLatestBranchOption(
+    _SalonBranchOption option,
+  ) async {
+    try {
+      final response = await _apiService.getBranchDetail(option.branchId);
+      final rawData = response['data'];
+      if (rawData is! Map) return option;
+      return _optionFromLatestBranchDetail(
+        option,
+        Map<String, dynamic>.from(rawData),
+      );
+    } catch (error) {
+      debugPrint(
+        '[BookingsBranchDetail] failed branchId=${option.branchId}: $error',
+      );
+      return option;
+    }
+  }
+
+  List<_SalonBranchOption> _replaceOption(
+    List<_SalonBranchOption> options,
+    _SalonBranchOption latest,
+  ) {
+    return options
+        .map((option) => option.branchId == latest.branchId ? latest : option)
+        .toList();
+  }
+
   Future<List<_SalonBranchOption>> _loadBaseOptions() async {
     if (widget.isOwnerMode) {
       final response = await _apiService.getSalonListApi();
@@ -2600,6 +2679,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
       await StylistBranchSelectionStore.clear();
     }
 
+    if (selected != null) {
+      selected = await _loadLatestBranchOption(selected);
+      options = _replaceOption(options, selected);
+    }
+
     if (selected != null && saveSelection) {
       await StylistBranchSelectionStore.save(
         salonId: selected.salonId,
@@ -2720,9 +2804,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   }
 
   Future<void> _reloadBookingsForSelectedOption() async {
-    final selected = _selectedOption;
+    var selected = _selectedOption;
     if (selected == null) return;
     if (!widget.isOwnerMode && _userId == null) return;
+    selected = await _loadLatestBranchOption(selected);
 
     final result = await _fetchBookingsForBranch(
       branchId: selected.branchId,
@@ -2752,6 +2837,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
       source: 'reload_bookings',
     );
     setState(() {
+      _options = _replaceOption(_options, selected!);
+      _selectedOption = selected;
       _bookings = result.bookings;
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
@@ -2768,15 +2855,17 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   Future<void> _selectOption(_SalonBranchOption option) async {
     _suppressBranchSelectionRefresh = true;
     try {
+      final latestOption = await _loadLatestBranchOption(option);
       await StylistBranchSelectionStore.save(
-        salonId: option.salonId,
-        branchId: option.branchId,
-        salonName: option.salonName,
-        branchName: option.branchName,
+        salonId: latestOption.salonId,
+        branchId: latestOption.branchId,
+        salonName: latestOption.salonName,
+        branchName: latestOption.branchName,
       );
 
       setState(() {
-        _selectedOption = option;
+        _options = _replaceOption(_options, latestOption);
+        _selectedOption = latestOption;
         _loadingDate = true;
         _errorMessage = null;
       });
@@ -2798,14 +2887,14 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         errorMessage = 'Unable to load stylist bookings';
       } else {
         final result = await _fetchBookingsForBranch(
-          branchId: option.branchId,
+          branchId: latestOption.branchId,
           userId: _userId,
         );
         bookings = result.bookings;
         errorMessage = result.errorMessage;
         if (widget.isOwnerMode) {
           teamMemberDirectory = await _fetchTeamMemberDirectory(
-            option.branchId,
+            latestOption.branchId,
             date: _selectedDate,
           );
           teamMemberServiceNames = teamMemberDirectory.serviceNames;
