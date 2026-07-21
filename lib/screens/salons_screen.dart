@@ -282,67 +282,97 @@ class SalonsScreenState extends State<SalonsScreen> {
     }
   }
 
-  Future<void> _setSalonActive({
-    required int salonId,
-    required bool active,
-  }) async {
-    if (_isActionLoading) return;
-    if (!active) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(translateText('Deactivate Salon')),
-          content: Text(
-            translateText(
-              'If the main salon is deactivated, all branches will be automatically deactivated. Do you want to continue?',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(translateText('Cancel')),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8B6500),
-                foregroundColor: Colors.white,
-              ),
-              child: Text(translateText('Deactivate')),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-      if (!mounted) return;
+  // Future<void> _setSalonActive({
+  //   required int salonId,
+  //   required bool active,
+  // }) async {
+  //   if (_isActionLoading) return;
+  //   if (!active) {
+  //     final confirmed = await showDialog<bool>(
+  //       context: context,
+  //       builder: (dialogContext) => AlertDialog(
+  //         title: Text(translateText('Deactivate Salon')),
+  //         content: Text(
+  //           translateText(
+  //             'If the main salon is deactivated, all branches will be automatically deactivated. Do you want to continue?',
+  //           ),
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () => Navigator.pop(dialogContext, false),
+  //             child: Text(translateText('Cancel')),
+  //           ),
+  //           ElevatedButton(
+  //             onPressed: () => Navigator.pop(dialogContext, true),
+  //             style: ElevatedButton.styleFrom(
+  //               backgroundColor: const Color(0xFF8B6500),
+  //               foregroundColor: Colors.white,
+  //             ),
+  //             child: Text(translateText('Deactivate')),
+  //           ),
+  //         ],
+  //       ),
+  //     );
+  //     if (confirmed != true) return;
+  //     if (!mounted) return;
+  //   }
+  //   final repo = context.read<SalonRepository>();
+  //   setState(() => _isActionLoading = true);
+  //   try {
+  //     debugPrint(
+  //       '[SalonAction] ${active ? 'Activate' : 'Deactivate'} salon -> salonId=$salonId',
+  //     );
+  //     if (active) {
+  //       await repo.activateSalon(salonId);
+  //     } else {
+  //       await repo.deactivateSalon(salonId);
+  //     }
+  //     if (!mounted) return;
+  //     Fluttertoast.showToast(
+  //         msg: translateText(
+  //       active
+  //           ? 'Salon activated successfully'
+  //           : 'Salon deactivated successfully',
+  //     ));
+  //     await _refreshSalons();
+  //   } catch (error) {
+  //     if (!mounted) return;
+  //     Fluttertoast.showToast(msg: error.toString());
+  //   } finally {
+  //     if (mounted) setState(() => _isActionLoading = false);
+  //   }
+  // }
+Future<void> _setSalonActive({
+  required int salonId,
+  required bool active,
+}) async {
+  if (_isActionLoading) return;
+  final repo = context.read<SalonRepository>();
+  setState(() => _isActionLoading = true);
+  try {
+    debugPrint(
+      '[SalonAction] ${active ? 'Activate' : 'Deactivate'} salon -> salonId=$salonId',
+    );
+    if (active) {
+      await repo.activateSalon(salonId);
+    } else {
+      await repo.deactivateSalon(salonId);
     }
-    final repo = context.read<SalonRepository>();
-    setState(() => _isActionLoading = true);
-    try {
-      debugPrint(
-        '[SalonAction] ${active ? 'Activate' : 'Deactivate'} salon -> salonId=$salonId',
-      );
-      if (active) {
-        await repo.activateSalon(salonId);
-      } else {
-        await repo.deactivateSalon(salonId);
-      }
-      if (!mounted) return;
-      Fluttertoast.showToast(
-          msg: translateText(
-        active
-            ? 'Salon activated successfully'
-            : 'Salon deactivated successfully',
-      ));
-      await _refreshSalons();
-    } catch (error) {
-      if (!mounted) return;
-      Fluttertoast.showToast(msg: error.toString());
-    } finally {
-      if (mounted) setState(() => _isActionLoading = false);
-    }
+    if (!mounted) return;
+    Fluttertoast.showToast(
+        msg: translateText(
+      active
+          ? 'Salon activated successfully'
+          : 'Salon deactivated successfully',
+    ));
+    await _refreshSalons();
+  } catch (error) {
+    if (!mounted) return;
+    Fluttertoast.showToast(msg: error.toString());
+  } finally {
+    if (mounted) setState(() => _isActionLoading = false);
   }
-
+}
   Future<void> _deleteSalon(int salonId) async {
     final repository = context.read<SalonRepository>();
     final confirmed = await showDialog<bool>(
@@ -1399,7 +1429,643 @@ class _EmptySalonsView extends StatelessWidget {
     );
   }
 }
+Future<bool> showActivateSalonConfirmation({
+  required BuildContext context,
+  required String salonName,
+  required int branchCount,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (_) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFF3DD),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded,
+                        color: Color(0xFF8B6500)),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "Activate Salon?",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF6D78A)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "This will affect all branches",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6B4E00),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Activating "$salonName" will also activate all '
+                      '$branchCount ${branchCount == 1 ? 'branch' : 'branches'} under it.',
+                      style: const TextStyle(
+                        color: Color(0xFF6B4E00),
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Are you sure you want to activate this salon and all its branches?",
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("Cancel"),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF047857),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text("Yes, activate"),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  return result == true;
+}
+// Future<void> showChangeStatusModal({
+//   required BuildContext context,
+//   required String salonName,
+//   required VoidCallback onSalonTap,
+//   required VoidCallback onBranchTap,
+// }) {
+//   return showDialog(
+//     context: context,
+//     barrierDismissible: true,
+//     builder: (_) {
+//       return Dialog(
+//         elevation: 0,
+//         backgroundColor: Colors.white,
+//         insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+//         shape: RoundedRectangleBorder(
+//           borderRadius: BorderRadius.circular(16),
+//         ),
+//         child: SizedBox(
+//           width: 380,
+//           child: Padding(
+//             padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+//             child: Column(
+//               mainAxisSize: MainAxisSize.min,
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Row(
+//                   children: [
+//                     const Expanded(
+//                       child: Text(
+//                         "Change Status",
+//                         style: TextStyle(
+//                           fontSize: 18,
+//                           fontWeight: FontWeight.w700,
+//                           color: Color(0xFF1C1917),
+//                         ),
+//                       ),
+//                     ),
+//                     InkWell(
+//                       borderRadius: BorderRadius.circular(20),
+//                       onTap: () => Navigator.pop(context),
+//                       child: const Padding(
+//                         padding: EdgeInsets.all(4),
+//                         child: Icon(
+//                           Icons.close,
+//                           size: 18,
+//                           color: Color(0xFF78716C),
+//                         ),
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 2),
+//                 const Text(
+//                   "What would you like to update?",
+//                   style: TextStyle(
+//                     fontSize: 12,
+//                     color: Color(0xFF78716C),
+//                   ),
+//                 ),
+//                 const SizedBox(height: 20),
 
+//                 _StatusOptionCard(
+//                   icon: Icons.apartment_outlined,
+//                   title: "Salon",
+//                   subtitle: salonName,
+//                   onTap: () {
+//                     Navigator.pop(context);
+//                     onSalonTap();
+//                   },
+//                 ),
+
+//                 const SizedBox(height: 12),
+
+//                 _StatusOptionCard(
+//                   icon: Icons.home_outlined,
+//                   title: "Branch",
+//                   subtitle: salonName,
+//                   onTap: () {
+//                     Navigator.pop(context);
+//                     onBranchTap();
+//                   },
+//                 ),
+
+//                 const SizedBox(height: 20),
+
+//                 Align(
+//                   alignment: Alignment.centerRight,
+//                   child: SizedBox(
+//                     height: 34,
+//                     child: OutlinedButton(
+//                       onPressed: () => Navigator.pop(context),
+//                       style: OutlinedButton.styleFrom(
+//                         padding: const EdgeInsets.symmetric(horizontal: 18),
+//                         side: const BorderSide(
+//                           color: Color(0xFFD6D3D1),
+//                         ),
+//                         shape: const StadiumBorder(),
+//                       ),
+//                       child: const Text(
+//                         "Cancel",
+//                         style: TextStyle(
+//                           fontSize: 13,
+//                           color: Color(0xFF6B7280),
+//                         ),
+//                       ),
+//                     ),
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ),
+//       );
+//     },
+//   );
+// }
+Future<void> showChangeStatusModal({
+  required BuildContext context,
+  required String salonName,
+  required bool isSalonActive,
+  required bool isBranchActive,
+  required VoidCallback onSalonTap,
+  required VoidCallback onBranchTap,
+}) {
+  return showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (_) {
+      return Dialog(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: SizedBox(
+          width: 380,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "Change Status",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1C1917),
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => Navigator.pop(context),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close,
+                          size: 18,
+                          color: Color(0xFF78716C),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  "What would you like to update?",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF78716C),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                _StatusOptionCard(
+                  icon: Icons.apartment_outlined,
+                  title: "Salon",
+                  subtitle: salonName,
+                  isActive: isSalonActive,
+                  onTap: () {
+                    Navigator.pop(context);
+                    onSalonTap();
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                _StatusOptionCard(
+                  icon: Icons.home_outlined,
+                  title: "Branch",
+                  subtitle: salonName,
+                  isActive: isBranchActive,
+                  onTap: () {
+                    Navigator.pop(context);
+                    onBranchTap();
+                  },
+                ),
+
+                const SizedBox(height: 20),
+
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    height: 34,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        side: const BorderSide(
+                          color: Color(0xFFD6D3D1),
+                        ),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: const Text(
+                        "Cancel",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+// class _StatusOptionCard extends StatelessWidget {
+//   final IconData icon;
+//   final String title;
+//   final String subtitle;
+//   final VoidCallback onTap;
+
+//   const _StatusOptionCard({
+//     super.key,
+//     required this.icon,
+//     required this.title,
+//     required this.subtitle,
+//     required this.onTap,
+//   });
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return InkWell(
+//       borderRadius: BorderRadius.circular(12),
+//       onTap: onTap,
+//       child: Ink(
+//         height: 78,
+//         decoration: BoxDecoration(
+//           color: Colors.white,
+//           border: Border.all(
+//             color: const Color(0xFFE8C98B),
+//             width: 1,
+//           ),
+//           borderRadius: BorderRadius.circular(12),
+//         ),
+//         child: Padding(
+//           padding: const EdgeInsets.symmetric(horizontal: 14),
+//           child: Row(
+//             children: [
+//               Container(
+//                 width: 40,
+//                 height: 40,
+//                 decoration: const BoxDecoration(
+//                   color: Color(0xFFF7EFD8),
+//                   shape: BoxShape.circle,
+//                 ),
+//                 child: Icon(
+//                   icon,
+//                   size: 18,
+//                   color: Color(0xFF9A7B3C),
+//                 ),
+//               ),
+
+//               const SizedBox(width: 12),
+
+//               Expanded(
+//                 child: Column(
+//                   mainAxisAlignment: MainAxisAlignment.center,
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       title,
+//                       style: const TextStyle(
+//                         fontSize: 15,
+//                         fontWeight: FontWeight.w600,
+//                         color: Color(0xFF1C1917),
+//                       ),
+//                     ),
+//                     const SizedBox(height: 2),
+//                     Text(
+//                       subtitle,
+//                       style: const TextStyle(
+//                         fontSize: 12,
+//                         color: Color(0xFF78716C),
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+class _StatusOptionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _StatusOptionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Ink(
+        height: 78,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(
+            color: const Color(0xFFE8C98B),
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF7EFD8),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: Color(0xFF9A7B3C),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1C1917),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF78716C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _StatusPill(active: isActive),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.active});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = active ? const Color(0xFF047857) : const Color(0xFFB42318);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFE8FFF5) : const Color(0xFFFFEFEF),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: active ? const Color(0xFFB7F0D0) : const Color(0xFFF5C2C7),
+        ),
+      ),
+      child: Text(
+        active ? 'Active' : 'Inactive',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+}
+Future<bool> showDeactivateSalonConfirmation({
+  required BuildContext context,
+  required String salonName,
+  required int branchCount,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (_) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFF3DD),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded,
+                        color: Color(0xFF8B6500)),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "Deactivate Salon?",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF6D78A)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "This will affect all branches",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6B4E00),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Deactivating "$salonName" will also deactivate all '
+                      '$branchCount ${branchCount == 1 ? 'branch' : 'branches'} under it.',
+                      style: const TextStyle(
+                        color: Color(0xFF6B4E00),
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Are you sure you want to deactivate this salon and all its branches?",
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("Cancel"),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE53935),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text("Yes, deactivate"),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  return result == true;
+}
 class _SalonCard extends StatelessWidget {
   const _SalonCard({
     required this.salon,
@@ -1704,81 +2370,291 @@ class _SalonCard extends StatelessWidget {
     );
   }
 
-  Widget _salonMenuButton(
-    BuildContext context,
-    bool isActive,
-  ) {
-    final canEdit = isActive && onEditSalon != null;
-    if (onEditSalon == null &&
-        onToggleSalonActive == null &&
-        onDeleteSalon == null) {
-      return const SizedBox.shrink();
-    }
+  // Widget _salonMenuButton(
+  //   BuildContext context,
+  //   bool isActive,
+  // ) {
+  //   final canEdit = isActive && onEditSalon != null;
+  //   if (onEditSalon == null &&
+  //       onToggleSalonActive == null &&
+  //       onDeleteSalon == null) {
+  //     return const SizedBox.shrink();
+  //   }
 
-    return SizedBox(
-      width: 30,
-      height: 30,
-      child: PopupMenuButton<String>(
-        padding: EdgeInsets.zero,
-        icon: const Icon(
-          Icons.more_vert_rounded,
-          size: 20,
-          color: Color(0xFF8B6500),
-        ),
-        color: Colors.white,
-        elevation: 10,
-        offset: const Offset(-8, 34),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: Color(0xFFE8DED4)),
-        ),
-        onSelected: (value) {
-          switch (value) {
-            case 'edit':
-              if (isActive) onEditSalon?.call();
-              break;
-            case 'toggle':
-              onToggleSalonActive?.call(!isActive);
-              break;
-            case 'delete':
-              onDeleteSalon?.call();
-              break;
-          }
-        },
-        itemBuilder: (context) => [
-          if (onEditSalon != null)
-            PopupMenuItem<String>(
-              value: 'edit',
-              enabled: canEdit,
-              child: _ActionPopupRow(
-                icon: Icons.edit_outlined,
-                label: 'Edit Salon',
-                enabled: canEdit,
-              ),
-            ),
-          if (onToggleSalonActive != null)
-            PopupMenuItem<String>(
-              value: 'toggle',
-              child: _ActionPopupRow(
-                icon: isActive
-                    ? Icons.block_outlined
-                    : Icons.check_circle_outline,
-                label: isActive ? 'Deactivate Salon' : 'Activate Salon',
-              ),
-            ),
-          if (onDeleteSalon != null)
-            PopupMenuItem<String>(
-              value: 'delete',
-              child: _ActionPopupRow(
-                icon: Icons.delete_outline,
-                label: 'Delete Salon',
-                destructive: true,
-              ),
-            ),
-        ],
-      ),
-    );
+  //   return SizedBox(
+  //     width: 30,
+  //     height: 30,
+  //     child: PopupMenuButton<String>(
+  //       padding: EdgeInsets.zero,
+  //       icon: const Icon(
+  //         Icons.more_vert_rounded,
+  //         size: 20,
+  //         color: Color(0xFF8B6500),
+  //       ),
+  //       color: Colors.white,
+  //       elevation: 10,
+  //       offset: const Offset(-8, 34),
+  //       shape: RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.circular(14),
+  //         side: const BorderSide(color: Color(0xFFE8DED4)),
+  //       ),
+  //       onSelected: (value) {
+  //         switch (value) {
+  //           case 'edit':
+  //             if (isActive) onEditSalon?.call();
+  //             break;
+  //           case 'toggle':
+  //             onToggleSalonActive?.call(!isActive);
+  //             break;
+  //           case 'delete':
+  //             onDeleteSalon?.call();
+  //             break;
+  //         }
+  //       },
+  //       itemBuilder: (context) => [
+  //         if (onEditSalon != null)
+  //           PopupMenuItem<String>(
+  //             value: 'edit',
+  //             enabled: canEdit,
+  //             child: _ActionPopupRow(
+  //               icon: Icons.edit_outlined,
+  //               label: 'Edit Salon',
+  //               enabled: canEdit,
+  //             ),
+  //           ),
+  //         if (onToggleSalonActive != null)
+  //           PopupMenuItem<String>(
+  //             value: 'toggle',
+  //             child: _ActionPopupRow(
+  //               icon: isActive
+  //                   ? Icons.block_outlined
+  //                   : Icons.check_circle_outline,
+  //               label: isActive ? 'Deactivate Salon' : 'Activate Salon',
+  //             ),
+  //           ),
+  //         if (onDeleteSalon != null)
+  //           PopupMenuItem<String>(
+  //             value: 'delete',
+  //             child: _ActionPopupRow(
+  //               icon: Icons.delete_outline,
+  //               label: 'Delete Salon',
+  //               destructive: true,
+  //             ),
+  //           ),
+  //       ],
+  //     ),
+  //   );
+  // }
+//   Widget _salonMenuButton(
+//   BuildContext context,
+//   bool isActive,
+//   String salonName,
+//   int primaryBranchId,
+// ) {
+//   final canEdit = isActive && onEditSalon != null;
+//   if (onEditSalon == null && onToggleSalonActive == null && onDeleteSalon == null) {
+//     return const SizedBox.shrink();
+//   }
+
+//   return SizedBox(
+//     width: 30,
+//     height: 30,
+//     child: PopupMenuButton<String>(
+//       padding: EdgeInsets.zero,
+//       icon: const Icon(Icons.more_vert_rounded, size: 20, color: Color(0xFF8B6500)),
+//       color: Colors.white,
+//       elevation: 10,
+//       offset: const Offset(-8, 34),
+//       shape: RoundedRectangleBorder(
+//         borderRadius: BorderRadius.circular(14),
+//         side: const BorderSide(color: Color(0xFFE8DED4)),
+//       ),
+//       onSelected: (value) async {
+//         switch (value) {
+//           case 'edit':
+//             if (isActive) onEditSalon?.call();
+//             break;
+//           case 'toggle':
+//             if (isActive) {
+//               // Deactivating: ask Salon or Branch
+//               await showChangeStatusModal(
+//                 context: context,
+//                 salonName: salonName,
+//                 onSalonTap: () async {
+//                   final confirmed = await showDeactivateSalonConfirmation(
+//                     context: context,
+//                     salonName: salonName,
+//                     branchCount: branchCount,
+//                   );
+//                   if (confirmed) {
+//                     onToggleSalonActive?.call(false);
+//                   }
+//                 },
+//                 onBranchTap: () {
+//                   if (primaryBranchId > 0) {
+//                     onToggleBranchActive?.call(primaryBranchId, false);
+//                   }
+//                 },
+//               );
+//             } else {
+//               // Activating: same chooser, no confirmation needed
+//               await showChangeStatusModal(
+//                 context: context,
+//                 salonName: salonName,
+//                 onSalonTap: () => onToggleSalonActive?.call(true),
+//                 onBranchTap: () {
+//                   if (primaryBranchId > 0) {
+//                     onToggleBranchActive?.call(primaryBranchId, true);
+//                   }
+//                 },
+//               );
+//             }
+//             break;
+//           case 'delete':
+//             onDeleteSalon?.call();
+//             break;
+//         }
+//       },
+//       itemBuilder: (context) => [
+//         if (onEditSalon != null)
+//           PopupMenuItem<String>(
+//             value: 'edit',
+//             enabled: canEdit,
+//             child: _ActionPopupRow(icon: Icons.edit_outlined, label: 'Edit Salon', enabled: canEdit),
+//           ),
+//         if (onToggleSalonActive != null)
+//           PopupMenuItem<String>(
+//             value: 'toggle',
+//             child: _ActionPopupRow(
+//               icon: isActive ? Icons.block_outlined : Icons.check_circle_outline,
+//               label: isActive ? 'Deactivate Salon' : 'Activate Salon',
+//             ),
+//           ),
+//         if (onDeleteSalon != null)
+//           PopupMenuItem<String>(
+//             value: 'delete',
+//             child: _ActionPopupRow(icon: Icons.delete_outline, label: 'Delete Salon', destructive: true),
+//           ),
+//       ],
+//     ),
+//   );
+// }
+Widget _salonMenuButton(
+  BuildContext context,
+  bool isActive,
+  String salonName,
+  int primaryBranchId,
+  int branchCount,
+  bool primaryBranchActive,   // <-- add this
+) {
+  final canEdit = isActive && onEditSalon != null;
+  if (onEditSalon == null && onToggleSalonActive == null && onDeleteSalon == null) {
+    return const SizedBox.shrink();
   }
+
+  return SizedBox(
+    width: 30,
+    height: 30,
+    child: PopupMenuButton<String>(
+      padding: EdgeInsets.zero,
+      icon: const Icon(Icons.more_vert_rounded, size: 20, color: Color(0xFF8B6500)),
+      color: Colors.white,
+      elevation: 10,
+      offset: const Offset(-8, 34),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE8DED4)),
+      ),
+      onSelected: (value) async {
+        switch (value) {
+          case 'edit':
+            if (isActive) onEditSalon?.call();
+            break;
+          case 'toggle':
+            if (isActive) {
+              await showChangeStatusModal(
+                context: context,
+                salonName: salonName,
+                isSalonActive: isActive,           // <-- add
+          isBranchActive: primaryBranchActive, // <-- add
+                onSalonTap: () async {
+                  final confirmed = await showDeactivateSalonConfirmation(
+                    context: context,
+                    salonName: salonName,
+                    branchCount: branchCount,
+                  );
+                  if (confirmed) {
+                    onToggleSalonActive?.call(false);
+                  }
+                },
+                onBranchTap: () {
+                  if (primaryBranchId > 0) {
+                    // Toggle based on the branch's own current state,
+                    // not the salon's — no confirmation either way.
+                    onToggleBranchActive?.call(
+                      primaryBranchId,
+                      !primaryBranchActive,
+                    );
+                  }
+                },
+              );
+            } else {
+  // Activating: ask Salon or Branch, then confirm
+  await showChangeStatusModal(
+    context: context,
+    salonName: salonName,
+    isSalonActive: isActive,
+    isBranchActive: primaryBranchActive,
+    onSalonTap: () async {
+      final confirmed = await showActivateSalonConfirmation(
+        context: context,
+        salonName: salonName,
+        branchCount: branchCount,
+      );
+      if (confirmed) {
+        onToggleSalonActive?.call(true);
+      }
+    },
+    onBranchTap: () {
+      if (primaryBranchId > 0) {
+        onToggleBranchActive?.call(
+          primaryBranchId,
+          !primaryBranchActive,
+        );
+      }
+    },
+  );
+}
+            break;
+          case 'delete':
+            onDeleteSalon?.call();
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        if (onEditSalon != null)
+          PopupMenuItem<String>(
+            value: 'edit',
+            enabled: canEdit,
+            child: _ActionPopupRow(icon: Icons.edit_outlined, label: 'Edit Salon', enabled: canEdit),
+          ),
+        if (onToggleSalonActive != null)
+          PopupMenuItem<String>(
+            value: 'toggle',
+            child: _ActionPopupRow(
+              icon: isActive ? Icons.block_outlined : Icons.check_circle_outline,
+              label: isActive ? 'Deactivate Salon' : 'Activate Salon',
+            ),
+          ),
+        if (onDeleteSalon != null)
+          PopupMenuItem<String>(
+            value: 'delete',
+            child: _ActionPopupRow(icon: Icons.delete_outline, label: 'Delete Salon', destructive: true),
+          ),
+      ],
+    ),
+  );
+}
 
   int _staffCount(List<Map<String, dynamic>> branches) {
     for (final key in const [
@@ -1834,7 +2710,9 @@ class _SalonCard extends StatelessWidget {
         primaryBranch = branches.first;
       }
     }
-
+final primaryBranchActive =
+    primaryBranch == null ? true : primaryBranch['active'] != false;
+    
     final heroImageUrls = _resolveHeroImageUrls(
       fallbackImageUrl: imageUrl,
       salon: salon,
@@ -1955,7 +2833,9 @@ class _SalonCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       _salonMenuButton(
                         context,
-                        isActive,
+                           isActive,
+                        salonName, primaryBranchId,branchCount,primaryBranchActive,
+                     
                       ),
                     ],
                   ),

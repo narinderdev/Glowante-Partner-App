@@ -164,7 +164,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     }
     return mapped.first;
   }
-
+ bool get _isBranchActive => _primaryBranch?['active'] != false;
   dynamic _field(List<String> keys) {
     for (final key in keys) {
       final value = _salon[key];
@@ -520,12 +520,13 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
             children: [
-              _HeroCard(
-                title: title.isEmpty ? translateText('Salon Details') : title,
-                subtitle: translateText('Main Salon'),
-                imageUrls: imageUrls,
-                active: _salon['active'] != false,
-              ),
+           _HeroCard(
+  title: title.isEmpty ? translateText('Salon Details') : title,
+  subtitle: translateText('Main Salon'),
+  imageUrls: imageUrls,
+  active: _salon['active'] != false,
+  branchActive: _primaryBranch != null ? _isBranchActive : null,
+),
               const SizedBox(height: 14),
               _SummaryStrip(
                 items: [
@@ -586,12 +587,15 @@ class _HeroCard extends StatelessWidget {
     required this.subtitle,
     required this.imageUrls,
     required this.active,
+     this.branchActive,
   });
 
   final String title;
   final String subtitle;
   final List<String> imageUrls;
   final bool active;
+  final bool? branchActive;
+  
 
   @override
   Widget build(BuildContext context) {
@@ -656,10 +660,19 @@ class _HeroCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Positioned(
+            Positioned(
                 right: 14,
                 top: 14,
-                child: _StatusPill(active: active),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _DotStatusPill(label: 'Salon', active: active),
+                    if (branchActive != null) ...[
+                      const SizedBox(width: 6),
+                      _DotStatusPill(label: 'Branch', active: branchActive!),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -1226,6 +1239,48 @@ class _ExpandableChipSectionState extends State<_ExpandableChipSection> {
                 ],
               ],
             ),
+    );
+  }
+}
+
+
+class _DotStatusPill extends StatelessWidget {
+  const _DotStatusPill({required this.label, required this.active});
+
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = active ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            '$label: ${active ? 'Active' : 'Inactive'}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
