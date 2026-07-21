@@ -2029,7 +2029,12 @@ class ProfileCompensationRepository {
     Map<String, dynamic> map, {
     required int branchId,
   }) {
-    final direct = DateTime.tryParse(_cleanText(map['joiningDate']));
+    // final direct = DateTime.tryParse(_cleanText(map['joiningDate']));
+final direct = DateTime.tryParse(
+  _cleanText(
+    map['joiningDate'] ?? map['startDate'],
+  ),
+);
     if (direct != null) {
       return direct;
     }
@@ -2048,7 +2053,12 @@ class ProfileCompensationRepository {
           : const <String, dynamic>{};
       final entryBranchId =
           _asInt(branchEntry['branchId']) ?? _asInt(branch['id']);
-      final parsed = DateTime.tryParse(_cleanText(branchEntry['joiningDate']));
+      // final parsed = DateTime.tryParse(_cleanText(branchEntry['joiningDate']));
+     final parsed = DateTime.tryParse(
+  _cleanText(
+    branchEntry['joiningDate'] ?? branchEntry['startDate'],
+  ),
+);
       if (parsed == null) continue;
       fallback ??= parsed;
       if (entryBranchId == branchId) {

@@ -109,6 +109,8 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
                 child: TextField(
                   controller: _serviceSearchController,
                   // maxLength: 60,
+                    cursorColor: AppColors.starColor,
+  selectionControls: materialTextSelectionControls,
                   style: const TextStyle(fontSize: 12),
                   decoration: InputDecoration(
                     hintText: _commissionTab == _CommissionTab.services
@@ -1004,16 +1006,30 @@ class _DefaultCommissionSummaryCardState
     setState(() => _selectedRuleType = value);
   }
 
+  // String get _rateValue {
+  //   if (_selectedRuleType == CommissionRuleTypes.fixed) {
+  //     final fixedAmountMinor = widget.service.commissionFixedAmountMinor ??
+  //         widget.service.commissionMaxAmountMinor;
+  //     final rupees = minorAmountToRupees(fixedAmountMinor) ?? 0;
+  //     return _formatOverrideNumber(rupees);
+  //   }
+  //   return _formatOverrideNumber(widget.service.commissionPercentage ?? 0);
+  // }
   String get _rateValue {
-    if (_selectedRuleType == CommissionRuleTypes.fixed) {
-      final fixedAmountMinor = widget.service.commissionFixedAmountMinor ??
-          widget.service.commissionMaxAmountMinor;
-      final rupees = minorAmountToRupees(fixedAmountMinor) ?? 0;
-      return _formatOverrideNumber(rupees);
-    }
-    return _formatOverrideNumber(widget.service.commissionPercentage ?? 0);
+  if (_selectedRuleType == CommissionRuleTypes.fixed) {
+    final fixedAmountMinor =
+        widget.service.commissionFixedAmountMinor;
+
+    final rupees =
+        minorAmountToRupees(fixedAmountMinor) ?? 0;
+
+    return _formatOverrideNumber(rupees);
   }
 
+  return _formatOverrideNumber(
+    widget.service.commissionPercentage ?? 0,
+  );
+}
   String get _rateSymbol =>
       _selectedRuleType == CommissionRuleTypes.fixed ? '₹' : '%';
 
@@ -1790,15 +1806,21 @@ bool _serviceDefaultIsPercentage(BranchServiceSummary service) {
       CommissionRuleTypes.fixed;
 }
 
-String _serviceDefaultCommissionLabel(BranchServiceSummary service) {
+String _serviceDefaultCommissionLabel(
+  BranchServiceSummary service,
+) {
   if (!service.commissionEnabled) {
     return 'No commission';
   }
+
   if (_serviceDefaultIsPercentage(service)) {
-    return '${_formatOverrideNumber(service.commissionPercentage ?? 0)}%';
+    return '${_formatOverrideNumber(
+      service.commissionPercentage ?? 0,
+    )}%';
   }
+
   return _formatCurrency(
-    service.commissionFixedAmountMinor ?? service.commissionMaxAmountMinor ?? 0,
+    service.commissionFixedAmountMinor ?? 0,
   );
 }
 
@@ -1863,7 +1885,12 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
   final TextEditingController _staffSearchController = TextEditingController();
   final TextEditingController _valueController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-
+final ScrollController _staffHorizontalScrollController =
+    ScrollController();
+  final ScrollController _dialogScrollController =
+      ScrollController();
+final ScrollController _staffVerticalScrollController =
+    ScrollController();
   late int _selectedServiceId;
   String _ruleType = CommissionRuleTypes.percentage;
   DateTime _effectiveFrom = DateTime.now();
@@ -1888,6 +1915,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
       _ruleType = _defaultRuleTypeForService(_selectedService);
       _valueController.text = _defaultRateTextForSelectedService();
     }
+    // _syncEffectiveDateWithJoiningDate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FocusManager.instance.primaryFocus?.unfocus();
     });
@@ -1898,6 +1926,9 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     _staffSearchController.dispose();
     _valueController.dispose();
     _notesController.dispose();
+      _staffHorizontalScrollController.dispose();
+  _staffVerticalScrollController.dispose();
+   _dialogScrollController.dispose();
     super.dispose();
   }
 
@@ -1907,28 +1938,123 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     }
   }
 
-  bool _shouldValidateRateImmediately(String value) {
-    if (_ruleType != CommissionRuleTypes.percentage) {
+  // bool _shouldValidateRateImmediately(String value) {
+  //   if (_ruleType != CommissionRuleTypes.percentage) {
+  //     return false;
+  //   }
+  //   final parsed = double.tryParse(value.trim());
+  //   return parsed != null && parsed > 100;
+  // }
+DateTime _dateOnly(DateTime date) {
+  return DateTime(date.year, date.month, date.day);
+}
+
+DateTime? get _minimumEffectiveDate {
+  DateTime? latestJoiningDate;
+
+  for (final member in widget.staff) {
+    if (!_selectedStaffIds.contains(member.id)) {
+      continue;
+    }
+
+    final joiningDate = member.joiningDate;
+
+    if (joiningDate == null) {
+      continue;
+    }
+
+    final normalizedJoiningDate = _dateOnly(joiningDate);
+
+    if (latestJoiningDate == null ||
+        normalizedJoiningDate.isAfter(latestJoiningDate)) {
+      latestJoiningDate = normalizedJoiningDate;
+    }
+  }
+
+  return latestJoiningDate;
+}
+
+bool get _hasValidEffectiveDate {
+  final minimumDate = _minimumEffectiveDate;
+
+  if (minimumDate == null) {
+    return true;
+  }
+
+  return !_dateOnly(_effectiveFrom).isBefore(minimumDate);
+}
+
+String? get _effectiveDateErrorText {
+  if (_selectedStaffIds.isEmpty || _hasValidEffectiveDate) {
+    return null;
+  }
+
+  final invalidMembers = widget.staff.where((member) {
+    if (!_selectedStaffIds.contains(member.id) ||
+        member.joiningDate == null) {
       return false;
     }
-    final parsed = double.tryParse(value.trim());
-    return parsed != null && parsed > 100;
+
+    return _dateOnly(_effectiveFrom).isBefore(
+      _dateOnly(member.joiningDate!),
+    );
+  }).toList();
+
+  if (invalidMembers.isEmpty) {
+    return null;
   }
 
-  void _handleRateChanged(String value) {
-    final shouldValidate = _shouldValidateRateImmediately(value);
-    setState(() {
-      if (shouldValidate) {
-        _autoValidateMode = AutovalidateMode.onUserInteraction;
-      }
-    });
-    if (shouldValidate) {
-      _formKey.currentState?.validate();
-    } else {
-      _validateIfNeeded();
+  final names = invalidMembers
+      .map((member) => member.name)
+      .join(', ');
+
+  return context.t(
+    'Effective from cannot be earlier than the joining date for ${invalidMembers.length == 1 ? 'member' : 'members'}: $names.',
+  );
+}
+
+// void _syncEffectiveDateWithJoiningDate() {
+//   final minimumDate = _minimumEffectiveDate;
+
+//   if (minimumDate != null &&
+//       _dateOnly(_effectiveFrom).isBefore(minimumDate)) {
+//     _effectiveFrom = minimumDate;
+//   }
+// }
+  // void _handleRateChanged(String value) {
+  //   final shouldValidate = _shouldValidateRateImmediately(value);
+  //   setState(() {
+  //     if (shouldValidate) {
+  //       _autoValidateMode = AutovalidateMode.onUserInteraction;
+  //     }
+  //   });
+  //   if (shouldValidate) {
+  //     _formKey.currentState?.validate();
+  //   } else {
+  //     _validateIfNeeded();
+  //   }
+  // }
+void _handleRateChanged(String value) {
+  final validationMessage =
+      _rateValidationMessage(value);
+
+  final shouldShowValidation =
+      value.trim().isNotEmpty &&
+      validationMessage.isNotEmpty;
+
+  setState(() {
+    if (shouldShowValidation) {
+      _autoValidateMode =
+          AutovalidateMode.onUserInteraction;
     }
-  }
+  });
 
+  if (shouldShowValidation ||
+      _autoValidateMode !=
+          AutovalidateMode.disabled) {
+    _formKey.currentState?.validate();
+  }
+}
   Future<void> _submit() async {
     if (_isSaving) {
       return;
@@ -1996,27 +2122,56 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
         : CommissionRuleTypes.fixed;
   }
 
-  String _defaultRateTextForSelectedService() {
-    final service = _selectedService;
-    if (service == null) {
-      return '';
-    }
-    if (_ruleType == CommissionRuleTypes.fixed) {
-      final fixedAmountMinor = service.commissionFixedAmountMinor ??
-          service.commissionMaxAmountMinor;
-      return _formatOverrideNumber(minorAmountToRupees(fixedAmountMinor) ?? 0);
-    }
-    return _formatOverrideNumber(service.commissionPercentage ?? 0);
+  // String _defaultRateTextForSelectedService() {
+  //   final service = _selectedService;
+  //   if (service == null) {
+  //     return '';
+  //   }
+  //   if (_ruleType == CommissionRuleTypes.fixed) {
+  //     final fixedAmountMinor = service.commissionFixedAmountMinor ??
+  //         service.commissionMaxAmountMinor;
+  //     return _formatOverrideNumber(minorAmountToRupees(fixedAmountMinor) ?? 0);
+  //   }
+  //   return _formatOverrideNumber(service.commissionPercentage ?? 0);
+  // }
+String _defaultRateTextForSelectedService() {
+  final service = _selectedService;
+
+  if (service == null) {
+    return '';
   }
 
-  void _syncRateFromSelectedService({bool resetRuleType = false}) {
-    final service = _selectedService;
-    if (resetRuleType) {
-      _ruleType = _defaultRuleTypeForService(service);
-    }
-    _valueController.text = _defaultRateTextForSelectedService();
+  if (_ruleType == CommissionRuleTypes.fixed) {
+    // Only the actual fixed commission amount should be used.
+    final fixedAmountMinor = service.commissionFixedAmountMinor;
+
+    return _formatOverrideNumber(
+      minorAmountToRupees(fixedAmountMinor) ?? 0,
+    );
   }
 
+  return _formatOverrideNumber(
+    service.commissionPercentage ?? 0,
+  );
+}
+  // void _syncRateFromSelectedService({bool resetRuleType = false}) {
+  //   final service = _selectedService;
+  //   if (resetRuleType) {
+  //     _ruleType = _defaultRuleTypeForService(service);
+  //   }
+  //   _valueController.text = _defaultRateTextForSelectedService();
+  // }
+void _syncRateFromSelectedService({
+  bool resetRuleType = false,
+}) {
+  final service = _selectedService;
+
+  if (resetRuleType) {
+    _ruleType = _defaultRuleTypeForService(service);
+  }
+
+  _valueController.text = _defaultRateTextForSelectedService();
+}
   List<TextInputFormatter> get _rateInputFormatters {
     if (_ruleType == CommissionRuleTypes.percentage) {
       return <TextInputFormatter>[
@@ -2052,11 +2207,12 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     return priceRupees == null || parsed <= priceRupees;
   }
 
-  bool get _canSubmit =>
-      !_isSaving &&
-      _selectedService != null &&
-      _selectedStaffIds.isNotEmpty &&
-      _hasValidRate;
+bool get _canSubmit =>
+    !_isSaving &&
+    _selectedService != null &&
+    _selectedStaffIds.isNotEmpty &&
+    _hasValidRate &&
+    _hasValidEffectiveDate;
 
   List<ProfileTeamMember> get _filteredStaff {
     final query = _staffSearchController.text.trim().toLowerCase();
@@ -2124,19 +2280,68 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     );
   }
 
-  Future<void> _pickEffectiveDate() async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _effectiveFrom,
-      firstDate: DateTime(2022),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) {
-      setState(() => _effectiveFrom = picked);
-    }
-  }
+  // Future<void> _pickEffectiveDate() async {
+  //   FocusManager.instance.primaryFocus?.unfocus();
+  //   final picked = await showDatePicker(
+  //     context: context,
+  //     initialDate: _effectiveFrom,
+  //     firstDate: DateTime(2022),
+  //     lastDate: DateTime(2100),
+  //   );
+  //   if (picked != null) {
+  //     setState(() => _effectiveFrom = picked);
+  //   }
+  // }
+// Future<void> _pickEffectiveDate() async {
+//   FocusManager.instance.primaryFocus?.unfocus();
 
+//   final fallbackFirstDate = DateTime(2022);
+//   final minimumJoiningDate = _minimumEffectiveDate;
+
+//   final firstDate = minimumJoiningDate != null &&
+//           minimumJoiningDate.isAfter(fallbackFirstDate)
+//       ? minimumJoiningDate
+//       : fallbackFirstDate;
+
+//   final selectedDate = _dateOnly(_effectiveFrom);
+
+//   final initialDate = selectedDate.isBefore(firstDate)
+//       ? firstDate
+//       : selectedDate;
+
+//   final picked = await showDatePicker(
+//     context: context,
+//     initialDate: initialDate,
+//     firstDate: firstDate,
+//     lastDate: DateTime(2100),
+
+//     // Keeps only calendar mode and removes the pencil icon.
+//     initialEntryMode: DatePickerEntryMode.calendarOnly,
+//   );
+
+//   if (picked != null && mounted) {
+//     setState(() {
+//       _effectiveFrom = picked;
+//     });
+//   }
+// }
+Future<void> _pickEffectiveDate() async {
+  FocusManager.instance.primaryFocus?.unfocus();
+
+  final picked = await showDatePicker(
+    context: context,
+    initialDate: _effectiveFrom,
+    firstDate: DateTime(2000),
+    lastDate: DateTime(2100),
+    initialEntryMode: DatePickerEntryMode.calendarOnly,
+  );
+
+  if (picked != null && mounted) {
+    setState(() {
+      _effectiveFrom = picked;
+    });
+  }
+}
   void _closeDialog() {
     FocusManager.instance.primaryFocus?.unfocus();
     Navigator.pop(context);
@@ -2282,41 +2487,66 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
       onChanged: _isSaving ? null : _handleRateChanged,
     );
   }
+Widget _buildEffectiveDateInput() {
+  final errorText = _effectiveDateErrorText;
 
-  Widget _buildEffectiveDateInput() {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: _isSaving ? null : _pickEffectiveDate,
-      child: Ink(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE1D6CB)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                DateFormat('dd/MM/yyyy').format(_effectiveFrom),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1C1917),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: _isSaving ? null : _pickEffectiveDate,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 13,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: errorText == null
+                  ? const Color(0xFFE1D6CB)
+                  : AppColors.red,
+              width: errorText == null ? 1 : 1.2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  DateFormat('dd/MM/yyyy').format(_effectiveFrom),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1C1917),
+                  ),
                 ),
               ),
-            ),
-            const Icon(
-              Icons.calendar_today_outlined,
-              size: 16,
-              color: AppColors.starColor,
-            ),
-          ],
+              const Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: AppColors.starColor,
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
+      if (errorText != null) ...[
+        const SizedBox(height: 5),
+        Text(
+          errorText,
+          style: const TextStyle(
+            fontSize: 10,
+            height: 1.25,
+            fontWeight: FontWeight.w500,
+            color: AppColors.red,
+          ),
+        ),
+      ],
+    ],
+  );
+}
   Widget _buildEditOverrideBody(
     BuildContext context,
     BranchServiceSummary? selectedService,
@@ -2414,33 +2644,37 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
               runSpacing: 4,
               children: [
                 _CommissionRuleRadio(
-                  label: context.t('Percentage (%)'),
-                  value: CommissionRuleTypes.percentage,
-                  groupValue: _ruleType,
-                  onChanged: _isSaving
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _ruleType = value;
-                            _syncRateFromSelectedService();
-                          });
-                          _validateIfNeeded();
-                        },
-                ),
-                _CommissionRuleRadio(
-                  label: context.t('Fixed Amount (Rs.)'),
-                  value: CommissionRuleTypes.fixed,
-                  groupValue: _ruleType,
-                  onChanged: _isSaving
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _ruleType = value;
-                            _syncRateFromSelectedService();
-                          });
-                          _validateIfNeeded();
-                        },
-                ),
+  label: context.t('Percentage (%)'),
+  value: CommissionRuleTypes.percentage,
+  groupValue: _ruleType,
+  onChanged: _isSaving
+      ? null
+      : (value) {
+          setState(() {
+            _ruleType = value;
+            _valueController.text =
+                _defaultRateTextForSelectedService();
+          });
+
+          _validateIfNeeded();
+        },
+),
+              _CommissionRuleRadio(
+  label: context.t('Fixed Amount (Rs.)'),
+  value: CommissionRuleTypes.fixed,
+  groupValue: _ruleType,
+  onChanged: _isSaving
+      ? null
+      : (value) {
+          setState(() {
+            _ruleType = value;
+            _valueController.text =
+                _defaultRateTextForSelectedService();
+          });
+
+          _validateIfNeeded();
+        },
+),
               ],
             ),
             const SizedBox(height: 12),
@@ -2588,9 +2822,22 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
             maxHeight: MediaQuery.sizeOf(context).height * 0.72,
           ),
           child: _isEdit
-              ? _buildEditOverrideBody(context, selectedService)
-              : SingleChildScrollView(
-                  child: Form(
+    ? _buildEditOverrideBody(context, selectedService)
+    : RawScrollbar(
+        controller: _dialogScrollController,
+        thumbVisibility: true,
+        trackVisibility: true,
+        scrollbarOrientation: ScrollbarOrientation.right,
+        thickness: 5,
+        radius: const Radius.circular(10),
+        thumbColor:
+            AppColors.starColor.withValues(alpha: 0.75),
+        trackColor: const Color(0xFFFFF3D5),
+        trackBorderColor: const Color(0xFFE8C774),
+        child: SingleChildScrollView(
+          controller: _dialogScrollController,
+          padding: const EdgeInsets.only(right: 10),
+          child: Form(
                     key: _formKey,
                     autovalidateMode: _autoValidateMode,
                     child: Column(
@@ -2690,227 +2937,322 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                                     return;
                                   }
                                   setState(() {
-                                    _selectedServiceId = value;
-                                    _syncRateFromSelectedService(
-                                        resetRuleType: true);
-                                  });
+  _selectedServiceId = value;
+
+  _syncRateFromSelectedService(
+    resetRuleType: true,
+  );
+});
                                   _validateIfNeeded();
                                 },
                         ),
                         const SizedBox(height: 16),
-                        _CommissionDialogLabel(
-                          _isEdit
-                              ? context.t('Selected staff')
-                              : context.t('1. Select staff members'),
-                        ),
-                        if (!_isEdit) ...[
-                          TextField(
-                            controller: _staffSearchController,
-                            enabled: !_isSaving,
-                            autofocus: false,
-                            style: const TextStyle(fontSize: 12),
-                            decoration: _dialogInputDecoration(
-                              hintText:
-                                  context.t('Search by name, role, or ID'),
-                              prefixIcon: const Icon(Icons.search, size: 17),
-                            ),
-                            onChanged: (_) => setState(() {}),
+                      _CommissionDialogLabel(
+  _isEdit
+      ? context.t('Selected staff')
+      : context.t('1. Select staff members'),
+),
+
+if (!_isEdit) ...[
+  TextField(
+    controller: _staffSearchController,
+    enabled: !_isSaving,
+    autofocus: false,
+    cursorColor: AppColors.starColor,
+    style: const TextStyle(fontSize: 12),
+    decoration: _dialogInputDecoration(
+      hintText: context.t('Search by name or role'),
+      prefixIcon: const Icon(
+        Icons.search,
+        size: 17,
+        color: AppColors.starColor,
+      ),
+    ),
+    onChanged: (_) => setState(() {}),
+  ),
+  const SizedBox(height: 10),
+],
+
+FormField<Set<int>>(
+  initialValue: _selectedStaffIds.toSet(),
+  validator: (_) {
+    if (_selectedStaffIds.isEmpty) {
+      return translateText(
+        'Select at least one staff member',
+      );
+    }
+    return null;
+  },
+  builder: (field) {
+    final visibleStaffIds =
+        filteredStaff.map((member) => member.id).toSet();
+
+    final selectedVisibleCount = visibleStaffIds
+        .where(_selectedStaffIds.contains)
+        .length;
+
+    final bool? allVisibleSelected =
+        selectedVisibleCount == 0
+            ? false
+            : selectedVisibleCount == visibleStaffIds.length
+                ? true
+                : null;
+
+    final tableHeight = math.min(
+      232.0,
+      38.0 + (filteredStaff.length * 58.0),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: filteredStaff.isEmpty
+              ? null
+              : tableHeight,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: const Color(0xFFE8DED6),
+            ),
+          ),
+          child: filteredStaff.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Text(
+                    context.t('No staff found'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                )
+              : RawScrollbar(
+                  controller:
+                      _staffHorizontalScrollController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  scrollbarOrientation:
+                      ScrollbarOrientation.bottom,
+                  thickness: 4,
+                  radius: const Radius.circular(10),
+                  thumbColor: AppColors.starColor
+                      .withValues(alpha: 0.72),
+                  trackColor:
+                      const Color(0xFFFFF3D5),
+                  trackBorderColor:
+                      const Color(0xFFE8C774),
+                  child: SingleChildScrollView(
+                    controller:
+                        _staffHorizontalScrollController,
+                    scrollDirection: Axis.horizontal,
+                    physics:
+                        const BouncingScrollPhysics(),
+                    padding:
+                        const EdgeInsets.only(bottom: 10),
+                    child: SizedBox(
+                      width: 760,
+                      height: tableHeight,
+                      child: Column(
+                        children: [
+                          _StaffPickerHeaderRow(
+                            value: allVisibleSelected,
+                            enabled:
+                                !_isSaving && !_isEdit,
+                            onChanged: (value) {
+                              setState(() {
+                                if (value ?? false) {
+                                  _selectedStaffIds.addAll(
+                                    visibleStaffIds,
+                                  );
+                                } else {
+                                  _selectedStaffIds.removeAll(
+                                    visibleStaffIds,
+                                  );
+                                }
+                              });
+
+                              field.didChange(
+                                _selectedStaffIds.toSet(),
+                              );
+
+                              _validateIfNeeded();
+                            },
                           ),
-                          const SizedBox(height: 10),
-                        ],
-                        FormField<Set<int>>(
-                          initialValue: _selectedStaffIds.toSet(),
-                          validator: (_) => _selectedStaffIds.isEmpty
-                              ? translateText(
-                                  'Select at least one staff member')
-                              : null,
-                          builder: (field) {
-                            final visibleStaffIds = filteredStaff
-                                .map((member) => member.id)
-                                .toSet();
-                            final selectedVisibleCount = visibleStaffIds
-                                .where(_selectedStaffIds.contains)
-                                .length;
-                            final bool? allVisibleSelected =
-                                selectedVisibleCount == 0
-                                    ? false
-                                    : selectedVisibleCount ==
-                                            visibleStaffIds.length
-                                        ? true
-                                        : null;
-                            final tableHeight = math.min(
-                              232.0,
-                              38.0 + (filteredStaff.length * 58.0),
-                            );
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  height: filteredStaff.isEmpty
-                                      ? null
-                                      : tableHeight,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                        color: const Color(0xFFE8DED6)),
-                                  ),
-                                  child: filteredStaff.isEmpty
-                                      ? Padding(
-                                          padding: const EdgeInsets.all(18),
-                                          child: Text(
-                                            context.t('No staff found'),
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF6B7280),
-                                            ),
-                                          ),
-                                        )
-                                      : SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: SizedBox(
-                                            width: 760,
-                                            height: tableHeight,
-                                            child: Column(
-                                              children: [
-                                                _StaffPickerHeaderRow(
-                                                  value: allVisibleSelected,
-                                                  enabled:
-                                                      !_isSaving && !_isEdit,
-                                                  onChanged: (value) {
-                                                    setState(() {
-                                                      if (value ?? false) {
-                                                        _selectedStaffIds.addAll(
-                                                            visibleStaffIds);
-                                                      } else {
-                                                        _selectedStaffIds
-                                                            .removeAll(
-                                                          visibleStaffIds,
-                                                        );
-                                                      }
-                                                    });
-                                                    field.didChange(
-                                                      _selectedStaffIds.toSet(),
-                                                    );
-                                                    _validateIfNeeded();
-                                                  },
-                                                ),
-                                                Expanded(
-                                                  child: ListView.separated(
-                                                    shrinkWrap: true,
-                                                    itemCount:
-                                                        filteredStaff.length,
-                                                    separatorBuilder: (_, __) =>
-                                                        const Divider(
-                                                      height: 1,
-                                                      color: Color(0xFFE8DED6),
-                                                    ),
-                                                    itemBuilder:
-                                                        (context, index) {
-                                                      final member =
-                                                          filteredStaff[index];
-                                                      final isSelected =
-                                                          _selectedStaffIds
-                                                              .contains(
-                                                                  member.id);
-                                                      final existing =
-                                                          _existingOverrideFor(
-                                                        member.id,
-                                                      );
-                                                      return _StaffPickerRow(
-                                                        member: member,
-                                                        selected: isSelected,
-                                                        enabled: !_isSaving &&
-                                                            !_isEdit,
-                                                        currentRate:
-                                                            _commissionRateLabel(
-                                                          existing,
-                                                          fallback:
-                                                              selectedService ==
-                                                                      null
-                                                                  ? 'No override'
-                                                                  : _serviceDefaultCommissionLabel(
-                                                                      selectedService,
-                                                                    ),
-                                                        ),
-                                                        onChanged: (value) {
-                                                          setState(() {
-                                                            if (value) {
-                                                              _selectedStaffIds
-                                                                  .add(member
-                                                                      .id);
-                                                            } else {
-                                                              _selectedStaffIds
-                                                                  .remove(
-                                                                member.id,
-                                                              );
-                                                            }
-                                                          });
-                                                          field.didChange(
-                                                            _selectedStaffIds
-                                                                .toSet(),
-                                                          );
-                                                          _validateIfNeeded();
-                                                        },
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
+                          Expanded(
+                            child: RawScrollbar(
+                              controller:
+                                  _staffVerticalScrollController,
+                              thumbVisibility: true,
+                              trackVisibility: true,
+                              scrollbarOrientation:
+                                  ScrollbarOrientation.right,
+                              thickness: 4,
+                              radius:
+                                  const Radius.circular(10),
+                              thumbColor: AppColors
+                                  .starColor
+                                  .withValues(alpha: 0.72),
+                              trackColor:
+                                  const Color(0xFFFFF3D5),
+                              trackBorderColor:
+                                  const Color(0xFFE8C774),
+                              child: ListView.separated(
+                                controller:
+                                    _staffVerticalScrollController,
+                                padding: EdgeInsets.zero,
+                                itemCount:
+                                    filteredStaff.length,
+                                separatorBuilder:
+                                    (_, __) =>
+                                        const Divider(
+                                  height: 1,
+                                  color:
+                                      Color(0xFFE8DED6),
                                 ),
-                                if (field.errorText != null) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    field.errorText!,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.red,
+                                itemBuilder:
+                                    (context, index) {
+                                  final member =
+                                      filteredStaff[index];
+
+                                  final isSelected =
+                                      _selectedStaffIds
+                                          .contains(member.id);
+
+                                  final existing =
+                                      _existingOverrideFor(
+                                    member.id,
+                                  );
+
+                                  return _StaffPickerRow(
+                                    member: member,
+                                    selected: isSelected,
+                                    enabled:
+                                        !_isSaving && !_isEdit,
+                                    currentRate:
+                                        _commissionRateLabel(
+                                      existing,
+                                      fallback:
+                                          selectedService == null
+                                              ? 'No override'
+                                              : _serviceDefaultCommissionLabel(
+                                                  selectedService,
+                                                ),
                                     ),
-                                  ),
-                                ],
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        if (value) {
+                                          _selectedStaffIds
+                                              .add(member.id);
+                                        } else {
+                                          _selectedStaffIds
+                                              .remove(member.id);
+                                        }
+                                      });
+
+                                      field.didChange(
+                                        _selectedStaffIds
+                                            .toSet(),
+                                      );
+
+                                      _validateIfNeeded();
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+
+        if (field.errorText != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            field.errorText!,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.red,
+            ),
+          ),
+        ],
+      ],
+    );
+  },
+),
+
+const SizedBox(height: 16),
                         _CommissionDialogLabel(
                             context.t('2. Set commission rate')),
                         Wrap(
                           spacing: 12,
                           runSpacing: 4,
                           children: [
+                            // _CommissionRuleRadio(
+                            //   label: context.t('Percentage (%)'),
+                            //   value: CommissionRuleTypes.percentage,
+                            //   groupValue: _ruleType,
+                            //   onChanged: _isSaving
+                            //       ? null
+                            //       : (value) {
+                            //           setState(() {
+                            //             _ruleType = value;
+                            //             _syncRateFromSelectedService();
+                            //           });
+                            //           _validateIfNeeded();
+                            //         },
+                            // ),
                             _CommissionRuleRadio(
-                              label: context.t('Percentage (%)'),
-                              value: CommissionRuleTypes.percentage,
-                              groupValue: _ruleType,
-                              onChanged: _isSaving
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _ruleType = value;
-                                        _syncRateFromSelectedService();
-                                      });
-                                      _validateIfNeeded();
-                                    },
-                            ),
+  label: context.t('Percentage (%)'),
+  value: CommissionRuleTypes.percentage,
+  groupValue: _ruleType,
+  onChanged: _isSaving
+      ? null
+      : (value) {
+          setState(() {
+            _ruleType = value;
+            _valueController.text =
+                _defaultRateTextForSelectedService();
+          });
+
+          _validateIfNeeded();
+        },
+),
+                            // _CommissionRuleRadio(
+                            //   label: context.t('Fixed Amount (Rs.)'),
+                            //   value: CommissionRuleTypes.fixed,
+                            //   groupValue: _ruleType,
+                            //   onChanged: _isSaving
+                            //       ? null
+                            //       : (value) {
+                            //           setState(() {
+                            //             _ruleType = value;
+                            //             _syncRateFromSelectedService();
+                            //           });
+                            //           _validateIfNeeded();
+                            //         },
+                            // ),
                             _CommissionRuleRadio(
-                              label: context.t('Fixed Amount (Rs.)'),
-                              value: CommissionRuleTypes.fixed,
-                              groupValue: _ruleType,
-                              onChanged: _isSaving
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _ruleType = value;
-                                        _syncRateFromSelectedService();
-                                      });
-                                      _validateIfNeeded();
-                                    },
-                            ),
+  label: context.t('Fixed Amount (Rs.)'),
+  value: CommissionRuleTypes.fixed,
+  groupValue: _ruleType,
+  onChanged: _isSaving
+      ? null
+      : (value) {
+          setState(() {
+            _ruleType = value;
+            _valueController.text =
+                _defaultRateTextForSelectedService();
+          });
+
+          _validateIfNeeded();
+        },
+),
                           ],
                         ),
                         const SizedBox(height: 10),
@@ -2952,46 +3294,47 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _CommissionDialogLabel(
-                                    context.t('Effective from'),
-                                  ),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(8),
-                                    onTap:
-                                        _isSaving ? null : _pickEffectiveDate,
-                                    child: Ink(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 13,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: const Color(0xFFE1D6CB),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              DateFormat('dd/MM/yyyy')
-                                                  .format(_effectiveFrom),
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFF1C1917),
-                                              ),
-                                            ),
-                                          ),
-                                          const Icon(
-                                            Icons.calendar_today_outlined,
-                                            size: 16,
-                                            color: AppColors.starColor,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+  context.t('Effective from'),
+),
+_buildEffectiveDateInput(),
+                                  // InkWell(
+                                  //   borderRadius: BorderRadius.circular(8),
+                                  //   onTap:
+                                  //       _isSaving ? null : _pickEffectiveDate,
+                                  //   child: Ink(
+                                  //     padding: const EdgeInsets.symmetric(
+                                  //       horizontal: 12,
+                                  //       vertical: 13,
+                                  //     ),
+                                  //     decoration: BoxDecoration(
+                                  //       color: Colors.white,
+                                  //       borderRadius: BorderRadius.circular(8),
+                                  //       border: Border.all(
+                                  //         color: const Color(0xFFE1D6CB),
+                                  //       ),
+                                  //     ),
+                                  //     child: Row(
+                                  //       children: [
+                                  //         Expanded(
+                                  //           child: Text(
+                                  //             DateFormat('dd/MM/yyyy')
+                                  //                 .format(_effectiveFrom),
+                                  //             style: const TextStyle(
+                                  //               fontSize: 12,
+                                  //               fontWeight: FontWeight.w700,
+                                  //               color: Color(0xFF1C1917),
+                                  //             ),
+                                  //           ),
+                                  //         ),
+                                  //         const Icon(
+                                  //           Icons.calendar_today_outlined,
+                                  //           size: 16,
+                                  //           color: AppColors.starColor,
+                                  //         ),
+                                  //       ],
+                                  //     ),
+                                  //   ),
+                                  // ),
                                 ],
                               ),
                             ),
@@ -3041,17 +3384,17 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildDialogActionRow(context),
-                      ],
-                    ),
-                  ),
-                ),
-        ),
-      ),
-    );
+                                _buildDialogActionRow(context),
+                        ],
+                    ), // Column
+                  ), // Form
+                ), // SingleChildScrollView
+              ), // RawScrollbar
+            ), // ConstrainedBox
+          ), // SizedBox
+        ); // AlertDialog
   }
 }
-
 class _CommissionDialogLabel extends StatelessWidget {
   const _CommissionDialogLabel(this.label);
 
@@ -3280,16 +3623,16 @@ class _StaffPickerRow extends StatelessWidget {
                             color: Color(0xFF1C1917),
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'GLW-${member.id}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF8A8178),
-                          ),
-                        ),
+                        // const SizedBox(height: 3),
+                        // Text(
+                        //   'GLW-${member.id}',
+                        //   maxLines: 1,
+                        //   overflow: TextOverflow.ellipsis,
+                        //   style: const TextStyle(
+                        //     fontSize: 10,
+                        //     color: Color(0xFF8A8178),
+                        //   ),
+                        // ),
                       ],
                     ),
                   ),
