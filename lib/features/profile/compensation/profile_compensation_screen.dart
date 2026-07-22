@@ -4470,11 +4470,14 @@ class _PayrollEmployeeCalculationScreen extends StatelessWidget {
   }
 
   String _serviceCommissionDetails(PayrollRunEmployeeRecord employee) {
-    if (employee.servicesCount <= 0) {
-      return '-';
+    if (employee.servicesCount > 0) {
+      return '${employee.servicesCount} '
+          '${employee.servicesCount == 1 ? 'service' : 'services'}';
     }
-    return '${employee.servicesCount} '
-        '${employee.servicesCount == 1 ? 'service' : 'services'}';
+    if (employee.commissionPercent > 0) {
+      return '${_formatCommissionPercentText(employee.commissionPercent)}% commission';
+    }
+    return '-';
   }
 }
 
