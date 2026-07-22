@@ -369,11 +369,16 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         place.postalCode,
       ];
 
+      // Some geocoders return the same value for multiple fields (e.g.
+      // `name` and `locality` both being "Kanpur"), which would otherwise
+      // duplicate it in the joined address.
+      final seenParts = <String>{};
       final formattedAddress = _cleanAddressText(
         parts
             .whereType<String>()
             .where((value) => value.trim().isNotEmpty)
             .map((value) => value.trim())
+            .where((value) => seenParts.add(value.toLowerCase()))
             .join(', '),
       );
       _removeOverlay();
@@ -584,14 +589,24 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       final placeAddress = (place?.address ?? '').trim();
       final placeName = (place?.name ?? '').trim();
 
+      // Google's formatted address for a locality (e.g. "Kanpur, Uttar
+      // Pradesh, India") already starts with the place name, so prefixing
+      // it unconditionally produced "Kanpur, Kanpur, Uttar Pradesh, India".
+      // Only prefix when the address doesn't already lead with that name.
+      String prefixIfNeeded(String prefix, String rest) {
+        if (prefix.isEmpty) return rest;
+        if (rest.isEmpty) return prefix;
+        if (rest.toLowerCase().startsWith(prefix.toLowerCase())) return rest;
+        return '$prefix, $rest';
+      }
+
       final address = _cleanAddressText(
-        placeName.isNotEmpty && placeAddress.isNotEmpty
-            ? '$placeName, $placeAddress'
-            : fallbackSuggestionText.isNotEmpty && placeAddress.isNotEmpty
-                ? '$fallbackSuggestionText, $placeAddress'
-                : placeAddress.isNotEmpty
-                    ? placeAddress
-                    : fallbackSuggestionText,
+        placeAddress.isNotEmpty
+            ? prefixIfNeeded(
+                placeName.isNotEmpty ? placeName : fallbackSuggestionText,
+                placeAddress,
+              )
+            : fallbackSuggestionText,
       );
 
       double? lat = place?.latLng?.lat;
@@ -886,8 +901,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     final currentAddress = completeAddressController.text.trim();
 
     if (_baseCompleteAddress.isEmpty && currentAddress.isNotEmpty) {
-      _baseCompleteAddress = _addressWithoutManualParts(
+      // Strip whatever manual parts the current text was actually composed
+      // with (not the just-edited values, which no longer match it) —
+      // otherwise a stale, already-manual-only address survives here as a
+      // phantom base and gets re-appended alongside the new manual parts.
+      _baseCompleteAddress = _addressWithoutLeadingParts(
         _cleanAddressText(currentAddress),
+        _lastSyncedManualAddressParts,
       );
     }
 
@@ -1086,12 +1106,27 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
                                 setState(() {
                                   searchLocationController.clear();
-                                  completeAddressController.clear();
+                                  // Only the searched-location contribution
+                                  // is cleared here — recompose from the
+                                  // still-filled House/Flat and Street/Area
+                                  // fields instead of wiping the whole
+                                  // Complete Address.
                                   _baseCompleteAddress = '';
-                                  _lastSyncedManualAddressParts = const [];
                                   predictions = [];
                                   latitude = null;
                                   longitude = null;
+
+                                  final composedAddress =
+                                      _composeAddressFromParts();
+                                  completeAddressController.value =
+                                      TextEditingValue(
+                                    text: composedAddress,
+                                    selection: TextSelection.collapsed(
+                                      offset: composedAddress.length,
+                                    ),
+                                  );
+                                  _lastSyncedManualAddressParts =
+                                      _manualAddressParts();
                                 });
 
                                 _removeOverlay();

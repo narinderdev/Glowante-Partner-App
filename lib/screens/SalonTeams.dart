@@ -136,6 +136,7 @@ class _TeamScreenState extends State<TeamScreen> {
   final Set<int> _statusUpdatingIds = {};
   final Set<int> _deletingMemberIds = {};
   bool _isOpeningViewMember = false;
+  bool _isLoadingTeamMembers = false;
 
   @override
   void initState() {
@@ -438,21 +439,28 @@ class _TeamScreenState extends State<TeamScreen> {
     return DateTime(parsed.year, parsed.month, parsed.day);
   }
 
+  // Assigns the future that drives the team-members list and turns on the
+  // full-screen loading overlay until it settles, instead of the previous
+  // small inline spinner tied to the FutureBuilder's own waiting state.
+  void _startTeamMembersFuture(Future<List<dynamic>> future) {
+    _isLoadingTeamMembers = true;
+    teamMembersFuture = future;
+    future.whenComplete(() {
+      if (mounted) setState(() => _isLoadingTeamMembers = false);
+    });
+  }
+
   Future<void> _refreshTeamMembers() async {
     if (selectedBranchId == null || !mounted) return;
     final future = _getTeamMembersByBranch(selectedBranchId!);
-    setState(() {
-      teamMembersFuture = future;
-    });
+    setState(() => _startTeamMembersFuture(future));
     await future;
   }
 
   void _reloadTeamMembersForFilters() {
     final branchId = selectedBranchId;
     if (branchId == null || !mounted) return;
-    setState(() {
-      teamMembersFuture = _getTeamMembersByBranch(branchId);
-    });
+    setState(() => _startTeamMembersFuture(_getTeamMembersByBranch(branchId)));
   }
 
   void _onTeamSearchChanged() {
@@ -1011,13 +1019,14 @@ class _TeamScreenState extends State<TeamScreen> {
 
     if (selectedBranchId != null) {
       final branchId = selectedBranchId!;
-      teamMembersFuture = _getTeamMembersByBranch(branchId);
+      _startTeamMembersFuture(_getTeamMembersByBranch(branchId));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || selectedBranchId != branchId) return;
         unawaited(_loadTeamServiceOptions(branchId));
       });
     } else {
       teamMembersFuture = null;
+      _isLoadingTeamMembers = false;
     }
   }
 
@@ -1077,9 +1086,8 @@ class _TeamScreenState extends State<TeamScreen> {
       );
       if (!mounted) return;
       if (refresh == true) {
-        setState(() {
-          teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
-        });
+        setState(() => _startTeamMembersFuture(
+            _getTeamMembersByBranch(selectedBranchId!)));
         Fluttertoast.showToast(
             msg: translateText("Team member added successfully"));
       }
@@ -1284,144 +1292,142 @@ class _TeamScreenState extends State<TeamScreen> {
       appBar: buildProfileSubpageAppBar(
         title: translateText('Team Members'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: branchOptionsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text("Error: ${snapshot.error}"));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  OwnerBranchHeaderSelector<int>(
-                    label: '',
-                    options: const [],
-                    selectedValue: null,
-                    placeholder: translateText('Select Branch'),
-                    isInteractive: false,
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: _NoTeamMembersState(
-                      onAddTeamMember: null,
-                      message: translateText('No branches available'),
-                    ),
-                  ),
-                ],
-              );
-            } else {
-              final branches = snapshot.data!;
-
-              return RefreshIndicator(
-                color: AppColors.starColor,
-                onRefresh: () =>
-                    RefreshFeedback.playAndRun(_refreshTeamMembers),
-                child: FutureBuilder<List<dynamic>>(
-                  future: teamMembersFuture,
-                  builder: (context, teamSnapshot) {
-                    final children = <Widget>[
-                      if (branches.length > 1) ...[
-                        OwnerBranchHeaderSelector<int>(
-                          label: _teamBranchLabel(selectedBranch),
-                          options: _teamBranchOptions(branches),
-                          selectedValue: selectedBranchId,
-                          placeholder: translateText('Select Branch'),
-                          isInteractive: true,
-                          onSelected: (branchId) {
-                            final branch = branches.firstWhere(
-                              (item) => _asInt(item['branchId']) == branchId,
-                              orElse: () => branches.first,
-                            );
-                            setState(() => _pickBranch(branch));
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      _buildTeamFiltersBar(),
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: branchOptionsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox.expand(
+                    child: _TeamMembersLoadingOverlay(),
+                  );
+                } else if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      OwnerBranchHeaderSelector<int>(
+                        label: '',
+                        options: const [],
+                        selectedValue: null,
+                        placeholder: translateText('Select Branch'),
+                        isInteractive: false,
+                      ),
                       const SizedBox(height: 16),
-                    ];
+                      Expanded(
+                        child: _NoTeamMembersState(
+                          onAddTeamMember: null,
+                          message: translateText('No branches available'),
+                        ),
+                      ),
+                    ],
+                  );
+                } else {
+                  final branches = snapshot.data!;
 
-                    if (teamSnapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      children.add(
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.45,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.starColor,
+                  return RefreshIndicator(
+                    color: AppColors.starColor,
+                    onRefresh: () =>
+                        RefreshFeedback.playAndRun(_refreshTeamMembers),
+                    child: FutureBuilder<List<dynamic>>(
+                      future: teamMembersFuture,
+                      builder: (context, teamSnapshot) {
+                        final children = <Widget>[
+                          if (branches.length > 1) ...[
+                            OwnerBranchHeaderSelector<int>(
+                              label: _teamBranchLabel(selectedBranch),
+                              options: _teamBranchOptions(branches),
+                              selectedValue: selectedBranchId,
+                              placeholder: translateText('Select Branch'),
+                              isInteractive: true,
+                              onSelected: (branchId) {
+                                final branch = branches.firstWhere(
+                                  (item) =>
+                                      _asInt(item['branchId']) == branchId,
+                                  orElse: () => branches.first,
+                                );
+                                setState(() => _pickBranch(branch));
+                              },
                             ),
-                          ),
-                        ),
-                      );
-                    } else if (teamSnapshot.hasError) {
-                      children.add(
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.45,
-                          child: Center(
-                            child: Text("Error: ${teamSnapshot.error}"),
-                          ),
-                        ),
-                      );
-                    } else if (!teamSnapshot.hasData ||
-                        teamSnapshot.data!.isEmpty) {
-                      children.add(
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.72,
-                          child: _NoTeamMembersState(
-                            onAddTeamMember:
-                                selectedBranch == null ? null : _openAddMember,
-                            message: _hasActiveTeamFilters
-                                ? translateText(
-                                    'No team members match the selected filters',
-                                  )
-                                : null,
-                          ),
-                        ),
-                      );
-                    } else {
-                      final members = teamSnapshot.data!
-                          .whereType<Map>()
-                          .map((item) => Map<String, dynamic>.from(item))
-                          .toList();
+                            const SizedBox(height: 16),
+                          ],
+                          _buildTeamFiltersBar(),
+                          const SizedBox(height: 16),
+                        ];
 
-                      children.add(
-                        _TeamMembersGrid(
-                          members: members,
-                          selectedBranch: selectedBranch,
-                          salons: _salons,
-                          statusUpdatingIds: _statusUpdatingIds,
-                          deletingMemberIds: _deletingMemberIds,
-                          isViewOpening: _isOpeningViewMember,
-                          professionalRatings: _professionalRatings,
-                          onEditMember: _openEditMember,
-                          onDeleteMember: _deleteMember,
-                          onToggleMemberActive: _toggleMemberActive,
-                          onViewMember: _openViewMember,
-                          onAssignMember: _openAssignMember,
-                          assignButtonBuilder: _buildAssignButtonChild,
-                          memberNameBuilder: _memberDisplayName,
-                          memberRoleBuilder: _memberRoleLabel,
-                        ),
-                      );
-                    }
+                        if (teamSnapshot.hasError) {
+                          children.add(
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.45,
+                              child: Center(
+                                child: Text("Error: ${teamSnapshot.error}"),
+                              ),
+                            ),
+                          );
+                        } else if (!teamSnapshot.hasData ||
+                            teamSnapshot.data!.isEmpty) {
+                          children.add(
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.72,
+                              child: _NoTeamMembersState(
+                                onAddTeamMember: selectedBranch == null
+                                    ? null
+                                    : _openAddMember,
+                                message: _hasActiveTeamFilters
+                                    ? translateText(
+                                        'No team members match the selected filters',
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          );
+                        } else {
+                          final members = teamSnapshot.data!
+                              .whereType<Map>()
+                              .map((item) => Map<String, dynamic>.from(item))
+                              .toList();
 
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        ...children,
-                        const SizedBox(height: 96),
-                      ],
-                    );
-                  },
-                ),
-              );
-            }
-          },
-        ),
+                          children.add(
+                            _TeamMembersGrid(
+                              members: members,
+                              selectedBranch: selectedBranch,
+                              salons: _salons,
+                              statusUpdatingIds: _statusUpdatingIds,
+                              deletingMemberIds: _deletingMemberIds,
+                              isViewOpening: _isOpeningViewMember,
+                              professionalRatings: _professionalRatings,
+                              onEditMember: _openEditMember,
+                              onDeleteMember: _deleteMember,
+                              onToggleMemberActive: _toggleMemberActive,
+                              onViewMember: _openViewMember,
+                              onAssignMember: _openAssignMember,
+                              assignButtonBuilder: _buildAssignButtonChild,
+                              memberNameBuilder: _memberDisplayName,
+                              memberRoleBuilder: _memberRoleLabel,
+                            ),
+                          );
+                        }
+
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            ...children,
+                            const SizedBox(height: 96),
+                          ],
+                        );
+                      },
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+          if (_isLoadingTeamMembers)
+            const Positioned.fill(child: _TeamMembersLoadingOverlay()),
+        ],
       ),
       floatingActionButton: _hasTeamMembers
           ? FloatingActionButton.extended(
@@ -1433,6 +1439,42 @@ class _TeamScreenState extends State<TeamScreen> {
               foregroundColor: Colors.white,
             )
           : null,
+    );
+  }
+}
+
+class _TeamMembersLoadingOverlay extends StatelessWidget {
+  const _TeamMembersLoadingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return AbsorbPointer(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.16),
+        alignment: Alignment.center,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 22,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: AppColors.starColor,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
