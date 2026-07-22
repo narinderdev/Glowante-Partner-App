@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -36,6 +35,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   static const double _tableHorizontalPadding = 16;
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _tableHorizontalScrollController = ScrollController();
+  final ScrollController _tableVerticalScrollController = ScrollController();
   final ApiService _apiService = ApiService();
 
   void _logClients(String event, {Object? details}) {
@@ -73,6 +74,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _tableHorizontalScrollController.dispose();
+    _tableVerticalScrollController.dispose();
     super.dispose();
   }
 
@@ -444,7 +447,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     if (raw.isEmpty) return 'N/A';
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw;
-    return DateFormat('dd MMM yyyy, hh:mm a').format(parsed.toLocal());
+    return DateFormat('dd MMM yyyy').format(parsed.toLocal());
   }
 
   String _formatAmount(dynamic value) {
@@ -508,12 +511,6 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       return map.isEmpty ? const [] : <Map<String, dynamic>>[map];
     }
     return const [];
-  }
-
-  int? _clientIdFromMap(Map<String, dynamic> client) {
-    return _asInt(client['id']) ??
-        _asInt(client['clientId']) ??
-        _asInt(client['userId']);
   }
 
   String _purchaseTitle(Map<String, dynamic> purchase) {
@@ -623,49 +620,92 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     );
   }
 
-  void _logPurchaseResponseShape(Map<String, dynamic> response) {
-    debugPrint('[ClientPurchasesModal] responseType=${response.runtimeType}');
-    debugPrint('[ClientPurchasesModal] topLevelKeys=${response.keys.toList()}');
-
-    for (final entry in response.entries) {
-      final value = entry.value;
-      debugPrint(
-        '[ClientPurchasesModal] key=${entry.key} valueType=${value.runtimeType}',
-      );
-      if (value is Map<String, dynamic>) {
-        debugPrint(
-          '[ClientPurchasesModal] ${entry.key} keys=${value.keys.toList()}',
-        );
-      } else if (value is List && value.isNotEmpty && value.first is Map) {
-        final first = Map<String, dynamic>.from(value.first as Map);
-        debugPrint(
-          '[ClientPurchasesModal] ${entry.key} firstItemKeys=${first.keys.toList()}',
-        );
-      }
-    }
-
-    const encoder = JsonEncoder.withIndent('  ');
-    try {
-      debugPrint(
-          '[ClientPurchasesModal] fullResponse=\n${encoder.convert(response)}');
-    } catch (_) {}
+  Widget _customerDetailsPurchaseSection({
+    required String title,
+    required List<Map<String, dynamic>> purchases,
+    required String emptyText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+            Text(
+              '${purchases.length}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFCFAF8),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: const Color(0xFFE8DED6),
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: purchases.isEmpty
+              ? Text(
+                  emptyText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (final purchase in purchases) ...[
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          _purchaseTitle(purchase),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        subtitle: Text(_purchaseSubtitle(purchase)),
+                        trailing: Text(
+                          _purchaseAmountLabel(purchase),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ),
+                      if (purchase != purchases.last) const Divider(height: 1),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
   }
 
-  Future<void> _showClientPurchasesModal(Map<String, dynamic> client) async {
-    final branchId = _selectedBranchId;
-    final clientId = _clientIdFromMap(client);
-    if (branchId == null || clientId == null) {
-      _showSnack('Missing branch or client id');
-      return;
-    }
-    _logClients(
-      'open_client_purchases_modal',
-      details: 'branchId=$branchId, clientId=$clientId',
-    );
-
+  Future<void> _showCustomerDetailsDialog(Map<String, dynamic> client) async {
     final clientName = _clientName(client);
-    final phone =
-        _cleanText(client['phoneNumber'] ?? client['fullPhoneNumber']);
+    final packages = _extractPurchases(client['packages']);
+    final deals = _extractPurchases(client['deals']);
 
     await showDialog<void>(
       context: context,
@@ -677,59 +717,19 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
             borderRadius: BorderRadius.circular(18),
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 640),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-              child: FutureBuilder<Map<String, dynamic>>(
-                future: _apiService.getClientPurchases(
-                  branchId: branchId,
-                  clientId: clientId,
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.starColor,
-                      ),
-                    );
-                  }
-
-                  if (snapshot.hasError) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                clientName.isEmpty
-                                    ? 'Client Purchases'
-                                    : clientName,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF111827),
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop(),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(snapshot.error.toString()),
-                      ],
-                    );
-                  }
-
-                  final response = snapshot.data ?? const <String, dynamic>{};
-                  _logPurchaseResponseShape(response);
-                  final purchases = _extractPurchases(response['data']);
-
-                  return Column(
+              child: RawScrollbar(
+                thumbVisibility: true,
+                trackVisibility: true,
+                thickness: 4,
+                radius: const Radius.circular(10),
+                thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+                trackColor: const Color(0xFFFFF3D5),
+                trackBorderColor: const Color(0xFFE8C774),
+                child: SingleChildScrollView(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -738,84 +738,122 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                const Text(
+                                  'CUSTOMER DETAILS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
                                 Text(
-                                  clientName.isEmpty
-                                      ? 'Client Purchases'
-                                      : clientName,
+                                  clientName.isEmpty ? 'Customer' : clientName,
                                   style: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700,
                                     color: Color(0xFF111827),
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 2),
                                 Text(
-                                  phone.isEmpty
-                                      ? 'Client ID: $clientId'
-                                      : phone,
+                                  'Visits: ${_clientTotalVisits(client)}',
                                   style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     color: Color(0xFF6B7280),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          IconButton(
+                          OutlinedButton(
                             onPressed: () => Navigator.of(dialogContext).pop(),
-                            icon: const Icon(Icons.close),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.starColor,
+                              side: const BorderSide(
+                                color: AppColors.starColor,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text('Close'),
                           ),
                         ],
                       ),
                       const SizedBox(height: 14),
-                      if (purchases.isEmpty)
-                        const Expanded(
-                          child: Center(
-                            child: Text(
-                              'No previous purchases found',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: purchases.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final purchase = purchases[index];
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  _purchaseTitle(purchase),
-                                  style: const TextStyle(
-                                    fontSize: 15,
+                      const Divider(height: 1),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'STATUS',
+                                  style: TextStyle(
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.4,
+                                    color: Color(0xFF9CA3AF),
                                   ),
                                 ),
-                                subtitle: Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(_purchaseSubtitle(purchase)),
-                                ),
-                                trailing: Text(
-                                  _purchaseAmountLabel(purchase),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _clientStatusLabel(client),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: Color(0xFF111827),
                                   ),
                                 ),
-                              );
-                            },
+                              ],
+                            ),
                           ),
-                        ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'LAST VISIT',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.4,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _clientLastVisit(client),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      _customerDetailsPurchaseSection(
+                        title: 'PURCHASED PACKAGES',
+                        purchases: packages,
+                        emptyText: 'No purchased packages found.',
+                      ),
+                      const SizedBox(height: 18),
+                      _customerDetailsPurchaseSection(
+                        title: 'PURCHASED DEALS',
+                        purchases: deals,
+                        emptyText: 'No purchased deals found.',
+                      ),
                     ],
-                  );
-                },
+                  ),
+                ),
               ),
             ),
           ),
@@ -1473,11 +1511,6 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedOption =
-        _branchOptions.cast<_OwnerBranchOption?>().firstWhere(
-              (option) => option?.branchId == _selectedBranchId,
-              orElse: () => null,
-            );
     final filteredClients = _filteredClients;
 
     return Scaffold(
@@ -1626,17 +1659,6 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
             const SizedBox(height: 12),
             _buildCustomerTabs(),
             const SizedBox(height: 14),
-            if (selectedOption != null && selectedOption.address.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  selectedOption.address,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-              ),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -1698,172 +1720,235 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                   final actionColumnWidth =
                       _actionColWidth + (extraWidth * 0.07);
 
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: tableWidth,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: _tableHorizontalPadding,
-                              vertical: 12,
-                            ),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(14),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                _buildClientHeaderCell(
-                                  'CUSTOMER',
-                                  nameColumnWidth,
-                                ),
-                                _buildClientHeaderCell(
-                                  'TOTAL VISITS',
-                                  visitsColumnWidth,
-                                ),
-                                _buildClientHeaderCell(
-                                  'TOTAL SPEND',
-                                  spendColumnWidth,
-                                ),
-                                _buildClientHeaderCell(
-                                  'LAST VISIT',
-                                  lastVisitColumnWidth,
-                                ),
-                                _buildClientHeaderCell(
-                                  'STATUS',
-                                  statusColumnWidth,
-                                ),
-                                _buildClientHeaderCell(
-                                  'ACTION',
-                                  actionColumnWidth,
-                                  alignment: Alignment.centerRight,
-                                ),
-                              ],
-                            ),
-                          ),
-                          ...filteredClients.asMap().entries.map((entry) {
-                            final client = entry.value;
-                            final name = _clientName(client);
-                            final isActive = _isClientActive(client);
-                            return Container(
+                  return RawScrollbar(
+                    controller: _tableHorizontalScrollController,
+                    thumbVisibility: true,
+                    trackVisibility: true,
+                    thickness: 4,
+                    radius: const Radius.circular(10),
+                    thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+                    trackColor: const Color(0xFFFFF3D5),
+                    trackBorderColor: const Color(0xFFE8C774),
+                    scrollbarOrientation: ScrollbarOrientation.bottom,
+                    child: SingleChildScrollView(
+                      controller: _tableHorizontalScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: tableWidth,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: _tableHorizontalPadding,
-                                vertical: 14,
+                                vertical: 12,
                               ),
                               decoration: const BoxDecoration(
-                                border: Border(
-                                  top: BorderSide(color: Color(0xFFF1F5F9)),
+                                color: Color(0xFFF3F4F6),
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(14),
                                 ),
                               ),
                               child: Row(
                                 children: [
-                                  _buildClientBodyCell(
-                                    Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 18,
-                                          backgroundColor:
-                                              const Color(0xFFF4E8D1),
-                                          child: Text(
-                                            _clientInitials(client),
-                                            style: const TextStyle(
-                                              color: Color(0xFF8B6500),
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            name,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  _buildClientHeaderCell(
+                                    'CUSTOMER',
                                     nameColumnWidth,
                                   ),
-                                  _buildClientBodyCell(
-                                    Text(_clientTotalVisits(client)),
+                                  _buildClientHeaderCell(
+                                    'TOTAL VISITS',
                                     visitsColumnWidth,
                                   ),
-                                  _buildClientBodyCell(
-                                    Text(_clientTotalSpend(client)),
+                                  _buildClientHeaderCell(
+                                    'TOTAL SPEND',
                                     spendColumnWidth,
                                   ),
-                                  _buildClientBodyCell(
-                                    Text(_clientLastVisit(client)),
+                                  _buildClientHeaderCell(
+                                    'LAST VISIT',
                                     lastVisitColumnWidth,
                                   ),
-                                  _buildClientBodyCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isActive
-                                            ? const Color(0xFFEFFAF3)
-                                            : const Color(0xFFFFEEF3),
-                                        borderRadius:
-                                            BorderRadius.circular(999),
-                                      ),
-                                      child: Text(
-                                        _clientStatusLabel(client),
-                                        style: TextStyle(
-                                          color: isActive
-                                              ? const Color(0xFF15803D)
-                                              : const Color(0xFFE11D48),
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
+                                  _buildClientHeaderCell(
+                                    'STATUS',
                                     statusColumnWidth,
                                   ),
-                                  _buildClientBodyCell(
-                                    OutlinedButton(
-                                      onPressed: () =>
-                                          _showClientPurchasesModal(client),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppColors.starColor,
-                                        side: const BorderSide(
-                                          color: AppColors.starColor,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 10,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'View',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
+                                  _buildClientHeaderCell(
+                                    'ACTION',
                                     actionColumnWidth,
                                     alignment: Alignment.centerRight,
                                   ),
                                 ],
                               ),
-                            );
-                          }),
-                        ],
+                            ),
+                            RawScrollbar(
+                              controller: _tableVerticalScrollController,
+                              thumbVisibility: true,
+                              trackVisibility: true,
+                              thickness: 4,
+                              radius: const Radius.circular(10),
+                              thumbColor:
+                                  AppColors.starColor.withValues(alpha: 0.72),
+                              trackColor: const Color(0xFFFFF3D5),
+                              trackBorderColor: const Color(0xFFE8C774),
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxHeight: 480),
+                                child: SingleChildScrollView(
+                                  controller: _tableVerticalScrollController,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      ...filteredClients
+                                          .asMap()
+                                          .entries
+                                          .map((entry) {
+                                        final client = entry.value;
+                                        final name = _clientName(client);
+                                        final isActive =
+                                            _isClientActive(client);
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: _tableHorizontalPadding,
+                                            vertical: 14,
+                                          ),
+                                          decoration: const BoxDecoration(
+                                            border: Border(
+                                              top: BorderSide(
+                                                  color: Color(0xFFF1F5F9)),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              _buildClientBodyCell(
+                                                Row(
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 18,
+                                                      backgroundColor:
+                                                          const Color(
+                                                              0xFFF4E8D1),
+                                                      child: Text(
+                                                        _clientInitials(client),
+                                                        style: const TextStyle(
+                                                          color:
+                                                              Color(0xFF8B6500),
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: Text(
+                                                        name,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                nameColumnWidth,
+                                              ),
+                                              _buildClientBodyCell(
+                                                Text(
+                                                    _clientTotalVisits(client)),
+                                                visitsColumnWidth,
+                                              ),
+                                              _buildClientBodyCell(
+                                                Text(_clientTotalSpend(client)),
+                                                spendColumnWidth,
+                                              ),
+                                              _buildClientBodyCell(
+                                                Text(_clientLastVisit(client)),
+                                                lastVisitColumnWidth,
+                                              ),
+                                              _buildClientBodyCell(
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 5,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: isActive
+                                                        ? const Color(
+                                                            0xFFEFFAF3)
+                                                        : const Color(
+                                                            0xFFFFEEF3),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            999),
+                                                  ),
+                                                  child: Text(
+                                                    _clientStatusLabel(client),
+                                                    style: TextStyle(
+                                                      color: isActive
+                                                          ? const Color(
+                                                              0xFF15803D)
+                                                          : const Color(
+                                                              0xFFE11D48),
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ),
+                                                statusColumnWidth,
+                                              ),
+                                              _buildClientBodyCell(
+                                                OutlinedButton(
+                                                  onPressed: () =>
+                                                      _showCustomerDetailsDialog(
+                                                          client),
+                                                  style:
+                                                      OutlinedButton.styleFrom(
+                                                    foregroundColor:
+                                                        AppColors.starColor,
+                                                    side: const BorderSide(
+                                                      color:
+                                                          AppColors.starColor,
+                                                    ),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 10,
+                                                    ),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
+                                                    ),
+                                                  ),
+                                                  child: const Text(
+                                                    'View',
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                                actionColumnWidth,
+                                                alignment:
+                                                    Alignment.centerRight,
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
