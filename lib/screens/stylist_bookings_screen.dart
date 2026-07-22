@@ -1242,8 +1242,8 @@ bool _isBookingOverdue(Map<String, dynamic> booking) {
       status != 'COMPLETED' &&
       status != 'CANCELLED' &&
       status != 'NO_SHOW';
-  final start = nonFinalStatus ? _bookingStart(booking) : null;
-  return start != null && DateTime.now().isAfter(start);
+  final end = nonFinalStatus ? _bookingActionEnd(booking) : null;
+  return end != null && DateTime.now().isAfter(end);
 }
 
 bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>

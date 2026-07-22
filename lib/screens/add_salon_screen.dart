@@ -107,6 +107,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final _overflowGraceController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
+  bool _isNavigatingNext = false;
   bool _savedPhoneApplied = false;
   bool _becomeStylist = false;
   final Set<String> _removedExistingImageUrls = <String>{};
@@ -1390,6 +1391,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     final cubit = context.read<AddSalonCubit>();
     cubit.setSubmitting(true);
+    // Drive the button off a plain setState too, not just the cubit's
+    // isSubmitting — Cubit.emit delivers through the stream subscription,
+    // which isn't guaranteed to rebuild this widget before the synchronous
+    // work below reaches Navigator.push, so the spinner could still never
+    // get a frame to paint.
+    setState(() => _isNavigatingNext = true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
 
     try {
       final images = cubit.state.images;
@@ -1523,7 +1532,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           }
         }
 
-        final saved = await Navigator.push<Object?>(
+        final pushSalonSchedule = Navigator.push<Object?>(
           context,
           MaterialPageRoute(
             builder: (_) => SetWeeklyScheduleScreen(
@@ -1556,6 +1565,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             ),
           ),
         );
+        // Stop the button's loader as soon as the next screen has been
+        // scheduled to appear, rather than waiting for it to be popped later.
+        if (mounted) setState(() => _isNavigatingNext = false);
+        final saved = await pushSalonSchedule;
 
         if (!mounted) return;
 
@@ -1590,7 +1603,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
       if (!mounted) return;
 
-      final draftResult = await Navigator.push<ScheduleStepResult?>(
+      final pushAddSalonSchedule = Navigator.push<ScheduleStepResult?>(
         context,
         MaterialPageRoute(
           builder: (_) => SetWeeklyScheduleScreen(
@@ -1641,6 +1654,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           ),
         ),
       );
+      if (mounted) setState(() => _isNavigatingNext = false);
+      final draftResult = await pushAddSalonSchedule;
 
       if (draftResult != null) {
         _draftWeeklySchedule = draftResult.schedule;
@@ -1651,6 +1666,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       }
     } finally {
       cubit.setSubmitting(false);
+      if (mounted) setState(() => _isNavigatingNext = false);
     }
   }
 
@@ -1913,7 +1929,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                           width: double.infinity,
                           height: 54,
                           child: ElevatedButton(
-                            onPressed: state.isSubmitting
+                            onPressed: state.isSubmitting || _isNavigatingNext
                                 ? null
                                 : () => _submit(state),
                             style: ElevatedButton.styleFrom(
@@ -1925,7 +1941,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 borderRadius: BorderRadius.circular(7),
                               ),
                             ),
-                            child: state.isSubmitting
+                            child: state.isSubmitting || _isNavigatingNext
                                 ? const SizedBox(
                                     width: 20,
                                     height: 20,

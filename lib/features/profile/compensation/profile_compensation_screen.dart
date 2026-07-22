@@ -1928,7 +1928,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                       width: tableWidth,
                                       child: ListView.separated(
                                         padding: const EdgeInsets.all(16),
-                                        itemCount: filteredEmployees.length + 1,
+                                        itemCount: filteredEmployees.isEmpty
+                                            ? 2
+                                            : filteredEmployees.length + 1,
                                         physics:
                                             const NeverScrollableScrollPhysics(),
                                         shrinkWrap: true,
@@ -2000,6 +2002,23 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                   ),
                                                 ),
                                               ],
+                                            );
+                                          }
+
+                                          if (filteredEmployees.isEmpty) {
+                                            return const Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                vertical: 20,
+                                              ),
+                                              child: Center(
+                                                child: Text(
+                                                  'No employees found.',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
+                                              ),
                                             );
                                           }
 
@@ -3126,6 +3145,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                           },
                           decoration: InputDecoration(
                             hintText: 'Amount',
+                            hintStyle: const TextStyle(
+                              color: Color(0xFFB0AAA4),
+                              fontWeight: FontWeight.w400,
+                            ),
                             counterText: '',
                             filled: true,
                             fillColor: Colors.white,

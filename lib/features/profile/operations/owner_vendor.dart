@@ -5,6 +5,24 @@ final RegExp _vendorNameAllowedPattern = RegExp(r'^[A-Za-z0-9 ]+$');
 final RegExp _vendorEmailPattern =
     RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
 
+// A shape check like `[a-z]{2,10}` accepts any made-up ending (e.g.
+// "nhdjdjdjd"), so cross-check the TLD against the common ones actually in
+// use instead of just its length.
+const Set<String> _vendorValidTlds = <String>{
+  'com', 'net', 'org', 'edu', 'gov', 'mil', 'int',
+  'info', 'biz', 'name', 'pro', 'mobi', 'app', 'dev', 'io', 'co',
+  'xyz', 'online', 'site', 'tech', 'store', 'shop', 'blog', 'club',
+  'live', 'life', 'world', 'agency', 'solutions', 'email',
+  'in', 'us', 'uk', 'ca', 'au', 'de', 'fr', 'jp', 'cn', 'ru',
+  'br', 'it', 'es', 'nl', 'se', 'no', 'dk', 'fi', 'pl', 'ch',
+  'at', 'be', 'ie', 'nz', 'za', 'mx', 'ar', 'sg', 'hk', 'kr',
+  'tw', 'th', 'my', 'ph', 'vn', 'id', 'ae', 'sa', 'il', 'tr',
+  'gr', 'pt', 'cz', 'hu', 'ro', 'bg', 'hr', 'sk', 'si', 'lt',
+  'lv', 'ee', 'is', 'lu', 'mt', 'cy', 'ua', 'by', 'kz', 'pk',
+  'bd', 'lk', 'np', 'ir', 'iq', 'jo', 'kw', 'qa', 'bh', 'om',
+  'eg', 'ma', 'ng', 'ke', 'gh', 'tz', 'ug',
+};
+
 bool _isValidVendorEmail(String value) {
   if (!_vendorEmailPattern.hasMatch(value)) return false;
   if (value.contains('..')) return false;
@@ -25,7 +43,8 @@ bool _isValidVendorEmail(String value) {
   }
 
   final tld = domainLabels.last;
-  return RegExp(r'^[a-z]{2,10}$').hasMatch(tld);
+  if (!RegExp(r'^[a-z]{2,10}$').hasMatch(tld)) return false;
+  return _vendorValidTlds.contains(tld);
 }
 
 class _VendorFormView extends StatefulWidget {
@@ -148,7 +167,8 @@ class _VendorFormViewState extends State<_VendorFormView> {
               fieldKey: _nameFieldKey,
               controller: _nameController,
               hint: context.t('Enter vendor name'),
-              maxLength: 120,
+              maxLength: 50,
+              showCharacterCount: true,
               textInputAction: TextInputAction.next,
               onChanged: (_) => _clearFieldError(
                 _nameFieldKey,
@@ -158,7 +178,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
                 FilteringTextInputFormatter.allow(
                   _vendorNameAllowedInputPattern,
                 ),
-                LengthLimitingTextInputFormatter(120),
+                LengthLimitingTextInputFormatter(50),
               ],
               validator: (value) {
                 if (!_showNameError) return null;
@@ -183,6 +203,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(10),
               ],
+               showCharacterCount: true,
               maxLength: 10,
               onChanged: (_) => _clearFieldError(
                 _phoneFieldKey,
@@ -214,7 +235,8 @@ class _VendorFormViewState extends State<_VendorFormView> {
               inputFormatters: <TextInputFormatter>[
                 FilteringTextInputFormatter.deny(RegExp(r'\s')),
               ],
-              maxLength: 120,
+              maxLength: 50,
+              showCharacterCount: true,
               onChanged: (_) => _clearFieldError(
                 _emailFieldKey,
                 () => setState(() => _showEmailError = false),
@@ -391,6 +413,7 @@ class _VendorTextField extends StatelessWidget {
     this.autocorrect = true,
     this.textCapitalization = TextCapitalization.words,
     this.onChanged,
+    this.showCharacterCount = false,
   });
 
   final GlobalKey<FormFieldState<String>> fieldKey;
@@ -398,6 +421,7 @@ class _VendorTextField extends StatelessWidget {
   final String hint;
   final String? Function(String?) validator;
   final int maxLength;
+  final bool showCharacterCount;
   final TextInputType keyboardType;
   final TextInputAction? textInputAction;
   final List<TextInputFormatter>? inputFormatters;
@@ -407,7 +431,7 @@ class _VendorTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
+    final field = TextFormField(
       key: fieldKey,
       controller: controller,
       maxLength: maxLength,
@@ -466,6 +490,29 @@ class _VendorTextField extends StatelessWidget {
           borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
         ),
       ),
+    );
+
+    if (!showCharacterCount) {
+      return field;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        field,
+        const SizedBox(height: 4),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) => Text(
+            '${value.text.length}/$maxLength',
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

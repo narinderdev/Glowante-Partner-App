@@ -1039,12 +1039,15 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     try {
       await onSubmit(result);
       if (!mounted) return;
+      // Keep the loader up through the pop transition instead of resetting
+      // _isSubmitting here — Navigator.pop only starts the animation, so
+      // clearing the flag right after would flash the button back to its
+      // non-loading state while this screen is still visible.
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
       Fluttertoast.showToast(msg: extractErrorMessage(error));
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      setState(() => _isSubmitting = false);
     }
   }
 

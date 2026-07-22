@@ -1116,11 +1116,7 @@ class _OwnerProfileOperationsScreenState
       context: context,
       builder: (dialogContext) {
         return _AsyncDetailsDialog(
-          title: _firstText(
-            vendor,
-            const <String>['name', 'vendorName'],
-            fallback: 'Vendor Details',
-          ),
+          title: _t('Vendor Details'),
           future: _apiService.getVendorDetails(
               branchId: branchId, vendorId: vendorId),
           builder: (detail) => Column(

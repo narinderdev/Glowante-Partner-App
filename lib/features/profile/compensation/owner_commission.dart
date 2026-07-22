@@ -2652,8 +2652,7 @@ Widget _buildEffectiveDateInput() {
       : (value) {
           setState(() {
             _ruleType = value;
-            _valueController.text =
-                _defaultRateTextForSelectedService();
+            _valueController.text = _editRateTextForRuleType(value);
           });
 
           _validateIfNeeded();
@@ -2668,8 +2667,7 @@ Widget _buildEffectiveDateInput() {
       : (value) {
           setState(() {
             _ruleType = value;
-            _valueController.text =
-                _defaultRateTextForSelectedService();
+            _valueController.text = _editRateTextForRuleType(value);
           });
 
           _validateIfNeeded();
@@ -2761,6 +2759,21 @@ Widget _buildEffectiveDateInput() {
         ),
       ),
     );
+  }
+
+  // Switching commission type mid-edit used to overwrite the rate with the
+  // service's default (e.g. turned a ₹15 fixed override into "5%" just by
+  // tapping the Percentage radio). Restore the original override's value
+  // when toggling back to its original type, and leave the field empty
+  // otherwise so a fabricated default is never silently proposed.
+  String _editRateTextForRuleType(String ruleType) {
+    final original = widget.initialOverride;
+    if (original != null && original.ruleType == ruleType) {
+      return ruleType == CommissionRuleTypes.fixed
+          ? _formatOverrideNumber(minorAmountToRupees(original.value) ?? 0)
+          : _formatOverrideNumber(original.value);
+    }
+    return '';
   }
 
   @override

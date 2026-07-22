@@ -1074,6 +1074,13 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   Future<void> _goToCompleteStep() async {
     final schedules = _buildSchedulePayload();
 
+    if (!_sameAsBranchTimings && schedules.isEmpty) {
+      Fluttertoast.showToast(
+        msg: translateText('At least one day must be working.'),
+      );
+      return;
+    }
+
     debugPrint('➡️ Assign user schedules: $schedules');
     debugPrint('➡️ Assign user services: ${widget.selectedServiceIds}');
 
@@ -1611,6 +1618,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                                         children: [
                                           Checkbox(
                                             value: _copyMondayToAllChecked,
+                                            activeColor: AppColors.starColor,
                                             onChanged: _sameAsBranchTimings
                                                 ? null
                                                 : (value) {

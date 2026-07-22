@@ -2070,6 +2070,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                 children: [
                                   Checkbox(
                                     value: _copyMondayToAllChecked,
+                                    activeColor: AppColors.starColor,
                                     onChanged: _isLoadingOperatingSchedule ||
                                             _isApplyingMondayCopy
                                         ? null

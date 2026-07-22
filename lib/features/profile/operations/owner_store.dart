@@ -1,7 +1,7 @@
 part of 'owner_profile_operations_screen.dart';
 
-final RegExp _storeAllowedTextPattern = RegExp(r'^[A-Za-z0-9 ]*$');
-final RegExp _storeAllowedTextInputPattern = RegExp(r'[A-Za-z0-9 ]');
+final RegExp _storeAllowedTextPattern = RegExp(r'^[A-Za-z0-9 &]*$');
+final RegExp _storeAllowedTextInputPattern = RegExp(r'[A-Za-z0-9 &]');
 
 List<TextInputFormatter> _storeTextInputFormatters({required int maxLength}) {
   return <TextInputFormatter>[
@@ -21,7 +21,7 @@ String? _storeTextValidator(
   final text = _stringValue(value);
   if (required && text.isEmpty) return context.t(requiredMessage);
   if (text.isNotEmpty && !_storeAllowedTextPattern.hasMatch(text)) {
-    return context.t('Only letters, numbers, and spaces are allowed');
+    return context.t('Only letters, numbers, spaces, and & are allowed');
   }
   return null;
 }

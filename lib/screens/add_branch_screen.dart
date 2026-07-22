@@ -78,6 +78,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   final _overflowGraceController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
+  bool _isNavigatingNext = false;
   bool _savedPhoneApplied = false;
   List<Map<String, dynamic>> _sourceBranches = const [];
   List<String> _existingImageUrls = const <String>[];
@@ -1053,6 +1054,13 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
 
     FocusScope.of(context).unfocus();
+    setState(() => _isNavigatingNext = true);
+    // Let the loader actually paint before building the next (heavier)
+    // screen — otherwise the button's setState and the route push both
+    // land in the same synchronous stretch of work and the spinner never
+    // gets a frame to render before the transition starts.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
 
     final branchCubit = context.read<AddBranchCubit>();
     final images = state.images;
@@ -1065,6 +1073,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (widget.isEdit && widget.initialBranch != null) {
       final branchId = (widget.initialBranch!['id'] as num?)?.toInt();
       if (branchId == null) {
+        setState(() => _isNavigatingNext = false);
         Fluttertoast.showToast(msg: translateText('Missing branch id'));
         return;
       }
@@ -1097,7 +1106,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         );
       }
 
-      final saved = await Navigator.push<Object?>(
+      final pushBranchSchedule = Navigator.push<Object?>(
         context,
         MaterialPageRoute(
           builder: (_) => SetWeeklyScheduleScreen(
@@ -1124,6 +1133,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           ),
         ),
       );
+      // Stop the button's loader as soon as the next screen has been
+      // scheduled to appear, rather than waiting for it to be popped later.
+      if (mounted) setState(() => _isNavigatingNext = false);
+      final saved = await pushBranchSchedule;
       if (!mounted) return;
 
       if (saved is ScheduleStepResult) {
@@ -1154,7 +1167,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     if (!mounted) return;
 
-    final draftResult = await Navigator.push<ScheduleStepResult?>(
+    final pushAddBranchSchedule = Navigator.push<ScheduleStepResult?>(
       context,
       MaterialPageRoute(
         builder: (_) => SetWeeklyScheduleScreen(
@@ -1211,6 +1224,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         ),
       ),
     );
+    if (mounted) setState(() => _isNavigatingNext = false);
+    final draftResult = await pushAddBranchSchedule;
 
     if (draftResult != null) {
       _draftWeeklySchedule = draftResult.schedule;
@@ -1424,7 +1439,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                           width: double.infinity,
                           height: 52,
                           child: ElevatedButton(
-                            onPressed: state.isSubmitting
+                            onPressed: state.isSubmitting || _isNavigatingNext
                                 ? null
                                 : () => _submit(state),
                             style: ElevatedButton.styleFrom(
@@ -1434,7 +1449,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: state.isSubmitting
+                            child: state.isSubmitting || _isNavigatingNext
                                 ? const SizedBox(
                                     width: 20,
                                     height: 20,
