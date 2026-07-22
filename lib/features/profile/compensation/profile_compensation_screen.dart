@@ -2022,9 +2022,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                               Expanded(
                                                 flex: 2,
                                                 child: Text(
-                                                  employee.role.isEmpty
-                                                      ? 'Team Member'
-                                                      : employee.role,
+                                                  'Team Member',
                                                   style: const TextStyle(
                                                     fontSize: 13,
                                                     color: Color(0xFF6B7280),
@@ -3206,6 +3204,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                           decoration: InputDecoration(
                             hintText:
                                 isAddition ? 'Festival bonus' : 'Late penalty',
+                            hintStyle: const TextStyle(
+                              color: Color(0xFFB0AAA4),
+                              fontWeight: FontWeight.w400,
+                            ),
                             counterText: '',
                             filled: true,
                             fillColor: Colors.white,
@@ -4468,18 +4470,11 @@ class _PayrollEmployeeCalculationScreen extends StatelessWidget {
   }
 
   String _serviceCommissionDetails(PayrollRunEmployeeRecord employee) {
-    final details = <String>[];
-    if (employee.servicesCount > 0) {
-      details.add(
-        '${employee.servicesCount} '
-        '${employee.servicesCount == 1 ? 'service' : 'services'}',
-      );
+    if (employee.servicesCount <= 0) {
+      return '-';
     }
-    if (employee.commissionPercent > 0) {
-      details.add(
-          '${_formatCommissionPercentText(employee.commissionPercent)}% commission');
-    }
-    return details.isEmpty ? '-' : details.join(' • ');
+    return '${employee.servicesCount} '
+        '${employee.servicesCount == 1 ? 'service' : 'services'}';
   }
 }
 

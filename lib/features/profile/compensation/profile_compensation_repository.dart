@@ -1233,8 +1233,30 @@ class ProfileCompensationRepository {
         : employeeReview.adjustments.isNotEmpty
             ? employeeReview.adjustments.first.payrollEmployeeId
             : payrollEmployeeId;
+    // The review payload's nested addition/deduction records lack a reliable
+    // id (causing synthetic ids like "deduction-0" that 400 on edit/delete),
+    // so fetch additions/deductions from their dedicated endpoints instead.
+    final advanceAdjustments = employeeReview.adjustments
+        .where((item) => item.id.startsWith('advance-'))
+        .toList();
+    List<PayrollAdjustmentRecord> chargeAdjustments;
+    try {
+      chargeAdjustments = await loadEmployeeAdjustments(
+        userId: userId,
+        payrollEmployeeId: resolvedPayrollEmployeeId,
+        payrollId: runId,
+      );
+    } catch (_) {
+      chargeAdjustments = employeeReview.adjustments
+          .where((item) => !item.id.startsWith('advance-'))
+          .toList();
+    }
     final resolvedEmployeeReview = employeeReview.copyWith(
       payrollEmployeeId: resolvedPayrollEmployeeId,
+      adjustments: <PayrollAdjustmentRecord>[
+        ...chargeAdjustments,
+        ...advanceAdjustments,
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
     );
     final reviewData = reviewResponse['data'];
     final reviewMap = reviewData is Map<String, dynamic>
