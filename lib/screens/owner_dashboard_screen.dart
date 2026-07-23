@@ -2178,12 +2178,27 @@ class _TodayAppointmentsCard extends StatefulWidget {
 }
 
 class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
+  static const double _appointmentRowWidth = 600;
+  // Roughly 4 rows' worth of height — a 5th row has to scroll into view
+  // instead of just growing the card indefinitely.
+  static const double _appointmentListMaxHeight = 232;
+
   String _selectedFilterKey = 'all';
+  final ScrollController _appointmentsScrollController = ScrollController();
+  final ScrollController _appointmentsHorizontalScrollController =
+      ScrollController();
 
   int? _asIntOrNull(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse('${value ?? ''}');
+  }
+
+  @override
+  void dispose() {
+    _appointmentsScrollController.dispose();
+    _appointmentsHorizontalScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -2211,11 +2226,13 @@ class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
           : widget.cleanText(filters.first['key']);
     }
 
-    final visibleAppointments = _selectedFilterKey == 'all'
-        ? appointments
-        : appointments.where((appointment) {
-            return _appointmentFilterKey(appointment) == _selectedFilterKey;
-          }).toList();
+    final visibleAppointments = _sortAppointmentsByStatus(
+      _selectedFilterKey == 'all'
+          ? appointments
+          : appointments.where((appointment) {
+              return _appointmentFilterKey(appointment) == _selectedFilterKey;
+            }).toList(),
+    );
 
     return _DashboardSection(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -2329,13 +2346,58 @@ class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
           if (visibleAppointments.isEmpty)
             _AppointmentEmptyBookNow(onTap: widget.onOpenBookings)
           else
-            ...visibleAppointments.take(3).map(
-                  (appointment) => _AppointmentDashboardRow(
-                    appointment: appointment,
-                    cleanText: widget.cleanText,
-                    onTap: () => _showAppointmentDetails(context, appointment),
+            RawScrollbar(
+              controller: _appointmentsHorizontalScrollController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              thickness: 4,
+              radius: const Radius.circular(10),
+              thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+              trackColor: const Color(0xFFFFF3D5),
+              trackBorderColor: const Color(0xFFE8C774),
+              notificationPredicate: (notification) =>
+                  notification.metrics.axis == Axis.horizontal,
+              child: SingleChildScrollView(
+                controller: _appointmentsHorizontalScrollController,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(bottom: 10),
+                child: SizedBox(
+                  width: _appointmentRowWidth,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxHeight: _appointmentListMaxHeight,
+                    ),
+                    child: RawScrollbar(
+                      controller: _appointmentsScrollController,
+                      thumbVisibility: true,
+                      trackVisibility: true,
+                      thickness: 4,
+                      radius: const Radius.circular(10),
+                      thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+                      trackColor: const Color(0xFFFFF3D5),
+                      trackBorderColor: const Color(0xFFE8C774),
+                      notificationPredicate: (notification) =>
+                          notification.metrics.axis == Axis.vertical,
+                      child: ListView.builder(
+                        controller: _appointmentsScrollController,
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.only(right: 10),
+                        itemCount: visibleAppointments.length,
+                        itemBuilder: (context, index) {
+                          final appointment = visibleAppointments[index];
+                          return _AppointmentDashboardRow(
+                            appointment: appointment,
+                            cleanText: widget.cleanText,
+                            onTap: () =>
+                                _showAppointmentDetails(context, appointment),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
+              ),
+            ),
         ],
       ),
     );
@@ -2354,6 +2416,32 @@ class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
       return 'in_progress';
     }
     return 'upcoming';
+  }
+
+  // Completed/in-progress appointments surface above upcoming ones,
+  // with cancelled ones last; ties keep the backend's original order.
+  static const Map<String, int> _appointmentStatusOrder = {
+    'completed': 0,
+    'in_progress': 1,
+    'upcoming': 2,
+    'cancelled': 3,
+  };
+
+  List<Map<String, dynamic>> _sortAppointmentsByStatus(
+    List<Map<String, dynamic>> source,
+  ) {
+    final indexed = source.indexed.toList()
+      ..sort((a, b) {
+        final priorityA =
+            _appointmentStatusOrder[_appointmentFilterKey(a.$2)] ??
+                _appointmentStatusOrder.length;
+        final priorityB =
+            _appointmentStatusOrder[_appointmentFilterKey(b.$2)] ??
+                _appointmentStatusOrder.length;
+        if (priorityA != priorityB) return priorityA.compareTo(priorityB);
+        return a.$1.compareTo(b.$1);
+      });
+    return indexed.map((entry) => entry.$2).toList();
   }
 
   String _formatAppointmentDate(dynamic value) {
@@ -2910,6 +2998,12 @@ class _AppointmentDashboardRow extends StatelessWidget {
     final statusLabel = cleanText(appointment['status_label']).isEmpty
         ? cleanText(appointment['status'])
         : cleanText(appointment['status_label']);
+    final normalizedStatus =
+        '${cleanText(appointment['status'])} $statusLabel'.toLowerCase();
+    final isUpcoming = !normalizedStatus.contains('complete') &&
+        !normalizedStatus.contains('progress') &&
+        !normalizedStatus.contains('cancel');
+    final showProfessionalName = isUpcoming && professionalName.isNotEmpty;
 
     return InkWell(
       borderRadius: BorderRadius.circular(9),
@@ -2925,7 +3019,7 @@ class _AppointmentDashboardRow extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(
-              width: 78,
+              width: 132,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2939,6 +3033,8 @@ class _AppointmentDashboardRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
+                  // Full start-end range, not just the start time — wide
+                  // enough here that it no longer needs to ellipsize.
                   Text(
                     timeLabel,
                     maxLines: 1,
@@ -2952,8 +3048,8 @@ class _AppointmentDashboardRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Expanded(
-              flex: 2,
+            SizedBox(
+              width: 150,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2980,9 +3076,15 @@ class _AppointmentDashboardRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Flexible(
+            // This slot is always reserved at a fixed width — even when
+            // there's no "with {name}" text to show — so the status pill
+            // always starts at the same x-position and lines up in the
+            // same column on every row, instead of shifting left when the
+            // text is empty.
+            SizedBox(
+              width: 130,
               child: Text(
-                professionalName.isEmpty ? '' : 'with $professionalName',
+                showProfessionalName ? 'with $professionalName' : '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
@@ -3319,15 +3421,22 @@ class _DashboardStatusPill extends StatelessWidget {
                     : AppColors.starColor;
 
     return Container(
+      // A fixed min/max width keeps every pill the same size regardless of
+      // label length, so rows stay aligned in the same column instead of
+      // shifting — and the max also guarantees the pill can never grow
+      // large enough to push the row's fixed-width layout into overflow.
+      constraints: const BoxConstraints(minWidth: 84, maxWidth: 108),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: foreground.withValues(alpha: 0.22)),
       ),
+      alignment: Alignment.center,
       child: Text(
         label.isEmpty ? 'Unknown' : _titleCase(normalized),
         maxLines: 1,
+        textAlign: TextAlign.center,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 10,
