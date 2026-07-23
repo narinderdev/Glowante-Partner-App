@@ -513,45 +513,44 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     return const [];
   }
 
-  String _purchaseTitle(Map<String, dynamic> purchase) {
+  String _purchaseDisplayName(Map<String, dynamic> purchase) {
     final candidates = [
-      purchase['title'],
       purchase['name'],
-      purchase['displayName'],
       purchase['packageName'],
       purchase['dealName'],
-      purchase['serviceName'],
-      purchase['cartName'],
-      purchase['orderNumber'],
-      purchase['invoiceNumber'],
-      purchase['id'],
     ];
     for (final candidate in candidates) {
       final text = _cleanText(candidate);
       if (text.isNotEmpty) return text;
     }
-    return 'Purchase';
+    return _cleanText(purchase['purchaseType']).toUpperCase() == 'DEAL'
+        ? 'Deal'
+        : 'Package';
   }
 
-  String _purchaseSubtitle(Map<String, dynamic> purchase) {
-    final parts = <String>[];
-    final type = _cleanText(purchase['type']);
-    final status = _cleanText(
-      purchase['status'] ??
-          purchase['paymentStatus'] ??
-          purchase['orderStatus'],
-    );
-    final date = _formatDateValue(
-      purchase['purchasedAt'] ??
-          purchase['createdAt'] ??
-          purchase['purchaseDate'] ??
-          purchase['bookedAt'] ??
-          purchase['updatedAt'],
-    );
-    if (type.isNotEmpty) parts.add(type);
-    if (status.isNotEmpty) parts.add(status);
-    if (date != 'N/A') parts.add(date);
-    return parts.isEmpty ? 'No additional details' : parts.join(' • ');
+  String _purchaseBranchName(Map<String, dynamic> purchase) {
+    final branch = purchase['branch'];
+    if (branch is Map) return _cleanText(branch['name']);
+    return '';
+  }
+
+  Map<String, int> _purchaseTotals(Map<String, dynamic> purchase) {
+    final totals = purchase['totals'];
+    final map = totals is Map ? Map<String, dynamic>.from(totals) : const {};
+    return {
+      'included': _asInt(map['includedQty']) ?? 0,
+      'used': _asInt(map['usedQty']) ?? 0,
+      'pending': _asInt(map['pendingQty']) ?? 0,
+    };
+  }
+
+  List<Map<String, dynamic>> _purchaseServices(Map<String, dynamic> purchase) {
+    final services = purchase['services'];
+    if (services is! List) return const [];
+    return services
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
   }
 
   String _purchaseAmountLabel(Map<String, dynamic> purchase) {
@@ -651,54 +650,246 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFCFAF8),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: const Color(0xFFE8DED6),
-              style: BorderStyle.solid,
+        if (purchases.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCFAF8),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE8DED6)),
             ),
+            child: Text(
+              emptyText,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF9CA3AF),
+              ),
+            ),
+          )
+        else
+          Column(
+            children: [
+              for (final purchase in purchases) ...[
+                _purchaseCard(purchase),
+                if (purchase != purchases.last) const SizedBox(height: 10),
+              ],
+            ],
           ),
-          child: purchases.isEmpty
-              ? Text(
-                  emptyText,
-                  textAlign: TextAlign.center,
+      ],
+    );
+  }
+
+  Widget _purchaseCard(Map<String, dynamic> purchase) {
+    final isDeal = _cleanText(purchase['purchaseType']).toUpperCase() == 'DEAL';
+    final name = _purchaseDisplayName(purchase);
+    final branchName = _purchaseBranchName(purchase);
+    final status = _cleanText(purchase['status']);
+    final isActive = status.toUpperCase() == 'ACTIVE';
+    final paymentMethod = _cleanText(purchase['paymentMethod']);
+    final purchasedAt = _formatDateValue(purchase['purchasedAt']);
+    final timeLeftLabel = _cleanText(purchase['packageTimeLeftLabel']);
+    final totals = _purchaseTotals(purchase);
+    final included = totals['included'] ?? 0;
+    final used = totals['used'] ?? 0;
+    final pending = totals['pending'] ?? 0;
+    final remaining = (included - used).clamp(0, included);
+    final progress = included > 0 ? used / included : 0.0;
+    final progressPercent = (progress * 100).round();
+    final services = _purchaseServices(purchase);
+
+    final metaParts = <String>[
+      _purchaseAmountLabel(purchase),
+      if (paymentMethod.isNotEmpty) paymentMethod,
+      if (purchasedAt != 'N/A') 'Purchased $purchasedAt',
+      if (timeLeftLabel.isNotEmpty) timeLeftLabel,
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4E8D1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  isDeal ? 'DL' : 'PKG',
                   style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF9CA3AF),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF8B6500),
                   ),
-                )
-              : Column(
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final purchase in purchases) ...[
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          _purchaseTitle(purchase),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(_purchaseSubtitle(purchase)),
-                        trailing: Text(
-                          _purchaseAmountLabel(purchase),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF111827),
-                          ),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    if (branchName.isNotEmpty)
+                      Text(
+                        branchName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7280),
                         ),
                       ),
-                      if (purchase != purchases.last) const Divider(height: 1),
-                    ],
                   ],
                 ),
-        ),
-      ],
+              ),
+              if (status.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFFEFFAF3)
+                        : const Color(0xFFFFEEF3),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: isActive
+                          ? const Color(0xFF15803D)
+                          : const Color(0xFFE11D48),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            metaParts.join(' · '),
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+          if (included > 0) ...[
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$used/$included ${context.t('sessions used')}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                Text(
+                  '$progressPercent%',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                minHeight: 6,
+                backgroundColor: const Color(0xFFF0E7DA),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF8B6500),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$pending ${context.t('pending')} · $remaining ${context.t('remaining')}',
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ],
+          if (services.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              context.t('INCLUDED SERVICES'),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: Color(0xFF9CA3AF),
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final service in services)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _cleanText(service['serviceName']),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.circle,
+                          size: 6,
+                          color: Color(0xFF15803D),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_asInt(service['remainingQty']) ?? 0} ${context.t('left of')} ${_asInt(service['includedQty']) ?? 0}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF15803D),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -711,6 +902,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       context: context,
       builder: (dialogContext) {
         return Dialog(
+          backgroundColor: Colors.white,
           insetPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           shape: RoundedRectangleBorder(
@@ -729,6 +921,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                 trackColor: const Color(0xFFFFF3D5),
                 trackBorderColor: const Color(0xFFE8C774),
                 child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(right: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
