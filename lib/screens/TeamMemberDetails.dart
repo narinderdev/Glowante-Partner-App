@@ -580,21 +580,21 @@ debugPrint('Specializations: ${member['specializations']}');
                 : _WeeklyScheduleSection(entries: weeklySchedule),
           ),
           const SizedBox(height: 14),
-          _DetailSectionCard(
-            icon: Icons.emoji_objects_outlined,
-            title: 'Specializations',
-            child: specializations.isEmpty
-                ? const _EmptyDetailText(text: 'No specializations added')
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final specialization in specializations)
-                        _DetailChip(label: specialization),
-                    ],
-                  ),
-          ),
-          const SizedBox(height: 14),
+          // _DetailSectionCard(
+          //   icon: Icons.emoji_objects_outlined,
+          //   title: 'Specializations',
+          //   child: specializations.isEmpty
+          //       ? const _EmptyDetailText(text: 'No specializations added')
+          //       : Wrap(
+          //           spacing: 8,
+          //           runSpacing: 8,
+          //           children: [
+          //             for (final specialization in specializations)
+          //               _DetailChip(label: specialization),
+          //           ],
+          //         ),
+          // ),
+          // const SizedBox(height: 14),
           _DetailSectionCard(
             icon: Icons.apartment_outlined,
             title: 'Assigned Branches',
