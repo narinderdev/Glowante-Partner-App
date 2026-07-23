@@ -381,21 +381,21 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       _DetailRowData('House / Flat', addressField(['city'])),
       _DetailRowData(
           'Street / Area', addressField(['postalCode', 'pincode', 'zip'])),
-      _DetailRowData('State', addressField(['state'])),
-      _DetailRowData(
-          'Latitude',
-          _firstText([
-            addressField(['latitude', 'lat']),
-            _branch['latitude'],
-            _branch['lat'],
-          ])),
-      _DetailRowData(
-          'Longitude',
-          _firstText([
-            addressField(['longitude', 'lng', 'lon']),
-            _branch['longitude'],
-            _branch['lng'],
-          ])),
+      // _DetailRowData('State', addressField(['state'])),
+      // _DetailRowData(
+      //     'Latitude',
+      //     _firstText([
+      //       addressField(['latitude', 'lat']),
+      //       _branch['latitude'],
+      //       _branch['lat'],
+      //     ])),
+      // _DetailRowData(
+      //     'Longitude',
+      //     _firstText([
+      //       addressField(['longitude', 'lng', 'lon']),
+      //       _branch['longitude'],
+      //       _branch['lng'],
+      //     ])),
       _DetailRowData(
         'Uploaded Photos',
         _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
@@ -766,23 +766,35 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF047857) : const Color(0xFFB42318);
+    final dotColor =
+        active ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: active ? const Color(0xFFE6FFF1) : const Color(0xFFFFEFEF),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: active ? const Color(0xFF7DD3A7) : const Color(0xFFF1B4B4),
-        ),
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(
-        translateText(active ? 'Active' : 'Deactivated'),
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            '${translateText('Branch')}: ${translateText(active ? 'Active' : 'Inactive')}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -465,21 +465,21 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
         'Street / Area',
         addressField(['postalCode', 'pincode', 'zip']),
       ),
-      _DetailRowData('State', addressField(['state'])),
-      _DetailRowData(
-          'Latitude',
-          _firstText([
-            addressField(['latitude', 'lat']),
-            _primaryBranch?['latitude'],
-            _salon['latitude'],
-          ])),
-      _DetailRowData(
-          'Longitude',
-          _firstText([
-            addressField(['longitude', 'lng', 'lon']),
-            _primaryBranch?['longitude'],
-            _salon['longitude'],
-          ])),
+      // _DetailRowData('State', addressField(['state'])),
+      // _DetailRowData(
+      //     'Latitude',
+      //     _firstText([
+      //       addressField(['latitude', 'lat']),
+      //       _primaryBranch?['latitude'],
+      //       _salon['latitude'],
+      //     ])),
+      // _DetailRowData(
+      //     'Longitude',
+      //     _firstText([
+      //       addressField(['longitude', 'lng', 'lon']),
+      //       _primaryBranch?['longitude'],
+      //       _salon['longitude'],
+      //     ])),
       _DetailRowData(
         'Uploaded Photos',
         _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
@@ -525,7 +525,10 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
   subtitle: translateText('Main Salon'),
   imageUrls: imageUrls,
   active: _salon['active'] != false,
-  branchActive: _primaryBranch != null ? _isBranchActive : null,
+  // Only show a separate Branch pill when there's more than one branch —
+  // with a single branch, "Salon" and "Branch" status are the same thing.
+  branchActive:
+      _primaryBranch != null && branchCount > 1 ? _isBranchActive : null,
 ),
               const SizedBox(height: 14),
               _SummaryStrip(

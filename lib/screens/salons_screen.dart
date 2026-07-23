@@ -1471,41 +1471,45 @@ Future<bool> showActivateSalonConfirmation({
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF6D78A)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "This will affect all branches",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF6B4E00),
+              if (branchCount > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF6D78A)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "This will affect all branches",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF6B4E00),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Activating "$salonName" will also activate all '
-                      '$branchCount ${branchCount == 1 ? 'branch' : 'branches'} under it.',
-                      style: const TextStyle(
-                        color: Color(0xFF6B4E00),
-                        fontSize: 13,
-                        height: 1.35,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Activating "$salonName" will also activate all '
+                        '$branchCount ${branchCount == 1 ? 'branch' : 'branches'} under it.',
+                        style: const TextStyle(
+                          color: Color(0xFF6B4E00),
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 16),
-              const Text(
-                "Are you sure you want to activate this salon and all its branches?",
+              Text(
+                branchCount > 0
+                    ? "Are you sure you want to activate this salon and all its branches?"
+                    : 'Are you sure you want to activate "$salonName"?',
               ),
               const SizedBox(height: 24),
               Row(
@@ -2003,41 +2007,45 @@ Future<bool> showDeactivateSalonConfirmation({
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF6D78A)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "This will affect all branches",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF6B4E00),
+              if (branchCount > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF6D78A)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "This will affect all branches",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF6B4E00),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Deactivating "$salonName" will also deactivate all '
-                      '$branchCount ${branchCount == 1 ? 'branch' : 'branches'} under it.',
-                      style: const TextStyle(
-                        color: Color(0xFF6B4E00),
-                        fontSize: 13,
-                        height: 1.35,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Deactivating "$salonName" will also deactivate all '
+                        '$branchCount ${branchCount == 1 ? 'branch' : 'branches'} under it.',
+                        style: const TextStyle(
+                          color: Color(0xFF6B4E00),
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 16),
-              const Text(
-                "Are you sure you want to deactivate this salon and all its branches?",
+              Text(
+                branchCount > 0
+                    ? "Are you sure you want to deactivate this salon and all its branches?"
+                    : 'Are you sure you want to deactivate "$salonName"?',
               ),
               const SizedBox(height: 24),
               Row(
@@ -2571,22 +2579,43 @@ Widget _salonMenuButton(
             if (isActive) onEditSalon?.call();
             break;
           case 'toggle':
+            Future<void> toggleSalon() async {
+              if (isActive) {
+                final confirmed = await showDeactivateSalonConfirmation(
+                  context: context,
+                  salonName: salonName,
+                  branchCount: branchCount,
+                );
+                if (confirmed) {
+                  onToggleSalonActive?.call(false);
+                }
+              } else {
+                final confirmed = await showActivateSalonConfirmation(
+                  context: context,
+                  salonName: salonName,
+                  branchCount: branchCount,
+                );
+                if (confirmed) {
+                  onToggleSalonActive?.call(true);
+                }
+              }
+            }
+
+            if (branchCount == 0) {
+              // Only the main branch exists — there's nothing distinct to
+              // pick between, so skip the Salon/Branch picker modal and go
+              // straight to activating/deactivating the salon.
+              await toggleSalon();
+              break;
+            }
+
             if (isActive) {
               await showChangeStatusModal(
                 context: context,
                 salonName: salonName,
-                isSalonActive: isActive,           // <-- add
-          isBranchActive: primaryBranchActive, // <-- add
-                onSalonTap: () async {
-                  final confirmed = await showDeactivateSalonConfirmation(
-                    context: context,
-                    salonName: salonName,
-                    branchCount: branchCount,
-                  );
-                  if (confirmed) {
-                    onToggleSalonActive?.call(false);
-                  }
-                },
+                isSalonActive: isActive,
+                isBranchActive: primaryBranchActive,
+                onSalonTap: toggleSalon,
                 onBranchTap: () {
                   if (primaryBranchId > 0) {
                     // Toggle based on the branch's own current state,
@@ -2599,32 +2628,23 @@ Widget _salonMenuButton(
                 },
               );
             } else {
-  // Activating: ask Salon or Branch, then confirm
-  await showChangeStatusModal(
-    context: context,
-    salonName: salonName,
-    isSalonActive: isActive,
-    isBranchActive: primaryBranchActive,
-    onSalonTap: () async {
-      final confirmed = await showActivateSalonConfirmation(
-        context: context,
-        salonName: salonName,
-        branchCount: branchCount,
-      );
-      if (confirmed) {
-        onToggleSalonActive?.call(true);
-      }
-    },
-    onBranchTap: () {
-      if (primaryBranchId > 0) {
-        onToggleBranchActive?.call(
-          primaryBranchId,
-          !primaryBranchActive,
-        );
-      }
-    },
-  );
-}
+              // Activating: ask Salon or Branch, then confirm
+              await showChangeStatusModal(
+                context: context,
+                salonName: salonName,
+                isSalonActive: isActive,
+                isBranchActive: primaryBranchActive,
+                onSalonTap: toggleSalon,
+                onBranchTap: () {
+                  if (primaryBranchId > 0) {
+                    onToggleBranchActive?.call(
+                      primaryBranchId,
+                      !primaryBranchActive,
+                    );
+                  }
+                },
+              );
+            }
             break;
           case 'delete':
             onDeleteSalon?.call();
