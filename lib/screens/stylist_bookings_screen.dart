@@ -1692,9 +1692,714 @@ Future<bool> _showNoShowConfirmationDialog(BuildContext context) async {
 //     },
 //   );
 // }
+String _inventoryItemName(Map<String, dynamic> item) {
+  for (final key in const ['itemName', 'name', 'displayName', 'title']) {
+    final value = item[key]?.toString().trim();
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return 'Inventory item';
+}
+
+int? _inventoryItemId(Map<String, dynamic> item) {
+  final value = item['id'] ?? item['inventoryItemId'];
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
+}
+
+int? _inventoryItemStock(Map<String, dynamic> item) {
+  final value = item['stockLevel'] ??
+      item['availableStock'] ??
+      item['currentStock'] ??
+      item['stock'] ??
+      item['quantity'];
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
+}
+
+String _inventoryItemText(Map<String, dynamic> item, List<String> keys) {
+  for (final key in keys) {
+    final value = item[key]?.toString().trim();
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return '';
+}
+
+String _inventoryItemSku(Map<String, dynamic> item) =>
+    _inventoryItemText(item, const ['skuNumber', 'sku', 'code', 'itemId']);
+
+String _inventoryItemCategory(Map<String, dynamic> item) =>
+    _inventoryItemText(item, const ['category', 'categoryName']);
+
+String _inventoryItemUnit(Map<String, dynamic> item) =>
+    _inventoryItemText(item, const ['unitOfMeasure', 'unit', 'unitName']);
+
+String _inventoryItemStoreName(Map<String, dynamic> item) =>
+    _inventoryItemText(item, const ['storeName']);
+
+int? _inventoryItemLowStockThreshold(Map<String, dynamic> item) {
+  final value = item['lowStockThreshold'] ??
+      item['reorderLevel'] ??
+      item['reorderPoint'] ??
+      item['minStockLevel'];
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
+}
+
+bool _inventoryItemIsLowStock(Map<String, dynamic> item, int? stock) {
+  if (stock == null) return false;
+  final threshold = _inventoryItemLowStockThreshold(item) ?? 5;
+  return stock <= threshold;
+}
+
+bool _inventoryItemMatchesQuery(Map<String, dynamic> item, String query) {
+  if (query.isEmpty) return true;
+  final haystack = [
+    _inventoryItemName(item),
+    _inventoryItemSku(item),
+    _inventoryItemCategory(item),
+  ].join(' ').toLowerCase();
+  return haystack.contains(query.toLowerCase());
+}
+
+// Returns null if the whole complete-job flow was cancelled. Returns an
+// empty list either when the stylist says they didn't use any inventory,
+// or (defensively) when they did but nothing ended up selected.
+Future<List<Map<String, dynamic>>?> _showInventorySelectionDialog(
+  BuildContext context, {
+  required int branchId,
+}) async {
+  const limit = 20;
+  bool usedInventory = false;
+  bool isLoading = true;
+  String? errorMessage;
+  List<Map<String, dynamic>> items = const [];
+  int page = 1;
+  int totalPages = 1;
+  final selectedQuantities = <int, int>{};
+  final searchController = TextEditingController();
+  final itemsScrollController = ScrollController();
+  String searchQuery = '';
+
+  Future<void> applyResponse(
+    Map<String, dynamic> response,
+    int requestedPage,
+  ) {
+    final payload = response['data'];
+    List<dynamic> rawItems = const [];
+    int total = 0;
+    if (payload is Map<String, dynamic>) {
+      rawItems = (payload['items'] as List?) ?? const [];
+      final rawTotal = payload['total'];
+      total = rawTotal is num ? rawTotal.toInt() : rawItems.length;
+    } else if (payload is List) {
+      rawItems = payload;
+      total = rawItems.length;
+    }
+    page = requestedPage;
+    items = rawItems
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    totalPages = total > 0 ? (total / limit).ceil() : 1;
+    errorMessage =
+        response['success'] == true ? null : response['message']?.toString();
+    isLoading = false;
+    return Future.value();
+  }
+
+  await applyResponse(
+    await ApiService().fetchInventoryItems(branchId, page: page, limit: limit),
+    page,
+  );
+
+  if (!context.mounted) return null;
+
+  return showDialog<List<Map<String, dynamic>>>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> goToPage(int target) async {
+            if (target < 1 || target > totalPages || isLoading) return;
+            setDialogState(() => isLoading = true);
+            final response = await ApiService().fetchInventoryItems(
+              branchId,
+              page: target,
+              limit: limit,
+            );
+            await applyResponse(response, target);
+            setDialogState(() {});
+          }
+
+          final canContinue = !usedInventory || selectedQuantities.isNotEmpty;
+          final filteredItems = items
+              .where((item) => _inventoryItemMatchesQuery(item, searchQuery))
+              .toList();
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              constraints: const BoxConstraints(maxHeight: 620),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _bookingsBorder),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 24,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.t('Select Inventory Used'),
+                              style: _bookingTextStyle(
+                                size: 18,
+                                weight: FontWeight.w900,
+                                color: _bookingsPrimaryText,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              context.t(
+                                'Choose the inventory items used in this job and enter the quantity consumed for each selected item.',
+                              ),
+                              style: _bookingTextStyle(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: _bookingsSecondaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded),
+                        color: _bookingsSecondaryText,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      setDialogState(() {
+                        usedInventory = !usedInventory;
+                        if (!usedInventory) selectedQuantities.clear();
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAF7F3),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _bookingsBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: usedInventory,
+                            activeColor: _bookingsGold,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                usedInventory = value ?? false;
+                                if (!usedInventory) selectedQuantities.clear();
+                              });
+                            },
+                          ),
+                          Expanded(
+                            child: Text(
+                              context.t('I used inventory items for this job'),
+                              style: _bookingTextStyle(
+                                size: 13,
+                                weight: FontWeight.w700,
+                                color: _bookingsPrimaryText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (usedInventory) ...[
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: searchController,
+                      onChanged: (value) {
+                        setDialogState(() => searchQuery = value.trim());
+                      },
+                      decoration: InputDecoration(
+                        hintText: context.t('Search inventory...'),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: _bookingsGold,
+                          size: 20,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: _bookingsBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: _bookingsBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: _bookingsGold,
+                            width: 1.4,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (!isLoading &&
+                        errorMessage == null &&
+                        items.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          filteredItems.isEmpty
+                              ? '${context.t('Showing')} 0 ${context.t('of')} ${items.length}'
+                              : '${context.t('Showing')} 1-${filteredItems.length} ${context.t('of')} ${items.length}',
+                          style: _bookingTextStyle(
+                            size: 12,
+                            weight: FontWeight.w600,
+                            color: _bookingsSecondaryText,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Flexible(
+                      child: isLoading
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          : errorMessage != null
+                              ? Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 24),
+                                  child: Text(errorMessage!),
+                                )
+                              : items.isEmpty
+                                  ? Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 24,
+                                      ),
+                                      child: Text(
+                                        context.t(
+                                          'No inventory items found for this branch.',
+                                        ),
+                                        style: _bookingTextStyle(
+                                          size: 13,
+                                          weight: FontWeight.w600,
+                                          color: _bookingsSecondaryText,
+                                        ),
+                                      ),
+                                    )
+                                  : filteredItems.isEmpty
+                                      ? Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 24,
+                                          ),
+                                          child: Text(
+                                            context.t(
+                                              'No inventory items match your search.',
+                                            ),
+                                            style: _bookingTextStyle(
+                                              size: 13,
+                                              weight: FontWeight.w600,
+                                              color: _bookingsSecondaryText,
+                                            ),
+                                          ),
+                                        )
+                                      : RawScrollbar(
+                                          controller: itemsScrollController,
+                                          thumbVisibility: true,
+                                          trackVisibility: true,
+                                          thickness: 4,
+                                          radius: const Radius.circular(10),
+                                          thumbColor: _bookingsGold.withValues(
+                                              alpha: 0.72),
+                                          trackColor: const Color(0xFFFFF3D5),
+                                          trackBorderColor:
+                                              const Color(0xFFE8C774),
+                                          child: ListView.separated(
+                                            controller: itemsScrollController,
+                                            shrinkWrap: true,
+                                            itemCount: filteredItems.length,
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(height: 10),
+                                            itemBuilder: (context, index) {
+                                              final item = filteredItems[index];
+                                              final id = _inventoryItemId(item);
+                                              final stock =
+                                                  _inventoryItemStock(item);
+                                              final isSelected = id != null &&
+                                                  selectedQuantities
+                                                      .containsKey(id);
+                                              final quantity = id != null
+                                                  ? (selectedQuantities[id] ??
+                                                      1)
+                                                  : 1;
+                                              final sku =
+                                                  _inventoryItemSku(item);
+                                              final category =
+                                                  _inventoryItemCategory(item);
+                                              final unit =
+                                                  _inventoryItemUnit(item);
+                                              final storeName =
+                                                  _inventoryItemStoreName(item);
+                                              final isLowStock =
+                                                  _inventoryItemIsLowStock(
+                                                item,
+                                                stock,
+                                              );
+                                              final subtitleParts = [
+                                                if (sku.isNotEmpty)
+                                                  '${context.t('SKU')}: $sku',
+                                                if (category.isNotEmpty)
+                                                  '${context.t('Category')}: $category',
+                                              ];
+
+                                              return Container(
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      const Color(0xFFFAF7F3),
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                    color: _bookingsBorder,
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Checkbox(
+                                                      value: isSelected,
+                                                      activeColor:
+                                                          _bookingsGold,
+                                                      onChanged: id == null
+                                                          ? null
+                                                          : (value) {
+                                                              setDialogState(
+                                                                  () {
+                                                                if (value ==
+                                                                    true) {
+                                                                  selectedQuantities[
+                                                                      id] = 1;
+                                                                } else {
+                                                                  selectedQuantities
+                                                                      .remove(
+                                                                          id);
+                                                                }
+                                                              });
+                                                            },
+                                                    ),
+                                                    Expanded(
+                                                      child: RawScrollbar(
+                                                        thumbVisibility: true,
+                                                        trackVisibility: true,
+                                                        thickness: 3,
+                                                        radius: const Radius
+                                                            .circular(10),
+                                                        thumbColor:
+                                                            _bookingsGold
+                                                                .withValues(
+                                                                    alpha: 0.6),
+                                                        trackColor: const Color(
+                                                            0xFFF0E7DA),
+                                                        child:
+                                                            SingleChildScrollView(
+                                                          scrollDirection:
+                                                              Axis.horizontal,
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .only(
+                                                                  bottom: 10),
+                                                          child: Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .center,
+                                                            children: [
+                                                              ConstrainedBox(
+                                                                constraints:
+                                                                    const BoxConstraints(
+                                                                  minWidth: 160,
+                                                                ),
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  mainAxisSize:
+                                                                      MainAxisSize
+                                                                          .min,
+                                                                  children: [
+                                                                    Text(
+                                                                      _inventoryItemName(
+                                                                          item),
+                                                                      style:
+                                                                          _bookingTextStyle(
+                                                                        size:
+                                                                            13,
+                                                                        weight:
+                                                                            FontWeight.w700,
+                                                                        color:
+                                                                            _bookingsPrimaryText,
+                                                                      ),
+                                                                    ),
+                                                                    if (subtitleParts
+                                                                        .isNotEmpty)
+                                                                      Padding(
+                                                                        padding: const EdgeInsets
+                                                                            .only(
+                                                                            top:
+                                                                                2),
+                                                                        child:
+                                                                            Text(
+                                                                          subtitleParts
+                                                                              .join(' · '),
+                                                                          style:
+                                                                              _bookingTextStyle(
+                                                                            size:
+                                                                                11,
+                                                                            weight:
+                                                                                FontWeight.w600,
+                                                                            color:
+                                                                                _bookingsSecondaryText,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    if (stock !=
+                                                                        null)
+                                                                      Padding(
+                                                                        padding: const EdgeInsets
+                                                                            .only(
+                                                                            top:
+                                                                                4),
+                                                                        child:
+                                                                            Row(
+                                                                          mainAxisSize:
+                                                                              MainAxisSize.min,
+                                                                          children: [
+                                                                            Text(
+                                                                              '${context.t('Stock')}: $stock${unit.isEmpty ? '' : ' $unit'}${storeName.isEmpty ? '' : ' · $storeName'}',
+                                                                              style: _bookingTextStyle(
+                                                                                size: 11,
+                                                                                weight: FontWeight.w700,
+                                                                                color: isLowStock ? const Color(0xFFB45309) : _bookingsSecondaryText,
+                                                                              ),
+                                                                            ),
+                                                                            if (isLowStock) ...[
+                                                                              const SizedBox(width: 8),
+                                                                              Container(
+                                                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                                                decoration: BoxDecoration(
+                                                                                  color: const Color(0xFFFFF1DC),
+                                                                                  borderRadius: BorderRadius.circular(999),
+                                                                                ),
+                                                                                child: Text(
+                                                                                  context.t('LOW STOCK'),
+                                                                                  style: _bookingTextStyle(
+                                                                                    size: 10,
+                                                                                    weight: FontWeight.w800,
+                                                                                    color: const Color(0xFFB45309),
+                                                                                  ),
+                                                                                ),
+                                                                              ),
+                                                                            ],
+                                                                          ],
+                                                                        ),
+                                                                      ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              if (isSelected) ...[
+                                                                const SizedBox(
+                                                                    width: 14),
+                                                                IconButton(
+                                                                  onPressed:
+                                                                      quantity >
+                                                                              1
+                                                                          ? () {
+                                                                              setDialogState(() {
+                                                                                selectedQuantities[id] = quantity - 1;
+                                                                              });
+                                                                            }
+                                                                          : null,
+                                                                  icon: const Icon(
+                                                                      Icons
+                                                                          .remove_circle_outline),
+                                                                  color:
+                                                                      _bookingsGold,
+                                                                ),
+                                                                Text(
+                                                                  '$quantity',
+                                                                  style:
+                                                                      _bookingTextStyle(
+                                                                    size: 14,
+                                                                    weight:
+                                                                        FontWeight
+                                                                            .w800,
+                                                                    color:
+                                                                        _bookingsPrimaryText,
+                                                                  ),
+                                                                ),
+                                                                IconButton(
+                                                                  onPressed: stock !=
+                                                                              null &&
+                                                                          quantity >=
+                                                                              stock
+                                                                      ? null
+                                                                      : () {
+                                                                          setDialogState(
+                                                                              () {
+                                                                            selectedQuantities[id] =
+                                                                                quantity + 1;
+                                                                          });
+                                                                        },
+                                                                  icon: const Icon(
+                                                                      Icons
+                                                                          .add_circle_outline),
+                                                                  color:
+                                                                      _bookingsGold,
+                                                                ),
+                                                              ],
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                    ),
+                    if (!isLoading &&
+                        errorMessage == null &&
+                        totalPages > 1) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed:
+                                page > 1 ? () => goToPage(page - 1) : null,
+                            child: Text(context.t('Previous')),
+                          ),
+                          TextButton(
+                            onPressed: page < totalPages
+                                ? () => goToPage(page + 1)
+                                : null,
+                            child: Text(context.t('Next')),
+                          ),
+                          Text(
+                            '${context.t('Page')} $page ${context.t('of')} $totalPages',
+                            style: _bookingTextStyle(
+                              size: 12,
+                              weight: FontWeight.w600,
+                              color: _bookingsSecondaryText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _bookingsPrimaryText,
+                          side: const BorderSide(color: _bookingsBorder),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(context.t('Cancel')),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed: canContinue
+                            ? () {
+                                final result = usedInventory
+                                    ? selectedQuantities.entries
+                                        .map((entry) => {
+                                              'inventoryItemId': entry.key,
+                                              'quantity': entry.value,
+                                            })
+                                        .toList()
+                                    : <Map<String, dynamic>>[];
+                                Navigator.pop(ctx, result);
+                              }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _bookingsDark,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: const Color(0xFFE5E7EB),
+                          disabledForegroundColor: const Color(0xFF9CA3AF),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(context.t('Continue To Review')),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  ).whenComplete(() {
+    searchController.dispose();
+    itemsScrollController.dispose();
+  });
+}
+
 Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
   BuildContext context, {
   required String customerName,
+  bool showBackButton = false,
 }) async {
   int selectedRating = 0;
   String commentText = '';
@@ -1840,7 +2545,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                     ),
                     const SizedBox(height: 8),
                     TextField(
-                      maxLength: 120,
+                      maxLength: 300,
                       minLines: 3,
                       maxLines: 4,
                       onChanged: (value) {
@@ -1875,37 +2580,72 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                       ),
                     ),
                     const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: canSubmit
-                            ? () {
-                                Navigator.pop(ctx, {
-                                  'rating': selectedRating,
-                                  'comment': commentText.trim(),
-                                });
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _bookingsDark,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: const Color(0xFFE5E7EB),
-                          disabledForegroundColor: const Color(0xFF9CA3AF),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                    Row(
+                      children: [
+                        if (showBackButton) ...[
+                          Expanded(
+                            child: SizedBox(
+                              height: 52,
+                              child: OutlinedButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, const {'back': true}),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _bookingsPrimaryText,
+                                  side:
+                                      const BorderSide(color: _bookingsBorder),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: Text(
+                                  context.t('Back'),
+                                  style: _bookingTextStyle(
+                                    size: 15,
+                                    weight: FontWeight.w900,
+                                    color: _bookingsPrimaryText,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Expanded(
+                          child: SizedBox(
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: canSubmit
+                                  ? () {
+                                      Navigator.pop(ctx, {
+                                        'rating': selectedRating,
+                                        'comment': commentText.trim(),
+                                      });
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _bookingsDark,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    const Color(0xFFE5E7EB),
+                                disabledForegroundColor:
+                                    const Color(0xFF9CA3AF),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: Text(
+                                context.t('Submit Review'),
+                                style: _bookingTextStyle(
+                                  size: 15,
+                                  weight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                        child: Text(
-                          context.t('Submit'),
-                          style: _bookingTextStyle(
-                            size: 15,
-                            weight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -3709,11 +4449,24 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
       return;
     }
 
-    final feedback = await _showFinishJobFeedbackDialog(
-      context,
-      customerName: _customerName(context, booking),
-    );
-    if (!mounted || feedback == null) return;
+    List<Map<String, dynamic>>? inventoryItems;
+    Map<String, dynamic>? feedback;
+    while (true) {
+      inventoryItems = await _showInventorySelectionDialog(
+        context,
+        branchId: selected.branchId,
+      );
+      if (!mounted || inventoryItems == null) return;
+
+      feedback = await _showFinishJobFeedbackDialog(
+        context,
+        customerName: _customerName(context, booking),
+        showBackButton: true,
+      );
+      if (!mounted || feedback == null) return;
+      if (feedback['back'] == true) continue;
+      break;
+    }
 
     setState(() => _completingAppointmentId = appointmentId);
     final resp = await ApiService().completeAppointment(
@@ -3721,6 +4474,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
       appointmentId: appointmentId,
       rating: feedback['rating'] as int,
       comment: feedback['comment'] as String,
+      inventoryItems: inventoryItems,
     );
     if (!mounted) return;
     setState(() => _completingAppointmentId = null);
@@ -7776,11 +8530,24 @@ class _StylistBookingDetailScreenState
   Future<void> _handleCompleteJob() async {
     if (_loadingComplete) return;
 
-    final feedback = await _showFinishJobFeedbackDialog(
-      context,
-      customerName: _customerName(context, _booking),
-    );
-    if (feedback == null) return;
+    List<Map<String, dynamic>>? inventoryItems;
+    Map<String, dynamic>? feedback;
+    while (true) {
+      inventoryItems = await _showInventorySelectionDialog(
+        context,
+        branchId: widget.branchId,
+      );
+      if (!mounted || inventoryItems == null) return;
+
+      feedback = await _showFinishJobFeedbackDialog(
+        context,
+        customerName: _customerName(context, _booking),
+        showBackButton: true,
+      );
+      if (!mounted || feedback == null) return;
+      if (feedback['back'] == true) continue;
+      break;
+    }
 
     final appointmentId = _appointmentIdForAction(_booking);
     if (appointmentId == null) {
@@ -7795,6 +8562,7 @@ class _StylistBookingDetailScreenState
       rating: feedback['rating'] as int,
       comment: feedback['comment'] as String,
       serviceIds: _completionServiceIds(),
+      inventoryItems: inventoryItems,
     );
     if (!mounted) return;
 

@@ -5158,6 +5158,7 @@ class ApiService {
     required int rating,
     String? comment,
     List<int> serviceIds = const <int>[],
+    List<Map<String, dynamic>> inventoryItems = const <Map<String, dynamic>>[],
   }) async {
     try {
       final token = await ApiService().getAuthToken();
@@ -5178,6 +5179,7 @@ class ApiService {
             "rating": rating,
             if (comment != null) "comment": comment,
             if (serviceIds.isNotEmpty) "serviceIds": serviceIds,
+            if (inventoryItems.isNotEmpty) "inventoryItems": inventoryItems,
           })}");
       print("  Token: $token");
       final resp = await _sharedClient.post(
@@ -5190,6 +5192,7 @@ class ApiService {
           "rating": rating,
           if (comment != null) "comment": comment,
           if (serviceIds.isNotEmpty) "serviceIds": serviceIds,
+          if (inventoryItems.isNotEmpty) "inventoryItems": inventoryItems,
         }),
       );
 
