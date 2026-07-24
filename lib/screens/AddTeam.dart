@@ -11,6 +11,7 @@ import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:image_picker/image_picker.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../screens/AddTeamChooseTimeSlots.dart';
+import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/colors.dart';
@@ -718,28 +719,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   }
 
   String _addressDisplayText(Map<String, dynamic> address) {
-    final parts = <String>[];
-
-    void push(dynamic value) {
-      final text = value?.toString().trim() ?? '';
-
-      if (text.isEmpty || text.toLowerCase() == 'null') return;
-      if (parts.contains(text)) return;
-
-      parts.add(text);
-    }
-
-    // Show manual address first, same as salon flow
-    push(address['line2']);
-    push(address['line1']);
-    push(address['village']);
-    push(address['district']);
-    push(address['city']);
-    push(address['state']);
-    push(address['postalCode']);
-    push(address['country']);
-
-    return parts.join(', ');
+    return formatAddressSummary(address);
   }
 
   Future<void> _getAddressPredictions(String input) async {
@@ -954,6 +934,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       'state': (selected['state'] ?? '').toString(),
       'country': (selected['country'] ?? '').toString(),
       'postalCode': (selected['postalCode'] ?? '').toString(),
+      'formattedAddress': (selected['formattedAddress'] ?? '').toString(),
       if (selected['latitude'] != null) 'latitude': selected['latitude'],
       if (selected['longitude'] != null) 'longitude': selected['longitude'],
     };
@@ -2052,13 +2033,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         builder: (_) => AddLocationScreen(
           initialCompleteAddress:
               selected == null ? null : _addressDisplayText(selected),
-          initialScoFlatHouse: selected?['line2']?.toString(),
-          initialStreetSectorArea: [
-            selected?['district']?.toString() ?? '',
-            selected?['city']?.toString() ?? '',
-            selected?['state']?.toString() ?? '',
-            selected?['postalCode']?.toString() ?? '',
-          ].where((part) => part.trim().isNotEmpty).join(', '),
+          initialScoFlatHouse: selected?['line1']?.toString(),
+          initialStreetSectorArea: selected?['line2']?.toString(),
         ),
       ),
     );
@@ -2075,24 +2051,20 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     final latitude = (result['latitude'] as num?)?.toDouble();
     final longitude = (result['longitude'] as num?)?.toDouble();
 
-    final line1 =
+    final formattedAddress =
         baseCompleteAddress.isNotEmpty ? baseCompleteAddress : completeAddress;
-
-    final line2 = [
-      scoFlatHouse,
-      streetSectorArea,
-    ].where((part) => part.trim().isNotEmpty).join(', ');
 
     setState(() {
       _selectedAddress = {
-        'line1': line1,
-        'line2': line2,
+        'line1': scoFlatHouse,
+        'line2': streetSectorArea,
         'village': '',
         'district': '',
         'city': '',
         'state': '',
         'country': 'India',
         'postalCode': '',
+        if (formattedAddress.isNotEmpty) 'formattedAddress': formattedAddress,
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
       };

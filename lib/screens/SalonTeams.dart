@@ -1300,9 +1300,7 @@ class _TeamScreenState extends State<TeamScreen> {
               future: branchOptionsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SizedBox.expand(
-                    child: _TeamMembersLoadingOverlay(),
-                  );
+                  return const _TeamMembersLoadingView();
                 } else if (snapshot.hasError) {
                   return Center(child: Text("Error: ${snapshot.error}"));
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -1439,6 +1437,55 @@ class _TeamScreenState extends State<TeamScreen> {
               foregroundColor: Colors.white,
             )
           : null,
+    );
+  }
+}
+
+class _TeamMembersLoadingView extends StatelessWidget {
+  const _TeamMembersLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 76,
+            height: 76,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x14000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: AppColors.starColor,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            translateText('Loading team members...'),
+            style: const TextStyle(
+              color: Color(0xFF6E6259),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

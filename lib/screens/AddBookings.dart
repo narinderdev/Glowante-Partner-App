@@ -3968,7 +3968,13 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         }
       }
     } catch (_) {
-      // Leave the original text when the payload is not JSON.
+      // Not JSON — likely a raw server/proxy error page (e.g. nginx's HTML
+      // 502 body). Never show that markup to the user.
+      if (text.contains('<html') ||
+          text.contains('Bad Gateway') ||
+          text.contains('nginx')) {
+        return translateText('Something went wrong. Please try again.');
+      }
     }
 
     return text;

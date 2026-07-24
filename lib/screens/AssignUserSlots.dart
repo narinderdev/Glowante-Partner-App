@@ -19,6 +19,18 @@ class _OperatingSlot {
   final int endMinutes;
 }
 
+class _ScheduleConflict {
+  const _ScheduleConflict({
+    required this.day,
+    required this.enteredRange,
+    required this.branchRange,
+  });
+
+  final String day;
+  final String enteredRange;
+  final String branchRange;
+}
+
 class AssignUserSlot extends StatefulWidget {
   final int salonId;
   final int branchId;
@@ -94,6 +106,81 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   bool _isClosedDay(String day) => _closedDays.contains(_dayKey(day));
 
   bool _isMarkedOff(String day) => _markedOffDays.contains(_dayKey(day));
+
+  // Days whose entered hours fall outside the branch's own operating
+  // hours for that day (e.g. "Copy Monday schedule to all days" copying a
+  // wider Monday range onto a day the branch closes earlier). These must
+  // be fixed before the team member's schedule can be saved. Carries the
+  // actual entered/branch time ranges so the on-screen message can show
+  // them — works the same whether one day or several are affected.
+  List<_ScheduleConflict> get _scheduleConflicts {
+    final conflicts = <_ScheduleConflict>[];
+
+    for (final day in _weekDays) {
+      if (_isClosedDay(day) || _isMarkedOff(day)) continue;
+
+      final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+      if (slots.isEmpty) continue;
+
+      final starts = <int>[];
+      final ends = <int>[];
+      for (final slot in slots) {
+        final start = _parseTimeToMinutes(slot['start'] ?? '');
+        final end = _parseTimeToMinutes(slot['end'] ?? '');
+        if (start != null) starts.add(start);
+        if (end != null) ends.add(end);
+      }
+      if (starts.isEmpty || ends.isEmpty) continue;
+
+      final operatingWindows = _operatingSlotsByDay[_dayKey(day)];
+
+      final fitsWithinBranchHours = operatingWindows != null &&
+          operatingWindows.isNotEmpty &&
+          slots.every((slot) {
+            final start = _parseTimeToMinutes(slot['start'] ?? '');
+            final end = _parseTimeToMinutes(slot['end'] ?? '');
+            if (start == null || end == null) return true;
+
+            return operatingWindows.any(
+              (window) =>
+                  start >= window.startMinutes && end <= window.endMinutes,
+            );
+          });
+
+      if (fitsWithinBranchHours) continue;
+
+      final enteredStart = starts.reduce((a, b) => a < b ? a : b);
+      final enteredEnd = ends.reduce((a, b) => a > b ? a : b);
+
+      final branchRangeText =
+          (operatingWindows == null || operatingWindows.isEmpty)
+              ? translateText('Closed')
+              : operatingWindows
+                  .map(
+                    (window) =>
+                        '${_formatMinutes(window.startMinutes)} - ${_formatMinutes(window.endMinutes)}',
+                  )
+                  .join(', ');
+
+      conflicts.add(
+        _ScheduleConflict(
+          day: day,
+          enteredRange:
+              '${_formatMinutes(enteredStart)} - ${_formatMinutes(enteredEnd)}',
+          branchRange: branchRangeText,
+        ),
+      );
+    }
+
+    return conflicts;
+  }
+
+  _ScheduleConflict? _conflictForDay(String day) {
+    for (final conflict in _scheduleConflicts) {
+      if (conflict.day == day) return conflict;
+    }
+    return null;
+  }
 
   void _prefillInitialSchedule() {
     for (final day in widget.initialMarkedOffDays) {
@@ -718,7 +805,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
     if (options.isEmpty) return const [];
 
-    final slot = weeklySchedule[day]?[index];
+    final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+    final slot = index >= 0 && index < slots.length ? slots[index] : null;
 
     final pairedTime = slot == null
         ? null
@@ -727,14 +815,56 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     final pairedMinutes =
         pairedTime == null ? null : _parseTimeToMinutes(pairedTime);
 
+    // Other slots already booked for this day — a candidate time must not
+    // produce a range that overlaps any of them.
+    final otherRanges = <_OperatingSlot>[];
+    for (var i = 0; i < slots.length; i++) {
+      if (i == index) continue;
+      final start = _parseTimeToMinutes(slots[i]['start'] ?? '');
+      final end = _parseTimeToMinutes(slots[i]['end'] ?? '');
+      if (start == null || end == null || end <= start) continue;
+      otherRanges.add(_OperatingSlot(startMinutes: start, endMinutes: end));
+    }
+
+    final dayMaxMinutes = options
+        .map((option) => _parseTimeToMinutes(option) ?? 0)
+        .reduce((a, b) => a > b ? a : b);
+
     return options.where((option) {
       final minutes = _parseTimeToMinutes(option);
 
-      if (minutes == null || pairedMinutes == null) return true;
+      if (minutes == null) return true;
 
-      return timeType == 'start'
-          ? minutes < pairedMinutes
-          : minutes > pairedMinutes;
+      if (pairedMinutes != null) {
+        final withinSameSlot = timeType == 'start'
+            ? minutes < pairedMinutes
+            : minutes > pairedMinutes;
+        if (!withinSameSlot) return false;
+      }
+
+      // A new slot's start must leave room for at least the minimum
+      // duration before the day closes.
+      if (timeType == 'start' && dayMaxMinutes - minutes < _timeStepMinutes) {
+        return false;
+      }
+
+      final candidateStart = timeType == 'start' ? minutes : pairedMinutes;
+      final candidateEnd = timeType == 'start' ? pairedMinutes : minutes;
+
+      if (candidateStart == null || candidateEnd == null) return true;
+
+      for (final other in otherRanges) {
+        // A later slot's start must sit a full gap after an earlier slot's
+        // end — not just avoid overlapping it.
+        final blockedEnd = timeType == 'start'
+            ? other.endMinutes + _timeStepMinutes
+            : other.endMinutes;
+        if (candidateStart < blockedEnd && other.startMinutes < candidateEnd) {
+          return false;
+        }
+      }
+
+      return true;
     }).toList();
   }
 
@@ -793,9 +923,11 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
           )
           .reduce((a, b) => a > b ? a : b);
 
-      if (bound.endMinutes - latestEnd >= minimumDuration) {
+      final nextStart = latestEnd + _timeStepMinutes;
+
+      if (bound.endMinutes - nextStart >= minimumDuration) {
         return _OperatingSlot(
-          startMinutes: latestEnd,
+          startMinutes: nextStart,
           endMinutes: bound.endMinutes,
         );
       }
@@ -884,24 +1016,71 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       }
 
       if (timeType == 'start') {
-        final nextEnd = options.firstWhere(
-          (option) => (_parseTimeToMinutes(option) ?? 0) > start,
-          orElse: () => options.last,
-        );
+        String? nextEnd;
+        for (final option in options) {
+          if ((_parseTimeToMinutes(option) ?? 0) > start) {
+            nextEnd = option;
+            break;
+          }
+        }
+        // No option in the day's bounds is after `start` (e.g. `start` is
+        // already the last available time) — never fall back to an option
+        // that could equal `start` itself. Just add the minimum gap.
+        nextEnd ??= _formatMinutes(start + _timeStepMinutes);
 
         slot['end'] = nextEnd;
       } else {
-        final previousStart = options.lastWhere(
-          (option) => (_parseTimeToMinutes(option) ?? 0) < end,
-          orElse: () => options.first,
-        );
+        String? previousStart;
+        for (var i = options.length - 1; i >= 0; i--) {
+          if ((_parseTimeToMinutes(options[i]) ?? 0) < end) {
+            previousStart = options[i];
+            break;
+          }
+        }
+        previousStart ??= _formatMinutes(end - _timeStepMinutes);
 
         slot['start'] = previousStart;
       }
+
+      _resolveOverlappingSlots(day);
+      _sortWeeklyScheduleInPlace();
     });
 
     if (day == 'Monday' && _copyMondayToAllChecked) {
       _syncMondayToAllOpenDays();
+    }
+  }
+
+  // Editing one slot's time can leave a later slot overlapping it (e.g.
+  // widening slot 1 to end at 7 PM after slot 2 was already set to start at
+  // 6:40 AM). Push any now-overlapping later slot forward so it never starts
+  // before the previous slot's end.
+  void _resolveOverlappingSlots(String day) {
+    final slots = weeklySchedule[day];
+    if (slots == null || slots.length < 2) return;
+
+    slots.sort(_slotComparator);
+
+    for (var i = 1; i < slots.length; i++) {
+      final prevEnd = _parseTimeToMinutes(slots[i - 1]['end'] ?? '');
+      final currentStart = _parseTimeToMinutes(slots[i]['start'] ?? '');
+      final currentEnd = _parseTimeToMinutes(slots[i]['end'] ?? '');
+
+      if (prevEnd == null || currentStart == null || currentEnd == null) {
+        continue;
+      }
+
+      final requiredStart = prevEnd + _timeStepMinutes;
+      if (currentStart >= requiredStart) continue;
+
+      // Never let the pushed-forward slot end up with end <= start —
+      // always keep at least the minimum step as a gap.
+      final newEnd = currentEnd > requiredStart
+          ? currentEnd
+          : requiredStart + _timeStepMinutes;
+
+      slots[i]['start'] = _formatMinutes(requiredStart);
+      slots[i]['end'] = _formatMinutes(newEnd);
     }
   }
 
@@ -965,7 +1144,10 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
     setState(() => _copyMondayToAllChecked = value);
 
-    if (!value) return;
+    if (!value) {
+      _restoreDaysToBranchDefaults();
+      return;
+    }
 
     if ((weeklySchedule['Monday'] ?? const []).isEmpty &&
         !_isMarkedOff('Monday')) {
@@ -977,6 +1159,36 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     }
 
     _syncMondayToAllOpenDays();
+  }
+
+  // Undo whatever "Copy Monday schedule to all days" applied — every
+  // non-Monday working day goes back to the branch's own operating hours
+  // for that day, instead of staying stuck on Monday's copied values.
+  void _restoreDaysToBranchDefaults() {
+    setState(() {
+      for (final day in _weekDays) {
+        if (day == 'Monday' || _isClosedDay(day) || _isMarkedOff(day)) {
+          continue;
+        }
+
+        final windows = _operatingSlotsByDay[_dayKey(day)];
+
+        weeklySchedule[day] = (windows != null && windows.isNotEmpty)
+            ? windows
+                .map(
+                  (slot) => {
+                    'start': _formatMinutes(slot.startMinutes),
+                    'end': _formatMinutes(slot.endMinutes),
+                  },
+                )
+                .toList()
+            : [
+                {'start': '08:00 AM', 'end': '08:00 PM'},
+              ];
+      }
+
+      _sortWeeklyScheduleInPlace();
+    });
   }
 
   void _applySameAsBranchTimings(bool value) {
@@ -1395,6 +1607,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
     final markedOff = _isMarkedOff(day) || _isClosedDay(day);
     final closedDay = _isClosedDay(day);
+    final conflict = _conflictForDay(day);
 
     return Container(
       width: double.infinity,
@@ -1482,6 +1695,18 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
               )
             ],
           ],
+          if (conflict != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${conflict.enteredRange} ${translateText("is outside branch hours")} '
+              '(${conflict.branchRange}).',
+              style: const TextStyle(
+                color: AppColors.red,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1491,6 +1716,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   Widget build(BuildContext context) {
     final navigationDisabled =
         isSubmitting || _isLoadingOperatingSchedule || _isApplyingMondayCopy;
+    final scheduleConflicts = _scheduleConflicts;
+    final continueDisabled = navigationDisabled || scheduleConflicts.isNotEmpty;
 
     return PopScope(
       canPop: false,
@@ -1668,64 +1895,69 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
           child: Container(
             color: const Color(0xFFF7F4F1),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: navigationDisabled
-                        ? null
-                        : () => Navigator.pop(
-                              context,
-                              _currentStateResult(completed: false),
-                            ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF2D2926),
-                      side: const BorderSide(color: Color(0xFFE2D3BF)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      translateText('Previous').toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: navigationDisabled ? null : _goToCompleteStep,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: AppColors.starColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 2,
-                    ),
-                    child: isSubmitting
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.5,
-                            ),
-                          )
-                        : Text(
-                            translateText('Save & Continue').toUpperCase(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 11,
-                            ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: navigationDisabled
+                            ? null
+                            : () => Navigator.pop(
+                                  context,
+                                  _currentStateResult(completed: false),
+                                ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF2D2926),
+                          side: const BorderSide(color: Color(0xFFE2D3BF)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                  ),
+                        ),
+                        child: Text(
+                          translateText('Previous').toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: continueDisabled ? null : _goToCompleteStep,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          backgroundColor: AppColors.starColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: isSubmitting
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                translateText('Save & Continue').toUpperCase(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

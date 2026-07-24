@@ -1177,7 +1177,8 @@ class ApiService {
       _debugPrintChunked("LoginAPI decoded", decoded);
       return decoded;
     } else {
-      throw Exception("Failed login: ${response.body}");
+      throw Exception(
+          _apiErrorMessage(response.body, fallback: 'Failed login'));
     }
   }
 
@@ -1352,7 +1353,13 @@ class ApiService {
       return json.decode(response.body) as Map<String, dynamic>;
     }
 
-    final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+    dynamic decoded;
+    try {
+      decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+    } catch (_) {
+      decoded = null;
+    }
+
     if (decoded is Map<String, dynamic>) {
       return {
         'success': false,
@@ -1365,7 +1372,10 @@ class ApiService {
 
     return {
       'success': false,
-      'message': 'Failed register customer',
+      'message': extractErrorMessage(
+        response.body,
+        fallback: 'Failed register customer',
+      ),
       'statusCode': response.statusCode,
     };
   }
@@ -1392,7 +1402,8 @@ class ApiService {
           ? <String, dynamic>{"success": true}
           : json.decode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed link branch client: ${response.body}");
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed link branch client'));
   }
 
   Future<Map<String, dynamic>> getBranchClients(
@@ -1427,7 +1438,8 @@ class ApiService {
       final body = response.body.isEmpty ? '{}' : response.body;
       return json.decode(body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to fetch branch clients: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to fetch branch clients'));
   }
 
   Future<Map<String, dynamic>> getBranchCustomersList(int branchId) async {
@@ -1449,7 +1461,8 @@ class ApiService {
       final body = response.body.isEmpty ? '{}' : response.body;
       return json.decode(body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to fetch branch customers: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to fetch branch customers'));
   }
 
   // Resend OTP
@@ -1499,7 +1512,8 @@ class ApiService {
       } else {
         print("========== RESEND OTP FAILED ==========");
         print("Error Response Body: ${response.body}");
-        throw Exception("Failed resend OTP: ${response.body}");
+        throw Exception(
+            _apiErrorMessage(response.body, fallback: 'Failed resend OTP'));
       }
     } catch (e, stackTrace) {
       print("========== RESEND OTP ERROR ==========");
@@ -1716,7 +1730,8 @@ class ApiService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return json.decode(response.body);
     } else {
-      throw Exception("❌ Failed to create salon: ${response.body}");
+      throw Exception(_apiErrorMessage(response.body,
+          fallback: '❌ Failed to create salon'));
     }
   }
 
@@ -1985,7 +2000,8 @@ class ApiService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
     } else {
-      throw Exception("Failed to add category: ${response.body}");
+      throw Exception(
+          _apiErrorMessage(response.body, fallback: 'Failed to add category'));
     }
   }
 
@@ -2181,7 +2197,8 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception("Failed to fetch categories: ${response.body}");
+      throw Exception(_apiErrorMessage(response.body,
+          fallback: 'Failed to fetch categories'));
     }
   }
 
@@ -2221,7 +2238,8 @@ class ApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
 
-    throw Exception('Failed to update category: ${response.body}');
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed to update category'));
   }
 
   // ---------------------- DELETE CATEGORY ----------------------
@@ -2280,7 +2298,8 @@ class ApiService {
       );
       return decoded;
     } else {
-      throw Exception("Failed to fetch service catalog: $rawBody");
+      throw Exception(_apiErrorMessage(rawBody,
+          fallback: 'Failed to fetch service catalog'));
     }
   }
 
@@ -2315,7 +2334,8 @@ class ApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
 
-    throw Exception(response.body);
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed to add service'));
   }
 
   // ---------------------- GET SERVICES ----------------------
@@ -2351,7 +2371,8 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception("Failed to fetch service(s): ${response.body}");
+      throw Exception(_apiErrorMessage(response.body,
+          fallback: 'Failed to fetch service(s)'));
     }
   }
 
@@ -2380,7 +2401,8 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception("Failed to fetch branch service(s): ${response.body}");
+      throw Exception(_apiErrorMessage(response.body,
+          fallback: 'Failed to fetch branch service(s)'));
     }
   }
 
@@ -2496,7 +2518,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to activate salon: ${response.body}");
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed to activate salon'));
   }
 
   Future<Map<String, dynamic>> deactivateSalon(int salonId) async {
@@ -2517,7 +2540,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to deactivate salon: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to deactivate salon'));
   }
 
   Future<Map<String, dynamic>> deleteSalon(int salonId) async {
@@ -2538,7 +2562,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to delete salon: ${response.body}");
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed to delete salon'));
   }
 
   Future<Map<String, dynamic>> updateBranch(
@@ -2589,7 +2614,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to activate branch: ${response.body}");
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed to activate branch'));
   }
 
   Future<Map<String, dynamic>> deactivateBranch(int branchId) async {
@@ -2610,7 +2636,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to deactivate branch: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to deactivate branch'));
   }
 
   Future<Map<String, dynamic>> deleteBranch(int branchId) async {
@@ -2631,7 +2658,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to delete branch: ${response.body}");
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed to delete branch'));
   }
 
   Future<Map<String, dynamic>> importPredefinedServices({
@@ -2670,7 +2698,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to import predefined services: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to import predefined services'));
   }
 
   // ---------------------- GET BRANCH DETAILS ----------------------
@@ -2701,7 +2730,8 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body); // Return the response as JSON
       } else {
-        throw Exception("Failed to fetch branch details: ${response.body}");
+        throw Exception(_apiErrorMessage(response.body,
+            fallback: 'Failed to fetch branch details'));
       }
     } catch (e) {
       // Log any exceptions that occur
@@ -2782,7 +2812,8 @@ class ApiService {
       return jsonDecode(response.body);
     }
 
-    throw Exception(response.body);
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed to add subcategory'));
   }
 
   Future<Map<String, dynamic>> updateSubCategoryApi({
@@ -3031,10 +3062,8 @@ class ApiService {
         // If successful, parse the response JSON
         return json.decode(response.body);
       } else {
-        final decoded =
-            response.body.isNotEmpty ? json.decode(response.body) : null;
         final message = extractErrorMessage(
-          decoded ?? response.body,
+          response.body,
           fallback: 'Failed to add user',
         );
         return {
@@ -3047,7 +3076,7 @@ class ApiService {
       print('Error: $e');
       return {
         'success': false,
-        'message': e.toString().replaceFirst(RegExp(r'^Exception:\\s*'), ''),
+        'message': extractErrorMessage(e, fallback: 'Failed to add user'),
       };
     }
   }
@@ -3093,10 +3122,8 @@ class ApiService {
         return json.decode(response.body) as Map<String, dynamic>;
       }
 
-      final decoded =
-          response.body.isNotEmpty ? json.decode(response.body) : null;
       final message = extractErrorMessage(
-        decoded ?? response.body,
+        response.body,
         fallback: 'Unable to validate team member contact',
       );
       return {
@@ -3107,7 +3134,10 @@ class ApiService {
       print('Error: $e');
       return {
         'success': false,
-        'message': e.toString().replaceFirst(RegExp(r'^Exception:\\s*'), ''),
+        'message': extractErrorMessage(
+          e,
+          fallback: 'Unable to validate team member contact',
+        ),
       };
     }
   }
@@ -3503,7 +3533,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to update offer status: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to update offer status'));
   }
 
   // ---------------------- CREATE SALON BRANCH OFFER ----------------------
@@ -3736,7 +3767,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to update branch offer status: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to update branch offer status'));
   }
 
   // ---------------------- GET SALON USERS ----------------------
@@ -5717,7 +5749,8 @@ class ApiService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return json.decode(response.body) as Map<String, dynamic>;
     } else {
-      throw Exception("Failed to resolve walkin number: ${response.body}");
+      throw Exception(_apiErrorMessage(response.body,
+          fallback: 'Failed to resolve walkin number'));
     }
   }
 
@@ -5748,7 +5781,8 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(response.body) as Map<String, dynamic>;
       } else {
-        throw Exception("Failed to create appointment: ${response.body}");
+        throw Exception(_apiErrorMessage(response.body,
+            fallback: 'Failed to create appointment'));
       }
     } catch (e) {
       print("❌ Error creating appointment: $e");
@@ -5781,7 +5815,8 @@ class ApiService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return json.decode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to create manual booking: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to create manual booking'));
   }
 
   Future<Map<String, dynamic>> assignUserToBranch(
@@ -6042,7 +6077,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to import clients: ${response.body}");
+    throw Exception(
+        _apiErrorMessage(response.body, fallback: 'Failed to import clients'));
   }
 
   Future<Map<String, dynamic>> importClientsFile({
@@ -6098,7 +6134,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to load reports dashboard: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to load reports dashboard'));
   }
 
   Future<Map<String, dynamic>> getRevenueSalesDashboard({
@@ -6128,7 +6165,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to load revenue and sales: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to load revenue and sales'));
   }
 
   Future<Map<String, dynamic>> getStaffPerformanceReport({
@@ -6162,7 +6200,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to load staff performance: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to load staff performance'));
   }
 
   Future<Map<String, dynamic>> getOperationsDashboard({
@@ -6192,7 +6231,8 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;
     }
-    throw Exception("Failed to load operations dashboard: ${response.body}");
+    throw Exception(_apiErrorMessage(response.body,
+        fallback: 'Failed to load operations dashboard'));
   }
 
   Future<Map<String, dynamic>> getAiInsightsDashboardSummary({

@@ -20,6 +20,18 @@ class _OperatingSlot {
   final int endMinutes;
 }
 
+class _ScheduleConflict {
+  const _ScheduleConflict({
+    required this.day,
+    required this.enteredRange,
+    required this.branchRange,
+  });
+
+  final String day;
+  final String enteredRange;
+  final String branchRange;
+}
+
 class AddTeamChooseTimeSlot extends StatefulWidget {
   final Map<String, dynamic> formData;
 
@@ -788,7 +800,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     if (options.isEmpty) return const [];
 
-    final slot = weeklySchedule[day]?[index];
+    final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+    final slot = index >= 0 && index < slots.length ? slots[index] : null;
 
     final pairedTime = slot == null
         ? null
@@ -799,65 +812,122 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final pairedMinutes =
         pairedTime == null ? null : _parseTimeToMinutes(pairedTime);
 
+    // Other slots already booked for this day — a candidate time must not
+    // produce a range that overlaps any of them.
+    final otherRanges = <_OperatingSlot>[];
+    for (var i = 0; i < slots.length; i++) {
+      if (i == index) continue;
+      final start = _parseTimeToMinutes(slots[i]['start'] ?? '');
+      final end = _parseTimeToMinutes(slots[i]['end'] ?? '');
+      if (start == null || end == null || end <= start) continue;
+      otherRanges.add(_OperatingSlot(startMinutes: start, endMinutes: end));
+    }
+
+    final dayMaxMinutes = options
+        .map((option) => _parseTimeToMinutes(option) ?? 0)
+        .reduce((a, b) => a > b ? a : b);
+
     return options.where((option) {
       final minutes = _parseTimeToMinutes(option);
 
-      if (minutes == null || pairedMinutes == null) return true;
+      if (minutes == null) return true;
 
-      return timeType == 'start'
-          ? minutes < pairedMinutes
-          : minutes > pairedMinutes;
+      if (pairedMinutes != null) {
+        final withinSameSlot = timeType == 'start'
+            ? minutes < pairedMinutes
+            : minutes > pairedMinutes;
+        if (!withinSameSlot) return false;
+      }
+
+      // A new slot's start must leave room for at least the minimum
+      // duration before the day closes.
+      if (timeType == 'start' && dayMaxMinutes - minutes < _timeMinuteStep) {
+        return false;
+      }
+
+      final candidateStart = timeType == 'start' ? minutes : pairedMinutes;
+      final candidateEnd = timeType == 'start' ? pairedMinutes : minutes;
+
+      if (candidateStart == null || candidateEnd == null) return true;
+
+      for (final other in otherRanges) {
+        // A later slot's start must sit a full gap after an earlier slot's
+        // end — not just avoid overlapping it.
+        final blockedEnd = timeType == 'start'
+            ? other.endMinutes + _timeMinuteStep
+            : other.endMinutes;
+        if (candidateStart < blockedEnd && other.startMinutes < candidateEnd) {
+          return false;
+        }
+      }
+
+      return true;
     }).toList();
   }
 
   bool _prefillSchedules() {
     final rawSchedules = widget.formData['schedules'];
-
-    if (rawSchedules is! List || rawSchedules.isEmpty) {
-      debugPrint('[TeamSchedule] No member schedules found in payload.');
-      return false;
-    }
-
+    final isEdit = widget.formData['isEdit'] == true;
+    final daysWithSchedule = <String>{};
     var foundAny = false;
 
-    debugPrint(
-      '[TeamSchedule] Prefilling member schedules count=${rawSchedules.length}',
-    );
+    if (rawSchedules is List && rawSchedules.isNotEmpty) {
+      debugPrint(
+        '[TeamSchedule] Prefilling member schedules count=${rawSchedules.length}',
+      );
 
-    for (final raw in rawSchedules.whereType<Map>()) {
-      final day = (raw['day'] ?? '').toString().trim().toLowerCase();
+      for (final raw in rawSchedules.whereType<Map>()) {
+        final day = (raw['day'] ?? '').toString().trim().toLowerCase();
 
-      if (day.isEmpty) continue;
+        if (day.isEmpty) continue;
 
-      final normalizedDay = _displayDay(day);
+        final normalizedDay = _displayDay(day);
 
-      if (!weeklySchedule.containsKey(normalizedDay)) continue;
+        if (!weeklySchedule.containsKey(normalizedDay)) continue;
 
-      final startRaw = (raw['startTime'] ?? raw['start'] ?? '').toString();
-      final endRaw = (raw['endTime'] ?? raw['end'] ?? '').toString();
+        final startRaw = (raw['startTime'] ?? raw['start'] ?? '').toString();
+        final endRaw = (raw['endTime'] ?? raw['end'] ?? '').toString();
 
-      final startMinutes = _parseTimeToMinutes(startRaw);
-      final endMinutes = _parseTimeToMinutes(endRaw);
+        final startMinutes = _parseTimeToMinutes(startRaw);
+        final endMinutes = _parseTimeToMinutes(endRaw);
 
-      if (startMinutes == null ||
-          endMinutes == null ||
-          endMinutes <= startMinutes) {
-        continue;
+        if (startMinutes == null ||
+            endMinutes == null ||
+            endMinutes <= startMinutes) {
+          continue;
+        }
+
+        weeklySchedule[normalizedDay] ??= [];
+
+        weeklySchedule[normalizedDay]!.add({
+          'start': _formatMinutes(startMinutes),
+          'end': _formatMinutes(endMinutes),
+        });
+
+        daysWithSchedule.add(normalizedDay);
+        foundAny = true;
       }
 
-      weeklySchedule[normalizedDay] ??= [];
-
-      weeklySchedule[normalizedDay]!.add({
-        'start': _formatMinutes(startMinutes),
-        'end': _formatMinutes(endMinutes),
-      });
-
-      foundAny = true;
+      if (foundAny) {
+        _sortWeeklyScheduleInPlace();
+        debugPrint('[TeamSchedule] Member schedule prefill applied.');
+      }
+    } else {
+      debugPrint('[TeamSchedule] No member schedules found in payload.');
     }
 
-    if (foundAny) {
-      _sortWeeklyScheduleInPlace();
-      debugPrint('[TeamSchedule] Member schedule prefill applied.');
+    // A day intentionally marked off is simply absent from the saved
+    // schedules (see _buildScheduleData, which skips off days when building
+    // the payload) — there's no explicit flag to read back. So in edit mode,
+    // any weekday missing a saved schedule must be restored as "off",
+    // otherwise _fillEmptyDaysFromOperatingSlots will auto-fill it with the
+    // branch's default hours instead of showing it as marked off.
+    if (isEdit) {
+      for (final day in _weekDays) {
+        if (!daysWithSchedule.contains(day)) {
+          _memberOffDays.add(_dayKey(day));
+        }
+      }
     }
 
     return foundAny;
@@ -1123,20 +1193,31 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       }
 
       if (timeType == 'start') {
-        final nextEnd = options.firstWhere(
-          (option) => (_parseTimeToMinutes(option) ?? 0) > start,
-          orElse: () => options.last,
-        );
+        String? nextEnd;
+        for (final option in options) {
+          if ((_parseTimeToMinutes(option) ?? 0) > start) {
+            nextEnd = option;
+            break;
+          }
+        }
+        // No option in the day's bounds is after `start` (e.g. `start` is
+        // already the last available time) — never fall back to an option
+        // that could equal `start` itself. Just add the minimum gap.
+        nextEnd ??= _formatMinutes(start + _timeMinuteStep);
 
         slot['end'] = nextEnd;
         toastMessage = translateText(
           'End time was adjusted to keep a 10-minute gap.',
         );
       } else {
-        final previousStart = options.lastWhere(
-          (option) => (_parseTimeToMinutes(option) ?? 0) < end,
-          orElse: () => options.first,
-        );
+        String? previousStart;
+        for (var i = options.length - 1; i >= 0; i--) {
+          if ((_parseTimeToMinutes(options[i]) ?? 0) < end) {
+            previousStart = options[i];
+            break;
+          }
+        }
+        previousStart ??= _formatMinutes(end - _timeMinuteStep);
 
         slot['start'] = previousStart;
         toastMessage = translateText(
@@ -1144,6 +1225,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         );
       }
 
+      _resolveOverlappingSlots(day);
       _sortWeeklyScheduleInPlace();
     });
 
@@ -1153,6 +1235,39 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     if (day == 'Monday') {
       _syncMondayToAllOpenDays();
+    }
+  }
+
+  // Editing one slot's time can leave a later slot overlapping it (e.g.
+  // widening slot 1 to end at 7 PM after slot 2 was already set to start at
+  // 6:40 AM). Push any now-overlapping later slot forward so it never starts
+  // before the previous slot's end.
+  void _resolveOverlappingSlots(String day) {
+    final slots = weeklySchedule[day];
+    if (slots == null || slots.length < 2) return;
+
+    slots.sort(_slotComparator);
+
+    for (var i = 1; i < slots.length; i++) {
+      final prevEnd = _parseTimeToMinutes(slots[i - 1]['end'] ?? '');
+      final currentStart = _parseTimeToMinutes(slots[i]['start'] ?? '');
+      final currentEnd = _parseTimeToMinutes(slots[i]['end'] ?? '');
+
+      if (prevEnd == null || currentStart == null || currentEnd == null) {
+        continue;
+      }
+
+      final requiredStart = prevEnd + _timeMinuteStep;
+      if (currentStart >= requiredStart) continue;
+
+      // Never let the pushed-forward slot end up with end <= start —
+      // always keep at least the minimum step as a gap.
+      final newEnd = currentEnd > requiredStart
+          ? currentEnd
+          : requiredStart + _timeMinuteStep;
+
+      slots[i]['start'] = _formatMinutes(requiredStart);
+      slots[i]['end'] = _formatMinutes(newEnd);
     }
   }
 
@@ -1185,16 +1300,14 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         _memberOffDays.remove(dayKey);
         _memberOffDaySnapshots.remove(dayKey);
 
+        // Copy Monday's exact times as-is — do NOT silently snap them to
+        // this day's own operating hours. If the branch closes earlier on
+        // this day, that mismatch must stay visible so the per-day
+        // validation below can flag it, rather than being silently
+        // "corrected" without the user noticing.
         slots
           ..clear()
-          ..addAll(
-            mondaySlots.map(
-              (slot) => _normalizeSlotWithinDay(
-                day,
-                Map<String, String>.from(slot),
-              ),
-            ),
-          );
+          ..addAll(mondaySlots.map((slot) => Map<String, String>.from(slot)));
       }
 
       _sortWeeklyScheduleInPlace();
@@ -1206,7 +1319,10 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     setState(() => _copyMondayToAllChecked = value);
 
-    if (!value) return;
+    if (!value) {
+      _restoreDaysToBranchDefaults();
+      return;
+    }
 
     if (weeklySchedule['Monday']!.isEmpty && !_isMemberOffDay('Monday')) {
       setState(() => _copyMondayToAllChecked = false);
@@ -1217,6 +1333,36 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     }
 
     _syncMondayToAllOpenDays();
+  }
+
+  // Undo whatever "Copy Monday schedule to all days" applied — every
+  // non-Monday working day goes back to the branch's own operating hours
+  // for that day, instead of staying stuck on Monday's copied values.
+  void _restoreDaysToBranchDefaults() {
+    setState(() {
+      for (final day in _weekDays) {
+        if (day == 'Monday' || _isClosedDay(day) || _isMemberOffDay(day)) {
+          continue;
+        }
+
+        final windows = _operatingSlotsByDay[_dayKey(day)];
+
+        weeklySchedule[day] = (windows != null && windows.isNotEmpty)
+            ? windows
+                .map(
+                  (slot) => {
+                    'start': _formatMinutes(slot.startMinutes),
+                    'end': _formatMinutes(slot.endMinutes),
+                  },
+                )
+                .toList()
+            : [
+                {'start': '08:00 AM', 'end': '08:00 PM'},
+              ];
+      }
+
+      _sortWeeklyScheduleInPlace();
+    });
   }
 
   void _clearCopyMondaySelectionOnManualEdit(String day) {
@@ -1258,6 +1404,81 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   }
 
   bool _isMemberOffDay(String day) => _memberOffDays.contains(_dayKey(day));
+
+  // Days whose entered hours fall outside the branch's own operating
+  // hours for that day (e.g. "Copy Monday schedule to all days" copying a
+  // wider Monday range onto a day the branch closes earlier). These must
+  // be fixed before the team member's schedule can be saved. Carries the
+  // actual entered/branch time ranges so the on-screen message can show
+  // them — works the same whether one day or several are affected.
+  List<_ScheduleConflict> get _scheduleConflicts {
+    final conflicts = <_ScheduleConflict>[];
+
+    for (final day in _weekDays) {
+      if (_isClosedDay(day) || _isMemberOffDay(day)) continue;
+
+      final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+      if (slots.isEmpty) continue;
+
+      final starts = <int>[];
+      final ends = <int>[];
+      for (final slot in slots) {
+        final start = _parseTimeToMinutes(slot['start'] ?? '');
+        final end = _parseTimeToMinutes(slot['end'] ?? '');
+        if (start != null) starts.add(start);
+        if (end != null) ends.add(end);
+      }
+      if (starts.isEmpty || ends.isEmpty) continue;
+
+      final operatingWindows = _operatingSlotsByDay[_dayKey(day)];
+
+      final fitsWithinBranchHours = operatingWindows != null &&
+          operatingWindows.isNotEmpty &&
+          slots.every((slot) {
+            final start = _parseTimeToMinutes(slot['start'] ?? '');
+            final end = _parseTimeToMinutes(slot['end'] ?? '');
+            if (start == null || end == null) return true;
+
+            return operatingWindows.any(
+              (window) =>
+                  start >= window.startMinutes && end <= window.endMinutes,
+            );
+          });
+
+      if (fitsWithinBranchHours) continue;
+
+      final enteredStart = starts.reduce((a, b) => a < b ? a : b);
+      final enteredEnd = ends.reduce((a, b) => a > b ? a : b);
+
+      final branchRangeText =
+          (operatingWindows == null || operatingWindows.isEmpty)
+              ? translateText('Closed')
+              : operatingWindows
+                  .map(
+                    (window) =>
+                        '${_formatMinutes(window.startMinutes)} - ${_formatMinutes(window.endMinutes)}',
+                  )
+                  .join(', ');
+
+      conflicts.add(
+        _ScheduleConflict(
+          day: day,
+          enteredRange:
+              '${_formatMinutes(enteredStart)} - ${_formatMinutes(enteredEnd)}',
+          branchRange: branchRangeText,
+        ),
+      );
+    }
+
+    return conflicts;
+  }
+
+  _ScheduleConflict? _conflictForDay(String day) {
+    for (final conflict in _scheduleConflicts) {
+      if (conflict.day == day) return conflict;
+    }
+    return null;
+  }
 
   Future<void> _showMondayCopyLoader() async {
     if (!mounted) return;
@@ -1366,7 +1587,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
           ),
         ),
         hint: Text(
-          currentValue ?? translateText('Select time'),
+          translateText('Select time'),
           style: const TextStyle(
             color: Color(0xFF1F2937),
             fontSize: 11,
@@ -1470,6 +1691,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final isClosed = _isClosedDay(day);
     final isOff = _isMemberOffDay(day);
     final markedOff = isClosed || isOff;
+    final conflict = _conflictForDay(day);
 
     return Opacity(
       opacity: _useSalonHours ? 0.55 : 1,
@@ -1562,6 +1784,18 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                     ],
                   ),
                 ],
+              ],
+              if (conflict != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${conflict.enteredRange} ${translateText("is outside branch hours")} '
+                  '(${conflict.branchRange}).',
+                  style: const TextStyle(
+                    color: AppColors.red,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ],
           ),
@@ -1972,6 +2206,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   Widget build(BuildContext context) {
     final navigationDisabled =
         _isSubmitting || _isLoadingOperatingSchedule || _isApplyingMondayCopy;
+    final scheduleConflicts = _scheduleConflicts;
+    final continueDisabled = navigationDisabled || scheduleConflicts.isNotEmpty;
 
     return PopScope(
       canPop: false,
@@ -2147,7 +2383,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: navigationDisabled
+                              onPressed: continueDisabled
                                   ? null
                                   : () async {
                                       await _goToSelectServices();

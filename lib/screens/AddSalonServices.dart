@@ -11,6 +11,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../services/network_listener.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
+import '../utils/error_parser.dart';
 import '../utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/salon_flow_step_header.dart';
@@ -129,14 +130,20 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           }
         }
       } else {
-        throw Exception('Failed to fetch service catalog: ${response.body}');
+        throw Exception(extractErrorMessage(
+          response.body,
+          fallback: 'Failed to fetch service catalog',
+        ));
       }
     } catch (e, stack) {
       debugPrint('Failed to load service catalog: $e');
       debugPrintStack(stackTrace: stack);
       if (mounted) {
         setState(() => _isLoading = false);
-        Fluttertoast.showToast(msg: 'Unable to load services: $e');
+        Fluttertoast.showToast(
+          msg:
+              'Unable to load services: ${extractErrorMessage(e, fallback: 'Unable to load services')}',
+        );
       }
     }
   }
