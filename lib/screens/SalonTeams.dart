@@ -462,6 +462,16 @@ class _TeamScreenState extends State<TeamScreen> {
     await future;
   }
 
+  // Pull-to-refresh reloads everything on screen — the salon/branch list
+  // and the current branch's team members — not just the member list.
+  Future<void> _refreshAll() async {
+    if (!mounted) return;
+    final branchFuture = _getBranchOptions();
+    setState(() => branchOptionsFuture = branchFuture);
+    await branchFuture;
+    await _refreshTeamMembers();
+  }
+
   void _reloadTeamMembersForFilters({bool showOverlay = true}) {
     final branchId = selectedBranchId;
     if (branchId == null || !mounted) return;
@@ -1084,6 +1094,7 @@ class _TeamScreenState extends State<TeamScreen> {
         return;
       }
 
+      FocusScope.of(context).unfocus();
       final refresh = await Navigator.push(
         context,
         MaterialPageRoute(
@@ -1169,6 +1180,7 @@ class _TeamScreenState extends State<TeamScreen> {
 
   Future<void> _openEditMember(Map<String, dynamic> member) async {
     if (selectedBranch == null) return;
+    FocusScope.of(context).unfocus();
     final refresh = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -1197,6 +1209,7 @@ class _TeamScreenState extends State<TeamScreen> {
     }
 
     if (selectedBranch == null || _salons.isEmpty) return;
+    FocusScope.of(context).unfocus();
     final assigned = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -1244,6 +1257,7 @@ class _TeamScreenState extends State<TeamScreen> {
     try {
       if (!mounted) return;
 
+      FocusScope.of(context).unfocus();
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -1338,8 +1352,7 @@ class _TeamScreenState extends State<TeamScreen> {
 
                   return RefreshIndicator(
                     color: AppColors.starColor,
-                    onRefresh: () =>
-                        RefreshFeedback.playAndRun(_refreshTeamMembers),
+                    onRefresh: () => RefreshFeedback.playAndRun(_refreshAll),
                     child: FutureBuilder<List<dynamic>>(
                       future: teamMembersFuture,
                       builder: (context, teamSnapshot) {
@@ -1666,77 +1679,55 @@ class _TeamFiltersBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _teamBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0E000000),
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: searchController,
-                  builder: (context, value, _) {
-                    final hasSearch = value.text.trim().isNotEmpty;
-                    return TextField(
-                      controller: searchController,
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        hintText:
-                            translateText('Search by name, phone, or email'),
-                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                        suffixIcon: hasSearch
-                            ? IconButton(
-                                tooltip: translateText('Clear search'),
-                                onPressed: searchController.clear,
-                                icon: const Icon(Icons.close_rounded),
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: _teamSurface,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: _teamBorder),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: _teamBorder),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.starColor),
-                        ),
-                      ),
-                    );
-                  },
+    return Row(
+      children: [
+        Expanded(
+          child: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: searchController,
+            builder: (context, value, _) {
+              final hasSearch = value.text.trim().isNotEmpty;
+              return TextField(
+                controller: searchController,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: translateText('Search by name, phone, or email'),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  suffixIcon: hasSearch
+                      ? IconButton(
+                          tooltip: translateText('Clear search'),
+                          onPressed: searchController.clear,
+                          icon: const Icon(Icons.close_rounded),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 13,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _teamBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _teamBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.starColor),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              _TeamFilterButton(
-                hasActiveFilters: hasActiveFilters,
-                onPressed: onOpenFilters,
-              ),
-            ],
+              );
+            },
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 10),
+        _TeamFilterButton(
+          hasActiveFilters: hasActiveFilters,
+          onPressed: onOpenFilters,
+        ),
+      ],
     );
   }
 }
@@ -1754,28 +1745,61 @@ class _FilterChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 180),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+    return InkWell(
+      onTap: onSelected,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? _teamGold : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? _teamGold : _teamBorder,
+          ),
+          boxShadow: selected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x268B6500),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
-      ),
-      selected: selected,
-      onSelected: (_) => onSelected(),
-      selectedColor: _teamGoldLight,
-      backgroundColor: Colors.white,
-      labelStyle: TextStyle(
-        color: selected ? _teamGold : _teamMuted,
-        fontWeight: FontWeight.w800,
-      ),
-      side: BorderSide(
-        color: selected ? AppColors.starColor : _teamBorder,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              child: selected
+                  ? const Padding(
+                      key: ValueKey('selected'),
+                      padding: EdgeInsets.only(right: 6),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('unselected')),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 170),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? Colors.white : _teamMuted,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2144,6 +2168,7 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                       controller: scrollController,
                       children: [
                         _bottomSheetSection(
+                          icon: Icons.badge_outlined,
                           title: translateText('Status'),
                           subtitle: translateText(
                             'Choose who should appear in the team list.',
@@ -2172,6 +2197,7 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                         ),
                         const SizedBox(height: 14),
                         _bottomSheetSection(
+                          icon: Icons.online_prediction_rounded,
                           title: translateText('Online booking'),
                           subtitle: translateText(
                             'Only members available for booking stay visible.',
@@ -2195,6 +2221,7 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                         ),
                         const SizedBox(height: 14),
                         _bottomSheetSection(
+                          icon: Icons.calendar_month_outlined,
                           title: translateText('Date'),
                           subtitle: translateText(
                             'Joining and leaving dates are checked automatically.',
@@ -2236,6 +2263,7 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                         ),
                         const SizedBox(height: 14),
                         _bottomSheetSection(
+                          icon: Icons.design_services_outlined,
                           title: translateText('Services'),
                           subtitle: translateText(
                             'Tap one or more services to filter team members.',
@@ -2302,37 +2330,45 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: OutlinedButton.icon(
                           onPressed: _clearAll,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: Text(translateText('Clear all')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: _teamMuted,
                             side: const BorderSide(color: _teamBorder),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 15),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: Text(translateText('Clear all')),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: ElevatedButton(
+                        flex: 2,
+                        child: ElevatedButton.icon(
                           onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.check_rounded, size: 19),
+                          label: Text(
+                            activeFilterCount > 0
+                                ? '${translateText('Show results')} ($activeFilterCount)'
+                                : translateText('Show results'),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _teamGold,
                             foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            elevation: 4,
+                            shadowColor: const Color(0x668B6500),
+                            padding: const EdgeInsets.symmetric(vertical: 15),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: Text(translateText('Done')),
                         ),
                       ),
                     ],
@@ -2347,48 +2383,69 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
   }
 
   Widget _bottomSheetSection({
+    required IconData icon,
     required String title,
     String? subtitle,
     required Widget child,
     Widget? trailing,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _teamSurface,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _teamBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                title.toUpperCase(),
-                style: const TextStyle(
-                  color: _teamMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.8,
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: _teamGoldLight,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, color: _teamGold, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: _teamInk,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              const Spacer(),
               if (trailing != null) trailing,
             ],
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                color: _teamMuted,
-                fontSize: 12,
-                height: 1.35,
+            Padding(
+              padding: const EdgeInsets.only(left: 40),
+              child: Text(
+                subtitle,
+                style: const TextStyle(
+                  color: _teamMuted,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           child,
         ],
       ),
