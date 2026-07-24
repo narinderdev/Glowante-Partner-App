@@ -3,6 +3,7 @@ import 'select_services_AssignUser.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
+import '../utils/team_member_completeness.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -206,14 +207,22 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
     required String joinedAt,
     required List<Branch> availableBranches,
   }) async {
+    if (teamMemberNeedsSetupCompletion(widget.member)) {
+      Fluttertoast.showToast(
+        msg: translateText('Complete profile setup first.'),
+        toastLength: Toast.LENGTH_LONG,
+      );
+      return;
+    }
+
     final branch =
         availableBranches.firstWhere((b) => b.id == selectedBranchId);
 
     if (!_memberBelongsToSalon(branch.salonId)) {
       Fluttertoast.showToast(
-          msg: translateText(
-        'This team member is not part of this salon. Add them to this salon before assigning a branch.',
-      ));
+        msg: translateText('This member isn\'t part of this salon.'),
+        toastLength: Toast.LENGTH_LONG,
+      );
       return;
     }
 
