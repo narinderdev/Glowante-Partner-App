@@ -342,37 +342,38 @@ class SalonsScreenState extends State<SalonsScreen> {
   //     if (mounted) setState(() => _isActionLoading = false);
   //   }
   // }
-Future<void> _setSalonActive({
-  required int salonId,
-  required bool active,
-}) async {
-  if (_isActionLoading) return;
-  final repo = context.read<SalonRepository>();
-  setState(() => _isActionLoading = true);
-  try {
-    debugPrint(
-      '[SalonAction] ${active ? 'Activate' : 'Deactivate'} salon -> salonId=$salonId',
-    );
-    if (active) {
-      await repo.activateSalon(salonId);
-    } else {
-      await repo.deactivateSalon(salonId);
+  Future<void> _setSalonActive({
+    required int salonId,
+    required bool active,
+  }) async {
+    if (_isActionLoading) return;
+    final repo = context.read<SalonRepository>();
+    setState(() => _isActionLoading = true);
+    try {
+      debugPrint(
+        '[SalonAction] ${active ? 'Activate' : 'Deactivate'} salon -> salonId=$salonId',
+      );
+      if (active) {
+        await repo.activateSalon(salonId);
+      } else {
+        await repo.deactivateSalon(salonId);
+      }
+      if (!mounted) return;
+      Fluttertoast.showToast(
+          msg: translateText(
+        active
+            ? 'Salon activated successfully'
+            : 'Salon deactivated successfully',
+      ));
+      await _refreshSalons();
+    } catch (error) {
+      if (!mounted) return;
+      Fluttertoast.showToast(msg: error.toString());
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
     }
-    if (!mounted) return;
-    Fluttertoast.showToast(
-        msg: translateText(
-      active
-          ? 'Salon activated successfully'
-          : 'Salon deactivated successfully',
-    ));
-    await _refreshSalons();
-  } catch (error) {
-    if (!mounted) return;
-    Fluttertoast.showToast(msg: error.toString());
-  } finally {
-    if (mounted) setState(() => _isActionLoading = false);
   }
-}
+
   Future<void> _deleteSalon(int salonId) async {
     final repository = context.read<SalonRepository>();
     final confirmed = await showDialog<bool>(
@@ -1429,6 +1430,7 @@ class _EmptySalonsView extends StatelessWidget {
     );
   }
 }
+
 Future<bool> showActivateSalonConfirmation({
   required BuildContext context,
   required String salonName,
@@ -1462,7 +1464,8 @@ Future<bool> showActivateSalonConfirmation({
                   const Expanded(
                     child: Text(
                       "Activate Salon?",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                   ),
                   IconButton(
@@ -1716,7 +1719,6 @@ Future<void> showChangeStatusModal({
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 _StatusOptionCard(
                   icon: Icons.apartment_outlined,
                   title: "Salon",
@@ -1727,9 +1729,7 @@ Future<void> showChangeStatusModal({
                     onSalonTap();
                   },
                 ),
-
                 const SizedBox(height: 12),
-
                 _StatusOptionCard(
                   icon: Icons.home_outlined,
                   title: "Branch",
@@ -1740,9 +1740,7 @@ Future<void> showChangeStatusModal({
                     onBranchTap();
                   },
                 ),
-
                 const SizedBox(height: 20),
-
                 Align(
                   alignment: Alignment.centerRight,
                   child: SizedBox(
@@ -1944,7 +1942,8 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = active ? const Color(0xFF047857) : const Color(0xFFB42318);
+    final textColor =
+        active ? const Color(0xFF047857) : const Color(0xFFB42318);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
@@ -1965,6 +1964,7 @@ class _StatusPill extends StatelessWidget {
     );
   }
 }
+
 Future<bool> showDeactivateSalonConfirmation({
   required BuildContext context,
   required String salonName,
@@ -1998,7 +1998,8 @@ Future<bool> showDeactivateSalonConfirmation({
                   const Expanded(
                     child: Text(
                       "Deactivate Salon?",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                   ),
                   IconButton(
@@ -2074,6 +2075,7 @@ Future<bool> showDeactivateSalonConfirmation({
   );
   return result == true;
 }
+
 class _SalonCard extends StatelessWidget {
   const _SalonCard({
     required this.salon,
@@ -2547,134 +2549,145 @@ class _SalonCard extends StatelessWidget {
 //     ),
 //   );
 // }
-Widget _salonMenuButton(
-  BuildContext context,
-  bool isActive,
-  String salonName,
-  int primaryBranchId,
-  int branchCount,
-  bool primaryBranchActive,   // <-- add this
-) {
-  final canEdit = isActive && onEditSalon != null;
-  if (onEditSalon == null && onToggleSalonActive == null && onDeleteSalon == null) {
-    return const SizedBox.shrink();
-  }
+  Widget _salonMenuButton(
+    BuildContext context,
+    bool isActive,
+    String salonName,
+    int primaryBranchId,
+    int branchCount,
+    bool primaryBranchActive, // <-- add this
+  ) {
+    final canEdit = isActive && onEditSalon != null;
+    if (onEditSalon == null &&
+        onToggleSalonActive == null &&
+        onDeleteSalon == null) {
+      return const SizedBox.shrink();
+    }
 
-  return SizedBox(
-    width: 30,
-    height: 30,
-    child: PopupMenuButton<String>(
-      padding: EdgeInsets.zero,
-      icon: const Icon(Icons.more_vert_rounded, size: 20, color: Color(0xFF8B6500)),
-      color: Colors.white,
-      elevation: 10,
-      offset: const Offset(-8, 34),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE8DED4)),
-      ),
-      onSelected: (value) async {
-        switch (value) {
-          case 'edit':
-            if (isActive) onEditSalon?.call();
-            break;
-          case 'toggle':
-            Future<void> toggleSalon() async {
-              if (isActive) {
-                final confirmed = await showDeactivateSalonConfirmation(
-                  context: context,
-                  salonName: salonName,
-                  branchCount: branchCount,
-                );
-                if (confirmed) {
-                  onToggleSalonActive?.call(false);
-                }
-              } else {
-                final confirmed = await showActivateSalonConfirmation(
-                  context: context,
-                  salonName: salonName,
-                  branchCount: branchCount,
-                );
-                if (confirmed) {
-                  onToggleSalonActive?.call(true);
+    return SizedBox(
+      width: 30,
+      height: 30,
+      child: PopupMenuButton<String>(
+        padding: EdgeInsets.zero,
+        icon: const Icon(Icons.more_vert_rounded,
+            size: 20, color: Color(0xFF8B6500)),
+        color: Colors.white,
+        elevation: 10,
+        offset: const Offset(-8, 34),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFE8DED4)),
+        ),
+        onSelected: (value) async {
+          switch (value) {
+            case 'edit':
+              if (isActive) onEditSalon?.call();
+              break;
+            case 'toggle':
+              Future<void> toggleSalon() async {
+                if (isActive) {
+                  final confirmed = await showDeactivateSalonConfirmation(
+                    context: context,
+                    salonName: salonName,
+                    branchCount: branchCount,
+                  );
+                  if (confirmed) {
+                    onToggleSalonActive?.call(false);
+                  }
+                } else {
+                  final confirmed = await showActivateSalonConfirmation(
+                    context: context,
+                    salonName: salonName,
+                    branchCount: branchCount,
+                  );
+                  if (confirmed) {
+                    onToggleSalonActive?.call(true);
+                  }
                 }
               }
-            }
 
-            if (branchCount == 0) {
-              // Only the main branch exists — there's nothing distinct to
-              // pick between, so skip the Salon/Branch picker modal and go
-              // straight to activating/deactivating the salon.
-              await toggleSalon();
+              if (branchCount == 0) {
+                // Only the main branch exists — there's nothing distinct to
+                // pick between, so skip the Salon/Branch picker modal and go
+                // straight to activating/deactivating the salon.
+                await toggleSalon();
+                break;
+              }
+
+              if (isActive) {
+                await showChangeStatusModal(
+                  context: context,
+                  salonName: salonName,
+                  isSalonActive: isActive,
+                  isBranchActive: primaryBranchActive,
+                  onSalonTap: toggleSalon,
+                  onBranchTap: () {
+                    if (primaryBranchId > 0) {
+                      // Toggle based on the branch's own current state,
+                      // not the salon's — no confirmation either way.
+                      onToggleBranchActive?.call(
+                        primaryBranchId,
+                        !primaryBranchActive,
+                      );
+                    }
+                  },
+                );
+              } else {
+                // Activating: ask Salon or Branch, then confirm
+                await showChangeStatusModal(
+                  context: context,
+                  salonName: salonName,
+                  isSalonActive: isActive,
+                  isBranchActive: primaryBranchActive,
+                  onSalonTap: toggleSalon,
+                  onBranchTap: () {
+                    if (primaryBranchId > 0) {
+                      onToggleBranchActive?.call(
+                        primaryBranchId,
+                        !primaryBranchActive,
+                      );
+                    }
+                  },
+                );
+              }
               break;
-            }
-
-            if (isActive) {
-              await showChangeStatusModal(
-                context: context,
-                salonName: salonName,
-                isSalonActive: isActive,
-                isBranchActive: primaryBranchActive,
-                onSalonTap: toggleSalon,
-                onBranchTap: () {
-                  if (primaryBranchId > 0) {
-                    // Toggle based on the branch's own current state,
-                    // not the salon's — no confirmation either way.
-                    onToggleBranchActive?.call(
-                      primaryBranchId,
-                      !primaryBranchActive,
-                    );
-                  }
-                },
-              );
-            } else {
-              // Activating: ask Salon or Branch, then confirm
-              await showChangeStatusModal(
-                context: context,
-                salonName: salonName,
-                isSalonActive: isActive,
-                isBranchActive: primaryBranchActive,
-                onSalonTap: toggleSalon,
-                onBranchTap: () {
-                  if (primaryBranchId > 0) {
-                    onToggleBranchActive?.call(
-                      primaryBranchId,
-                      !primaryBranchActive,
-                    );
-                  }
-                },
-              );
-            }
-            break;
-          case 'delete':
-            onDeleteSalon?.call();
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        if (onEditSalon != null)
-          PopupMenuItem<String>(
-            value: 'edit',
-            enabled: canEdit,
-            child: _ActionPopupRow(icon: Icons.edit_outlined, label: 'Edit Salon', enabled: canEdit),
-          ),
-        if (onToggleSalonActive != null)
-          PopupMenuItem<String>(
-            value: 'toggle',
-            child: _ActionPopupRow(
-              icon: isActive ? Icons.block_outlined : Icons.check_circle_outline,
-              label: isActive ? 'Deactivate Salon' : 'Activate Salon',
+            case 'delete':
+              onDeleteSalon?.call();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          if (onEditSalon != null)
+            PopupMenuItem<String>(
+              value: 'edit',
+              enabled: canEdit,
+              child: _ActionPopupRow(
+                  icon: Icons.edit_outlined,
+                  label: 'Edit Salon',
+                  enabled: canEdit),
             ),
-          ),
-        if (onDeleteSalon != null)
-          PopupMenuItem<String>(
-            value: 'delete',
-            child: _ActionPopupRow(icon: Icons.delete_outline, label: 'Delete Salon', destructive: true),
-          ),
-      ],
-    ),
-  );
-}
+          if (onToggleSalonActive != null)
+            PopupMenuItem<String>(
+              value: 'toggle',
+              child: _ActionPopupRow(
+                icon: isActive
+                    ? Icons.block_outlined
+                    : Icons.check_circle_outline,
+                label: isActive ? 'Deactivate Salon' : 'Activate Salon',
+              ),
+            ),
+          if (onDeleteSalon != null)
+            PopupMenuItem<String>(
+              value: 'delete',
+              child: _ActionPopupRow(
+                  icon: Icons.delete_outline,
+                  label: 'Delete Salon',
+                  destructive: true),
+            ),
+        ],
+      ),
+    );
+  }
 
   int _staffCount(List<Map<String, dynamic>> branches) {
     for (final key in const [
@@ -2730,9 +2743,9 @@ Widget _salonMenuButton(
         primaryBranch = branches.first;
       }
     }
-final primaryBranchActive =
-    primaryBranch == null ? true : primaryBranch['active'] != false;
-    
+    final primaryBranchActive =
+        primaryBranch == null ? true : primaryBranch['active'] != false;
+
     final heroImageUrls = _resolveHeroImageUrls(
       fallbackImageUrl: imageUrl,
       salon: salon,
@@ -2853,9 +2866,11 @@ final primaryBranchActive =
                       const SizedBox(width: 8),
                       _salonMenuButton(
                         context,
-                           isActive,
-                        salonName, primaryBranchId,branchCount,primaryBranchActive,
-                     
+                        isActive,
+                        salonName,
+                        primaryBranchId,
+                        branchCount,
+                        primaryBranchActive,
                       ),
                     ],
                   ),
@@ -3097,59 +3112,7 @@ class _SalonDetailsDialog extends StatelessWidget {
   }
 
   String _composeAddress(dynamic source) {
-    if (source is! Map) return '';
-    final data = Map<String, dynamic>.from(source);
-    final segments = <String>[];
-    final seenParts = <String>{};
-
-    List<String> splitParts(dynamic value) {
-      final text = _cleanText(value);
-      if (text.isEmpty) return const [];
-
-      return text
-          .split(',')
-          .map(_cleanText)
-          .where((part) => part.isNotEmpty)
-          .toList();
-    }
-
-    bool startsWithParts(List<String> source, List<String> prefix) {
-      if (prefix.isEmpty || source.length < prefix.length) return false;
-      for (var index = 0; index < prefix.length; index++) {
-        if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    void push(dynamic value, {bool preserveInternalDuplicates = false}) {
-      for (final cleanedPart in splitParts(value)) {
-        final key = cleanedPart.toLowerCase();
-        if (preserveInternalDuplicates) {
-          segments.add(cleanedPart);
-          seenParts.add(key);
-        } else if (seenParts.add(key)) {
-          segments.add(cleanedPart);
-        }
-      }
-    }
-
-    final line1 = data['line1'] ?? data['addressLine1'] ?? data['buildingName'];
-    final line2 = data['line2'] ?? data['addressLine2'];
-    final line1Parts = splitParts(line1);
-    final line2Parts = splitParts(line2);
-    push(line1, preserveInternalDuplicates: true);
-    if (line2Parts.length <= 1 || !startsWithParts(line1Parts, line2Parts)) {
-      push(line2, preserveInternalDuplicates: true);
-    }
-    push(data['village']);
-    push(data['district']);
-    push(data['city']);
-    push(data['state']);
-    push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
-    push(data['country']);
-    return segments.join(', ');
+    return formatAddressSummary(source);
   }
 
   String _addressText() {
@@ -4519,61 +4482,7 @@ class _BranchTileState extends State<_BranchTile> {
   }
 
   String _composeAddress(Map<String, dynamic>? data) {
-    if (data == null || data.isEmpty) {
-      return '';
-    }
-
-    final segments = <String>[];
-    final seenParts = <String>{};
-
-    List<String> splitParts(dynamic value) {
-      final text = _cleanText(value);
-      if (text.isEmpty) return const [];
-
-      return text
-          .split(',')
-          .map(_cleanText)
-          .where((part) => part.isNotEmpty)
-          .toList();
-    }
-
-    bool startsWithParts(List<String> source, List<String> prefix) {
-      if (prefix.isEmpty || source.length < prefix.length) return false;
-      for (var index = 0; index < prefix.length; index++) {
-        if (source[index].toLowerCase() != prefix[index].toLowerCase()) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    void push(dynamic value, {bool preserveInternalDuplicates = false}) {
-      for (final cleanedPart in splitParts(value)) {
-        final key = cleanedPart.toLowerCase();
-        if (preserveInternalDuplicates) {
-          segments.add(cleanedPart);
-          seenParts.add(key);
-        } else if (seenParts.add(key)) {
-          segments.add(cleanedPart);
-        }
-      }
-    }
-
-    final line1 = data['line1'] ?? data['addressLine1'] ?? data['buildingName'];
-    final line2 = data['line2'] ?? data['addressLine2'];
-    final line1Parts = splitParts(line1);
-    final line2Parts = splitParts(line2);
-    push(line1, preserveInternalDuplicates: true);
-    if (line2Parts.length <= 1 || !startsWithParts(line1Parts, line2Parts)) {
-      push(line2, preserveInternalDuplicates: true);
-    }
-    push(data['village']);
-    push(data['district']);
-    push(data['city']);
-    push(data['state']);
-    push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
-    push(data['country']);
-    return segments.join(', ');
+    return formatAddressSummary(data);
   }
 
   void _handleTap() async {

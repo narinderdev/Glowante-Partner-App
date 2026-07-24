@@ -52,6 +52,7 @@ String formatAddressSummary(dynamic rawAddress) {
   if (line2Parts.length <= 1 || !startsWithParts(line1Parts, line2Parts)) {
     push(line2, preserveInternalDuplicates: true);
   }
+  push(address['formattedAddress']);
   push(address['village']);
   push(address['district']);
   push(address['city']);

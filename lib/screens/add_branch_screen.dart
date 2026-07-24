@@ -83,6 +83,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   List<Map<String, dynamic>> _sourceBranches = const [];
   List<String> _existingImageUrls = const <String>[];
   Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
+  // The Start/End Time that was in effect when _draftWeeklySchedule was
+  // last generated — lets the schedule screen tell whether the user has
+  // since edited Start/End Time on this step, so it knows whether to keep
+  // the cached per-day hours or regenerate them from the fresh values.
+  String? _draftScheduleBaseStartTime;
+  String? _draftScheduleBaseEndTime;
   int _draftOpeningBufferMinutes = 30;
   int _draftLastBookingBufferMinutes = 30;
   int _draftLastSlotOverflowGraceMinutes = 10;
@@ -375,23 +381,6 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     return true;
   }
 
-  String _addressWithoutLeadingManualParts(
-    String address,
-    List<String> manualParts,
-  ) {
-    final addressParts = _splitAddressPartsKeepingDuplicates(address);
-    final manualPrefixParts = manualParts
-        .expand(_splitAddressPartsKeepingDuplicates)
-        .where((part) => part.trim().isNotEmpty)
-        .toList();
-
-    if (_startsWithParts(addressParts, manualPrefixParts)) {
-      addressParts.removeRange(0, manualPrefixParts.length);
-    }
-
-    return addressParts.join(', ');
-  }
-
   String _deriveStreetSectorArea(
     String completeAddress, {
     String? line2,
@@ -434,21 +423,28 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   BranchAddress? _extractInitialAddress(Map<String, dynamic> branch) {
     final address = _asStringKeyedMap(branch['address']) ?? branch;
 
-    final line2Parts = _splitAddressPartsKeepingDuplicates(
-      (address['line2'] ?? '').toString(),
-    );
-    final line1Parts = _splitAddressPartsKeepingDuplicates(
-      (address['line1'] ?? address['addressLine1'] ?? address['buildingName'])
-              ?.toString() ??
-          '',
-    );
-    final completeAddress = <String>[...line1Parts];
-    if (line2Parts.length <= 1 || !_startsWithParts(line1Parts, line2Parts)) {
-      completeAddress.addAll(line2Parts);
-    }
+    // line1 = House/Flat No, line2 = Street/Area (see BranchAddress.toJson)
+    // — the searched/current-location text lives in formattedAddress
+    // rather than being folded into line1.
+    final scoFlatHouse = _firstNonEmptyValue([address['line1']]);
+    final streetSectorArea = _firstNonEmptyValue([address['line2']]);
+    final baseAddress = _firstNonEmptyValue([
+      address['formattedAddress'],
+      address['addressLine1'],
+      address['buildingName'],
+    ]);
 
+    final completeAddress = <String>[
+      if (scoFlatHouse.isNotEmpty) scoFlatHouse,
+      if (streetSectorArea.isNotEmpty) streetSectorArea,
+    ];
     final seenAddressParts =
         completeAddress.map((part) => part.toLowerCase()).toSet();
+    for (final part in _splitAddressParts(baseAddress)) {
+      if (seenAddressParts.add(part.toLowerCase())) {
+        completeAddress.add(part);
+      }
+    }
     for (final key in const [
       'village',
       'district',
@@ -463,13 +459,6 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         }
       }
     }
-    final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
-
-    final streetSectorArea = line2Parts.length > 1
-        ? line2Parts.skip(1).join(', ')
-        : line2Parts.length == 1 && _startsWithParts(line1Parts, line2Parts)
-            ? line2Parts.first
-            : '';
 
     if (completeAddress.isEmpty &&
         scoFlatHouse.isEmpty &&
@@ -478,10 +467,6 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
 
     final completeAddressText = completeAddress.join(', ');
-    final baseAddress = _addressWithoutLeadingManualParts(completeAddressText, [
-      scoFlatHouse,
-      streetSectorArea,
-    ]);
 
     return BranchAddress(
       buildingName: baseAddress.isNotEmpty ? baseAddress : completeAddressText,
@@ -1114,12 +1099,19 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
             detailsStepLabel: 'Branch Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
-            previousBaseStartTime: _formatDisplayTime(
-              _firstNonEmptyValue([widget.initialBranch?['startTime']]),
-            ),
-            previousBaseEndTime: _formatDisplayTime(
-              _firstNonEmptyValue([widget.initialBranch?['endTime']]),
-            ),
+            // Compare against the Start/End Time that was actually in
+            // effect the last time the schedule was (re)generated, not
+            // just the originally-persisted value — otherwise a second
+            // edit to Start/End Time on a later visit goes undetected
+            // and the stale cached per-day hours silently win.
+            previousBaseStartTime: _draftScheduleBaseStartTime ??
+                _formatDisplayTime(
+                  _firstNonEmptyValue([widget.initialBranch?['startTime']]),
+                ),
+            previousBaseEndTime: _draftScheduleBaseEndTime ??
+                _formatDisplayTime(
+                  _firstNonEmptyValue([widget.initialBranch?['endTime']]),
+                ),
             initialSchedule: _draftWeeklySchedule.isNotEmpty
                 ? _draftWeeklySchedule
                 : _extractInitialSchedule(widget.initialBranch),
@@ -1141,6 +1133,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
       if (saved is ScheduleStepResult) {
         _draftWeeklySchedule = saved.schedule;
+        _draftScheduleBaseStartTime = _startTimeController.text.trim();
+        _draftScheduleBaseEndTime = _endTimeController.text.trim();
         _draftOpeningBufferMinutes = saved.openingBufferMinutes;
         _draftLastBookingBufferMinutes = saved.lastBookingBufferMinutes;
         _draftLastSlotOverflowGraceMinutes = saved.lastSlotOverflowGraceMinutes;
@@ -1175,6 +1169,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           detailsStepLabel: 'Branch Details',
           initialStartTime: _startTimeController.text.trim(),
           initialEndTime: _endTimeController.text.trim(),
+          previousBaseStartTime: _draftScheduleBaseStartTime,
+          previousBaseEndTime: _draftScheduleBaseEndTime,
           initialSchedule: _draftWeeklySchedule,
           initialOpeningBufferMinutes: _draftOpeningBufferMinutes,
           initialLastBookingBufferMinutes: _draftLastBookingBufferMinutes,
@@ -1183,6 +1179,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           totalSteps: 3,
           onContinue: (scheduleResult) async {
             _draftWeeklySchedule = scheduleResult.schedule;
+            _draftScheduleBaseStartTime = _startTimeController.text.trim();
+            _draftScheduleBaseEndTime = _endTimeController.text.trim();
             _draftOpeningBufferMinutes = scheduleResult.openingBufferMinutes;
             _draftLastBookingBufferMinutes =
                 scheduleResult.lastBookingBufferMinutes;
@@ -1229,6 +1227,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     if (draftResult != null) {
       _draftWeeklySchedule = draftResult.schedule;
+      _draftScheduleBaseStartTime = _startTimeController.text.trim();
+      _draftScheduleBaseEndTime = _endTimeController.text.trim();
       _draftOpeningBufferMinutes = draftResult.openingBufferMinutes;
       _draftLastBookingBufferMinutes = draftResult.lastBookingBufferMinutes;
       _draftLastSlotOverflowGraceMinutes =

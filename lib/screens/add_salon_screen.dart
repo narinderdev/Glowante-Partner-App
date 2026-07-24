@@ -112,6 +112,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   bool _becomeStylist = false;
   final Set<String> _removedExistingImageUrls = <String>{};
   Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
+  // The Start/End Time that was in effect when _draftWeeklySchedule was
+  // last generated — lets the schedule screen tell whether the user has
+  // since edited Start/End Time on this step, so it knows whether to keep
+  // the cached per-day hours or regenerate them from the fresh values.
+  String? _draftScheduleBaseStartTime;
+  String? _draftScheduleBaseEndTime;
   int _draftOpeningBufferMinutes = 30;
   int _draftLastBookingBufferMinutes = 30;
   int _draftLastSlotOverflowGraceMinutes = 10;
@@ -285,23 +291,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return true;
   }
 
-  String _addressWithoutLeadingManualParts(
-    String address,
-    List<String> manualParts,
-  ) {
-    final addressParts = _splitAddressPartsKeepingDuplicates(address);
-    final manualPrefixParts = manualParts
-        .expand(_splitAddressPartsKeepingDuplicates)
-        .where((part) => part.trim().isNotEmpty)
-        .toList();
-
-    if (_startsWithParts(addressParts, manualPrefixParts)) {
-      addressParts.removeRange(0, manualPrefixParts.length);
-    }
-
-    return addressParts.join(', ');
-  }
-
   String _deriveStreetSectorArea(
     String completeAddress, {
     String? line2,
@@ -329,17 +318,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   Map<String, dynamic>? _addressPayload(AddSalonAddress? address) {
     if (address == null) return null;
+    // As in createSalon(), `address.city`/`.pincode` actually hold the
+    // House/Flat No and Street/Area values, which belong in line1/line2 —
+    // the searched/current-location text goes in formattedAddress instead
+    // of being folded into line1.
+    final formattedAddress = address.buildingName.trim();
     return {
-      'line1': _composeAddressLine1(address),
-      'line2': [
-        address.city.trim(),
-        address.pincode.trim(),
-      ].where((part) => part.isNotEmpty).join(', '),
+      'line1': address.city.trim(),
+      'line2': address.pincode.trim(),
       'village': '',
       'district': '',
       'city': '',
       'state': address.state,
       'country': 'India',
+      'formattedAddress': formattedAddress.isEmpty ? null : formattedAddress,
       'postalCode': '',
     };
   }
@@ -579,19 +571,21 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     if (address == null) return null;
 
-    final line2Parts = _splitAddressPartsKeepingDuplicates(
-      (address['line2'] ?? '').toString(),
-    );
-    final line1Parts = _splitAddressPartsKeepingDuplicates(
-      (address['line1'] ?? address['addressLine1'] ?? address['buildingName'])
-              ?.toString() ??
-          '',
-    );
-    final completeAddress = <String>[...line1Parts];
-    if (line2Parts.length <= 1 || !_startsWithParts(line1Parts, line2Parts)) {
-      completeAddress.addAll(line2Parts);
-    }
+    // line1 = House/Flat No, line2 = Street/Area (see _addressPayload /
+    // createSalon) — the searched/current-location text lives in
+    // formattedAddress rather than being folded into line1.
+    final scoFlatHouse = _firstNonEmptyValue([address['line1']]);
+    final streetSectorArea = _firstNonEmptyValue([address['line2']]);
+    final baseAddress = _firstNonEmptyValue([
+      address['formattedAddress'],
+      address['addressLine1'],
+      address['buildingName'],
+    ]);
 
+    final completeAddress = <String>[
+      if (scoFlatHouse.isNotEmpty) scoFlatHouse,
+      if (streetSectorArea.isNotEmpty) streetSectorArea,
+    ];
     final seenAddressParts =
         completeAddress.map((part) => part.toLowerCase()).toSet();
 
@@ -603,6 +597,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       }
     }
 
+    addAddressParts(baseAddress);
     for (final key in const [
       'village',
       'district',
@@ -614,13 +609,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       addAddressParts(address[key]);
     }
 
-    final scoFlatHouse = line2Parts.isNotEmpty ? line2Parts.first : '';
-    final streetSectorArea = line2Parts.length > 1
-        ? line2Parts.skip(1).join(', ')
-        : line2Parts.length == 1 && _startsWithParts(line1Parts, line2Parts)
-            ? line2Parts.first
-            : '';
-
     if (completeAddress.isEmpty &&
         scoFlatHouse.isEmpty &&
         streetSectorArea.isEmpty) {
@@ -628,10 +616,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
 
     final completeAddressText = completeAddress.join(', ');
-    final baseAddress = _addressWithoutLeadingManualParts(completeAddressText, [
-      scoFlatHouse,
-      streetSectorArea,
-    ]);
 
     return AddSalonAddress(
       buildingName: baseAddress.isNotEmpty ? baseAddress : completeAddressText,
@@ -672,18 +656,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   String _composeEditableAddressText(Map<String, dynamic>? address) {
     if (address == null) return '';
 
-    final line1Parts = _splitAddressPartsKeepingDuplicates(
-      (address['line1'] ?? address['addressLine1'] ?? address['buildingName'])
-              ?.toString() ??
-          '',
-    );
-    final line2Parts = _splitAddressPartsKeepingDuplicates(
-      (address['line2'] ?? address['addressLine2'])?.toString() ?? '',
-    );
-    final parts = <String>[...line1Parts];
-    if (line2Parts.length <= 1 || !_startsWithParts(line1Parts, line2Parts)) {
-      parts.addAll(line2Parts);
-    }
+    // line1 = House/Flat No, line2 = Street/Area, formattedAddress = the
+    // searched/current-location text (see _addressPayload / createSalon).
+    final houseFlat = _firstNonEmptyValue([address['line1']]);
+    final streetArea = _firstNonEmptyValue([address['line2']]);
+    final baseAddress = _firstNonEmptyValue([
+      address['formattedAddress'],
+      address['addressLine1'],
+      address['buildingName'],
+    ]);
+
+    final parts = <String>[
+      if (houseFlat.isNotEmpty) houseFlat,
+      if (streetArea.isNotEmpty) streetArea,
+    ];
     final seenParts = parts.map((part) => part.toLowerCase()).toSet();
 
     void push(dynamic rawValue) {
@@ -694,6 +680,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       }
     }
 
+    push(baseAddress);
     for (final key in const [
       'village',
       'district',
@@ -1540,18 +1527,25 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               detailsStepLabel: 'Salon Details',
               initialStartTime: _startTimeController.text.trim(),
               initialEndTime: _endTimeController.text.trim(),
-              previousBaseStartTime: _formatDisplayTime(
-                _firstNonEmptyValue([
-                  widget.initialSalon?['startTime'],
-                  _resolvePrimaryBranch(widget.initialSalon!)?['startTime'],
-                ]),
-              ),
-              previousBaseEndTime: _formatDisplayTime(
-                _firstNonEmptyValue([
-                  widget.initialSalon?['endTime'],
-                  _resolvePrimaryBranch(widget.initialSalon!)?['endTime'],
-                ]),
-              ),
+              // Compare against the Start/End Time that was actually in
+              // effect the last time the schedule was (re)generated, not
+              // just the originally-persisted value — otherwise a second
+              // edit to Start/End Time on a later visit goes undetected
+              // and the stale cached per-day hours silently win.
+              previousBaseStartTime: _draftScheduleBaseStartTime ??
+                  _formatDisplayTime(
+                    _firstNonEmptyValue([
+                      widget.initialSalon?['startTime'],
+                      _resolvePrimaryBranch(widget.initialSalon!)?['startTime'],
+                    ]),
+                  ),
+              previousBaseEndTime: _draftScheduleBaseEndTime ??
+                  _formatDisplayTime(
+                    _firstNonEmptyValue([
+                      widget.initialSalon?['endTime'],
+                      _resolvePrimaryBranch(widget.initialSalon!)?['endTime'],
+                    ]),
+                  ),
               initialSchedule: _draftWeeklySchedule.isNotEmpty
                   ? _draftWeeklySchedule
                   : _extractInitialSchedule(widget.initialSalon),
@@ -1574,6 +1568,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
         if (saved is ScheduleStepResult) {
           _draftWeeklySchedule = saved.schedule;
+          _draftScheduleBaseStartTime = _startTimeController.text.trim();
+          _draftScheduleBaseEndTime = _endTimeController.text.trim();
           _draftOpeningBufferMinutes = saved.openingBufferMinutes;
           _draftLastBookingBufferMinutes = saved.lastBookingBufferMinutes;
           _draftLastSlotOverflowGraceMinutes =
@@ -1611,6 +1607,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             detailsStepLabel: 'Salon Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
+            previousBaseStartTime: _draftScheduleBaseStartTime,
+            previousBaseEndTime: _draftScheduleBaseEndTime,
             initialSchedule: _draftWeeklySchedule,
             initialOpeningBufferMinutes: _draftOpeningBufferMinutes,
             initialLastBookingBufferMinutes: _draftLastBookingBufferMinutes,
@@ -1619,6 +1617,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             totalSteps: 3,
             onContinue: (scheduleResult) async {
               _draftWeeklySchedule = scheduleResult.schedule;
+              _draftScheduleBaseStartTime = _startTimeController.text.trim();
+              _draftScheduleBaseEndTime = _endTimeController.text.trim();
               _draftOpeningBufferMinutes = scheduleResult.openingBufferMinutes;
               _draftLastBookingBufferMinutes =
                   scheduleResult.lastBookingBufferMinutes;
@@ -1659,6 +1659,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
       if (draftResult != null) {
         _draftWeeklySchedule = draftResult.schedule;
+        _draftScheduleBaseStartTime = _startTimeController.text.trim();
+        _draftScheduleBaseEndTime = _endTimeController.text.trim();
         _draftOpeningBufferMinutes = draftResult.openingBufferMinutes;
         _draftLastBookingBufferMinutes = draftResult.lastBookingBufferMinutes;
         _draftLastSlotOverflowGraceMinutes =

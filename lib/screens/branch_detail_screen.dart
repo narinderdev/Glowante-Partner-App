@@ -146,6 +146,30 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     return value[0].toUpperCase() + value.substring(1);
   }
 
+  // Today's actual hours from the weekly schedule, rather than the
+  // branch's overall/base start-end time — reflects a day marked closed
+  // or with hours that differ from the base range.
+  String _todayBranchTimeText() {
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final todayLabel = _capitalize(days[DateTime.now().weekday - 1]);
+    final todayRow = _scheduleRows().firstWhere(
+      (row) => row.label == todayLabel,
+      orElse: () => _DetailRowData(todayLabel, 'Closed'),
+    );
+    if (todayRow.value == 'Closed') {
+      return 'Branch is closed today';
+    }
+    return todayRow.value;
+  }
+
   String _composeAddress(dynamic source) {
     return formatAddressSummary(source);
   }
@@ -349,21 +373,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             _branch['phoneNumber'],
             _branch['contactNumber'],
           ])),
-      _DetailRowData(
-          'Start Time',
-          _formatDisplayTime(_firstText([
-            _branch['startTime'],
-            _branch['openingTime'],
-            _branch['openTime'],
-          ]))),
-      _DetailRowData(
-        'End Time',
-        _formatDisplayTime(_firstText([
-          _branch['endTime'],
-          _branch['closingTime'],
-          _branch['closeTime'],
-        ])),
-      ),
+      _DetailRowData('Branch Time', _todayBranchTimeText()),
       _DetailRowData(
           'Description',
           _firstText([
@@ -378,9 +388,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             _composeAddress(_branch),
             addressField(['line1', 'addressLine1', 'buildingName']),
           ])),
-      _DetailRowData('House / Flat', addressField(['city'])),
-      _DetailRowData(
-          'Street / Area', addressField(['postalCode', 'pincode', 'zip'])),
+      // _DetailRowData('House / Flat', addressField(['city'])),
+      // _DetailRowData(
+      //     'Street / Area', addressField(['postalCode', 'pincode', 'zip'])),
       // _DetailRowData('State', addressField(['state'])),
       // _DetailRowData(
       //     'Latitude',
@@ -396,10 +406,10 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       //       _branch['longitude'],
       //       _branch['lng'],
       //     ])),
-      _DetailRowData(
-        'Uploaded Photos',
-        _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
-      ),
+      // _DetailRowData(
+      //   'Uploaded Photos',
+      //   _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
+      // ),
     ].where((row) => row.value.isNotEmpty).toList();
   }
 
@@ -766,8 +776,7 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dotColor =
-        active ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
+    final dotColor = active ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

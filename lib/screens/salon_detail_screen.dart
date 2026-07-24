@@ -164,7 +164,8 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     }
     return mapped.first;
   }
- bool get _isBranchActive => _primaryBranch?['active'] != false;
+
+  bool get _isBranchActive => _primaryBranch?['active'] != false;
   dynamic _field(List<String> keys) {
     for (final key in keys) {
       final value = _salon[key];
@@ -399,6 +400,30 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     }).toList();
   }
 
+  // Today's actual hours from the weekly schedule, rather than the salon's
+  // overall/base start-end time — reflects a day marked closed or with
+  // hours that differ from the base range.
+  String _todaySalonTimeText() {
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final todayLabel = _capitalize(days[DateTime.now().weekday - 1]);
+    final todayRow = _scheduleRows().firstWhere(
+      (row) => row.label == todayLabel,
+      orElse: () => _DetailRowData(todayLabel, 'Closed'),
+    );
+    if (todayRow.value == 'Closed') {
+      return 'Salon is closed today';
+    }
+    return todayRow.value;
+  }
+
   String _capitalize(String value) {
     if (value.isEmpty) return value;
     return value[0].toUpperCase() + value.substring(1);
@@ -431,21 +456,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
             'phoneNumber',
             'contactNumber',
           ])),
-      _DetailRowData(
-          'Start Time',
-          _formatDisplayTime(_fieldText([
-            'startTime',
-            'openingTime',
-            'openTime',
-          ]))),
-      _DetailRowData(
-        'End Time',
-        _formatDisplayTime(_fieldText([
-          'endTime',
-          'closingTime',
-          'closeTime',
-        ])),
-      ),
+      _DetailRowData('Salon Time', _todaySalonTimeText()),
       _DetailRowData(
           'Description',
           _fieldText([
@@ -460,11 +471,11 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
             address,
             addressField(['line1', 'addressLine1', 'buildingName']),
           ])),
-      _DetailRowData('House / Flat', addressField(['city'])),
-      _DetailRowData(
-        'Street / Area',
-        addressField(['postalCode', 'pincode', 'zip']),
-      ),
+      // _DetailRowData('House / Flat', addressField(['city'])),
+      // _DetailRowData(
+      //   'Street / Area',
+      //   addressField(['postalCode', 'pincode', 'zip']),
+      // ),
       // _DetailRowData('State', addressField(['state'])),
       // _DetailRowData(
       //     'Latitude',
@@ -480,10 +491,10 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
       //       _primaryBranch?['longitude'],
       //       _salon['longitude'],
       //     ])),
-      _DetailRowData(
-        'Uploaded Photos',
-        _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
-      ),
+      // _DetailRowData(
+      //   'Uploaded Photos',
+      //   _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
+      // ),
       // _DetailRowData(
       //   'Main Branch ID',
       //   _cleanText(
@@ -520,16 +531,17 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
             children: [
-           _HeroCard(
-  title: title.isEmpty ? translateText('Salon Details') : title,
-  subtitle: translateText('Main Salon'),
-  imageUrls: imageUrls,
-  active: _salon['active'] != false,
-  // Only show a separate Branch pill when there's more than one branch —
-  // with a single branch, "Salon" and "Branch" status are the same thing.
-  branchActive:
-      _primaryBranch != null && branchCount > 1 ? _isBranchActive : null,
-),
+              _HeroCard(
+                title: title.isEmpty ? translateText('Salon Details') : title,
+                subtitle: translateText('Main Salon'),
+                imageUrls: imageUrls,
+                active: _salon['active'] != false,
+                // Only show a separate Branch pill when there's more than one branch —
+                // with a single branch, "Salon" and "Branch" status are the same thing.
+                branchActive: _primaryBranch != null && branchCount > 1
+                    ? _isBranchActive
+                    : null,
+              ),
               const SizedBox(height: 14),
               _SummaryStrip(
                 items: [
@@ -590,7 +602,7 @@ class _HeroCard extends StatelessWidget {
     required this.subtitle,
     required this.imageUrls,
     required this.active,
-     this.branchActive,
+    this.branchActive,
   });
 
   final String title;
@@ -598,7 +610,6 @@ class _HeroCard extends StatelessWidget {
   final List<String> imageUrls;
   final bool active;
   final bool? branchActive;
-  
 
   @override
   Widget build(BuildContext context) {
@@ -663,7 +674,7 @@ class _HeroCard extends StatelessWidget {
                   ),
                 ),
               ),
-            Positioned(
+              Positioned(
                 right: 14,
                 top: 14,
                 child: Row(
@@ -1245,7 +1256,6 @@ class _ExpandableChipSectionState extends State<_ExpandableChipSection> {
     );
   }
 }
-
 
 class _DotStatusPill extends StatelessWidget {
   const _DotStatusPill({required this.label, required this.active});

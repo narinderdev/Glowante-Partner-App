@@ -22,29 +22,20 @@ class BranchAddress {
   final double longitude;
 
   Map<String, dynamic> toJson() {
-    final leadingParts = [
-      city.trim(),
-      pincode.trim(),
-    ].where((part) => part.isNotEmpty).toList();
-    final leadingPartsLower =
-        leadingParts.map((part) => part.toLowerCase()).toSet();
-    final baseParts = buildingName
-        .split(',')
-        .map((part) => part.trim())
-        .where((part) =>
-            part.isNotEmpty && !leadingPartsLower.contains(part.toLowerCase()))
-        .toList();
+    // As elsewhere in this flow, `city`/`pincode` here actually carry the
+    // House/Flat No and Street/Area values — they belong in line1/line2,
+    // not the city/postal code fields. The searched/current-location text
+    // goes in formattedAddress instead of being folded into line1.
+    final formattedAddress = buildingName.trim();
     return {
-      'line1': [...leadingParts, ...baseParts].join(', '),
-      'line2': [
-        city.trim(),
-        pincode.trim(),
-      ].where((part) => part.isNotEmpty).join(', '),
+      'line1': city.trim(),
+      'line2': pincode.trim(),
       'village': '',
       'district': '',
       'city': '',
       'state': state,
       'country': 'India',
+      'formattedAddress': formattedAddress.isEmpty ? null : formattedAddress,
       'postalCode': '',
     };
   }

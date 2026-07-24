@@ -111,14 +111,20 @@ class SalonRepository {
       'imageUrls': resolvedImageUrls,
       'schedule': schedule,
       'address': {
-        'line1': completeAddress,
-        'line2': '',
+        // NOTE: despite the parameter names, `city`/`pincode` here actually
+        // carry the House/Flat No and Street/Area values entered on the Add
+        // Location screen — they belong in line1/line2, not the city/postal
+        // code fields. The searched/current-location text goes in
+        // formattedAddress instead of being crammed into line1.
+        'line1': city.trim(),
+        'line2': pincode.trim(),
         'village': '',
         'district': '',
-        'city': city.trim(),
+        'city': '',
         'state': state.trim(),
         'country': 'India',
-        'postalCode': pincode.trim(),
+        'formattedAddress': completeAddress.isEmpty ? null : completeAddress,
+        'postalCode': '',
         'latitude': latitude,
         'longitude': longitude,
       },
