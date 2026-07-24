@@ -440,11 +440,15 @@ class _TeamScreenState extends State<TeamScreen> {
     return DateTime(parsed.year, parsed.month, parsed.day);
   }
 
-  // Assigns the future that drives the team-members list and turns on the
-  // full-screen loading overlay until it settles, instead of the previous
-  // small inline spinner tied to the FutureBuilder's own waiting state.
-  void _startTeamMembersFuture(Future<List<dynamic>> future) {
-    _isLoadingTeamMembers = true;
+  // Assigns the future that drives the team-members list and, unless
+  // suppressed, turns on the full-screen loading overlay until it settles.
+  // Search typing suppresses it — that reload should feel instant, not
+  // flash a spinner on every keystroke.
+  void _startTeamMembersFuture(
+    Future<List<dynamic>> future, {
+    bool showOverlay = true,
+  }) {
+    if (showOverlay) _isLoadingTeamMembers = true;
     teamMembersFuture = future;
     future.whenComplete(() {
       if (mounted) setState(() => _isLoadingTeamMembers = false);
@@ -458,17 +462,22 @@ class _TeamScreenState extends State<TeamScreen> {
     await future;
   }
 
-  void _reloadTeamMembersForFilters() {
+  void _reloadTeamMembersForFilters({bool showOverlay = true}) {
     final branchId = selectedBranchId;
     if (branchId == null || !mounted) return;
-    setState(() => _startTeamMembersFuture(_getTeamMembersByBranch(branchId)));
+    setState(
+      () => _startTeamMembersFuture(
+        _getTeamMembersByBranch(branchId),
+        showOverlay: showOverlay,
+      ),
+    );
   }
 
   void _onTeamSearchChanged() {
     _teamSearchDebounce?.cancel();
     _teamSearchDebounce = Timer(
       const Duration(milliseconds: 350),
-      _reloadTeamMembersForFilters,
+      () => _reloadTeamMembersForFilters(showOverlay: false),
     );
   }
 
@@ -1357,7 +1366,26 @@ class _TeamScreenState extends State<TeamScreen> {
                           const SizedBox(height: 16),
                         ];
 
-                        if (teamSnapshot.hasError) {
+                        final isWaiting = teamSnapshot.connectionState ==
+                                ConnectionState.waiting ||
+                            teamSnapshot.connectionState ==
+                                ConnectionState.none;
+                        final members = (teamSnapshot.data ?? const [])
+                            .whereType<Map>()
+                            .map((item) => Map<String, dynamic>.from(item))
+                            .toList();
+
+                        if (isWaiting && members.isEmpty) {
+                          // Still fetching and nothing to show yet — never
+                          // fall through to the empty-state illustration
+                          // just because data hasn't arrived.
+                          children.add(
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.72,
+                              child: const _TeamMembersLoadingView(),
+                            ),
+                          );
+                        } else if (teamSnapshot.hasError && members.isEmpty) {
                           children.add(
                             SizedBox(
                               height: MediaQuery.of(context).size.height * 0.45,
@@ -1366,8 +1394,7 @@ class _TeamScreenState extends State<TeamScreen> {
                               ),
                             ),
                           );
-                        } else if (!teamSnapshot.hasData ||
-                            teamSnapshot.data!.isEmpty) {
+                        } else if (members.isEmpty) {
                           children.add(
                             SizedBox(
                               height: MediaQuery.of(context).size.height * 0.72,
@@ -1384,11 +1411,6 @@ class _TeamScreenState extends State<TeamScreen> {
                             ),
                           );
                         } else {
-                          final members = teamSnapshot.data!
-                              .whereType<Map>()
-                              .map((item) => Map<String, dynamic>.from(item))
-                              .toList();
-
                           children.add(
                             _TeamMembersGrid(
                               members: members,
@@ -1424,7 +1446,11 @@ class _TeamScreenState extends State<TeamScreen> {
               },
             ),
           ),
-          if (_isLoadingTeamMembers)
+          // Only overlay a refresh spinner on top of an already-visible
+          // list. When there's no existing data yet, the inline loading
+          // view rendered inside the FutureBuilder above already covers
+          // that case — showing both at once looked like two loaders.
+          if (_isLoadingTeamMembers && _hasTeamMembers)
             const Positioned.fill(child: _TeamMembersLoadingOverlay()),
         ],
       ),
