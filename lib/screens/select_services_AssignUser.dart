@@ -89,6 +89,22 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
       if (resp['success'] == true) {
         setState(() {
           categories = resp['data']?['categories'] ?? [];
+          for (final rawCategory in categories) {
+            if (rawCategory is! Map) continue;
+            final categoryId = rawCategory['id'] as int?;
+            if (categoryId != null) _expandedCategories[categoryId] = true;
+
+            final rawSubCategories = rawCategory['subCategories'];
+            if (rawSubCategories is List) {
+              for (final rawSub in rawSubCategories) {
+                if (rawSub is! Map) continue;
+                final subCategoryId = rawSub['id'] as int?;
+                if (subCategoryId != null) {
+                  _expandedSubcategories[subCategoryId] = true;
+                }
+              }
+            }
+          }
           if (selected.isEmpty) {
             for (final serviceId in _allServiceIds()) {
               selected[serviceId] = true;

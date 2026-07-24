@@ -1154,7 +1154,7 @@ class _TeamScreenState extends State<TeamScreen> {
       }
       if (labels.isNotEmpty) return labels.join(', ');
     }
-    return translateText('Staff');
+    return translateText('Not Assigned');
   }
 
   Future<void> _openEditMember(Map<String, dynamic> member) async {
@@ -2559,37 +2559,29 @@ class _TeamMemberCard extends StatelessWidget {
     return labels;
   }
 
-  bool get _isStylistLike {
-    final roles = _roleTexts;
-    if (roles.any(
-      (role) =>
-          role.contains('stylist') ||
-          role.contains('salon_worker') ||
-          role.contains('worker'),
-    )) {
-      return true;
-    }
-
-    final memberStatus = _cleanText(member['professionalStatus']).toLowerCase();
-    if (memberStatus.contains('stylist') || memberStatus.contains('worker')) {
-      return true;
-    }
-
-    final assignmentStatus =
-        _cleanText(_primaryBranchAssignment?['professionalStatus'])
-            .toLowerCase();
-    return assignmentStatus.contains('stylist') ||
-        assignmentStatus.contains('worker');
-  }
-
+  // Every field AddTeam.dart's own validators treat as compulsory
+  // (`_vPhone`, `_vFirstName`/`_vLastName`, `_vEmail`, `_vAddress`,
+  // `_vGender`, `_vRoles`, `_vSpecs`, `_vJoiningDate`, `_vBrief`,
+  // `_vExperience`) — checked here regardless of role, since these are
+  // required for any team member, not just stylists.
   List<String> get _setupMissingFields {
-    if (!_isStylistLike) return const [];
-
     final missing = <String>[];
     final firstName = _cleanText(member['firstName']);
     final lastName = _cleanText(member['lastName']);
     final email = _cleanText(member['email']);
     final assignment = _primaryBranchAssignment;
+    final phone = _cleanText(
+      assignment?['phoneNumber'] ??
+          assignment?['phone'] ??
+          member['phoneNumber'] ??
+          member['phone'],
+    );
+    final gender = _cleanText(
+      assignment?['gender'] ??
+          assignment?['sex'] ??
+          member['gender'] ??
+          member['sex'],
+    );
     final info = _cleanText(
       assignment?['info'] ??
           assignment?['brief'] ??
@@ -2622,8 +2614,17 @@ class _TeamMemberCard extends StatelessWidget {
     if (firstName.isEmpty || lastName.isEmpty) {
       missing.add('name');
     }
+    if (phone.isEmpty) {
+      missing.add('phone');
+    }
     if (email.isEmpty) {
       missing.add('email');
+    }
+    if (gender.isEmpty) {
+      missing.add('gender');
+    }
+    if (_roleTexts.isEmpty) {
+      missing.add('role');
     }
     if (experience.isEmpty) {
       missing.add('experience');
@@ -2747,35 +2748,40 @@ class _TeamMemberCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Tooltip(
                         message: _setupCompletionHint,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF3D5),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: const Color(0xFFE5C36A)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.warning_amber_rounded,
-                                size: 14,
-                                color: _teamGold,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                translateText('Setup incomplete'),
-                                style: const TextStyle(
+                        child: InkWell(
+                          onTap: _isBusy ? null : onEdit,
+                          borderRadius: BorderRadius.circular(999),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3D5),
+                              borderRadius: BorderRadius.circular(999),
+                              border:
+                                  Border.all(color: const Color(0xFFE5C36A)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 14,
                                   color: _teamGold,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.2,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Text(
+                                  translateText('Setup incomplete'),
+                                  style: const TextStyle(
+                                    color: _teamGold,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

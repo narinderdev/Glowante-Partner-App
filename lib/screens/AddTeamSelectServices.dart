@@ -106,6 +106,21 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
               .whereType<Map>()
               .map((cat) => Map<String, dynamic>.from(cat))
               .toList();
+          for (final category in _categories) {
+            final categoryId = category['id'] as int?;
+            if (categoryId != null) _expandedCategories[categoryId] = true;
+
+            final rawSubCategories = category['subCategories'];
+            if (rawSubCategories is List) {
+              for (final rawSub in rawSubCategories) {
+                if (rawSub is! Map) continue;
+                final subCategoryId = rawSub['id'] as int?;
+                if (subCategoryId != null) {
+                  _expandedSubcategories[subCategoryId] = true;
+                }
+              }
+            }
+          }
           if (_selected.isEmpty) {
             for (final serviceId in _allServiceIds()) {
               _selected[serviceId] = true;
