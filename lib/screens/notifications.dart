@@ -6,6 +6,7 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/notification_store.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -25,6 +26,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
     final items = await NotificationStore.load();
     if (!mounted) return;
     setState(() {
@@ -59,12 +63,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
         ],
       ),
-      body: RefreshIndicator(
-        color: AppColors.starColor,
-        onRefresh: () => RefreshFeedback.playAndRun(_loadNotifications),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _items.isEmpty
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: AppColors.starColor,
+            onRefresh: () => RefreshFeedback.playAndDetach(_loadNotifications),
+            child: _items.isEmpty
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
@@ -95,6 +99,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       return _NotificationCard(item: _items[index]);
                     },
                   ),
+          ),
+          if (_isLoading)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: const Color(0x99FBFAF8),
+                  child: AppLoader.page(),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

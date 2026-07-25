@@ -7,6 +7,7 @@ import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 const Color _assignServicesBackground = Color(0xFFFBFAF8);
@@ -463,9 +464,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
         ),
       ),
       body: isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.starColor),
-            )
+          ? AppLoader.page()
           : Column(
               children: [
                 Padding(

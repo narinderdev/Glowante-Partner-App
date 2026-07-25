@@ -15,6 +15,7 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class OwnerBranchClientsScreen extends StatefulWidget {
@@ -1364,13 +1365,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                               foregroundColor: Colors.white,
                             ),
                             child: isUploading
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
+                                ? AppLoader.inline(
+                                    size: 18,
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   )
                                 : Text(context.t('Upload & Import')),
                           ),
@@ -1437,13 +1435,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
           ),
         ),
         child: _isExporting
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
+            ? AppLoader.inline(
+                size: 18,
+                strokeWidth: 2,
+                color: Colors.white,
               )
             : Text(
                 context.t('Export'),
@@ -1709,455 +1704,482 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(title: context.t('Clients')),
-      body: RefreshIndicator(
-        color: AppColors.starColor,
-        onRefresh: () => RefreshFeedback.playAndRun(_loadData),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            if (_isLoadingBranches || _branchOptions.length > 1) ...[
-              _ClientsBranchSelector(
-                isLoading: _isLoadingBranches,
-                branches: _branchOptions,
-                selectedBranchId: _selectedBranchId,
-                onBranchSelected: (branch) =>
-                    _loadClientsForBranch(branch.branchId),
-              ),
-              const SizedBox(height: 18),
-            ],
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final pageTitle = _cleanText(
-                  _dashboardData?['page'] is Map
-                      ? (_dashboardData!['page'] as Map)['title']
-                      : null,
-                );
-
-                final title = Text(
-                  pageTitle.isEmpty ? context.t('Clients') : pageTitle,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: AppColors.starColor,
+            onRefresh: () => RefreshFeedback.playAndDetach(_loadData),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                if (_isLoadingBranches || _branchOptions.length > 1) ...[
+                  _ClientsBranchSelector(
+                    isLoading: _isLoadingBranches,
+                    branches: _branchOptions,
+                    selectedBranchId: _selectedBranchId,
+                    onBranchSelected: (branch) =>
+                        _loadClientsForBranch(branch.branchId),
                   ),
-                );
+                  const SizedBox(height: 18),
+                ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final pageTitle = _cleanText(
+                      _dashboardData?['page'] is Map
+                          ? (_dashboardData!['page'] as Map)['title']
+                          : null,
+                    );
 
-                final isCompact = constraints.maxWidth < 520;
-
-                if (isCompact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      title,
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: Wrap(
-                          alignment: WrapAlignment.end,
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 220),
-                              child: _buildDateRangeDropdown(),
-                            ),
-                            _buildExportButton(),
-                          ],
-                        ),
+                    final title = Text(
+                      pageTitle.isEmpty ? context.t('Clients') : pageTitle,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
                       ),
-                    ],
-                  );
-                }
+                    );
 
-                return Row(
-                  children: [
-                    Expanded(child: title),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 220),
-                      child: _buildDateRangeDropdown(),
-                    ),
-                    const SizedBox(width: 10),
-                    _buildExportButton(),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildSummaryCards(),
-            const SizedBox(height: 14),
-            _buildGrowthTrendCard(),
-            const SizedBox(height: 18),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isCompact = constraints.maxWidth < 760;
+                    final isCompact = constraints.maxWidth < 520;
 
-                final searchField = TextField(
-                  controller: _searchController,
-                  maxLength: 60,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    hintText: context.t("Search by user's name"),
-                    prefixIcon: const Icon(Icons.search),
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
-                    counterText: '',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                    ),
-                  ),
-                );
-
-                final exportButton = _buildExportButton();
-
-                if (isCompact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildCustomerManagementTitle(),
-                      const SizedBox(height: 12),
-                      Row(
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(child: searchField),
-                          const SizedBox(width: 10),
+                          title,
+                          const SizedBox(height: 12),
                           SizedBox(
-                            width: 96,
-                            child: exportButton,
+                            width: double.infinity,
+                            child: Wrap(
+                              alignment: WrapAlignment.end,
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 220),
+                                  child: _buildDateRangeDropdown(),
+                                ),
+                                _buildExportButton(),
+                              ],
+                            ),
                           ),
                         ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: title),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 220),
+                          child: _buildDateRangeDropdown(),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildExportButton(),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildSummaryCards(),
+                const SizedBox(height: 14),
+                _buildGrowthTrendCard(),
+                const SizedBox(height: 18),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 760;
+
+                    final searchField = TextField(
+                      controller: _searchController,
+                      maxLength: 60,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: context.t("Search by user's name"),
+                        prefixIcon: const Icon(Icons.search),
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.white,
+                        counterText: '',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFD1D5DB)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFD1D5DB)),
+                        ),
+                      ),
+                    );
+
+                    final exportButton = _buildExportButton();
+
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildCustomerManagementTitle(),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(child: searchField),
+                              const SizedBox(width: 10),
+                              SizedBox(
+                                width: 96,
+                                child: exportButton,
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(child: _buildCustomerManagementTitle()),
+                        SizedBox(
+                          width: 220,
+                          child: searchField,
+                        ),
+                        const SizedBox(width: 10),
+                        exportButton,
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildCustomerTabs(),
+                const SizedBox(height: 14),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x12000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
                       ),
                     ],
-                  );
-                }
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(child: _buildCustomerManagementTitle()),
-                    SizedBox(
-                      width: 220,
-                      child: searchField,
-                    ),
-                    const SizedBox(width: 10),
-                    exportButton,
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildCustomerTabs(),
-            const SizedBox(height: 14),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x12000000),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
                   ),
-                ],
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  if (_isLoadingClients) {
-                    return const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-                  if (_errorMessage != null) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(_errorMessage!),
-                    );
-                  }
-                  if (filteredClients.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(context.t('No clients found')),
-                    );
-                  }
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (_errorMessage != null && _clients.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(_errorMessage!),
+                        );
+                      }
+                      if (filteredClients.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(context.t('No clients found')),
+                        );
+                      }
 
-                  final baseFlexibleWidth = _nameColWidth +
-                      _visitsColWidth +
-                      _spendColWidth +
-                      _lastVisitColWidth +
-                      _statusColWidth +
-                      _actionColWidth;
-                  final minimumTableWidth =
-                      baseFlexibleWidth + (_tableHorizontalPadding * 2);
-                  final tableWidth = constraints.maxWidth < minimumTableWidth
-                      ? minimumTableWidth
-                      : constraints.maxWidth;
-                  final rowContentWidth =
-                      tableWidth - (_tableHorizontalPadding * 2);
-                  final extraWidth = rowContentWidth > baseFlexibleWidth
-                      ? rowContentWidth - baseFlexibleWidth
-                      : 0.0;
-                  final nameColumnWidth = _nameColWidth + (extraWidth * 0.5);
-                  final visitsColumnWidth =
-                      _visitsColWidth + (extraWidth * 0.1);
-                  final spendColumnWidth = _spendColWidth + (extraWidth * 0.1);
-                  final lastVisitColumnWidth =
-                      _lastVisitColWidth + (extraWidth * 0.15);
-                  final statusColumnWidth =
-                      _statusColWidth + (extraWidth * 0.08);
-                  final actionColumnWidth =
-                      _actionColWidth + (extraWidth * 0.07);
+                      final baseFlexibleWidth = _nameColWidth +
+                          _visitsColWidth +
+                          _spendColWidth +
+                          _lastVisitColWidth +
+                          _statusColWidth +
+                          _actionColWidth;
+                      final minimumTableWidth =
+                          baseFlexibleWidth + (_tableHorizontalPadding * 2);
+                      final tableWidth =
+                          constraints.maxWidth < minimumTableWidth
+                              ? minimumTableWidth
+                              : constraints.maxWidth;
+                      final rowContentWidth =
+                          tableWidth - (_tableHorizontalPadding * 2);
+                      final extraWidth = rowContentWidth > baseFlexibleWidth
+                          ? rowContentWidth - baseFlexibleWidth
+                          : 0.0;
+                      final nameColumnWidth =
+                          _nameColWidth + (extraWidth * 0.5);
+                      final visitsColumnWidth =
+                          _visitsColWidth + (extraWidth * 0.1);
+                      final spendColumnWidth =
+                          _spendColWidth + (extraWidth * 0.1);
+                      final lastVisitColumnWidth =
+                          _lastVisitColWidth + (extraWidth * 0.15);
+                      final statusColumnWidth =
+                          _statusColWidth + (extraWidth * 0.08);
+                      final actionColumnWidth =
+                          _actionColWidth + (extraWidth * 0.07);
 
-                  return RawScrollbar(
-                    controller: _tableHorizontalScrollController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    thickness: 4,
-                    radius: const Radius.circular(10),
-                    thumbColor: AppColors.starColor.withValues(alpha: 0.72),
-                    trackColor: const Color(0xFFFFF3D5),
-                    trackBorderColor: const Color(0xFFE8C774),
-                    scrollbarOrientation: ScrollbarOrientation.bottom,
-                    child: SingleChildScrollView(
-                      controller: _tableHorizontalScrollController,
-                      scrollDirection: Axis.horizontal,
-                      child: SizedBox(
-                        width: tableWidth,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: _tableHorizontalPadding,
-                                vertical: 12,
-                              ),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFF3F4F6),
-                                borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(14),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildClientHeaderCell(
-                                    'CUSTOMER',
-                                    nameColumnWidth,
+                      return RawScrollbar(
+                        controller: _tableHorizontalScrollController,
+                        thumbVisibility: true,
+                        trackVisibility: true,
+                        thickness: 4,
+                        radius: const Radius.circular(10),
+                        thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+                        trackColor: const Color(0xFFFFF3D5),
+                        trackBorderColor: const Color(0xFFE8C774),
+                        scrollbarOrientation: ScrollbarOrientation.bottom,
+                        child: SingleChildScrollView(
+                          controller: _tableHorizontalScrollController,
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: tableWidth,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: _tableHorizontalPadding,
+                                    vertical: 12,
                                   ),
-                                  _buildClientHeaderCell(
-                                    'TOTAL VISITS',
-                                    visitsColumnWidth,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(14),
+                                    ),
                                   ),
-                                  _buildClientHeaderCell(
-                                    'TOTAL SPEND',
-                                    spendColumnWidth,
-                                  ),
-                                  _buildClientHeaderCell(
-                                    'LAST VISIT',
-                                    lastVisitColumnWidth,
-                                  ),
-                                  _buildClientHeaderCell(
-                                    'STATUS',
-                                    statusColumnWidth,
-                                  ),
-                                  _buildClientHeaderCell(
-                                    'ACTION',
-                                    actionColumnWidth,
-                                    alignment: Alignment.centerRight,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            RawScrollbar(
-                              controller: _tableVerticalScrollController,
-                              thumbVisibility: true,
-                              trackVisibility: true,
-                              thickness: 4,
-                              radius: const Radius.circular(10),
-                              thumbColor:
-                                  AppColors.starColor.withValues(alpha: 0.72),
-                              trackColor: const Color(0xFFFFF3D5),
-                              trackBorderColor: const Color(0xFFE8C774),
-                              child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxHeight: 480),
-                                child: SingleChildScrollView(
-                                  controller: _tableVerticalScrollController,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
+                                  child: Row(
                                     children: [
-                                      ...filteredClients
-                                          .asMap()
-                                          .entries
-                                          .map((entry) {
-                                        final client = entry.value;
-                                        final name = _clientName(client);
-                                        final isActive =
-                                            _isClientActive(client);
-                                        return Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: _tableHorizontalPadding,
-                                            vertical: 14,
-                                          ),
-                                          decoration: const BoxDecoration(
-                                            border: Border(
-                                              top: BorderSide(
-                                                  color: Color(0xFFF1F5F9)),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              _buildClientBodyCell(
-                                                Row(
-                                                  children: [
-                                                    CircleAvatar(
-                                                      radius: 18,
-                                                      backgroundColor:
-                                                          const Color(
-                                                              0xFFF4E8D1),
+                                      _buildClientHeaderCell(
+                                        'CUSTOMER',
+                                        nameColumnWidth,
+                                      ),
+                                      _buildClientHeaderCell(
+                                        'TOTAL VISITS',
+                                        visitsColumnWidth,
+                                      ),
+                                      _buildClientHeaderCell(
+                                        'TOTAL SPEND',
+                                        spendColumnWidth,
+                                      ),
+                                      _buildClientHeaderCell(
+                                        'LAST VISIT',
+                                        lastVisitColumnWidth,
+                                      ),
+                                      _buildClientHeaderCell(
+                                        'STATUS',
+                                        statusColumnWidth,
+                                      ),
+                                      _buildClientHeaderCell(
+                                        'ACTION',
+                                        actionColumnWidth,
+                                        alignment: Alignment.centerRight,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                RawScrollbar(
+                                  controller: _tableVerticalScrollController,
+                                  thumbVisibility: true,
+                                  trackVisibility: true,
+                                  thickness: 4,
+                                  radius: const Radius.circular(10),
+                                  thumbColor: AppColors.starColor
+                                      .withValues(alpha: 0.72),
+                                  trackColor: const Color(0xFFFFF3D5),
+                                  trackBorderColor: const Color(0xFFE8C774),
+                                  child: ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxHeight: 480),
+                                    child: SingleChildScrollView(
+                                      controller:
+                                          _tableVerticalScrollController,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          ...filteredClients
+                                              .asMap()
+                                              .entries
+                                              .map((entry) {
+                                            final client = entry.value;
+                                            final name = _clientName(client);
+                                            final isActive =
+                                                _isClientActive(client);
+                                            return Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal:
+                                                    _tableHorizontalPadding,
+                                                vertical: 14,
+                                              ),
+                                              decoration: const BoxDecoration(
+                                                border: Border(
+                                                  top: BorderSide(
+                                                      color: Color(0xFFF1F5F9)),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  _buildClientBodyCell(
+                                                    Row(
+                                                      children: [
+                                                        CircleAvatar(
+                                                          radius: 18,
+                                                          backgroundColor:
+                                                              const Color(
+                                                                  0xFFF4E8D1),
+                                                          child: Text(
+                                                            _clientInitials(
+                                                                client),
+                                                            style:
+                                                                const TextStyle(
+                                                              color: Color(
+                                                                  0xFF8B6500),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w900,
+                                                              fontSize: 12,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 10),
+                                                        Expanded(
+                                                          child: Text(
+                                                            name,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    nameColumnWidth,
+                                                  ),
+                                                  _buildClientBodyCell(
+                                                    Text(_clientTotalVisits(
+                                                        client)),
+                                                    visitsColumnWidth,
+                                                  ),
+                                                  _buildClientBodyCell(
+                                                    Text(_clientTotalSpend(
+                                                        client)),
+                                                    spendColumnWidth,
+                                                  ),
+                                                  _buildClientBodyCell(
+                                                    Text(_clientLastVisit(
+                                                        client)),
+                                                    lastVisitColumnWidth,
+                                                  ),
+                                                  _buildClientBodyCell(
+                                                    Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 5,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: isActive
+                                                            ? const Color(
+                                                                0xFFEFFAF3)
+                                                            : const Color(
+                                                                0xFFFFEEF3),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(999),
+                                                      ),
                                                       child: Text(
-                                                        _clientInitials(client),
-                                                        style: const TextStyle(
-                                                          color:
-                                                              Color(0xFF8B6500),
+                                                        _clientStatusLabel(
+                                                            client),
+                                                        style: TextStyle(
+                                                          color: isActive
+                                                              ? const Color(
+                                                                  0xFF15803D)
+                                                              : const Color(
+                                                                  0xFFE11D48),
                                                           fontWeight:
-                                                              FontWeight.w900,
+                                                              FontWeight.w700,
                                                           fontSize: 12,
                                                         ),
                                                       ),
                                                     ),
-                                                    const SizedBox(width: 10),
-                                                    Expanded(
-                                                      child: Text(
-                                                        name,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
+                                                    statusColumnWidth,
+                                                  ),
+                                                  _buildClientBodyCell(
+                                                    OutlinedButton(
+                                                      onPressed: () =>
+                                                          _showCustomerDetailsDialog(
+                                                              client),
+                                                      style: OutlinedButton
+                                                          .styleFrom(
+                                                        foregroundColor:
+                                                            AppColors.starColor,
+                                                        side: const BorderSide(
+                                                          color: AppColors
+                                                              .starColor,
+                                                        ),
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 10,
+                                                        ),
+                                                        shape:
+                                                            RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(10),
+                                                        ),
+                                                      ),
+                                                      child: const Text(
+                                                        'View',
+                                                        style: TextStyle(
                                                           fontWeight:
                                                               FontWeight.w700,
                                                         ),
                                                       ),
                                                     ),
-                                                  ],
-                                                ),
-                                                nameColumnWidth,
-                                              ),
-                                              _buildClientBodyCell(
-                                                Text(
-                                                    _clientTotalVisits(client)),
-                                                visitsColumnWidth,
-                                              ),
-                                              _buildClientBodyCell(
-                                                Text(_clientTotalSpend(client)),
-                                                spendColumnWidth,
-                                              ),
-                                              _buildClientBodyCell(
-                                                Text(_clientLastVisit(client)),
-                                                lastVisitColumnWidth,
-                                              ),
-                                              _buildClientBodyCell(
-                                                Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 5,
+                                                    actionColumnWidth,
+                                                    alignment:
+                                                        Alignment.centerRight,
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    color: isActive
-                                                        ? const Color(
-                                                            0xFFEFFAF3)
-                                                        : const Color(
-                                                            0xFFFFEEF3),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            999),
-                                                  ),
-                                                  child: Text(
-                                                    _clientStatusLabel(client),
-                                                    style: TextStyle(
-                                                      color: isActive
-                                                          ? const Color(
-                                                              0xFF15803D)
-                                                          : const Color(
-                                                              0xFFE11D48),
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ),
-                                                statusColumnWidth,
+                                                ],
                                               ),
-                                              _buildClientBodyCell(
-                                                OutlinedButton(
-                                                  onPressed: () =>
-                                                      _showCustomerDetailsDialog(
-                                                          client),
-                                                  style:
-                                                      OutlinedButton.styleFrom(
-                                                    foregroundColor:
-                                                        AppColors.starColor,
-                                                    side: const BorderSide(
-                                                      color:
-                                                          AppColors.starColor,
-                                                    ),
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 14,
-                                                      vertical: 10,
-                                                    ),
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              10),
-                                                    ),
-                                                  ),
-                                                  child: const Text(
-                                                    'View',
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                                actionColumnWidth,
-                                                alignment:
-                                                    Alignment.centerRight,
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }),
-                                    ],
+                                            );
+                                          }),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Showing ${_cleanText(_pagination['from']).isEmpty ? 0 : _pagination['from']} to ${_cleanText(_pagination['to']).isEmpty ? filteredClients.length : _pagination['to']} of ${_cleanText(_pagination['totalRecords']).isEmpty ? filteredClients.length : _pagination['totalRecords']} results',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_isLoadingBranches || _isLoadingClients)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  child: AppLoader.page(),
+                ),
               ),
             ),
-            const SizedBox(height: 14),
-            Text(
-              'Showing ${_cleanText(_pagination['from']).isEmpty ? 0 : _pagination['from']} to ${_cleanText(_pagination['to']).isEmpty ? filteredClients.length : _pagination['to']} of ${_cleanText(_pagination['totalRecords']).isEmpty ? filteredClients.length : _pagination['totalRecords']} results',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF6B7280),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -2437,11 +2459,15 @@ class _ClientsBranchSelector extends StatelessWidget {
       }
     }
 
-    if (isLoading) {
-      return const _SharedBranchSelectorShell(
+    // Only show the loading spinner in place of the selector when there are
+    // no branch options yet. A pull-to-refresh flips isLoading back to true
+    // too, but once branches have loaded once, keep showing the selected
+    // branch instead of tearing it down mid-refresh.
+    if (isLoading && branches.isEmpty) {
+      return _SharedBranchSelectorShell(
         child: Align(
           alignment: Alignment.centerLeft,
-          child: CircularProgressIndicator(
+          child: AppLoader.inline(
             strokeWidth: 2,
             color: Color(0xFF8B6500),
           ),

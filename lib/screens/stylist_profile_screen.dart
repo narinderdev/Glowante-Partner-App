@@ -13,6 +13,8 @@ import '../utils/api_service.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/error_parser.dart';
 import '../utils/colors.dart';
+import '../utils/refresh_feedback.dart';
+import '../widgets/app_loader.dart';
 import '../services/user_role_session.dart';
 import 'stylist_about_salon_screen.dart';
 import 'stylist_reviews_screen.dart';
@@ -35,6 +37,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   String _roleLabel = '';
   String? _profilePictureUrl;
   bool _isUploadingProfilePicture = false;
+  bool _isRefreshingProfile = false;
 
   @override
   void initState() {
@@ -43,6 +46,11 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   }
 
   Future<void> _loadData() async {
+    final startedAt = DateTime.now();
+    if (mounted) {
+      setState(() => _isRefreshingProfile = true);
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final firstName =
         prefs.getString('firstName') ?? prefs.getString('first_name') ?? '';
@@ -61,11 +69,17 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       return;
     }
 
+    await RefreshFeedback.ensureMinDuration(startedAt);
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _userName = '$firstName $lastName'.trim();
       _phoneNumber = prefs.getString('phone_number') ?? '';
       _profilePictureUrl = storedProfilePicture;
       _roleLabel = storedRoleLabel;
+      _isRefreshingProfile = false;
     });
   }
 
@@ -200,13 +214,10 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                     ),
                   ),
                   child: isLoggingOut
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                      ? AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
                         )
                       : Text(confirmLogoutLabel),
                 ),
@@ -287,13 +298,10 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                     ),
                   ),
                   child: isDeleting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                      ? AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
                         )
                       : Text(confirmDeleteLabel),
                 ),
@@ -573,6 +581,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       ],
       onLogout: _showLogoutSheet,
       onDeleteAccount: _showDeleteDialog,
+      isRefreshing: _isRefreshingProfile,
     );
 
     if (!_isUploadingProfilePicture) {
@@ -639,7 +648,8 @@ class _ProfileUploadOverlay extends StatelessWidget {
               color: Color(0xFFF2E5D3),
             ),
             alignment: Alignment.center,
-            child: const CircularProgressIndicator(
+            child: AppLoader.inline(
+              size: 36,
               strokeWidth: 3,
               color: AppColors.starColor,
             ),

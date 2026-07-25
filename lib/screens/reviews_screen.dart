@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
+import '../widgets/app_loader.dart';
 
 class ReviewsScreen extends StatefulWidget {
   final int branchId;
@@ -28,91 +28,91 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   }
 
   Future<void> fetchReviews() async {
-  try {
-    final data = await ApiService.fetchBranchRatings(widget.branchId);
-    if (data["success"] == true && data["data"]?["appointments"] != null) {
-      final appointments = data["data"]["appointments"] as List;
+    try {
+      final data = await ApiService.fetchBranchRatings(widget.branchId);
+      if (data["success"] == true && data["data"]?["appointments"] != null) {
+        final appointments = data["data"]["appointments"] as List;
 
-      List<Map<String, dynamic>> apptReviews = [];
-      List<int> allRatings = []; // only branch reviews now
+        List<Map<String, dynamic>> apptReviews = [];
+        List<int> allRatings = []; // only branch reviews now
 
-      for (var appt in appointments) {
-        final start = DateTime.parse(appt["startAt"]).toUtc();
-        final end = DateTime.parse(appt["endAt"]).toUtc();
+        for (var appt in appointments) {
+          final start = DateTime.parse(appt["startAt"]).toUtc();
+          final end = DateTime.parse(appt["endAt"]).toUtc();
 
-        Map<String, dynamic> apptData = {
-          "appointmentId": appt["appointmentId"].toString(),
-          "startAt": start,
-          "endAt": end,
-          "client":
-              "${appt["client"]?["firstName"] ?? ""} ${appt["client"]?["lastName"] ?? ""}",
-          "branchReview": null,
-          "clientReview": null,
-          "professionalReviews": <Map<String, dynamic>>[],
-        };
-
-        // 🏢 Branch review (client → salon) ✅ included in overall average
-        if (appt["branchReview"] != null) {
-          final r = appt["branchReview"];
-          allRatings.add(r["rating"]); // ✅ only branch reviews counted
-          apptData["branchReview"] = {
-            "rating": r["rating"],
-            "comment": r["comment"],
-            "reviewer":
-                "${r["reviewer"]?["firstName"] ?? ""} ${r["reviewer"]?["lastName"] ?? ""}",
-            "date": DateTime.parse(r["createdAt"]).toUtc(),
+          Map<String, dynamic> apptData = {
+            "appointmentId": appt["appointmentId"].toString(),
+            "startAt": start,
+            "endAt": end,
+            "client":
+                "${appt["client"]?["firstName"] ?? ""} ${appt["client"]?["lastName"] ?? ""}",
+            "branchReview": null,
+            "clientReview": null,
+            "professionalReviews": <Map<String, dynamic>>[],
           };
-        }
 
-        // 🙍 Client review (salon → client) ❌ not counted in overall
-        if (appt["clientReview"] != null) {
-          final r = appt["clientReview"];
-          apptData["clientReview"] = {
-            "rating": r["rating"],
-            "comment": r["comment"],
-            "reviewer":
-                "${r["recordedBy"]?["firstName"] ?? ""} ${r["recordedBy"]?["lastName"] ?? ""}",
-            "target":
-                "${r["targetUser"]?["firstName"] ?? ""} ${r["targetUser"]?["lastName"] ?? ""}",
-            "date": DateTime.parse(r["createdAt"]).toUtc(),
-          };
-        }
-
-        // 👩‍🎨 Professional reviews (client → staff) ❌ not counted in overall
-        if (appt["professionalReviews"] != null) {
-          for (var r in appt["professionalReviews"]) {
-            apptData["professionalReviews"].add({
-              "professional":
-                  "${r["professional"]?["firstName"] ?? "Unknown"} ${r["professional"]?["lastName"] ?? ""}",
+          // 🏢 Branch review (client → salon) ✅ included in overall average
+          if (appt["branchReview"] != null) {
+            final r = appt["branchReview"];
+            allRatings.add(r["rating"]); // ✅ only branch reviews counted
+            apptData["branchReview"] = {
               "rating": r["rating"],
               "comment": r["comment"],
+              "reviewer":
+                  "${r["reviewer"]?["firstName"] ?? ""} ${r["reviewer"]?["lastName"] ?? ""}",
               "date": DateTime.parse(r["createdAt"]).toUtc(),
-            });
+            };
           }
+
+          // 🙍 Client review (salon → client) ❌ not counted in overall
+          if (appt["clientReview"] != null) {
+            final r = appt["clientReview"];
+            apptData["clientReview"] = {
+              "rating": r["rating"],
+              "comment": r["comment"],
+              "reviewer":
+                  "${r["recordedBy"]?["firstName"] ?? ""} ${r["recordedBy"]?["lastName"] ?? ""}",
+              "target":
+                  "${r["targetUser"]?["firstName"] ?? ""} ${r["targetUser"]?["lastName"] ?? ""}",
+              "date": DateTime.parse(r["createdAt"]).toUtc(),
+            };
+          }
+
+          // 👩‍🎨 Professional reviews (client → staff) ❌ not counted in overall
+          if (appt["professionalReviews"] != null) {
+            for (var r in appt["professionalReviews"]) {
+              apptData["professionalReviews"].add({
+                "professional":
+                    "${r["professional"]?["firstName"] ?? "Unknown"} ${r["professional"]?["lastName"] ?? ""}",
+                "rating": r["rating"],
+                "comment": r["comment"],
+                "date": DateTime.parse(r["createdAt"]).toUtc(),
+              });
+            }
+          }
+
+          apptReviews.add(apptData);
         }
 
-        apptReviews.add(apptData);
+        // ✅ Compute overall salon rating only from branch reviews
+        double avg = allRatings.isNotEmpty
+            ? allRatings.reduce((a, b) => a + b) / allRatings.length
+            : 0.0;
+
+        setState(() {
+          appointmentReviews = apptReviews;
+          totalReviews = allRatings.length;
+          overallRating = avg;
+          loading = false;
+        });
+      } else {
+        setState(() => loading = false);
       }
-
-      // ✅ Compute overall salon rating only from branch reviews
-      double avg = allRatings.isNotEmpty
-          ? allRatings.reduce((a, b) => a + b) / allRatings.length
-          : 0.0;
-
-      setState(() {
-        appointmentReviews = apptReviews;
-        totalReviews = allRatings.length;
-        overallRating = avg;
-        loading = false;
-      });
-    } else {
+    } catch (e) {
+      print("Error fetching reviews: $e");
       setState(() => loading = false);
     }
-  } catch (e) {
-    print("Error fetching reviews: $e");
-    setState(() => loading = false);
   }
-}
 
   Widget buildStars(int rating) {
     return Row(
@@ -132,7 +132,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       backgroundColor: Colors.grey[100],
       appBar: null,
       body: loading
-          ? Center(child: CircularProgressIndicator())
+          ? AppLoader.page()
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -182,23 +182,31 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                             fontSize: 16)),
                                     // Text("Appointment ID: ${appt["appointmentId"]}"),
                                     Text("Client: ${appt["client"]}"),
-                                    Text("Start: ${dateFormat.format(appt["startAt"])}"),
-                                    Text("End: ${dateFormat.format(appt["endAt"])}"),
+                                    Text(
+                                        "Start: ${dateFormat.format(appt["startAt"])}"),
+                                    Text(
+                                        "End: ${dateFormat.format(appt["endAt"])}"),
                                     SizedBox(height: 10),
 
                                     // 🏢 Branch review
                                     if (appt["branchReview"] != null) ...[
-                                      Text(translateText("🏢 Review given for you"),
+                                      Text(
+                                          translateText(
+                                              "🏢 Review given for you"),
                                           style: TextStyle(
                                               fontWeight: FontWeight.w600)),
                                       Row(
                                         children: [
-                                          buildStars(appt["branchReview"]["rating"]),
+                                          buildStars(
+                                              appt["branchReview"]["rating"]),
                                           SizedBox(width: 5),
-                                          Text("${appt["branchReview"]["rating"]}"),
+                                          Text(
+                                              "${appt["branchReview"]["rating"]}"),
                                         ],
                                       ),
-                                      if ((appt["branchReview"]["comment"] ?? "").isNotEmpty)
+                                      if ((appt["branchReview"]["comment"] ??
+                                              "")
+                                          .isNotEmpty)
                                         Text(appt["branchReview"]["comment"]),
                                       Text(
                                           "Reviewer: ${appt["branchReview"]["reviewer"]}"),
@@ -214,12 +222,16 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                               fontWeight: FontWeight.w600)),
                                       Row(
                                         children: [
-                                          buildStars(appt["clientReview"]["rating"]),
+                                          buildStars(
+                                              appt["clientReview"]["rating"]),
                                           SizedBox(width: 5),
-                                          Text("${appt["clientReview"]["rating"]}"),
+                                          Text(
+                                              "${appt["clientReview"]["rating"]}"),
                                         ],
                                       ),
-                                      if ((appt["clientReview"]["comment"] ?? "").isNotEmpty)
+                                      if ((appt["clientReview"]["comment"] ??
+                                              "")
+                                          .isNotEmpty)
                                         Text(appt["clientReview"]["comment"]),
                                       Text(
                                           "Recorded By: ${appt["clientReview"]["reviewer"]}"),
@@ -231,22 +243,26 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                     ],
 
                                     // 👩‍🎨 Professional reviews
-                                    if ((appt["professionalReviews"] as List).isNotEmpty) ...[
+                                    if ((appt["professionalReviews"] as List)
+                                        .isNotEmpty) ...[
                                       Text(translateText("Your professional"),
                                           style: TextStyle(
                                               fontWeight: FontWeight.w600)),
                                       ...(appt["professionalReviews"]
                                               as List<Map<String, dynamic>>)
                                           .map((r) => Padding(
-                                                padding: const EdgeInsets.only(top: 8),
+                                                padding: const EdgeInsets.only(
+                                                    top: 8),
                                                 child: Column(
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   children: [
-                                                    Text("Professional: ${r["professional"]}",
+                                                    Text(
+                                                        "Professional: ${r["professional"]}",
                                                         style: const TextStyle(
                                                             fontWeight:
-                                                                FontWeight.bold)),
+                                                                FontWeight
+                                                                    .bold)),
                                                     Row(
                                                       children: [
                                                         buildStars(r["rating"]),
@@ -254,7 +270,8 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                                         Text("${r["rating"]}"),
                                                       ],
                                                     ),
-                                                    if ((r["comment"] ?? "").isNotEmpty)
+                                                    if ((r["comment"] ?? "")
+                                                        .isNotEmpty)
                                                       Text(r["comment"]),
                                                     Text(
                                                         "Created At: ${dateFormat.format(r["date"])}"),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 
 /// Handles internet connectivity monitoring.
 class NetworkManager {
@@ -290,13 +291,10 @@ class _NoInternetOverlay extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: Color(0xFF8B6500),
-                ),
+              AppLoader.inline(
+                size: 28,
+                strokeWidth: 3,
+                color: const Color(0xFF8B6500),
               ),
             ],
           ),

@@ -288,10 +288,10 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
       title: context.t('Add Purchase Order'),
       onBack: widget.onBack,
       child: _isLoadingOptions
-          ? const SizedBox(
+          ? SizedBox(
               height: 160,
               child: Center(
-                child: CircularProgressIndicator(color: AppColors.starColor),
+                child: AppLoader.page(),
               ),
             )
           : Theme(
@@ -621,13 +621,10 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                       child: ElevatedButton.icon(
                         onPressed: _isSaving ? null : _submit,
                         icon: _isSaving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                            ? AppLoader.inline(
+                                size: 18,
+                                strokeWidth: 2,
+                                color: Colors.white,
                               )
                             : const Icon(Icons.check_circle_rounded, size: 18),
                         label: Text(

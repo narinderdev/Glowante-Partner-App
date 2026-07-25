@@ -90,6 +90,15 @@ class _FixedSlotOtpFieldState extends State<FixedSlotOtpField> {
     widget.onChanged(_otpValue(), _isComplete());
   }
 
+  // The only slot the user should ever be able to type into directly —
+  // right after the last filled digit (or the last slot, once all are
+  // filled). Tapping any other slot redirects here instead of letting the
+  // user jump ahead/behind and fill out of order.
+  int _activeIndex() {
+    final filled = _controllers.where((c) => c.text.isNotEmpty).length;
+    return filled.clamp(0, widget.length - 1);
+  }
+
   void _focusSlot(int index) {
     if (!widget.enabled) return;
 
@@ -237,8 +246,13 @@ class _FixedSlotOtpFieldState extends State<FixedSlotOtpField> {
                   ? TextInputAction.done
                   : TextInputAction.next,
               maxLength: 1,
-              autofillHints:
-                  index == 0 ? const [AutofillHints.oneTimeCode] : null,
+              // Explicitly empty (not null) opts every slot out of
+              // Android's autofill framework — otherwise it treats each
+              // slot as its own autofillable field and draws a suggestion
+              // icon under each one that's been filled.
+              autofillHints: const <String>[],
+              enableSuggestions: false,
+              autocorrect: false,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(1),
@@ -267,7 +281,7 @@ class _FixedSlotOtpFieldState extends State<FixedSlotOtpField> {
                 isCollapsed: true,
                 contentPadding: EdgeInsets.zero,
               ),
-              onTap: () => _focusSlot(index),
+              onTap: () => _focusSlot(_activeIndex()),
               onChanged: (value) => _handleChanged(index, value),
               onSubmitted: (_) {
                 if (index < widget.length - 1) {

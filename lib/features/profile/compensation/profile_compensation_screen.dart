@@ -13,6 +13,7 @@ import '../../../utils/refresh_feedback.dart';
 import '../../salon/widgets/owner_branch_header_selector.dart';
 import '../widgets/profile_subpage_app_bar.dart';
 import '../../../utils/colors.dart';
+import '../../../widgets/app_loader.dart';
 import 'profile_compensation_models.dart';
 import 'profile_compensation_repository.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -140,7 +141,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       _isLoadingContent || _isRefreshingContent || _isActionInProgress;
 
   bool get _shouldShowContentLoader =>
-      _isLoadingContent || _isRefreshingContent;
+      _isLoadingBranches || _isLoadingContent || _isRefreshingContent;
 
   bool _isCurrentBranch(int branchId) {
     return mounted && _selectedBranch?.branchId == branchId;
@@ -2161,15 +2162,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                     ),
                                                     child: reviewBusyAction ==
                                                             'employee_review_${employee.userId}'
-                                                        ? SizedBox(
-                                                            width: 16,
-                                                            height: 16,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                              color: AppColors
-                                                                  .starColor,
-                                                            ),
+                                                        ? AppLoader.inline(
+                                                            size: 16,
+                                                            strokeWidth: 2,
+                                                            color: AppColors
+                                                                .starColor,
                                                           )
                                                         : const Text('View'),
                                                   ),
@@ -2447,22 +2444,16 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                 foregroundColor: Colors.white,
                               ),
                               child: isDeleting
-                                  ? const Row(
+                                  ? Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
-                                          ),
+                                        AppLoader.inline(
+                                          size: 16,
+                                          strokeWidth: 2,
+                                          color: Colors.white,
                                         ),
-                                        SizedBox(width: 8),
-                                        Text('Deleting...'),
+                                        const SizedBox(width: 8),
+                                        const Text('Deleting...'),
                                       ],
                                     )
                                   : const Text('Delete'),
@@ -2899,25 +2890,21 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 foregroundColor: Colors.white,
                                               ),
                                               child: isSavingPayment
-                                                  ? const Row(
+                                                  ? Row(
                                                       mainAxisSize:
                                                           MainAxisSize.min,
                                                       children: [
-                                                        SizedBox(
-                                                          width: 16,
-                                                          height: 16,
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                            valueColor:
-                                                                AlwaysStoppedAnimation<
-                                                                    Color>(
-                                                              Colors.white,
-                                                            ),
-                                                          ),
+                                                        AppLoader.inline(
+                                                          size: 16,
+                                                          strokeWidth: 2,
+                                                          color: Colors.white,
                                                         ),
-                                                        SizedBox(width: 8),
-                                                        Text('Saving...'),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        const Text(
+                                                          'Saving...',
+                                                        ),
                                                       ],
                                                     )
                                                   : const Text('Save Payment'),
@@ -3328,16 +3315,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                 ),
                               ),
                               child: isSaving
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
-                                      ),
+                                  ? AppLoader.inline(
+                                      size: 16,
+                                      strokeWidth: 2,
+                                      color: Colors.white,
                                     )
                                   : const Text('Save'),
                             ),
@@ -3684,27 +3665,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 child: Container(
                   color: const Color(0x66FFFCF8),
                   alignment: Alignment.center,
-                  child: Container(
-                    width: 74,
-                    height: 74,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFCF8),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE8DED6)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1A000000),
-                          blurRadius: 18,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: CircularProgressIndicator(
-                      color: AppColors.starColor,
-                      strokeWidth: 3,
-                    ),
-                  ),
+                  child: AppLoader.page(),
                 ),
               ),
             ),
@@ -3770,10 +3731,13 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   Widget _buildBody() {
+    // The overlay (gated on _shouldShowContentLoader, which includes
+    // _isLoadingBranches) already covers this — returning AppLoader.page()
+    // here too would center it within just this Expanded region (below the
+    // header), a different spot than the full-screen overlay used once
+    // content starts loading, making the loader visibly jump position.
     if (_isLoadingBranches && _branchOptions.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.starColor),
-      );
+      return const SizedBox.shrink();
     }
 
     if (_branchError != null && _branchOptions.isEmpty) {
@@ -4172,13 +4136,10 @@ class _ActionChipButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isLoading)
-              SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(foregroundColor),
-                ),
+              AppLoader.inline(
+                size: 14,
+                strokeWidth: 2,
+                color: foregroundColor,
               )
             else if (icon != null) ...[
               Icon(
@@ -4480,10 +4441,7 @@ class _PayrollEmployeeCalculationScreen extends StatelessWidget {
                 child: Container(
                   color: const Color(0x55FFFCF8),
                   alignment: Alignment.center,
-                  child: CircularProgressIndicator(
-                    color: AppColors.starColor,
-                    strokeWidth: 3,
-                  ),
+                  child: AppLoader.page(),
                 ),
               ),
             ),

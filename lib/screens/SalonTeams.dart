@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import '../utils/api_service.dart';
 import '../utils/team_member_completeness.dart';
+import '../widgets/app_loader.dart';
 import 'Addteam.dart';
 import 'TeamMemberDetails.dart';
 import 'AssignUser.dart';
@@ -136,7 +137,7 @@ class _TeamScreenState extends State<TeamScreen> {
   Timer? _teamSearchDebounce;
   final Set<int> _statusUpdatingIds = {};
   final Set<int> _deletingMemberIds = {};
-  bool _isOpeningViewMember = false;
+  int? _openingViewMemberId;
   bool _isLoadingTeamMembers = false;
 
   @override
@@ -455,21 +456,28 @@ class _TeamScreenState extends State<TeamScreen> {
     });
   }
 
-  Future<void> _refreshTeamMembers() async {
+  Future<void> _refreshTeamMembers({bool showOverlay = true}) async {
     if (selectedBranchId == null || !mounted) return;
     final future = _getTeamMembersByBranch(selectedBranchId!);
-    setState(() => _startTeamMembersFuture(future));
+    setState(() => _startTeamMembersFuture(future, showOverlay: showOverlay));
     await future;
   }
 
   // Pull-to-refresh reloads everything on screen — the salon/branch list
-  // and the current branch's team members — not just the member list.
+  // and the current branch's team members — not just the member list. The
+  // loading overlay stays up for the whole thing, covering both API calls.
   Future<void> _refreshAll() async {
     if (!mounted) return;
-    final branchFuture = _getBranchOptions();
-    setState(() => branchOptionsFuture = branchFuture);
-    await branchFuture;
-    await _refreshTeamMembers();
+    setState(() => _isLoadingTeamMembers = true);
+    try {
+      final branchFuture = _getBranchOptions();
+      setState(() => branchOptionsFuture = branchFuture);
+      await branchFuture;
+      if (selectedBranchId == null) return;
+      await _refreshTeamMembers();
+    } finally {
+      if (mounted) setState(() => _isLoadingTeamMembers = false);
+    }
   }
 
   void _reloadTeamMembersForFilters({bool showOverlay = true}) {
@@ -1227,7 +1235,7 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   Future<void> _openViewMember(Map<String, dynamic> member) async {
-    if (_isOpeningViewMember) return;
+    if (_openingViewMemberId != null) return;
 
     final userId = _teamAsInt(member['id']) ?? 0;
     if (userId == 0) return;
@@ -1237,7 +1245,7 @@ class _TeamScreenState extends State<TeamScreen> {
     if (branchId == null) return;
 
     if (mounted) {
-      setState(() => _isOpeningViewMember = true);
+      setState(() => _openingViewMemberId = userId);
     }
 
     final ratingSummary =
@@ -1266,12 +1274,13 @@ class _TeamScreenState extends State<TeamScreen> {
             salons: _salons,
             professionalRating: ratingSummary.average.toDouble(),
             professionalReviewCount: ratingSummary.count,
+            branchId: branchId,
           ),
         ),
       );
     } finally {
       if (mounted) {
-        setState(() => _isOpeningViewMember = false);
+        setState(() => _openingViewMemberId = null);
       }
     }
   }
@@ -1323,11 +1332,22 @@ class _TeamScreenState extends State<TeamScreen> {
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: branchOptionsFuture,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const _TeamMembersLoadingView();
-                } else if (snapshot.hasError) {
+                final isBranchesWaiting =
+                    snapshot.connectionState == ConnectionState.waiting ||
+                        snapshot.connectionState == ConnectionState.none;
+                final branchesSoFar =
+                    snapshot.data ?? const <Map<String, dynamic>>[];
+
+                // Only fall back to the full-page loader on the very first
+                // load. A pull-to-refresh reassigns branchOptionsFuture too,
+                // but FutureBuilder keeps the previous data while it's
+                // waiting — reuse it so the list (and its RefreshIndicator)
+                // stays on screen instead of being torn down mid-refresh.
+                if (isBranchesWaiting && branchesSoFar.isEmpty) {
+                  return AppLoader.page();
+                } else if (snapshot.hasError && branchesSoFar.isEmpty) {
                   return Center(child: Text("Error: ${snapshot.error}"));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                } else if (branchesSoFar.isEmpty) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1348,14 +1368,33 @@ class _TeamScreenState extends State<TeamScreen> {
                     ],
                   );
                 } else {
-                  final branches = snapshot.data!;
+                  final branches = branchesSoFar;
 
                   return RefreshIndicator(
                     color: AppColors.starColor,
-                    onRefresh: () => RefreshFeedback.playAndRun(_refreshAll),
+                    onRefresh: () => RefreshFeedback.playAndDetach(_refreshAll),
                     child: FutureBuilder<List<dynamic>>(
                       future: teamMembersFuture,
                       builder: (context, teamSnapshot) {
+                        final isWaiting = teamSnapshot.connectionState ==
+                                ConnectionState.waiting ||
+                            teamSnapshot.connectionState ==
+                                ConnectionState.none;
+                        final members = (teamSnapshot.data ?? const [])
+                            .whereType<Map>()
+                            .map((item) => Map<String, dynamic>.from(item))
+                            .toList();
+
+                        // True first-ever load (nothing fetched yet, in
+                        // either direction): keep showing the exact same
+                        // loader, in the exact same spot, as the branch-list
+                        // phase above — don't reveal the dropdown/filters
+                        // bar until there's something to show underneath
+                        // them, or the loader visibly jumps position.
+                        if (isWaiting && members.isEmpty && !_hasTeamMembers) {
+                          return AppLoader.page();
+                        }
+
                         final children = <Widget>[
                           if (branches.length > 1) ...[
                             OwnerBranchHeaderSelector<int>(
@@ -1379,15 +1418,6 @@ class _TeamScreenState extends State<TeamScreen> {
                           const SizedBox(height: 16),
                         ];
 
-                        final isWaiting = teamSnapshot.connectionState ==
-                                ConnectionState.waiting ||
-                            teamSnapshot.connectionState ==
-                                ConnectionState.none;
-                        final members = (teamSnapshot.data ?? const [])
-                            .whereType<Map>()
-                            .map((item) => Map<String, dynamic>.from(item))
-                            .toList();
-
                         if (isWaiting && members.isEmpty) {
                           // Still fetching and nothing to show yet — never
                           // fall through to the empty-state illustration
@@ -1395,7 +1425,7 @@ class _TeamScreenState extends State<TeamScreen> {
                           children.add(
                             SizedBox(
                               height: MediaQuery.of(context).size.height * 0.72,
-                              child: const _TeamMembersLoadingView(),
+                              child: AppLoader.page(),
                             ),
                           );
                         } else if (teamSnapshot.hasError && members.isEmpty) {
@@ -1431,7 +1461,7 @@ class _TeamScreenState extends State<TeamScreen> {
                               salons: _salons,
                               statusUpdatingIds: _statusUpdatingIds,
                               deletingMemberIds: _deletingMemberIds,
-                              isViewOpening: _isOpeningViewMember,
+                              openingViewMemberId: _openingViewMemberId,
                               professionalRatings: _professionalRatings,
                               onEditMember: _openEditMember,
                               onDeleteMember: _deleteMember,
@@ -1481,55 +1511,6 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 }
 
-class _TeamMembersLoadingView extends StatelessWidget {
-  const _TeamMembersLoadingView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x14000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
-            child: const Center(
-              child: SizedBox(
-                width: 30,
-                height: 30,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppColors.starColor,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            translateText('Loading team members...'),
-            style: const TextStyle(
-              color: Color(0xFF6E6259),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TeamMembersLoadingOverlay extends StatelessWidget {
   const _TeamMembersLoadingOverlay();
 
@@ -1539,28 +1520,7 @@ class _TeamMembersLoadingOverlay extends StatelessWidget {
       child: Container(
         color: Colors.black.withValues(alpha: 0.16),
         alignment: Alignment.center,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x22000000),
-                blurRadius: 22,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: const SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              color: AppColors.starColor,
-            ),
-          ),
-        ),
+        child: AppLoader.page(),
       ),
     );
   }
@@ -1573,7 +1533,7 @@ class _TeamMembersGrid extends StatelessWidget {
     required this.salons,
     required this.statusUpdatingIds,
     required this.deletingMemberIds,
-    required this.isViewOpening,
+    required this.openingViewMemberId,
     required this.professionalRatings,
     required this.onEditMember,
     required this.onDeleteMember,
@@ -1590,7 +1550,7 @@ class _TeamMembersGrid extends StatelessWidget {
   final List<Map<String, dynamic>> salons;
   final Set<int> statusUpdatingIds;
   final Set<int> deletingMemberIds;
-  final bool isViewOpening;
+  final int? openingViewMemberId;
   final Map<int, _TeamRatingSummary> professionalRatings;
   final Future<void> Function(Map<String, dynamic> member) onEditMember;
   final Future<void> Function(int userId) onDeleteMember;
@@ -1646,7 +1606,8 @@ class _TeamMembersGrid extends StatelessWidget {
               isActive: isActive,
               isDeleting: isDeleting,
               isStatusUpdating: isStatusUpdating,
-              isViewOpening: isViewOpening,
+              isViewOpening: openingViewMemberId != null,
+              isViewLoadingThisCard: openingViewMemberId == userId,
               isDeleteBlocked: false,
               isDeactivateBlocked: false,
               canAssign: selectedBranch != null && salons.isNotEmpty,
@@ -2543,6 +2504,7 @@ class _TeamMemberCard extends StatelessWidget {
     required this.isDeleting,
     required this.isStatusUpdating,
     required this.isViewOpening,
+    required this.isViewLoadingThisCard,
     required this.isDeleteBlocked,
     required this.isDeactivateBlocked,
     required this.canAssign,
@@ -2562,6 +2524,7 @@ class _TeamMemberCard extends StatelessWidget {
   final bool isDeleting;
   final bool isStatusUpdating;
   final bool isViewOpening;
+  final bool isViewLoadingThisCard;
   final bool isDeleteBlocked;
   final bool isDeactivateBlocked;
   final bool canAssign;
@@ -2796,13 +2759,10 @@ class _TeamMemberCard extends StatelessWidget {
                     ),
                   ),
                   child: isStatusUpdating
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.starColor,
-                          ),
+                      ? AppLoader.inline(
+                          size: 16,
+                          strokeWidth: 2,
+                          color: AppColors.starColor,
                         )
                       : Text(
                           translateText(isActive ? 'Deactivate' : 'Activate')),
@@ -2858,7 +2818,13 @@ class _TeamMemberCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  child: Text(translateText('View')),
+                  child: isViewLoadingThisCard
+                      ? AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        )
+                      : Text(translateText('View')),
                 ),
               ),
               const SizedBox(width: 10),
@@ -3066,13 +3032,10 @@ class _TeamIconButton extends StatelessWidget {
             ),
           ),
           child: isLoading
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    color: actionColor,
-                    strokeWidth: 2,
-                  ),
+              ? AppLoader.inline(
+                  size: 16,
+                  strokeWidth: 2,
+                  color: actionColor,
                 )
               : Icon(icon, size: 20),
         ),

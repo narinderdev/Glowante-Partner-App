@@ -14,9 +14,11 @@ import '../utils/aws_s3_uploader.dart';
 import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
 import '../utils/colors.dart';
+import '../utils/refresh_feedback.dart';
 import 'add_bank_detail.dart';
 import 'login_screen.dart';
 import 'web_doc_screen.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -35,6 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? email;
   String? profilePictureUrl;
   bool _isUploadingProfilePicture = false;
+  bool _isRefreshingProfile = false;
 
   void _logProfile(String event, {Object? details}) {
     debugPrint(
@@ -49,8 +52,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadUserData() async {
+    final startedAt = DateTime.now();
+    if (mounted) {
+      setState(() => _isRefreshingProfile = true);
+    }
+
     final prefs = await SharedPreferences.getInstance();
 
+    if (!mounted) {
+      return;
+    }
+
+    await RefreshFeedback.ensureMinDuration(startedAt);
     if (!mounted) {
       return;
     }
@@ -74,6 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'profile_image',
         'imageUrl',
       ]);
+      _isRefreshingProfile = false;
     });
   }
 
@@ -373,13 +387,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   child: isLoggingOut
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                      ? AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
                         )
                       : Text(confirmLogoutLabel),
                 ),
@@ -470,15 +481,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   onPressed: isDeleting ? null : handleDelete,
                   child: isDeleting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
+                      ? AppLoader.inline(
+                          size: 20,
+                          strokeWidth: 2,
+                          color: Colors.white,
                         )
                       : Text(confirmDeleteLabel),
                 ),
@@ -571,6 +577,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       menuItems: menuItems,
       onLogout: () => _showLogoutModal(context),
       onDeleteAccount: () => _showDeleteAccountDialog(context),
+      isRefreshing: _isRefreshingProfile,
     );
 
     if (!_isUploadingProfilePicture) {
@@ -647,18 +654,15 @@ class _ProfileUploadOverlay extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Stack(
+            child: Stack(
               alignment: Alignment.center,
               children: [
-                SizedBox(
-                  width: 46,
-                  height: 46,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
+                AppLoader.inline(
+                  size: 46,
+                  strokeWidth: 3,
+                  color: Colors.white,
                 ),
-                Icon(
+                const Icon(
                   Icons.cloud_upload_outlined,
                   color: Colors.white,
                   size: 24,

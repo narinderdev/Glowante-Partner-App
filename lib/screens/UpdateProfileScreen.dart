@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'login_screen.dart';
 import 'stylist_bottom_nav.dart';
+import '../widgets/app_loader.dart';
 
 const Color _profileGold = Color(0xFF8B6500);
 const Color _profileGoldLight = Color(0xFFD0A244);
@@ -48,7 +49,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   String lastNameError = '';
   String emailError = '';
 
-  bool isLoading = false; // Flag to show loader while updating profile
+  bool isLoading = false;
 
   // API service instance
   final ApiService apiService = ApiService();
@@ -444,13 +445,10 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
                           ),
                         ),
                         child: isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                            ? AppLoader.inline(
+                                size: 18,
+                                strokeWidth: 2,
+                                color: Colors.white,
                               )
                             : Text(
                                 translateText('Continue').toUpperCase(),

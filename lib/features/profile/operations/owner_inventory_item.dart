@@ -243,10 +243,10 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
           : context.t('Add Inventory Item'),
       onBack: widget.onBack,
       child: _isLoadingOptions
-          ? const SizedBox(
+          ? SizedBox(
               height: 160,
               child: Center(
-                child: CircularProgressIndicator(color: AppColors.starColor),
+                child: AppLoader.page(),
               ),
             )
           : Theme(
@@ -580,13 +580,10 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                       child: ElevatedButton.icon(
                         onPressed: _isSaving ? null : _submit,
                         icon: _isSaving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                            ? AppLoader.inline(
+                                size: 18,
+                                strokeWidth: 2,
+                                color: Colors.white,
                               )
                             : const Icon(Icons.check_circle_rounded, size: 18),
                         style: ElevatedButton.styleFrom(

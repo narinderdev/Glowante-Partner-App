@@ -8,6 +8,7 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../widgets/app_loader.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -865,12 +866,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(10)),
                         ),
                         child: loadingConfirm
-                            ? SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
+                            ? AppLoader.inline(
+                                size: 18, strokeWidth: 2, color: Colors.white)
                             : Text(apptIds.length <= 1
                                 ? 'Confirm'
                                 : 'Confirm All (${apptIds.length})'),
@@ -1052,11 +1049,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 22,
                                   child: Align(
                                     alignment: Alignment.centerLeft,
-                                    child: SizedBox(
-                                        height: 22,
-                                        width: 22,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2)),
+                                    child: AppLoader.inline(
+                                        size: 22,
+                                        strokeWidth: 2,
+                                        color: Colors.blue),
                                   ),
                                 )
                               : Column(

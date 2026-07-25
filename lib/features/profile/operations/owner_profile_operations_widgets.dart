@@ -298,21 +298,7 @@ class _AsyncDetailsDialogState extends State<_AsyncDetailsDialog> {
                 return SizedBox(
                   height: 150,
                   child: Center(
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE8DED6)),
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.starColor,
-                          strokeWidth: 2.4,
-                        ),
-                      ),
-                    ),
+                    child: AppLoader.page(),
                   ),
                 );
               }

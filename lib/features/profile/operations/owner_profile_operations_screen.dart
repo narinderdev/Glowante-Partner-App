@@ -12,6 +12,7 @@ import '../../../utils/localization_helper.dart';
 import '../../../utils/price_formatter.dart';
 import '../../salon/widgets/owner_branch_header_selector.dart';
 import '../widgets/profile_subpage_app_bar.dart';
+import '../../../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 part 'owner_profile_operations_widgets.dart';
@@ -1626,9 +1627,7 @@ class _OwnerProfileOperationsScreenState
 
   Widget _buildBodyContent() {
     if (_isLoadingBranches) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.starColor),
-      );
+      return AppLoader.page();
     }
     if (_branchError != null) {
       return _ErrorStateCard(
@@ -1652,7 +1651,7 @@ class _OwnerProfileOperationsScreenState
 
     return RefreshIndicator(
       color: AppColors.starColor,
-      onRefresh: () => RefreshFeedback.playAndRun(_reloadCurrent),
+      onRefresh: () => RefreshFeedback.playAndDetach(_reloadCurrent),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -1896,12 +1895,14 @@ class _OwnerProfileOperationsScreenState
     required Widget table,
   }) {
     if (_isLoadingContent) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: CircularProgressIndicator(color: AppColors.starColor),
-        ),
-      );
+      // The full-screen Positioned.fill overlay in build() (gated on
+      // _isLoadingContent) already covers this — returning AppLoader.page()
+      // here too would center it within just this _SectionCard's sub-region
+      // (below the branch selector/tabs), a different spot than the
+      // full-screen overlay used while branches are still loading, making
+      // the loader visibly jump position the moment branches finish loading
+      // and content loading begins.
+      return const SizedBox.shrink();
     }
     if (records.isEmpty) {
       return _EmptyStateCard(message: emptyText);
@@ -1916,7 +1917,29 @@ class _OwnerProfileOperationsScreenState
       appBar: buildProfileSubpageAppBar(
         title: _screenTitle(context),
       ),
-      body: _buildBodyContent(),
+      body: Stack(
+        children: [
+          _buildBodyContent(),
+          // _isLoadingBranches (handled directly inside _buildBodyContent,
+          // which returns a bare AppLoader.page() with no header present
+          // yet) and _isLoadingContent both need to land in the same
+          // full-screen-centered spot. This overlay spans the whole Stack —
+          // the same area the bare AppLoader.page() centers within during
+          // the branches-loading phase — so the loader doesn't jump position
+          // the moment the branch selector/tabs appear and content starts
+          // loading.
+          if (_isLoadingContent)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: const Color(0x66FBF9F8),
+                  alignment: Alignment.center,
+                  child: AppLoader.page(),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

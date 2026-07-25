@@ -9,6 +9,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../widgets/app_loader.dart';
 
 // ---- UI constants ----
 const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
@@ -39,6 +40,13 @@ class _PackageScreenState extends State<PackageScreen> {
   bool loadingOffers = false;
   List<Map<String, dynamic>> offers = [];
 
+  // Drives the big AppLoader.page() overlay shown on top of the still-
+  // visible screen for the entire duration of a pull-to-refresh (which
+  // reloads the branch list, the auto-selected branch, AND its offers via
+  // `_loadSelectionAndSalons()` — no single existing flag covers that whole
+  // sequence end-to-end).
+  bool _isRefreshingScreen = false;
+
   // guard so we only auto-select once
   bool _didAutoSelect = false;
 
@@ -61,9 +69,35 @@ class _PackageScreenState extends State<PackageScreen> {
     super.dispose();
   }
 
+  // Loads the salon/branch list AND the auto-selected branch's offers as one
+  // combined step, so the FutureBuilder's single "waiting" state covers the
+  // whole initial sequence — otherwise branches finish loading, the offers
+  // fetch starts a beat later, and the screen flashes a second loader.
   Future<List<Map<String, dynamic>>> _loadSelectionAndSalons() async {
     _selection = await StylistBranchSelectionStore.load();
-    return getSalonListApi();
+    final salons = await getSalonListApi();
+
+    if (!_didAutoSelect && salons.isNotEmpty) {
+      final preferredBranchId = _selection.branchId;
+      final preferred = preferredBranchId == null
+          ? null
+          : salons.cast<Map<String, dynamic>?>().firstWhere(
+                (branch) => branch?['branchId'] == preferredBranchId,
+                orElse: () => null,
+              );
+      final first = preferred ?? salons.first;
+      _didAutoSelect = true;
+      selectedSalonId = first['branchId'] as int;
+      selectedSalon = {
+        'salonId': first['salonId'],
+        'salonName': first['salonName'],
+        'branchId': first['branchId'],
+        'branchName': first['branchName'],
+      };
+      await _fetchOffers(first['branchId'] as int);
+    }
+
+    return salons;
   }
 
   Future<List<Map<String, dynamic>>> getSalonListApi() async {
@@ -309,14 +343,20 @@ class _PackageScreenState extends State<PackageScreen> {
 
   Future<void> _refreshData() async {
     setState(() {
+      _isRefreshingScreen = true;
       _didAutoSelect = false;
       selectedSalonId = null;
       selectedSalon = null;
       offers = [];
       salonsList = _loadSelectionAndSalons();
     });
-    await salonsList;
-    if (!mounted) return;
+    try {
+      await salonsList;
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshingScreen = false);
+      }
+    }
   }
 
   Future<void> _selectSalonBranch(Map<String, dynamic> branch) async {
@@ -461,57 +501,63 @@ class _PackageScreenState extends State<PackageScreen> {
     required String message,
     bool loading = false,
   }) {
-    return Center(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: _offerBorder),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: _offerSoftGold,
-                shape: BoxShape.circle,
+    // The loader itself must look and read exactly like every other screen's
+    // loader — no bespoke card/icon/title/message — so bypass all of that
+    // and just show the shared component directly, centered on the screen's
+    // available height (not just wherever it falls in the list).
+    if (loading) {
+      return SizedBox(
+        height: MediaQuery.of(context).size.height * 0.6,
+        child: Center(child: AppLoader.page()),
+      );
+    }
+
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.6,
+      child: Center(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: _offerBorder),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: _offerSoftGold,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: _offerGold, size: 24),
               ),
-              child: loading
-                  ? const Padding(
-                      padding: EdgeInsets.all(13),
-                      child: CircularProgressIndicator(
-                        color: _offerGold,
-                        strokeWidth: 2.4,
-                      ),
-                    )
-                  : Icon(icon, color: _offerGold, size: 24),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              translateText(title),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _offerInk,
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
+              const SizedBox(height: 14),
+              Text(
+                translateText(title),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _offerInk,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              translateText(message),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _offerMuted,
-                fontSize: 12,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 6),
+              Text(
+                translateText(message),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _offerMuted,
+                  fontSize: 12,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -524,148 +570,141 @@ class _PackageScreenState extends State<PackageScreen> {
       appBar: buildProfileSubpageAppBar(
         title: translateText('Packages'),
       ),
-      body: RefreshIndicator(
-        color: _offerGold,
-        onRefresh: () => RefreshFeedback.playAndRun(_refreshData),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: salonsList,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    const SizedBox(height: 24),
-                    _statePanel(
-                      icon: Icons.inventory_2_rounded,
-                      title: 'Loading packages',
-                      message: 'Fetching branch packages.',
-                      loading: true,
-                    ),
-                  ],
-                );
-              } else if (snapshot.hasError) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    const SizedBox(height: 24),
-                    _statePanel(
-                      icon: Icons.error_outline_rounded,
-                      title: 'Unable to load packages',
-                      message: snapshot.error.toString(),
-                    ),
-                  ],
-                );
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    const SizedBox(height: 24),
-                    _statePanel(
-                      icon: Icons.storefront_rounded,
-                      title: 'No salons available',
-                      message: 'Create a salon branch before adding packages.',
-                    ),
-                  ],
-                );
-              } else {
-                final salons = snapshot.data!;
-                if (!_didAutoSelect && salons.isNotEmpty) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) async {
-                    if (!mounted) return;
-                    final preferredBranchId = _selection.branchId;
-                    final preferred = preferredBranchId == null
-                        ? null
-                        : salons.cast<Map<String, dynamic>?>().firstWhere(
-                              (branch) =>
-                                  branch?['branchId'] == preferredBranchId,
-                              orElse: () => null,
-                            );
-                    final first = preferred ?? salons.first;
-                    setState(() {
-                      _didAutoSelect = true;
-                      selectedSalonId = first['branchId'] as int;
-                      selectedSalon = {
-                        'salonId': first['salonId'],
-                        'salonName': first['salonName'],
-                        'branchId': first['branchId'],
-                        'branchName': first['branchName'],
-                      };
-                    });
-                    await _fetchOffers(first['branchId']);
-                  });
-                }
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: _offerGold,
+            onRefresh: () => RefreshFeedback.playAndDetach(_refreshData),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: salonsList,
+                builder: (context, snapshot) {
+                  final isWaiting =
+                      snapshot.connectionState == ConnectionState.waiting ||
+                          snapshot.connectionState == ConnectionState.none;
+                  final salonsSoFar = snapshot.data;
 
-                final children = <Widget>[
-                  if (salons.length > 1) ...[
-                    _buildSalonSelector(salons),
-                    const SizedBox(height: 12),
-                  ],
-                  _offersHeader(),
-                  const SizedBox(height: 12),
-                ];
-
-                if (selectedSalonId == null) {
-                  children.add(
-                    _statePanel(
-                      icon: Icons.storefront_rounded,
-                      title: 'Select a branch',
-                      message: 'Choose a branch to view packages.',
-                    ),
-                  );
-                } else if (loadingOffers) {
-                  children.add(
-                    _statePanel(
-                      icon: Icons.inventory_2_rounded,
-                      title: 'Loading packages',
-                      message: 'Fetching branch packages.',
-                      loading: true,
-                    ),
-                  );
-                } else if (offers.isEmpty) {
-                  children.add(
-                    _statePanel(
-                      icon: Icons.inventory_2_outlined,
-                      title: 'No packages available',
-                      message: 'Add a package to bundle services together.',
-                    ),
-                  );
-                } else {
-                  children.addAll(
-                    offers.map((offer) {
-                      final offerId =
-                          num.tryParse(offer['id']?.toString() ?? '0')
-                                  ?.toInt() ??
-                              0;
-                      return _OfferCard(
-                        offer: offer,
-                        rs: _rs,
-                        isDeleting: _deletingIds.contains(offerId),
-                        isStatusUpdating: _statusUpdatingIds.contains(offerId),
-                        onToggleStatus: () => _toggleOfferStatus(
-                          offerId,
-                          (offer['status']?.toString().toUpperCase() ?? '') !=
-                              'ACTIVE',
+                  // A pull-to-refresh reassigns salonsList too, but FutureBuilder
+                  // keeps the previous data while waiting — reuse it so the
+                  // already-loaded content (and the RefreshIndicator) stays on
+                  // screen instead of flashing this loading panel again.
+                  if (isWaiting &&
+                      (salonsSoFar == null || salonsSoFar.isEmpty)) {
+                    // Bare, not wrapped in _statePanel's body-relative box —
+                    // this must land in the exact same spot as the
+                    // _isRefreshingScreen overlay below, or the loader
+                    // visibly jumps position once the branch dropdown
+                    // appears.
+                    return AppLoader.page();
+                  } else if (snapshot.hasError &&
+                      (salonsSoFar == null || salonsSoFar.isEmpty)) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 24),
+                        _statePanel(
+                          icon: Icons.error_outline_rounded,
+                          title: 'Unable to load packages',
+                          message: snapshot.error.toString(),
                         ),
-                        onDelete: () =>
-                            _confirmDeleteOffer(offerId, offer['name']),
-                        onEdit: () => _editOffer(offer),
+                      ],
+                    );
+                  } else if (salonsSoFar == null || salonsSoFar.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 24),
+                        _statePanel(
+                          icon: Icons.storefront_rounded,
+                          title: 'No salons available',
+                          message:
+                              'Create a salon branch before adding packages.',
+                        ),
+                      ],
+                    );
+                  } else {
+                    final salons = salonsSoFar;
+
+                    final children = <Widget>[
+                      if (salons.length > 1) ...[
+                        _buildSalonSelector(salons),
+                        const SizedBox(height: 12),
+                      ],
+                      _offersHeader(),
+                      const SizedBox(height: 12),
+                    ];
+
+                    if (selectedSalonId == null) {
+                      children.add(
+                        _statePanel(
+                          icon: Icons.storefront_rounded,
+                          title: 'Select a branch',
+                          message: 'Choose a branch to view packages.',
+                        ),
                       );
-                    }),
-                  );
-                }
+                    } else if (loadingOffers) {
+                      // No body-relative loading panel here — the
+                      // _isRefreshingScreen overlay (which this state also
+                      // drives, see below) already shows the loader,
+                      // centered in the same spot every other loading state
+                      // on this screen uses.
+                    } else if (offers.isEmpty) {
+                      children.add(
+                        _statePanel(
+                          icon: Icons.inventory_2_outlined,
+                          title: 'No packages available',
+                          message: 'Add a package to bundle services together.',
+                        ),
+                      );
+                    } else {
+                      children.addAll(
+                        offers.map((offer) {
+                          final offerId =
+                              num.tryParse(offer['id']?.toString() ?? '0')
+                                      ?.toInt() ??
+                                  0;
+                          return _OfferCard(
+                            offer: offer,
+                            rs: _rs,
+                            isDeleting: _deletingIds.contains(offerId),
+                            isStatusUpdating:
+                                _statusUpdatingIds.contains(offerId),
+                            onToggleStatus: () => _toggleOfferStatus(
+                              offerId,
+                              (offer['status']?.toString().toUpperCase() ??
+                                      '') !=
+                                  'ACTIVE',
+                            ),
+                            onDelete: () =>
+                                _confirmDeleteOffer(offerId, offer['name']),
+                            onEdit: () => _editOffer(offer),
+                          );
+                        }),
+                      );
+                    }
 
-                children.add(const SizedBox(height: 96));
+                    children.add(const SizedBox(height: 96));
 
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: children,
-                );
-              }
-            },
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: children,
+                    );
+                  }
+                },
+              ),
+            ),
           ),
-        ),
+          if (_isRefreshingScreen || loadingOffers)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  child: AppLoader.page(),
+                ),
+              ),
+            ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'salon_packages_add_fab',
@@ -1058,70 +1097,6 @@ class _OfferCardState extends State<_OfferCard> {
                     ),
 
                   const SizedBox(height: 10),
-
-                  // --------- actions ---------
-                  // Row(
-                  //   mainAxisAlignment: MainAxisAlignment.end,
-                  //   children: [
-                  //     ElevatedButton(
-                  //       onPressed: (isDeleting || isStatusUpdating)
-                  //           ? null
-                  //           : onToggleStatus,
-                  //       style: _blackButtonStyle,
-                  //       child: isStatusUpdating
-                  //           ? const SizedBox(
-                  //               width: 16,
-                  //               height: 16,
-                  //               child: CircularProgressIndicator(
-                  //                 strokeWidth: 2,
-                  //                 color: Colors.white,
-                  //               ),
-                  //             )
-                  //           : Text(
-                  //               translateText(
-                  //                 isActive ? 'Deactivate' : 'Make Live',
-                  //               ),
-                  //               style: const TextStyle(
-                  //                 fontSize: 12,
-                  //                 fontWeight: FontWeight.w600,
-                  //               ),
-                  //             ),
-                  //     ),
-                  //     const SizedBox(width: 10),
-                  //     ElevatedButton(
-                  //       onPressed: (isDeleting || isStatusUpdating) ? null : onEdit,
-                  //       style: _blackButtonStyle,
-                  //       child: Text(
-                  //         translateText('Edit'),
-                  //         style: const TextStyle(
-                  //             fontSize: 12, fontWeight: FontWeight.w600),
-                  //       ),
-                  //     ),
-                  //     const SizedBox(width: 10),
-                  //     ElevatedButton.icon(
-                  //       onPressed:
-                  //           (isDeleting || isStatusUpdating) ? null : onDelete,
-                  //       icon: isDeleting
-                  //           ? const SizedBox(
-                  //               width: 16,
-                  //               height: 16,
-                  //               child: CircularProgressIndicator(
-                  //                 strokeWidth: 2,
-                  //                 color: Colors.white,
-                  //               ),
-                  //             )
-                  //           : const Icon(Icons.delete, size: 16),
-                  //       label: Text(
-                  //         isDeleting ? 'Deleting...' : 'Delete',
-                  //         style: const TextStyle(
-                  //           fontSize: 12,
-                  //           fontWeight: FontWeight.w600,
-                  //         ),
-                  //       ),
-                  //       style: _blackButtonStyle,
-                  //     ),
-                  //   ],
-                  // ),
                   Row(
                     children: [
                       Expanded(
@@ -1130,13 +1105,10 @@ class _OfferCardState extends State<_OfferCard> {
                               ? null
                               : onToggleStatus,
                           child: isStatusUpdating
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                              ? AppLoader.inline(
+                                  size: 16,
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 )
                               : Text(
                                   translateText(
@@ -1180,13 +1152,10 @@ class _OfferCardState extends State<_OfferCard> {
                               ? null
                               : onDelete,
                           child: isDeleting
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                              ? AppLoader.inline(
+                                  size: 14,
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 )
                               : Text(
                                   translateText('Delete'),

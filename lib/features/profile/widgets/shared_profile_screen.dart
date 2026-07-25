@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../utils/colors.dart';
+import '../../../widgets/app_loader.dart';
 
 const String _profileFontFamily = 'Manrope';
 const List<String> _profileFontFallback = ['Inter', 'sans-serif'];
@@ -68,6 +69,7 @@ class SharedProfileScreen extends StatelessWidget {
     this.profileImageUrl,
     this.onEditProfilePicture,
     this.topSections = const <Widget>[],
+    this.isRefreshing = false,
   });
 
   final String userName;
@@ -83,6 +85,7 @@ class SharedProfileScreen extends StatelessWidget {
   final String? profileImageUrl;
   final VoidCallback? onEditProfilePicture;
   final List<Widget> topSections;
+  final bool isRefreshing;
 
   @override
   Widget build(BuildContext context) {
@@ -189,13 +192,26 @@ class SharedProfileScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: onRefresh == null
-          ? listView
-          : RefreshIndicator(
-              color: AppColors.starColor,
-              onRefresh: () => RefreshFeedback.playAndRun(onRefresh!),
-              child: listView,
+      body: Stack(
+        children: [
+          onRefresh == null
+              ? listView
+              : RefreshIndicator(
+                  color: AppColors.starColor,
+                  onRefresh: () => RefreshFeedback.playAndDetach(onRefresh!),
+                  child: listView,
+                ),
+          if (isRefreshing)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: const Color(0x99FBF9F8),
+                  child: AppLoader.page(),
+                ),
+              ),
             ),
+        ],
+      ),
     );
   }
 }

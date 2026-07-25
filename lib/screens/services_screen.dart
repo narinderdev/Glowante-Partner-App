@@ -1,221 +1,10 @@
-// import 'package:flutter/material.dart';
-// import '../utils/api_service.dart';  // Make sure you have the ApiService class in a separate file
-
-// class ServicesTab extends StatefulWidget {
-//   final int branchId;
-//   const ServicesTab({Key? key, required this.branchId}) : super(key: key);
-
-//   @override
-//   State<ServicesTab> createState() => _ServicesTabState();
-// }
-
-// class _ServicesTabState extends State<ServicesTab> {
-//   bool isLoading = true;
-//   Map<String, dynamic> serviceData = {};
-//   int? selectedCategoryId;
-//   int? selectedSubCategoryId;
-//   List<dynamic> subCategories = [];
-//   List<dynamic> selectedSubCategoryServices = [];
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     fetchServices();
-//   }
-
-//   Future<void> fetchServices() async {
-//     try {
-//       final data = await ApiService().getBranchServiceDetail(widget.branchId);
-//       setState(() {
-//         serviceData = data;
-//         isLoading = false;
-//         if ((data['categories'] as List?)?.isNotEmpty ?? false) {
-//           selectedCategoryId = data['categories'][0]['id'];
-//           subCategories = data['categories'][0]['subCategories'] ?? [];
-//           if (subCategories.isNotEmpty) {
-//             selectedSubCategoryId = subCategories[0]['id'];
-//             selectedSubCategoryServices = subCategories[0]['services'] ?? [];
-//           }
-//         }
-//       });
-//     } catch (e) {
-//       setState(() => isLoading = false);
-//       debugPrint('Error: $e');
-//     }
-//   }
-// @override
-// Widget build(BuildContext context) {
-//   if (isLoading) {
-//     return Center(child: CircularProgressIndicator());
-//   }
-
-//   // Check if there are any categories
-//   final categories = (serviceData['categories'] as List?) ?? [];
-//   if (categories.isEmpty) {
-//     return Center(child: Text('No service category found'));
-//   }
-//   // Inside build method after data loaded
-// return SingleChildScrollView(
-//   padding: const EdgeInsets.only(bottom: 80),
-//   child: Column(
-//     crossAxisAlignment: CrossAxisAlignment.start,
-//     children: [
-//       // Categories
-//       Padding(
-//         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-//         child: Text('Categories',
-//             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-//       ),
-//       SizedBox(
-//         height: 50,
-//         child: ListView.separated(
-//           padding: const EdgeInsets.symmetric(horizontal: 16),
-//           scrollDirection: Axis.horizontal,
-//           itemCount: categories.length,
-//           separatorBuilder: (_, __) => SizedBox(width: 8),
-//           itemBuilder: (context, index) {
-//             final category = categories[index];
-//             final bool selected = selectedCategoryId == category['id'];
-//             return ChoiceChip(
-//               label: Text('${category['displayName']}'),
-//               selected: selected,
-//               onSelected: (_) {
-//                 setState(() {
-//                   selectedCategoryId = category['id'];
-//                   subCategories = category['subCategories'] ?? [];
-//                   if (subCategories.isNotEmpty) {
-//                     selectedSubCategoryId = subCategories[0]['id'];
-//                     selectedSubCategoryServices = subCategories[0]['services'] ?? [];
-//                   } else {
-//                     selectedSubCategoryId = null;
-//                     selectedSubCategoryServices = [];
-//                   }
-//                 });
-//               },
-//               selectedColor: Colors.orange,
-//               backgroundColor: Colors.grey.shade200,
-//               checkmarkColor: Colors.white,
-//               labelStyle: TextStyle(
-//                 color: selected ? Colors.white : Colors.black87,
-//                 fontSize: 12,
-//               ),
-//             );
-//           },
-//         ),
-//       ),
-
-//       if (subCategories.isNotEmpty) ...[
-//         Padding(
-//           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-//           child: Text('Subcategories',
-//               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-//         ),
-//         SizedBox(
-//           height: 50,
-//           child: ListView.separated(
-//             padding: const EdgeInsets.symmetric(horizontal: 16),
-//             scrollDirection: Axis.horizontal,
-//             itemCount: subCategories.length,
-//             separatorBuilder: (_, __) => SizedBox(width: 8),
-//             itemBuilder: (context, index) {
-//               final subCategory = subCategories[index];
-//               final bool selected = selectedSubCategoryId == subCategory['id'];
-//               return ChoiceChip(
-//                 label: Text('${subCategory['displayName']}'),
-//                 selected: selected,
-//                 onSelected: (_) {
-//                   setState(() {
-//                     selectedSubCategoryId = subCategory['id'];
-//                     selectedSubCategoryServices = subCategory['services'] ?? [];
-//                   });
-//                 },
-//                 selectedColor: Colors.orange,
-//                 checkmarkColor: Colors.white,
-//                 backgroundColor: Colors.grey.shade200,
-//                 labelStyle: TextStyle(
-//                   color: selected ? Colors.white : Colors.black87,
-//                   fontSize: 12,
-//                 ),
-//               );
-//             },
-//           ),
-//         ),
-//       ],
-
-//       SizedBox(height: 16),
-
-//       // Services list
-//       Padding(
-//         padding: const EdgeInsets.symmetric(horizontal: 16),
-//         child: selectedSubCategoryServices.isNotEmpty
-//             ? Column(
-//                 children: selectedSubCategoryServices.map<Widget>((service) {
-//                   return Card(
-//                     margin: const EdgeInsets.symmetric(vertical: 6),
-//                     shape: RoundedRectangleBorder(
-//                         borderRadius: BorderRadius.circular(12)),
-//                     elevation: 1,
-//                     child: Padding(
-//                       padding: const EdgeInsets.all(12.0),
-//                       child: Row(
-//                         children: [
-//                           // Name + description
-//                           Expanded(
-//                             child: Column(
-//                               crossAxisAlignment: CrossAxisAlignment.start,
-//                               children: [
-//                                 Text('${service['displayName']}',
-//                                     style: const TextStyle(
-//                                         fontSize: 14,
-//                                         fontWeight: FontWeight.bold)),
-//                                 if ((service['description'] ?? '').isNotEmpty)
-//                                   Text('${service['description']}',
-//                                       style: TextStyle(
-//                                           fontSize: 12,
-//                                           color: Colors.grey.shade600)),
-//                               ],
-//                             ),
-//                           ),
-
-//                           // Price & Duration
-//                           Column(
-//                             crossAxisAlignment: CrossAxisAlignment.end,
-//                             children: [
-//                              Text('₹${service['priceMinor']}',
-//     style: const TextStyle(
-//         fontWeight: FontWeight.bold),
-// ),
-
-//                               Text('${service['durationMin']} min',
-//                                   style: const TextStyle(
-//                                       fontSize: 12, color: Colors.grey)),
-//                             ],
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                   );
-//                 }).toList(),
-//               )
-//             : Center(
-//                 child: Padding(
-//                 padding: EdgeInsets.symmetric(vertical: 40),
-//                 child: Text('No services available'),
-//               )),
-//       ),
-//     ],
-//   ),
-// );
-//   }
-// }
-
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 import '../utils/api_service.dart'; // your ApiService (with updateBCategory, deleteBCategory, updateBSubCategory, deleteBSubCategory, updateBService, deleteBService)
+import '../widgets/app_loader.dart';
 
 class ServicesTab extends StatefulWidget {
   final int branchId;
@@ -227,7 +16,7 @@ class ServicesTab extends StatefulWidget {
 
 class _ServicesTabState extends State<ServicesTab> {
   bool isLoading = true;
-  bool _busy = false; // <-- overlay loader flag
+  bool _busy = false;
 
   Map<String, dynamic> serviceData = {};
   int? selectedCategoryId;
@@ -337,8 +126,9 @@ class _ServicesTabState extends State<ServicesTab> {
       setState(() => isLoading = false);
       debugPrint('Error: $e');
       if (mounted) {
-        Fluttertoast.showToast(msg: translateText('Failed to load services: {error}',
-                  params: {'error': e.toString()}));
+        Fluttertoast.showToast(
+            msg: translateText('Failed to load services: {error}',
+                params: {'error': e.toString()}));
       }
     }
   }
@@ -433,15 +223,17 @@ class _ServicesTabState extends State<ServicesTab> {
           serviceData['categories'] = categories;
         });
         if (mounted) {
-          Fluttertoast.showToast(msg: translateText('Updated category "{name}"',
-                    params: {'name': updatedName}));
+          Fluttertoast.showToast(
+              msg: translateText('Updated category "{name}"',
+                  params: {'name': updatedName}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(msg: translateText('Update failed: {error}',
+        Fluttertoast.showToast(
+            msg: translateText('Update failed: {error}',
                 params: {'error': e.toString()}));
       }
     }
@@ -501,15 +293,17 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          Fluttertoast.showToast(msg: translateText('Deleted "{name}"',
-                    params: {'name': current['displayName']}));
+          Fluttertoast.showToast(
+              msg: translateText('Deleted "{name}"',
+                  params: {'name': current['displayName']}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(msg: translateText('Delete failed: {error}',
+        Fluttertoast.showToast(
+            msg: translateText('Delete failed: {error}',
                 params: {'error': e.toString()}));
       }
     }
@@ -566,15 +360,17 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          Fluttertoast.showToast(msg: translateText('Deleted "{name}"',
-                    params: {'name': current['displayName']}));
+          Fluttertoast.showToast(
+              msg: translateText('Deleted "{name}"',
+                  params: {'name': current['displayName']}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(msg: translateText('Delete failed: {error}',
+        Fluttertoast.showToast(
+            msg: translateText('Delete failed: {error}',
                 params: {'error': e.toString()}));
       }
     }
@@ -667,16 +463,18 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          Fluttertoast.showToast(msg: translateText('Updated subcategory "{name}"',
-                    params: {'name': updatedName}));
+          Fluttertoast.showToast(
+              msg: translateText('Updated subcategory "{name}"',
+                  params: {'name': updatedName}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(msg: translateText('Update failed: {error}',
-                  params: {'error': e.toString()}));
+        Fluttertoast.showToast(
+            msg: translateText('Update failed: {error}',
+                params: {'error': e.toString()}));
       }
     }
   }
@@ -727,16 +525,18 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          Fluttertoast.showToast(msg: translateText('Deleted "{name}"',
-                    params: {'name': service['displayName']}));
+          Fluttertoast.showToast(
+              msg: translateText('Deleted "{name}"',
+                  params: {'name': service['displayName']}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(msg: translateText('Delete failed: {error}',
-                  params: {'error': e.toString()}));
+        Fluttertoast.showToast(
+            msg: translateText('Delete failed: {error}',
+                params: {'error': e.toString()}));
       }
     }
   }
@@ -834,7 +634,8 @@ class _ServicesTabState extends State<ServicesTab> {
                     final price = int.tryParse(priceCtrl.text.trim());
                     final dur = int.tryParse(durationCtrl.text.trim());
                     if (price == null || dur == null) {
-                      Fluttertoast.showToast(msg: translateText('Enter valid price & duration'));
+                      Fluttertoast.showToast(
+                          msg: translateText('Enter valid price & duration'));
                       return;
                     }
                     Navigator.pop(ctx, {
@@ -892,16 +693,18 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          Fluttertoast.showToast(msg: translateText('Updated "{name}"',
-                    params: {'name': updated['displayName']}));
+          Fluttertoast.showToast(
+              msg: translateText('Updated "{name}"',
+                  params: {'name': updated['displayName']}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(msg: translateText('Update failed: {error}',
-                  params: {'error': e.toString()}));
+        Fluttertoast.showToast(
+            msg: translateText('Update failed: {error}',
+                params: {'error': e.toString()}));
       }
     }
   }
@@ -912,7 +715,7 @@ class _ServicesTabState extends State<ServicesTab> {
     Widget body;
 
     if (isLoading) {
-      body = Center(child: CircularProgressIndicator());
+      body = AppLoader.page();
     } else {
       final categories = _categories;
       if (categories.isEmpty) {
@@ -1227,7 +1030,7 @@ class _ServicesTabState extends State<ServicesTab> {
               absorbing: true,
               child: Container(
                 color: Colors.black.withOpacity(0.08),
-                child: Center(child: CircularProgressIndicator()),
+                child: AppLoader.page(),
               ),
             ),
           ),

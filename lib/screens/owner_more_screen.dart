@@ -3,6 +3,7 @@ import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 import 'SalonDeal.dart';
 import 'SalonPackage.dart';
 import 'SalonTeams.dart';
@@ -24,8 +25,19 @@ class OwnerMoreScreen extends StatefulWidget {
 }
 
 class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
+  bool _isRefreshing = false;
+
   void _open(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  // This screen is a static menu — there's nothing to actually re-fetch —
+  // but pull-to-refresh should still look and feel the same as every other
+  // screen in the app, so show the shared loader for a moment too.
+  Future<void> _refresh() async {
+    if (mounted) setState(() => _isRefreshing = true);
+    await RefreshFeedback.ensureMinDuration(DateTime.now());
+    if (mounted) setState(() => _isRefreshing = false);
   }
 
   @override
@@ -91,34 +103,47 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
           ),
         ),
       ),
-      body: RefreshIndicator(
-        color: AppColors.starColor,
-        onRefresh: () => RefreshFeedback.playAndRun(() async {}),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),
-          children: [
-            _MoreHeaderCard(
-              title: context.t('Salon tools'),
-              subtitle: context.t(
-                'Manage your team, offers, packages and gallery from one place.',
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: AppColors.starColor,
+            onRefresh: () => RefreshFeedback.playAndDetach(_refresh),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),
+              children: [
+                _MoreHeaderCard(
+                  title: context.t('Salon tools'),
+                  subtitle: context.t(
+                    'Manage your team, offers, packages and gallery from one place.',
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  context.t('Quick Actions').toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                    color: _moreGold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _QuickLinksCard(items: items),
+              ],
+            ),
+          ),
+          if (_isRefreshing)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  child: AppLoader.page(),
+                ),
               ),
             ),
-            const SizedBox(height: 18),
-            Text(
-              context.t('Quick Actions').toUpperCase(),
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.2,
-                color: _moreGold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _QuickLinksCard(items: items),
-          ],
-        ),
+        ],
       ),
     );
   }

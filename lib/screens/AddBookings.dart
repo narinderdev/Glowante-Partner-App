@@ -12,6 +12,7 @@ import '../services/stylist_branch_selection.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import '../widgets/fixed_slot_otp_field.dart';
+import '../widgets/app_loader.dart';
 import 'view_all_client_owner.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -1674,13 +1675,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           shadowColor: const Color(0x338B6500),
                         ),
                         child: isVerifying
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                            ? AppLoader.inline(
+                                size: 18,
+                                strokeWidth: 2,
+                                color: Colors.white,
                               )
                             : Text(
                                 translateText('Verify & Continue')
@@ -2011,13 +2009,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                     const EdgeInsets.symmetric(vertical: 13),
                               ),
                               child: isSubmitting
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
+                                  ? AppLoader.inline(
+                                      size: 18,
+                                      strokeWidth: 2,
+                                      color: Colors.white,
                                     )
                                   : Text(
                                       translateText('Continue').toUpperCase(),
@@ -2260,12 +2255,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       const SizedBox(height: 8),
                       Expanded(
                         child: isLoadingClients
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                  color: _bookingGold,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
+                            ? AppLoader.page()
                             : clientsError != null
                                 ? Center(
                                     child: Text(
@@ -2658,13 +2648,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 if (isSubmitting)
-                                  const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: Colors.white,
-                                    ),
+                                  AppLoader.inline(
+                                    size: 18,
+                                    strokeWidth: 2.2,
+                                    color: Colors.white,
                                   )
                                 else ...[
                                   Text(
@@ -3761,8 +3748,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     setState(() {
       _isOpeningSchedule = true;
     });
-
-    // Allow Flutter to draw the loader before starting API work.
     await WidgetsBinding.instance.endOfFrame;
 
     try {
@@ -4093,12 +4078,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 color: Color(0x55000000),
               ),
             ),
-            const Positioned.fill(
+            Positioned.fill(
               child: Center(
-                child: CircularProgressIndicator(
-                  color: _bookingGold,
-                  strokeWidth: 3,
-                ),
+                child: AppLoader.page(),
               ),
             ),
           ],
@@ -4295,9 +4277,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 shape: BoxShape.circle,
               ),
               child: _loadingCart
-                  ? const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: CircularProgressIndicator(
+                  ? Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: AppLoader.inline(
+                        size: 18,
                         strokeWidth: 2.2,
                         color: _bookingGold,
                       ),
@@ -4572,13 +4555,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           child: Padding(
             padding: const EdgeInsets.all(5),
             child: isDeleting
-                ? const SizedBox(
-                    width: 17,
-                    height: 17,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: _bookingGold,
-                    ),
+                ? AppLoader.inline(
+                    size: 17,
+                    strokeWidth: 2,
+                    color: _bookingGold,
                   )
                 : const Icon(
                     Icons.close_rounded,
@@ -4751,13 +4731,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 ),
               ),
               child: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+                  ? AppLoader.inline(
+                      size: 20,
+                      strokeWidth: 2,
+                      color: Colors.white,
                     )
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -6778,7 +6755,6 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                   else ...[
                     _selectedServicesTeamSection(),
                     const SizedBox(height: 24),
-
                     Row(
                       children: [
                         Text(
@@ -6808,53 +6784,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                         ],
                       ],
                     ),
-
                     const SizedBox(height: 12),
-                    // if (_loadingAppointments)
-                    //   Container(
-                    //     width: double.infinity,
-                    //     padding: const EdgeInsets.symmetric(vertical: 24),
-                    //     decoration: BoxDecoration(
-                    //       color: Colors.white,
-                    //       borderRadius: BorderRadius.circular(9),
-                    //       border: Border.all(color: _bookingBorder),
-                    //     ),
-                    //     child: const Center(
-                    //       child: SizedBox(
-                    //         width: 22,
-                    //         height: 22,
-                    //         child: CircularProgressIndicator(
-                    //           color: _bookingGold,
-                    //           strokeWidth: 2,
-                    //         ),
-                    //       ),
-                    //     ),
-                    //   )
-                    // else if (slots.isEmpty)
-                    //   Container(
-                    //     width: double.infinity,
-                    //     padding:
-                    //         const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-                    //     decoration: BoxDecoration(
-                    //       color: Colors.white,
-                    //       borderRadius: BorderRadius.circular(9),
-                    //       border: Border.all(color: _bookingBorder),
-                    //     ),
-                    //     child: Text(
-                    //       translateText(
-                    //         'No available slots for the selected date and artisan.',
-                    //       ),
-                    //       textAlign: TextAlign.center,
-                    //       style: const TextStyle(
-                    //         color: _bookingMuted,
-                    //         fontSize: 12,
-                    //         fontWeight: FontWeight.w700,
-                    //         height: 1.4,
-                    //       ),
-                    //     ),
-                    //   )
-                    // else
-                    //   LayoutBuilder(
                     if (!hasTeamMemberSelections)
                       Container(
                         width: double.infinity,
@@ -7120,16 +7050,13 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
           ),
         ),
         if (_loadingAppointments)
-          const Positioned.fill(
+          Positioned.fill(
             child: Material(
-              color: Color(0x66000000),
+              color: const Color(0x66000000),
               child: AbsorbPointer(
                 absorbing: true,
                 child: Center(
-                  child: CircularProgressIndicator(
-                    color: _bookingGold,
-                    strokeWidth: 3,
-                  ),
+                  child: AppLoader.page(),
                 ),
               ),
             ),
@@ -7345,13 +7272,10 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
                     child: ElevatedButton.icon(
                       onPressed: _submitting ? null : _handleConfirmBooking,
                       icon: _submitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
+                          ? AppLoader.inline(
+                              size: 18,
+                              strokeWidth: 2,
+                              color: Colors.white,
                             )
                           : const Icon(
                               Icons.check_circle_rounded,
@@ -7379,16 +7303,13 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
           ),
         ),
         if (_submitting)
-          const Positioned.fill(
+          Positioned.fill(
             child: Material(
-              color: Color(0x66000000),
+              color: const Color(0x66000000),
               child: AbsorbPointer(
                 absorbing: true,
                 child: Center(
-                  child: CircularProgressIndicator(
-                    color: _bookingGold,
-                    strokeWidth: 3,
-                  ),
+                  child: AppLoader.page(),
                 ),
               ),
             ),

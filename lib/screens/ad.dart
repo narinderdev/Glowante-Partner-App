@@ -11,7 +11,7 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
+import '../widgets/app_loader.dart';
 
 class AdScreen extends StatefulWidget {
   const AdScreen({super.key});
@@ -404,11 +404,10 @@ class _AdScreenState extends State<AdScreen> {
                         padding: EdgeInsets.zero,
                       ),
                       child: _isExporting
-                          ? const SizedBox(
-                              width: 12,
-                              height: 12,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 1.5),
+                          ? AppLoader.inline(
+                              size: 12,
+                              strokeWidth: 1.5,
+                              color: _darkBrown,
                             )
                           : const Text(
                               'S H A R E',
@@ -436,11 +435,10 @@ class _AdScreenState extends State<AdScreen> {
                         padding: EdgeInsets.zero,
                       ),
                       child: _isExporting
-                          ? const SizedBox(
-                              width: 12,
-                              height: 12,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 1.5),
+                          ? AppLoader.inline(
+                              size: 12,
+                              strokeWidth: 1.5,
+                              color: const Color(0xFFD4A23E),
                             )
                           : const Text(
                               'D O W N L O A D   P D F',

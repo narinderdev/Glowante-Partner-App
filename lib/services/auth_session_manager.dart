@@ -59,6 +59,21 @@ class AuthSessionManager {
     _onLogout = callback;
   }
 
+  /// Clears leftover auth/session data from a previous, possibly
+  /// incomplete login attempt (e.g. a user who verified OTP once, never
+  /// finished profile setup, and came back to log in again with a
+  /// different or the same number). Unlike [forceLogout], this doesn't
+  /// run the logout callback or trigger any navigation — it's meant to be
+  /// called silently right as a brand-new login/OTP attempt starts, so
+  /// that if the app is killed before *this* attempt's OTP is verified,
+  /// the next cold start doesn't find a stale token from the old session
+  /// and skip straight past Login/OTP into profile setup.
+  Future<void> clearStaleSessionForNewLogin() async {
+    if (_isLoggingOut) return;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await _clearAuthPreferences(prefs);
+  }
+
   /// Forces the application to log out the current user.
   Future<void> forceLogout({String? reason}) async {
     if (_isLoggingOut) {

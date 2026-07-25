@@ -11,6 +11,7 @@ import '../utils/colors.dart';
 import '../services/language_listener.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../widgets/app_loader.dart';
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({
@@ -999,53 +1000,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       child: AbsorbPointer(
         child: Container(
           color: Colors.black.withValues(alpha: 0.28),
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 22,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    width: 30,
-                    height: 30,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: _gold,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    translateText('Please wait...'),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: _ink,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    translateText('Fetching current location'),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          child: AppLoader.page(),
         ),
       ),
     );

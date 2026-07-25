@@ -6,6 +6,7 @@ import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 
 class BranchDetailScreen extends StatefulWidget {
   const BranchDetailScreen({
@@ -437,7 +438,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
           ),
         ),
         child: RefreshIndicator(
-          onRefresh: () => RefreshFeedback.playAndRun(_loadDetails),
+          onRefresh: () => RefreshFeedback.playAndDetach(_loadDetails),
           color: AppColors.starColor,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -461,7 +462,10 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               ),
               if (_isLoading) ...[
                 const SizedBox(height: 16),
-                const Center(child: CircularProgressIndicator()),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.55,
+                  child: Center(child: AppLoader.page()),
+                ),
               ],
               if (_error != null) ...[
                 const SizedBox(height: 12),

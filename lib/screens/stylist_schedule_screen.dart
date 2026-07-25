@@ -6,6 +6,7 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/language_listener.dart';
 import '../services/user_role_session.dart';
 import '../utils/colors.dart';
+import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class StylistScheduleScreen extends StatefulWidget {
@@ -26,6 +27,9 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
   }
 
   Future<void> _loadSchedules() async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
     final userBranches = await UserRoleSession.instance.loadUserBranches();
     if (!mounted) return;
     setState(() {
@@ -102,106 +106,114 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(title: context.t('Schedule')),
-      body: RefreshIndicator(
-        onRefresh: () => RefreshFeedback.playAndRun(_loadSchedules),
-        color: AppColors.starColor,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.only(top: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_branches.isEmpty)
-              _ScheduleEmptyState(message: context.t('No schedules found'))
-            else
-              ..._branches.map((entry) {
-                final schedules = _scheduleItems(entry);
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x12000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
-                        child: Text(
-                          _branchLabel(entry),
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () => RefreshFeedback.playAndDetach(_loadSchedules),
+            color: AppColors.starColor,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                if (_branches.isEmpty && !_isLoading)
+                  _ScheduleEmptyState(message: context.t('No schedules found'))
+                else
+                  ..._branches.map((entry) {
+                    final schedules = _scheduleItems(entry);
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x12000000),
+                            blurRadius: 18,
+                            offset: Offset(0, 10),
                           ),
-                        ),
+                        ],
                       ),
-                      if (schedules.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                          child: Text(
-                            context.t('No schedules found'),
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                        )
-                      else
-                        ...List.generate(schedules.length, (index) {
-                          final schedule = schedules[index];
-                          final day =
-                              _formatDay((schedule['day'] ?? '').toString());
-                          final startTime = _formatTime(
-                            (schedule['startTime'] ?? '').toString(),
-                          );
-                          final endTime = _formatTime(
-                            (schedule['endTime'] ?? '').toString(),
-                          );
-
-                          return Column(
-                            children: [
-                              if (index > 0) const Divider(height: 1),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 14,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        day,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      '$startTime - $endTime',
-                                      style: const TextStyle(
-                                        color: Colors.black87,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+                            child: Text(
+                              _branchLabel(entry),
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
                               ),
-                            ],
-                          );
-                        }),
-                    ],
-                  ),
-                );
-              }),
-          ],
-        ),
+                            ),
+                          ),
+                          if (schedules.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                              child: Text(
+                                context.t('No schedules found'),
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            )
+                          else
+                            ...List.generate(schedules.length, (index) {
+                              final schedule = schedules[index];
+                              final day = _formatDay(
+                                  (schedule['day'] ?? '').toString());
+                              final startTime = _formatTime(
+                                (schedule['startTime'] ?? '').toString(),
+                              );
+                              final endTime = _formatTime(
+                                (schedule['endTime'] ?? '').toString(),
+                              );
+
+                              return Column(
+                                children: [
+                                  if (index > 0) const Divider(height: 1),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 14,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            day,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '$startTime - $endTime',
+                                          style: const TextStyle(
+                                            color: Colors.black87,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+          if (_isLoading)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: const Color(0x99FBF9F8),
+                  child: AppLoader.page(),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

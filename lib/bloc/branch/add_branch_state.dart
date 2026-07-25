@@ -48,6 +48,7 @@ class AddBranchState {
     this.images = const <File>[],
     this.savedPhone,
     this.errorMessage,
+    this.selectedServiceCodes = const <String>[],
     this.createdBranchResponse,
   });
 
@@ -56,6 +57,7 @@ class AddBranchState {
   final List<File> images;
   final String? savedPhone;
   final String? errorMessage;
+  final List<String> selectedServiceCodes;
   final Map<String, dynamic>? createdBranchResponse;
 
   bool get isSubmitting => status == BranchFormStatus.submitting;
@@ -70,6 +72,8 @@ class AddBranchState {
     Object? savedPhone = _noBranchPhoneValue,
     String? errorMessage,
     bool clearError = false,
+    List<String>? selectedServiceCodes,
+    bool clearSelectedServiceCodes = false,
     Map<String, dynamic>? createdBranchResponse,
     bool clearCreatedBranchResponse = false,
   }) {
@@ -81,6 +85,9 @@ class AddBranchState {
           ? this.savedPhone
           : savedPhone as String?,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      selectedServiceCodes: clearSelectedServiceCodes
+          ? const <String>[]
+          : (selectedServiceCodes ?? this.selectedServiceCodes),
       createdBranchResponse: clearCreatedBranchResponse
           ? null
           : (createdBranchResponse ?? this.createdBranchResponse),

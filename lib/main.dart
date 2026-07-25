@@ -29,7 +29,6 @@ import 'services/token_expiration_service.dart';
 import 'screens/login_screen.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 Future<void> main() async {
   await runZonedGuarded<Future<void>>(() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -85,7 +84,8 @@ Future<void> main() async {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             final BuildContext? newContext = appNavigatorKey.currentContext;
             if (newContext != null && newContext.mounted) {
-              Fluttertoast.showToast(msg: 'Session expired. Please sign in again.');
+              Fluttertoast.showToast(
+                  msg: 'Session expired. Please sign in again.');
             }
           });
         }

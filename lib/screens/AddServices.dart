@@ -10,6 +10,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/error_parser.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../widgets/app_loader.dart';
 
 const Color _serviceGold = Color(0xFF8B6500);
 const Color _serviceGoldLight = Color(0xFFD0A244);
@@ -67,6 +68,7 @@ class FirstLetterUpperFormatter extends TextInputFormatter {
 
 class _AddServicesState extends State<AddServices> {
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
   bool _isLoading = false;
   bool _autoValidate = false;
 
@@ -82,6 +84,16 @@ class _AddServicesState extends State<AddServices> {
   String? selectedCategoryKey;
   String? selectedCategoryType;
   Map<String, dynamic>? selectedService;
+
+  // "Service Type" — a separate, global classification from the
+  // /service-catalog master list (distinct from the salon's own custom
+  // Category/Subcategory above). Required, and — like Category/Subcategory
+  // — locked once a service exists, only settable when first adding one.
+  // The dropdown lets the user pick a specific subcategory, but only the
+  // parent category's `code` (e.g. "men_grooming") is sent to the API —
+  // subcategories in /service-catalog don't have a `code` of their own.
+  String? _selectedServiceTypeKey; // 'cat:<id>' or 'sub:<id>' — dropdown value
+  String? _selectedServiceTypeCode; // parent category code sent to the API
   bool _commissionEnabled = false;
   String _commissionType = 'percentage';
   bool _passiveWaitEnabled = _defaultPassiveWaitEnabled;
@@ -215,7 +227,8 @@ class _AddServicesState extends State<AddServices> {
     if (_isEditMode) {
       _populateServiceForEdit(widget.serviceToEdit!);
       _selectCategoryForService(widget.serviceToEdit!);
-    } else if (widget.selectedCategory != null) {
+    } else if (widget.selectedCategory != null &&
+        _asInt(widget.selectedCategory!['id']) != null) {
       selectedCategory = Map<String, dynamic>.from(widget.selectedCategory!);
       selectedCategoryType = 'category';
       final id = selectedCategory!['id'];
@@ -227,6 +240,14 @@ class _AddServicesState extends State<AddServices> {
     nameController.text =
         (service['displayName'] ?? service['name'] ?? '').toString();
     descController.text = (service['description'] ?? '').toString();
+
+    final rawServiceType = service['serviceType'];
+    _selectedServiceTypeCode = (service['code'] ??
+            service['serviceTypeCode'] ??
+            (rawServiceType is Map ? rawServiceType['code'] : null))
+        ?.toString()
+        .trim();
+    if (_selectedServiceTypeCode == '') _selectedServiceTypeCode = null;
     durationController.text =
         (_asInt(service['durationMin'] ?? service['defaultDurationMin']) ?? '')
             .toString();
@@ -320,6 +341,7 @@ class _AddServicesState extends State<AddServices> {
     durationController.dispose();
     commissionValueController.dispose();
     commissionMaxController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -341,12 +363,32 @@ class _AddServicesState extends State<AddServices> {
     try {
       final response = await ApiService().getServiceCatalog();
       if (mounted && response['success'] == true) {
-        setState(() => serviceCatalog = response['data']);
+        setState(() {
+          serviceCatalog = response['data'];
+          _resolveServiceTypeKeyIfNeeded();
+        });
       }
     } catch (e) {
       if (!mounted) return;
       Fluttertoast.showToast(
           msg: translateText("Failed to fetch service catalog"));
+    }
+  }
+
+  // In edit mode the service's code is known before the catalog has
+  // finished loading — once it has, resolve which category it belongs to
+  // so the locked field can display its name instead of a bare code.
+  void _resolveServiceTypeKeyIfNeeded() {
+    if (_selectedServiceTypeCode == null || _selectedServiceTypeKey != null) {
+      return;
+    }
+    for (final rawCategory in serviceCatalog) {
+      if (rawCategory is! Map) continue;
+      if ((rawCategory['code'] ?? '').toString() == _selectedServiceTypeCode) {
+        final catId = _asInt(rawCategory['id']);
+        if (catId != null) _selectedServiceTypeKey = 'cat:$catId';
+        return;
+      }
     }
   }
 
@@ -392,6 +434,18 @@ class _AddServicesState extends State<AddServices> {
       final finalBusyMinutes = _passiveWaitEnabled ? _finalBusyMinutes : 0;
       final commissionValue = commissionValueController.text.trim();
       final commissionMax = commissionMaxController.text.trim();
+      // Defensive re-check alongside the Form validator (_validateCommissionMax)
+      // — a max commission amount of 0 would mean no commission can ever be
+      // paid out, so it must never reach the API even if validate() somehow
+      // didn't run for this field.
+      if (_commissionEnabled && _commissionType == 'percentage') {
+        final maxParsed = num.tryParse(commissionMax);
+        if (maxParsed == null || maxParsed <= 0) {
+          throw Exception(
+            '{"message":"Enter a valid max commission amount greater than 0."}',
+          );
+        }
+      }
 
       if (_isEditMode) {
         final serviceId = _asInt(widget.serviceToEdit!['id']);
@@ -425,6 +479,9 @@ class _AddServicesState extends State<AddServices> {
                   commissionMax.isNotEmpty
               ? _minorIntFromRupeeText(commissionMax)
               : null,
+          // Locked once set — this just re-sends the existing value, it's
+          // never editable from this screen once the service exists.
+          'code': _selectedServiceTypeCode,
         }..removeWhere((key, value) => value == null);
 
         await ApiService().updateService(
@@ -436,6 +493,7 @@ class _AddServicesState extends State<AddServices> {
         final request = AddSalonServiceRequest(
           branchCategoryId: branchCategoryId,
           branchSubCategoryId: branchSubCategoryId,
+          code: _selectedServiceTypeCode!,
           displayName: displayName,
           description: desc.isEmpty ? "" : desc,
           durationMin: duration,
@@ -618,11 +676,11 @@ class _AddServicesState extends State<AddServices> {
     if (parsed == null || parsed <= 0) {
       return translateText("Enter a valid commission value");
     }
-    if (_commissionType == 'percentage' && parsed > 100) {
-      return translateText("Commission percentage should be between 0 and 100");
+    if (_commissionType == 'percentage' && parsed >= 100) {
+      return translateText("Commission percentage must be less than 100");
     }
-    if (_commissionType == 'fixed' && parsed > price) {
-      return translateText("Commission amount cannot exceed price");
+    if (_commissionType == 'fixed' && parsed >= price) {
+      return translateText("Commission amount must be less than the price");
     }
     return null;
   }
@@ -699,9 +757,18 @@ class _AddServicesState extends State<AddServices> {
   String? _validateCategory(Map<String, dynamic>? _) {
     if (_isEditMode) return null;
     if (selectedCategory == null ||
+        _asInt(selectedCategory!['id']) == null ||
         (selectedCategoryType != 'category' &&
             selectedCategoryType != 'subCategory')) {
       return translateText("Category or subcategory is required");
+    }
+    return null;
+  }
+
+  String? _validateServiceType(String? _) {
+    if (_isEditMode) return null;
+    if (_selectedServiceTypeCode == null || _selectedServiceTypeCode!.isEmpty) {
+      return translateText("Service type is required");
     }
     return null;
   }
@@ -922,6 +989,7 @@ class _AddServicesState extends State<AddServices> {
                   ? AutovalidateMode.onUserInteraction
                   : AutovalidateMode.disabled,
               child: SingleChildScrollView(
+                controller: _scrollController,
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.fromLTRB(
@@ -954,6 +1022,9 @@ class _AddServicesState extends State<AddServices> {
                                 maxLengthEnforcement:
                                     MaxLengthEnforcement.enforced,
                                 inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[a-zA-Z &]'),
+                                  ),
                                   const FirstLetterUpperFormatter(),
                                   LengthLimitingTextInputFormatter(50),
                                 ],
@@ -1048,6 +1119,57 @@ class _AddServicesState extends State<AddServices> {
                                 decoration: _inputDecoration(),
                                 validator: (_) =>
                                     _validateCategory(selectedCategory),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _FieldLabel(
+                                translateText("Service Type *"),
+                              ),
+                              const SizedBox(height: 7),
+                              DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                initialValue: _validateSelectedCategoryKey(
+                                  _selectedServiceTypeKey,
+                                  buildServiceTypeItems(serviceCatalog),
+                                ),
+                                hint: Text(
+                                  translateText("Select Service Type"),
+                                ),
+                                items: buildServiceTypeItems(serviceCatalog),
+                                onChanged: _isEditMode
+                                    ? null
+                                    : (key) {
+                                        if (key == null) return;
+                                        final separator = key.indexOf(':');
+                                        final type = separator == -1
+                                            ? ''
+                                            : key.substring(0, separator);
+                                        if (type != 'sub') return;
+                                        final id = int.parse(
+                                          key.substring(separator + 1),
+                                        );
+                                        final sub =
+                                            findServiceCatalogSubcategory(
+                                          serviceCatalog,
+                                          id,
+                                        );
+                                        if (sub == null) return;
+                                        setState(() {
+                                          _selectedServiceTypeKey = key;
+                                          _selectedServiceTypeCode =
+                                              (sub['categoryCode'] ?? '')
+                                                  .toString();
+                                        });
+                                      },
+                                decoration: _inputDecoration(
+                                  hint: translateText("Select Service Type"),
+                                ),
+                                validator: (_) => _validateServiceType(
+                                    _selectedServiceTypeKey),
                               ),
                             ],
                           ),
@@ -1356,7 +1478,24 @@ class _AddServicesState extends State<AddServices> {
                                       }
                                       final valid =
                                           _formKey.currentState!.validate();
-                                      if (!valid) return;
+                                      if (!valid) {
+                                        // Category/Name sit near the top of
+                                        // the form — if the user scrolled
+                                        // down to fill Price/Commission
+                                        // before tapping Save, an error on
+                                        // those earlier fields would be
+                                        // off-screen and easy to miss.
+                                        if (_scrollController.hasClients) {
+                                          _scrollController.animateTo(
+                                            0,
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            curve: Curves.easeOut,
+                                          );
+                                        }
+                                        return;
+                                      }
                                       await _saveService();
                                     },
                               child: Row(
@@ -1408,41 +1547,7 @@ class _ServiceLoadingOverlay extends StatelessWidget {
       child: Container(
         color: Colors.black.withValues(alpha: 0.16),
         alignment: Alignment.center,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x22000000),
-                blurRadius: 22,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: _serviceGold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                translateText('Please wait...'),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF4B3A2A),
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: AppLoader.page(),
       ),
     );
   }
@@ -1730,6 +1835,73 @@ List<DropdownMenuItem<String>> buildSubcategoryKeyItems(
     }
   }
   return items;
+}
+
+// Global /service-catalog dropdown items — category rows are disabled
+// (non-selectable group headers), only their subcategories can be picked.
+List<DropdownMenuItem<String>> buildServiceTypeItems(
+  List<dynamic> categories,
+) {
+  final items = <DropdownMenuItem<String>>[];
+  for (final cat in categories) {
+    if (cat is! Map) continue;
+    final catId = _serviceFormInt(cat['id']);
+    if (catId == null) continue;
+    items.add(DropdownMenuItem<String>(
+      value: 'cat:$catId',
+      enabled: false,
+      child: Text(
+        (cat['name'] ?? '').toString().toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+          color: _serviceMuted,
+        ),
+      ),
+    ));
+    final subCategories =
+        ((cat['subCategories'] as List?) ?? const []).whereType<Map>().toList();
+    for (final sub in subCategories) {
+      final subId = _serviceFormInt(sub['id']);
+      if (subId == null) continue;
+      items.add(DropdownMenuItem<String>(
+        value: 'sub:$subId',
+        child: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Text(
+            (sub['name'] ?? '').toString(),
+            style: const TextStyle(color: _serviceInk),
+          ),
+        ),
+      ));
+    }
+  }
+  return items;
+}
+
+// Looks up a subcategory across the global /service-catalog list, returning
+// it alongside its parent category's name and `code` — subcategories don't
+// carry a `code` of their own, only their parent category does.
+Map<String, dynamic>? findServiceCatalogSubcategory(
+  List<dynamic> categories,
+  int id,
+) {
+  for (final cat in categories) {
+    if (cat is! Map) continue;
+    final subCategories = cat['subCategories'];
+    if (subCategories is! List) continue;
+    for (final sub in subCategories) {
+      if (sub is Map && _serviceFormInt(sub['id']) == id) {
+        return {
+          ...Map<String, dynamic>.from(sub),
+          'categoryName': cat['name'],
+          'categoryCode': cat['code'],
+        };
+      }
+    }
+  }
+  return null;
 }
 
 Map<String, dynamic>? findCategoryById(List<dynamic> categories, int id) {

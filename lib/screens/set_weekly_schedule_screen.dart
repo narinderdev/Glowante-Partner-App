@@ -3,6 +3,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/salon_flow_step_header.dart';
+import '../widgets/app_loader.dart';
 import '../utils/error_parser.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -520,13 +521,10 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 if (_isSubmitting)
-                                  const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
+                                  AppLoader.inline(
+                                    size: 18,
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   )
                                 else ...[
                                   Flexible(
@@ -1039,10 +1037,6 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     try {
       await onSubmit(result);
       if (!mounted) return;
-      // Keep the loader up through the pop transition instead of resetting
-      // _isSubmitting here — Navigator.pop only starts the animation, so
-      // clearing the flag right after would flash the button back to its
-      // non-loading state while this screen is still visible.
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;

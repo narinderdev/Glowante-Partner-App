@@ -10,6 +10,7 @@ import '../services/razorpay_checkout/razorpay_checkout_models.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 const String _razorpayKeyId = 'rzp_test_KtuXq3FhhX7j5e';
@@ -747,35 +748,40 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasLoadedContent = _salonId != null || _plans.isNotEmpty;
     return Scaffold(
       backgroundColor: _membershipBackground,
       appBar: buildProfileSubpageAppBar(title: context.t('Membership')),
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            color: AppColors.starColor,
-            onRefresh: () => RefreshFeedback.playAndRun(_loadMembership),
-            child: _buildBody(),
-          ),
-          if (_isPaying)
-            Container(
-              color: Colors.black.withValues(alpha: 0.24),
-              child: const Center(
-                child: CircularProgressIndicator(color: AppColors.starColor),
-              ),
+      body: (_isLoading && !hasLoadedContent)
+          ? AppLoader.page()
+          : Stack(
+              children: [
+                RefreshIndicator(
+                  color: AppColors.starColor,
+                  onRefresh: () =>
+                      RefreshFeedback.playAndDetach(_loadMembership),
+                  child: _buildBody(),
+                ),
+                if (_isLoading)
+                  Positioned.fill(
+                    child: AbsorbPointer(
+                      child: Container(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        child: AppLoader.page(),
+                      ),
+                    ),
+                  ),
+                if (_isPaying)
+                  Container(
+                    color: Colors.black.withValues(alpha: 0.24),
+                    child: AppLoader.page(),
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.starColor),
-      );
-    }
-
     if (_errorMessage != null) {
       return ListView(
         padding: const EdgeInsets.all(20),

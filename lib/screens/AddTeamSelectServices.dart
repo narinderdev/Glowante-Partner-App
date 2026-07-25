@@ -6,6 +6,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
+import '../widgets/app_loader.dart';
 import 'team_online_availability_screen.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -762,7 +763,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? AppLoader.page()
           : Column(
               children: [
                 Padding(
@@ -867,13 +868,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                     elevation: 2,
                   ),
                   child: _submitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
+                      ? AppLoader.inline(
+                          size: 22,
+                          strokeWidth: 2.5,
+                          color: Colors.white,
                         )
                       : Text(
                           translateText('Next'),

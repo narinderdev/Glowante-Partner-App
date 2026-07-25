@@ -3,6 +3,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
+import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class StylistWebDocScreen extends StatefulWidget {
@@ -91,12 +92,7 @@ class _StylistWebDocScreenState extends State<StylistWebDocScreen> {
                 ),
               ),
             ),
-          if (_loading)
-            Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.starColor),
-              ),
-            ),
+          if (_loading) AppLoader.page(),
         ],
       ),
     );

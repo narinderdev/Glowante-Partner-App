@@ -18,6 +18,7 @@ import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/price_formatter.dart';
 import '../widgets/fixed_slot_otp_field.dart';
+import '../widgets/app_loader.dart';
 import 'AddBookings.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
@@ -1494,13 +1495,10 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
                   foregroundColor: Colors.white,
                 ),
                 child: isSubmitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                    ? AppLoader.inline(
+                        size: 18,
+                        strokeWidth: 2,
+                        color: Colors.white,
                       )
                     : Text(translateText('Submit')),
               ),
@@ -1999,9 +1997,9 @@ Future<List<Map<String, dynamic>>?> _showInventorySelectionDialog(
                     const SizedBox(height: 10),
                     Flexible(
                       child: isLoading
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Center(child: CircularProgressIndicator()),
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: AppLoader.page(),
                             )
                           : errorMessage != null
                               ? Padding(
@@ -4545,12 +4543,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
           SafeArea(
             bottom: false,
             child: RefreshIndicator(
-              onRefresh: () => RefreshFeedback.playAndRun(
-                () => _loadOptions(
-                  showPageLoader: false,
-                  showInlineLoader: false,
-                ),
-              ),
+              onRefresh: () => RefreshFeedback.playAndDetach(_loadOptions),
               color: _bookingsAccent,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -4764,21 +4757,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
                 child: Container(
                   color: Colors.white.withValues(alpha: 0.35),
                   alignment: Alignment.center,
-                  child: Container(
-                    width: 46,
-                    height: 46,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: _bookingsAccent,
-                      ),
-                    ),
-                  ),
+                  child: AppLoader.page(),
                 ),
               ),
             ),
@@ -6554,14 +6533,9 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
           ),
           const SizedBox(height: 22),
           if (_loadingScheduleBookings)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 28),
-              child: Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: _bookingsAccent,
-                ),
-              ),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.5,
+              child: Center(child: AppLoader.page()),
             )
           else if (isSelectedDateClosed)
             _BranchClosedState(
@@ -8257,13 +8231,10 @@ class _BookingListCard extends StatelessWidget {
                               ),
                             ),
                             child: isProcessing
-                                ? const SizedBox(
-                                    height: 18,
-                                    width: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
+                                ? AppLoader.inline(
+                                    size: 18,
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   )
                                 : Text(
                                     actionLabel ?? finishLabel!,
@@ -8397,6 +8368,7 @@ class _StylistBookingDetailScreenState
   bool _loadingComplete = false;
   bool _loadingNoShow = false;
   bool _didChange = false;
+  bool _isRefreshingDetails = false;
   Timer? _elapsedTicker;
 
   @override
@@ -8785,31 +8757,8 @@ class _StylistBookingDetailScreenState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
-              contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-              content: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: _bookingsGold,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Flexible(
-                    child: Text(
-                      translateText('Loading services...'),
-                      style: _bookingTextStyle(
-                        size: 14,
-                        weight: FontWeight.w700,
-                        color: _bookingsPrimaryText,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              contentPadding: const EdgeInsets.all(24),
+              content: AppLoader.page(),
             ),
           );
         },
@@ -9145,6 +9094,9 @@ class _StylistBookingDetailScreenState
   }
 
   Future<void> _refreshBookingDetails() async {
+    if (mounted) {
+      setState(() => _isRefreshingDetails = true);
+    }
     try {
       final start = _bookingStart(_booking);
       final targetDate = start ?? DateTime.now();
@@ -9197,6 +9149,10 @@ class _StylistBookingDetailScreenState
     } catch (error) {
       if (!mounted) return;
       Fluttertoast.showToast(msg: error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshingDetails = false);
+      }
     }
   }
 
@@ -9370,6 +9326,7 @@ class _StylistBookingDetailScreenState
         onAddServices: _showAddServicesDialog,
         canAddServices: canAddServices,
         onRefresh: _refreshBookingDetails,
+        isRefreshing: _isRefreshingDetails,
       ),
     );
   }

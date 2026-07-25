@@ -19,6 +19,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 
 import '../utils/error_parser.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
+import '../widgets/app_loader.dart';
 
 class _FirstLetterUpperFormatter extends TextInputFormatter {
   const _FirstLetterUpperFormatter();
@@ -1559,8 +1560,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             ),
           ),
         );
-        // Stop the button's loader as soon as the next screen has been
-        // scheduled to appear, rather than waiting for it to be popped later.
         if (mounted) setState(() => _isNavigatingNext = false);
         final saved = await pushSalonSchedule;
 
@@ -1634,7 +1633,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                     value: cubit,
                     child: AddSalonServices(
                       title: 'Add Salon',
-                      initialCodes: state.selectedServiceCodes,
+                      // Read live from the cubit, not the `state` param
+                      // captured once when _submit() first ran — this
+                      // callback can fire again each time the user bounces
+                      // back to the Schedule step and forward again, and by
+                      // then the cubit may hold a fresher selection than
+                      // that original snapshot.
+                      initialCodes: cubit.state.selectedServiceCodes,
                       formData: AddSalonFormData(
                         name: formData.name,
                         phone: formData.phone,
@@ -1944,13 +1949,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               ),
                             ),
                             child: state.isSubmitting || _isNavigatingNext
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
+                                ? AppLoader.inline(
+                                    size: 20,
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   )
                                 : Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1980,11 +1982,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                   ),
                 ),
                 if (state.status == AddSalonStatus.loading)
-                  const ColoredBox(
+                  ColoredBox(
                     color: Colors.black54,
-                    child: Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
+                    child: AppLoader.page(),
                   ),
               ],
             ),

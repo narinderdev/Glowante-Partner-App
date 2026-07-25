@@ -7,6 +7,7 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
+import '../widgets/app_loader.dart';
 
 const Color _galleryBackground = Color(0xFFFBFAF8);
 const Color _gallerySurface = Colors.white;
@@ -227,14 +228,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
 
-                        return const SizedBox(
+                        return SizedBox(
                           width: 220,
                           height: 220,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.starColor,
-                            ),
-                          ),
+                          child: AppLoader.page(),
                         );
                       },
                       errorBuilder: (_, __, ___) {
@@ -373,227 +370,233 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ),
       ),
       body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.starColor,
-          onRefresh: () => RefreshFeedback.playAndRun(() async {
-            final branchId = _selectedBranchId;
-            if (branchId != null) {
-              await _loadGallery(branchId);
-            }
-          }),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-            children: [
-              if (_isLoadingBranches || _branches.length > 1) ...[
-                _BranchSelectorCard(
-                  isLoading: _isLoadingBranches,
-                  branches: _branches,
-                  selectedBranchId: _selectedBranchId,
-                  onBranchSelected: _onBranchSelected,
-                ),
-                const SizedBox(height: 18),
-              ],
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 26),
-                decoration: BoxDecoration(
-                  color: _gallerySurface,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: _galleryBorder,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: _galleryShadow,
-                      blurRadius: 18,
-                      offset: Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'S A L O N   G A L L E R Y',
-                      style: TextStyle(
-                        fontSize: 10,
-                        letterSpacing: 4,
-                        color: AppColors.starColor,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isNarrow = constraints.maxWidth < 560;
-
-                        final titleBlock = Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              displayName,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                height: 1.1,
-                                fontWeight: FontWeight.w800,
-                                color: _galleryText,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                _InfoChip(
-                                  icon: Icons.storefront_outlined,
-                                  text: displayName,
-                                ),
-                                if (displayAddress.isNotEmpty)
-                                  _InfoChip(
-                                    icon: Icons.location_on_outlined,
-                                    text: displayAddress,
-                                  ),
-                              ],
-                            ),
-                          ],
-                        );
-
-                        final actions = Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: _isLoadingGallery
-                                  ? null
-                                  : () {
-                                      final branchId = _selectedBranchId;
-                                      if (branchId != null) {
-                                        _loadGallery(branchId);
-                                      }
-                                    },
-                              icon: _isLoadingGallery
-                                  ? const SizedBox(
-                                      width: 13,
-                                      height: 13,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.7,
-                                        color: AppColors.starColor,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.refresh_rounded,
-                                      size: 16,
-                                      color: AppColors.starColor,
-                                    ),
-                              label: Text(context.t('Refresh')),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.starColor,
-                                side: const BorderSide(
-                                  color: _galleryBorder,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 11,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _gallerySoftFill,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                '${_imageUrls.length} photos',
-                                style: const TextStyle(
-                                  color: AppColors.starColor,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-
-                        if (isNarrow) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              titleBlock,
-                              const SizedBox(height: 14),
-                              actions,
-                            ],
-                          );
-                        }
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: titleBlock),
-                            const SizedBox(width: 12),
-                            actions,
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 22),
-                    const Divider(
-                      height: 1,
-                      color: _gallerySoftBorder,
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              color: AppColors.starColor,
+              onRefresh: () => RefreshFeedback.playAndDetach(() async {
+                final branchId = _selectedBranchId;
+                if (branchId != null) {
+                  await _loadGallery(branchId);
+                }
+              }),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                children: [
+                  // While branches are still loading, the gallery card below
+                  // (gated on _isLoadingGallery, true at the same time) already
+                  // shows a loader — don't also show this card's own spinner,
+                  // or the screen shows two loaders at once.
+                  if (!_isLoadingBranches && _branches.length > 1) ...[
+                    _BranchSelectorCard(
+                      isLoading: _isLoadingBranches,
+                      branches: _branches,
+                      selectedBranchId: _selectedBranchId,
+                      onBranchSelected: _onBranchSelected,
                     ),
                     const SizedBox(height: 18),
-                    if (_isLoadingGallery)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 80),
-                        child: Center(
-                          child: CircularProgressIndicator(
+                  ],
+                  if (_errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 26),
+                    decoration: BoxDecoration(
+                      color: _gallerySurface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: _galleryBorder,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: _galleryShadow,
+                          blurRadius: 18,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'S A L O N   G A L L E R Y',
+                          style: TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 4,
                             color: AppColors.starColor,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                      )
-                    else if (_imageUrls.isEmpty)
-                      _EmptyGalleryBox(
-                        isLoading: _isLoadingGallery,
-                        onRefresh: () => RefreshFeedback.playAndRun(() async {
-                          final branchId = _selectedBranchId;
-                          if (branchId != null) {
-                            await _loadGallery(branchId);
-                          }
-                        }),
-                      )
-                    else
-                      _GalleryGrid(
-                        imageUrls: _imageUrls,
-                        onImageTap: _openImageModal,
-                      ),
-                  ],
+                        const SizedBox(height: 8),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isNarrow = constraints.maxWidth < 560;
+
+                            final titleBlock = Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    height: 1.1,
+                                    fontWeight: FontWeight.w800,
+                                    color: _galleryText,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    _InfoChip(
+                                      icon: Icons.storefront_outlined,
+                                      text: displayName,
+                                    ),
+                                    if (displayAddress.isNotEmpty)
+                                      _InfoChip(
+                                        icon: Icons.location_on_outlined,
+                                        text: displayAddress,
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            );
+
+                            final actions = Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // OutlinedButton.icon(
+                                //   onPressed: _isLoadingGallery
+                                //       ? null
+                                //       : () {
+                                //           final branchId = _selectedBranchId;
+                                //           if (branchId != null) {
+                                //             _loadGallery(branchId);
+                                //           }
+                                //         },
+                                //   icon: _isLoadingGallery
+                                //       ? AppLoader.inline(
+                                //           size: 13,
+                                //           strokeWidth: 1.7,
+                                //           color: AppColors.starColor,
+                                //         )
+                                //       : const Icon(
+                                //           Icons.refresh_rounded,
+                                //           size: 16,
+                                //           color: AppColors.starColor,
+                                //         ),
+                                //   label: Text(context.t('Refresh')),
+                                //   style: OutlinedButton.styleFrom(
+                                //     foregroundColor: AppColors.starColor,
+                                //     side: const BorderSide(
+                                //       color: _galleryBorder,
+                                //     ),
+                                //     padding: const EdgeInsets.symmetric(
+                                //       horizontal: 14,
+                                //       vertical: 10,
+                                //     ),
+                                //     shape: RoundedRectangleBorder(
+                                //       borderRadius: BorderRadius.circular(999),
+                                //     ),
+                                //     textStyle: const TextStyle(
+                                //       fontSize: 12,
+                                //       fontWeight: FontWeight.w700,
+                                //     ),
+                                //   ),
+                                // ),
+                                // const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 11,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _gallerySoftFill,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '${_imageUrls.length} photos',
+                                    style: const TextStyle(
+                                      color: AppColors.starColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+
+                            if (isNarrow) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  titleBlock,
+                                  const SizedBox(height: 14),
+                                  actions,
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: titleBlock),
+                                const SizedBox(width: 12),
+                                actions,
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 22),
+                        const Divider(
+                          height: 1,
+                          color: _gallerySoftBorder,
+                        ),
+                        const SizedBox(height: 18),
+                        if (_imageUrls.isEmpty)
+                          _EmptyGalleryBox(
+                            isLoading: _isLoadingGallery,
+                            onRefresh: () =>
+                                RefreshFeedback.playAndDetach(() async {
+                              final branchId = _selectedBranchId;
+                              if (branchId != null) {
+                                await _loadGallery(branchId);
+                              }
+                            }),
+                          )
+                        else
+                          _GalleryGrid(
+                            imageUrls: _imageUrls,
+                            onImageTap: _openImageModal,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_isLoadingBranches || _isLoadingGallery)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    child: AppLoader.page(),
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -640,12 +643,9 @@ class _BranchSelectorCard extends StatelessWidget {
             ),
           ],
         ),
-        child: const Align(
+        child: Align(
           alignment: Alignment.centerLeft,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppColors.starColor,
-          ),
+          child: AppLoader.page(),
         ),
       );
     }
@@ -813,13 +813,10 @@ class _EmptyGalleryBox extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: isLoading ? null : onRefresh,
             icon: isLoading
-                ? const SizedBox(
-                    width: 13,
-                    height: 13,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.8,
-                      color: Colors.white,
-                    ),
+                ? AppLoader.inline(
+                    size: 13,
+                    strokeWidth: 1.8,
+                    color: Colors.white,
                   )
                 : const Icon(Icons.refresh_rounded, size: 16),
             label: Text(isLoading ? 'Checking...' : 'Check again'),

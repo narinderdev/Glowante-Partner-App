@@ -85,6 +85,15 @@ class AddBranchCubit extends Cubit<AddBranchState> {
     emit(state.copyWith(images: updated, status: BranchFormStatus.ready));
   }
 
+  void updateSelectedServiceCodes(List<String> codes) {
+    emit(
+      state.copyWith(
+        selectedServiceCodes: List<String>.from(codes),
+        status: BranchFormStatus.ready,
+      ),
+    );
+  }
+
   Future<void> submit(AddBranchFormData formData) async {
     final address = state.address;
     if (address == null) {

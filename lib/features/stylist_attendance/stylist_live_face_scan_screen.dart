@@ -8,6 +8,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 
+import '../../widgets/app_loader.dart';
+
 class StylistLiveFaceScanRequest {
   const StylistLiveFaceScanRequest.enrollment({
     required this.pose,
@@ -357,8 +359,7 @@ class _StylistLiveFaceScanScreenState extends State<StylistLiveFaceScanScreen> {
         if (await file.exists()) {
           await file.delete();
         }
-      } catch (_) {
-      }
+      } catch (_) {}
     }
   }
 
@@ -415,9 +416,7 @@ class _StylistLiveFaceScanScreenState extends State<StylistLiveFaceScanScreen> {
         title: Text(title),
       ),
       body: _isInitializing
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            )
+          ? AppLoader.page()
           : _controller == null
               ? Center(
                   child: Padding(
@@ -510,20 +509,17 @@ class _StylistLiveFaceScanScreenState extends State<StylistLiveFaceScanScreen> {
                                   ),
                                   child: Row(
                                     children: [
-                                      SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: _isProcessing
-                                            ? const CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.white,
-                                              )
-                                            : const Icon(
-                                                Icons.auto_mode,
-                                                size: 18,
-                                                color: Colors.white,
-                                              ),
-                                      ),
+                                      _isProcessing
+                                          ? AppLoader.inline(
+                                              size: 18,
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            )
+                                          : const Icon(
+                                              Icons.auto_mode,
+                                              size: 18,
+                                              color: Colors.white,
+                                            ),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(

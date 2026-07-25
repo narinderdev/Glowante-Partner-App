@@ -14,6 +14,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
+import '../../widgets/app_loader.dart';
+
 class StylistMarkAttendanceScreen extends StatefulWidget {
   const StylistMarkAttendanceScreen({super.key});
 
@@ -466,8 +468,8 @@ class _StylistMarkAttendanceScreenState
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+      body: (_isLoading && _branchSelection.branchId == null)
+          ? AppLoader.page()
           : _branchSelection.branchId == null
               ? _AttendanceEmptyState(
                   title: context.t('Select a branch to continue'),
@@ -475,47 +477,60 @@ class _StylistMarkAttendanceScreenState
                     'Attendance uses the stylist branch selected in bookings or home.',
                   ),
                 )
-              : RefreshIndicator(
-                  onRefresh: () =>
-                      RefreshFeedback.playAndRun(_loadAttendanceState),
-                  color: AppColors.starColor,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-                    children: [
-                      _AttendanceHeroCard(
-                        displayName: _displayName,
-                        branchName: branchName,
-                        isEnrolled: _enrollment?.isComplete == true,
-                        hasAttendanceToday: _hasAnyAttendanceToday,
-                        hasCheckedInToday: _hasCheckedInToday,
-                        hasCheckedOutToday: _hasCheckedOutToday,
+              : Stack(
+                  children: [
+                    RefreshIndicator(
+                      onRefresh: () =>
+                          RefreshFeedback.playAndDetach(_loadAttendanceState),
+                      color: AppColors.starColor,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                        children: [
+                          _AttendanceHeroCard(
+                            displayName: _displayName,
+                            branchName: branchName,
+                            isEnrolled: _enrollment?.isComplete == true,
+                            hasAttendanceToday: _hasAnyAttendanceToday,
+                            hasCheckedInToday: _hasCheckedInToday,
+                            hasCheckedOutToday: _hasCheckedOutToday,
+                          ),
+                          const SizedBox(height: 16),
+                          if (_enrollment?.isComplete == true)
+                            _AttendanceReadySection(
+                              isBusy: _isBusy,
+                              enrollment: _enrollment,
+                              records: _records,
+                              hasCheckedInToday: _hasCheckedInToday,
+                              hasCheckedOutToday: _hasCheckedOutToday,
+                              activeActionId: _activeAttendanceActionId,
+                              onCheckIn: () => _startAttendanceAction(
+                                StylistAttendanceAction.checkIn,
+                              ),
+                              onCheckOut: () => _startAttendanceAction(
+                                StylistAttendanceAction.checkOut,
+                              ),
+                              onReset: _resetEnrollment,
+                              onViewStoredImages: _openStoredImages,
+                            )
+                          else
+                            _AttendanceEnrollmentSection(
+                              isBusy: _isBusy,
+                              enrollment: _enrollment,
+                              onStartCapture: _startEnrollmentSequence,
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      if (_enrollment?.isComplete == true)
-                        _AttendanceReadySection(
-                          isBusy: _isBusy,
-                          enrollment: _enrollment,
-                          records: _records,
-                          hasCheckedInToday: _hasCheckedInToday,
-                          hasCheckedOutToday: _hasCheckedOutToday,
-                          activeActionId: _activeAttendanceActionId,
-                          onCheckIn: () => _startAttendanceAction(
-                            StylistAttendanceAction.checkIn,
+                    ),
+                    if (_isLoading)
+                      Positioned.fill(
+                        child: AbsorbPointer(
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            child: AppLoader.page(),
                           ),
-                          onCheckOut: () => _startAttendanceAction(
-                            StylistAttendanceAction.checkOut,
-                          ),
-                          onReset: _resetEnrollment,
-                          onViewStoredImages: _openStoredImages,
-                        )
-                      else
-                        _AttendanceEnrollmentSection(
-                          isBusy: _isBusy,
-                          enrollment: _enrollment,
-                          onStartCapture: _startEnrollmentSequence,
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
     );
   }
@@ -771,14 +786,10 @@ class _AttendanceReadySection extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (isCheckInLoading) ...[
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+                      AppLoader.inline(
+                        size: 18,
+                        strokeWidth: 2,
+                        color: Colors.white,
                       ),
                       const SizedBox(width: 10),
                     ] else ...[
@@ -813,14 +824,10 @@ class _AttendanceReadySection extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (isCheckOutLoading) ...[
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+                      AppLoader.inline(
+                        size: 18,
+                        strokeWidth: 2,
+                        color: Colors.white,
                       ),
                       const SizedBox(width: 10),
                     ] else ...[

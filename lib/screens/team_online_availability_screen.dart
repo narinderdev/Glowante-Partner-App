@@ -8,6 +8,7 @@ import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -375,13 +376,10 @@ class _TeamOnlineAvailabilityScreenState
                           elevation: 2,
                         ),
                         child: _isSubmitting
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
+                            ? AppLoader.inline(
+                                size: 22,
+                                strokeWidth: 2.5,
+                                color: Colors.white,
                               )
                             : Text(
                                 translateText(

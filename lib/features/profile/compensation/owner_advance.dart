@@ -9,7 +9,7 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
         RefreshIndicator(
           color: AppColors.starColor,
           backgroundColor: const Color(0xFFFFFCF8),
-          onRefresh: () => RefreshFeedback.playAndRun(
+          onRefresh: () => RefreshFeedback.playAndDetach(
             () => _reloadContent(showLoader: false),
           ),
           child: ListView(
@@ -1478,16 +1478,10 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                                 ),
                               ),
                               child: _isSaving
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
-                                      ),
+                                  ? AppLoader.inline(
+                                      size: 18,
+                                      strokeWidth: 2,
+                                      color: Colors.white,
                                     )
                                   : Text(
                                       _isEditing
@@ -1562,27 +1556,7 @@ class _AdvanceBlockingLoader extends StatelessWidget {
       child: Container(
         color: const Color(0x66FFFCF8),
         alignment: Alignment.center,
-        child: Container(
-          width: 74,
-          height: 74,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFCF8),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE8DED6)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1A000000),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: CircularProgressIndicator(
-            color: AppColors.starColor,
-            strokeWidth: 3,
-          ),
-        ),
+        child: AppLoader.page(),
       ),
     );
   }

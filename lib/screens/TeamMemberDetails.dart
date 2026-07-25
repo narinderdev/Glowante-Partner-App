@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../widgets/app_loader.dart';
 
 const Color _memberDetailBackground = Color(0xFFFBFAF8);
 const Color _memberDetailBorder = Color(0xFFE8DED6);
@@ -9,18 +12,59 @@ const Color _memberDetailText = Color(0xFF2B241D);
 const Color _memberDetailMuted = Color(0xFF8C7A66);
 const Color _memberDetailSurface = Colors.white;
 
-class TeamMemberDetails extends StatelessWidget {
+class TeamMemberDetails extends StatefulWidget {
   final Map<String, dynamic> member;
   final List<Map<String, dynamic>>? salons;
   final double professionalRating;
   final int professionalReviewCount;
+  final int? branchId;
   const TeamMemberDetails({
     super.key,
     required this.member,
     this.salons,
     this.professionalRating = 0,
     this.professionalReviewCount = 0,
+    this.branchId,
   });
+
+  @override
+  State<TeamMemberDetails> createState() => _TeamMemberDetailsState();
+}
+
+class _TeamMemberDetailsState extends State<TeamMemberDetails> {
+  late Map<String, dynamic> member = widget.member;
+  bool _isRefreshing = false;
+
+  List<Map<String, dynamic>>? get salons => widget.salons;
+  double get professionalRating => widget.professionalRating;
+  int get professionalReviewCount => widget.professionalReviewCount;
+
+  Future<void> _refresh() async {
+    final userId = _toInt(member['id']);
+    final branchId =
+        widget.branchId ?? _toInt(_primaryAssignment()?['branchId']);
+    if (userId == null || branchId == null) return;
+
+    setState(() => _isRefreshing = true);
+    try {
+      final response = await ApiService.getTeamMemberDetails(
+        branchId,
+        userId,
+      );
+      if (response['success'] == true && response['data'] is Map) {
+        if (!mounted) return;
+        setState(() {
+          member = Map<String, dynamic>.from(
+            response['data'] as Map<dynamic, dynamic>,
+          );
+        });
+      }
+    } catch (_) {
+      // Keep showing the already-loaded details if the refresh fails.
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
 
   String _initials(String first, String last) {
     final f = first.isNotEmpty ? first[0] : '';
@@ -461,18 +505,18 @@ class TeamMemberDetails extends StatelessWidget {
     final roles = _labelList(member['roles'], const ['label', 'name', 'code']);
     final String role = roles.isNotEmpty ? roles.join(', ') : 'Staff';
     final specializations = _labelList(
-  member['specialities'] ??
-      member['specializations'] ??
-      member['speciality'] ??
-      member['specialization'],
-  const ['name', 'label', 'code', 'title', 'value'],
-);
+      member['specialities'] ??
+          member['specializations'] ??
+          member['speciality'] ??
+          member['specialization'],
+      const ['name', 'label', 'code', 'title', 'value'],
+    );
 
-debugPrint('Member: $member');
+    debugPrint('Member: $member');
 
-debugPrint(member.keys.toList().toString());
-debugPrint('Specialities: ${member['specialities']}');
-debugPrint('Specializations: ${member['specializations']}');
+    debugPrint(member.keys.toList().toString());
+    debugPrint('Specialities: ${member['specialities']}');
+    debugPrint('Specializations: ${member['specializations']}');
     final about = _textValue(
       member,
       const [
@@ -512,108 +556,130 @@ debugPrint('Specializations: ${member['specializations']}');
       appBar: buildProfileSubpageAppBar(
         title: translateText('View Member'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-        children: [
-          Text(
-            translateText('Team Member'),
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppColors.starColor,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            translateText('View profile, expertise, and assigned branches.'),
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              color: _memberDetailMuted,
-            ),
-          ),
-          const SizedBox(height: 18),
-          _MemberSummaryCard(
-            initials: initials,
-            name: displayName,
-            role: role,
-            rating: rating,
-            reviewCount: professionalReviewCount,
-            isActive: isActive,
-          ),
-          const SizedBox(height: 14),
-          _DetailFactGrid(
-            facts: [
-              _DetailFactData(label: 'Role', value: role),
-              _DetailFactData(label: 'Experience', value: experience),
-              _DetailFactData(label: 'Joined At', value: joinedAt),
-              _DetailFactData(
-                label: 'Assigned Branches',
-                value: assignedBranches.length.toString(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _DetailSectionCard(
-            icon: Icons.info_outline_rounded,
-            title: 'About',
-            child: about.isEmpty
-                ? const _EmptyDetailText(text: 'No about information added')
-                : Text(
-                    about,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 12,
-                      height: 1.55,
-                      fontWeight: FontWeight.w600,
-                      color: _memberDetailText,
+      body: RefreshIndicator(
+        color: AppColors.starColor,
+        onRefresh: () => RefreshFeedback.playAndDetach(_refresh),
+        child: Stack(
+          children: [
+            ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+              children: [
+                Text(
+                  translateText('Team Member'),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.starColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  translateText(
+                      'View profile, expertise, and assigned branches.'),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 13,
+                    color: _memberDetailMuted,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _MemberSummaryCard(
+                  initials: initials,
+                  name: displayName,
+                  role: role,
+                  rating: rating,
+                  reviewCount: professionalReviewCount,
+                  isActive: isActive,
+                ),
+                const SizedBox(height: 14),
+                _DetailFactGrid(
+                  facts: [
+                    _DetailFactData(label: 'Role', value: role),
+                    _DetailFactData(label: 'Experience', value: experience),
+                    _DetailFactData(label: 'Joined At', value: joinedAt),
+                    _DetailFactData(
+                      label: 'Assigned Branches',
+                      value: assignedBranches.length.toString(),
                     ),
-                  ),
-          ),
-          const SizedBox(height: 14),
-          _DetailSectionCard(
-            icon: Icons.schedule_outlined,
-            title: 'Weekly Schedule',
-            child: weeklySchedule.isEmpty
-                ? const _EmptyDetailText(text: 'No weekly schedule found')
-                : _WeeklyScheduleSection(entries: weeklySchedule),
-          ),
-          const SizedBox(height: 14),
-          // _DetailSectionCard(
-          //   icon: Icons.emoji_objects_outlined,
-          //   title: 'Specializations',
-          //   child: specializations.isEmpty
-          //       ? const _EmptyDetailText(text: 'No specializations added')
-          //       : Wrap(
-          //           spacing: 8,
-          //           runSpacing: 8,
-          //           children: [
-          //             for (final specialization in specializations)
-          //               _DetailChip(label: specialization),
-          //           ],
-          //         ),
-          // ),
-          // const SizedBox(height: 14),
-          _DetailSectionCard(
-            icon: Icons.apartment_outlined,
-            title: 'Assigned Branches',
-            child: assignedBranches.isEmpty
-                ? const _EmptyDetailText(text: 'No branches assigned')
-                : Column(
-                    children: [
-                      for (var i = 0; i < assignedBranches.length; i++) ...[
-                        _AssignedBranchRow(branch: assignedBranches[i]),
-                        if (i != assignedBranches.length - 1)
-                          const Divider(
-                            height: 1,
-                            color: _memberDetailBorder,
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _DetailSectionCard(
+                  icon: Icons.info_outline_rounded,
+                  title: 'About',
+                  child: about.isEmpty
+                      ? const _EmptyDetailText(
+                          text: 'No about information added')
+                      : Text(
+                          about,
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 12,
+                            height: 1.55,
+                            fontWeight: FontWeight.w600,
+                            color: _memberDetailText,
                           ),
-                      ],
-                    ],
+                        ),
+                ),
+                const SizedBox(height: 14),
+                _DetailSectionCard(
+                  icon: Icons.schedule_outlined,
+                  title: 'Weekly Schedule',
+                  child: weeklySchedule.isEmpty
+                      ? const _EmptyDetailText(text: 'No weekly schedule found')
+                      : _WeeklyScheduleSection(entries: weeklySchedule),
+                ),
+                const SizedBox(height: 14),
+                // _DetailSectionCard(
+                //   icon: Icons.emoji_objects_outlined,
+                //   title: 'Specializations',
+                //   child: specializations.isEmpty
+                //       ? const _EmptyDetailText(text: 'No specializations added')
+                //       : Wrap(
+                //           spacing: 8,
+                //           runSpacing: 8,
+                //           children: [
+                //             for (final specialization in specializations)
+                //               _DetailChip(label: specialization),
+                //           ],
+                //         ),
+                // ),
+                // const SizedBox(height: 14),
+                _DetailSectionCard(
+                  icon: Icons.apartment_outlined,
+                  title: 'Assigned Branches',
+                  child: assignedBranches.isEmpty
+                      ? const _EmptyDetailText(text: 'No branches assigned')
+                      : Column(
+                          children: [
+                            for (var i = 0;
+                                i < assignedBranches.length;
+                                i++) ...[
+                              _AssignedBranchRow(branch: assignedBranches[i]),
+                              if (i != assignedBranches.length - 1)
+                                const Divider(
+                                  height: 1,
+                                  color: _memberDetailBorder,
+                                ),
+                            ],
+                          ],
+                        ),
+                ),
+              ],
+            ),
+            if (_isRefreshing)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    child: AppLoader.page(),
                   ),
-          ),
-        ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

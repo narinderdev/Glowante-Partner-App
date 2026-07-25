@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/api_service.dart';
 import '../utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 
 const Color _clientGold = Color(0xFF8B6500);
 const Color _clientInk = Color(0xFF1F1B18);
@@ -189,10 +190,10 @@ class _ViewAllClientOwnerScreenState extends State<ViewAllClientOwnerScreen> {
         elevation: 0,
         surfaceTintColor: Colors.white,
         leading: IconButton(
-  icon: const Icon(Icons.arrow_back),
-  color: _clientGold,
-  onPressed: () => Navigator.pop(context),
-),
+          icon: const Icon(Icons.arrow_back),
+          color: _clientGold,
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
           translateText('All Customers'),
           style: const TextStyle(
@@ -240,12 +241,7 @@ class _ViewAllClientOwnerScreenState extends State<ViewAllClientOwnerScreen> {
               const SizedBox(height: 14),
               Expanded(
                 child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: _clientGold,
-                          strokeWidth: 2.5,
-                        ),
-                      )
+                    ? AppLoader.page()
                     : _errorMessage != null
                         ? _ErrorState(
                             message: _errorMessage!,

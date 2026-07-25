@@ -19,6 +19,7 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/address_formatter.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
+import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -651,17 +652,10 @@ class SalonsScreenState extends State<SalonsScreen> {
                             ),
                           ),
                         ),
-                      if (state.isLoading && state.salons.isNotEmpty)
-                        const SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(20, 10, 20, 12),
-                            child: _InlineLoadingBanner(),
-                          ),
-                        ),
                       if (state.isLoading && state.salons.isEmpty)
-                        const SliverFillRemaining(
+                        SliverFillRemaining(
                           hasScrollBody: false,
-                          child: _LoadingSalonsView(),
+                          child: Center(child: AppLoader.page()),
                         )
                       else if (state.hasError && state.salons.isEmpty)
                         SliverFillRemaining(
@@ -757,6 +751,13 @@ class SalonsScreenState extends State<SalonsScreen> {
                 if (_isSearchActivityVisible)
                   const Positioned.fill(child: _SearchActivityOverlay()),
                 if (_isActionLoading)
+                  const Positioned.fill(child: _SalonActionLoadingOverlay()),
+                // A pull-to-refresh (or any other reload while salons are
+                // already on screen) shows the same big AppLoader.page()
+                // overlay as every other loading state on this screen,
+                // layered on top of the still-visible list instead of a
+                // small inline banner.
+                if (state.isLoading && state.salons.isNotEmpty)
                   const Positioned.fill(child: _SalonActionLoadingOverlay()),
               ],
             );
@@ -985,121 +986,10 @@ class _RefreshableSalonsScroll extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: () => RefreshFeedback.playAndRun(onRefresh),
+      onRefresh: () => RefreshFeedback.playAndDetach(onRefresh),
       color: AppColors.starColor,
       displacement: 32,
       child: child,
-    );
-  }
-}
-
-class _LoadingSalonsView extends StatelessWidget {
-  const _LoadingSalonsView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 18,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: AppColors.starColor,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              translateText('Loading salons...'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF37474F),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              translateText(
-                'This can take a little longer on slow internet.',
-              ),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                height: 1.35,
-                color: Color(0xFF607D8B),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineLoadingBanner extends StatelessWidget {
-  const _InlineLoadingBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 12,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.starColor,
-              ),
-            ),
-            SizedBox(width: 12),
-            Text(
-              translateText('Syncing latest data...'),
-              style: TextStyle(
-                color: Color(0xFF546E7A),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1186,13 +1076,10 @@ class _SearchActivityOverlay extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.starColor,
-                ),
+              AppLoader.inline(
+                size: 18,
+                strokeWidth: 2,
+                color: AppColors.starColor,
               ),
               const SizedBox(width: 12),
               Text(
@@ -1219,41 +1106,7 @@ class _SalonActionLoadingOverlay extends StatelessWidget {
       child: Container(
         color: Colors.black.withValues(alpha: 0.16),
         alignment: Alignment.center,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x22000000),
-                blurRadius: 22,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppColors.starColor,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                translateText('Please wait...'),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF4B3A2A),
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: AppLoader.page(),
       ),
     );
   }
@@ -4693,13 +4546,10 @@ class _BranchTileState extends State<_BranchTile> {
                 widget.onDelete != null)
               _branchMenuButton(isActive),
             if (isLoading)
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: accentColor,
-                ),
+              AppLoader.inline(
+                size: 20,
+                strokeWidth: 2,
+                color: accentColor,
               ),
           ],
         ),

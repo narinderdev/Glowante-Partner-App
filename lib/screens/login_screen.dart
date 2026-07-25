@@ -6,10 +6,12 @@ import 'package:bloc_onboarding/bloc/auth/auth_event.dart';
 import 'package:bloc_onboarding/bloc/auth/auth_state.dart';
 import 'package:bloc_onboarding/screens/otp_screen.dart';
 import 'package:bloc_onboarding/services/push_notification_service.dart';
+import 'package:bloc_onboarding/services/auth_session_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../widgets/app_loader.dart';
 
 const _loginGold = Color(0xFFB88422);
 const _loginDeepGold = Color(0xFF8B6500);
@@ -90,6 +92,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
+
+    // Wipe any leftover token/profile state from a prior, possibly
+    // incomplete login attempt before starting this one — otherwise, if
+    // the app is killed while sitting on the OTP screen for THIS attempt,
+    // the next cold start can find that old token and jump straight to
+    // profile setup instead of back to Login.
+    await AuthSessionManager.instance.clearStaleSessionForNewLogin();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('phone_number', phoneNumber);
@@ -231,11 +240,17 @@ class _LoginScreenState extends State<LoginScreen> {
       final String phoneNumber = (rawPhone is String && rawPhone.isNotEmpty)
           ? rawPhone
           : phoneController.text.trim();
+      final dynamic rawRetryAfter = state.response['retryAfterSeconds'];
+      final int? retryAfterSeconds =
+          rawRetryAfter is int ? rawRetryAfter : null;
       setState(() => _isLoading = false);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => OtpScreen(phoneNumber: phoneNumber),
+          builder: (_) => OtpScreen(
+            phoneNumber: phoneNumber,
+            initialCooldownSeconds: retryAfterSeconds,
+          ),
         ),
       );
     }
@@ -457,13 +472,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           child: _isLoading
-              ? const SizedBox(
-                  width: 26,
-                  height: 26,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ),
+              ? AppLoader.inline(
+                  size: 26,
+                  strokeWidth: 3,
+                  color: Colors.white,
                 )
               : Stack(
                   alignment: Alignment.center,

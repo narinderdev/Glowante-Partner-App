@@ -259,10 +259,10 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
       title: context.t('Create GRN'),
       onBack: widget.onBack,
       child: _isLoadingOptions
-          ? const SizedBox(
+          ? SizedBox(
               height: 160,
               child: Center(
-                child: CircularProgressIndicator(color: AppColors.starColor),
+                child: AppLoader.page(),
               ),
             )
           : Theme(
@@ -360,12 +360,15 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                           : null,
                       children: [
                         if (_isLoadingLines)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
+                          // This section sits inside the form's
+                          // SingleChildScrollView below the PO dropdown
+                          // section, which has unbounded height — Center
+                          // alone won't center it, so give it explicit
+                          // room like the options loader above does.
+                          SizedBox(
+                            height: 160,
                             child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.starColor,
-                              ),
+                              child: AppLoader.page(),
                             ),
                           )
                         else
@@ -538,13 +541,10 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                       child: ElevatedButton.icon(
                         onPressed: _isSaving ? null : _submit,
                         icon: _isSaving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                            ? AppLoader.inline(
+                                size: 18,
+                                strokeWidth: 2,
+                                color: Colors.white,
                               )
                             : const Icon(Icons.check_circle_rounded, size: 18),
                         label: Text(

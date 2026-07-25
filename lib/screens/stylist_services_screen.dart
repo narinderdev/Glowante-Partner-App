@@ -8,6 +8,7 @@ import '../services/stylist_branch_selection.dart';
 import '../services/user_role_session.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 
@@ -268,141 +269,151 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
           ),
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: () => RefreshFeedback.playAndRun(_loadData),
-        color: AppColors.starColor,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            _SelectionHeader(
-              title: context.t('Current Salon'),
-              value: _selection.label.isEmpty
-                  ? context.t('Select a salon in Bookings first')
-                  : _selection.label,
-            ),
-            const SizedBox(height: 12),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.only(top: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_selection.branchId == null)
-              _EmptyState(
-                message: context.t('Select a salon in Bookings first'),
-              )
-            else if (_errorMessage != null && _services.isEmpty)
-              _EmptyState(message: _errorMessage!)
-            else if (_services.isEmpty)
-              _EmptyState(
-                message: context.t('No services found for this branch'),
-              )
-            else
-              ..._services.map((service) {
-                final name =
-                    _readText(service, const ['displayName', 'name', 'title']);
-                final category = _readText(service, const ['categoryName']);
-                final subcategory =
-                    _readText(service, const ['subCategoryName']);
-                final duration = _asInt(
-                  service['durationMin'] ?? service['defaultDurationMin'],
-                );
-                final price = _asInt(
-                  service['priceMinor'] ?? service['defaultPriceMinor'],
-                );
-                final priceType =
-                    _readText(service, const ['priceType']).toLowerCase();
-                final bool isActive = service['isActive'] != false;
-                final commissionType = _commissionTypeLabel(service);
-                final commissionValue = _commissionValueLabel(service);
-                final waitLabel = _passiveWaitLabel(service);
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () => RefreshFeedback.playAndDetach(_loadData),
+            color: AppColors.starColor,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                _SelectionHeader(
+                  title: context.t('Current Salon'),
+                  value: _selection.label.isEmpty
+                      ? context.t('Select a salon in Bookings first')
+                      : _selection.label,
+                ),
+                const SizedBox(height: 12),
+                if (_selection.branchId == null)
+                  _EmptyState(
+                    message: context.t('Select a salon in Bookings first'),
+                  )
+                else if (_errorMessage != null && _services.isEmpty)
+                  _EmptyState(message: _errorMessage!)
+                else if (_services.isEmpty)
+                  _EmptyState(
+                    message: context.t('No services found for this branch'),
+                  )
+                else
+                  ..._services.map((service) {
+                    final name = _readText(
+                        service, const ['displayName', 'name', 'title']);
+                    final category = _readText(service, const ['categoryName']);
+                    final subcategory =
+                        _readText(service, const ['subCategoryName']);
+                    final duration = _asInt(
+                      service['durationMin'] ?? service['defaultDurationMin'],
+                    );
+                    final price = _asInt(
+                      service['priceMinor'] ?? service['defaultPriceMinor'],
+                    );
+                    final priceType =
+                        _readText(service, const ['priceType']).toLowerCase();
+                    final bool isActive = service['isActive'] != false;
+                    final commissionType = _commissionTypeLabel(service);
+                    final commissionValue = _commissionValueLabel(service);
+                    final waitLabel = _passiveWaitLabel(service);
 
-                final details = <String>[
-                  if (category.isNotEmpty) category,
-                  if (subcategory.isNotEmpty) subcategory,
-                  if (duration != null && duration > 0) '$duration min',
-                  if (waitLabel.isNotEmpty) waitLabel,
-                ].join(' • ');
+                    final details = <String>[
+                      if (category.isNotEmpty) category,
+                      if (subcategory.isNotEmpty) subcategory,
+                      if (duration != null && duration > 0) '$duration min',
+                      if (waitLabel.isNotEmpty) waitLabel,
+                    ].join(' • ');
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    title: Text(
-                      name.isEmpty ? context.t('Services') : name,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (details.isNotEmpty) Text(details),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        title: Text(
+                          name.isEmpty ? context.t('Services') : name,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _InfoPill(
-                              text: commissionType,
-                              backgroundColor: const Color(0xFFF6EFE3),
-                              textColor: AppColors.starColor,
-                            ),
-                            _InfoPill(
-                              text: commissionValue,
-                              backgroundColor: const Color(0xFFF3F4F6),
-                              textColor: Colors.black54,
+                            if (details.isNotEmpty) Text(details),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                _InfoPill(
+                                  text: commissionType,
+                                  backgroundColor: const Color(0xFFF6EFE3),
+                                  textColor: AppColors.starColor,
+                                ),
+                                _InfoPill(
+                                  text: commissionValue,
+                                  backgroundColor: const Color(0xFFF3F4F6),
+                                  textColor: Colors.black54,
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (price != null)
-                          Text(
-                            priceType.isNotEmpty
-                                ? '${formatMinorAmount(price, trimZeroDecimals: true)} ($priceType)'
-                                : formatMinorAmount(
-                                    price,
-                                    trimZeroDecimals: true,
-                                  ),
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? Colors.green.withOpacity(0.12)
-                                : Colors.grey.withOpacity(0.16),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            context.t(isActive ? 'Active' : 'Inactive'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isActive ? Colors.green : Colors.black54,
-                              fontWeight: FontWeight.w600,
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (price != null)
+                              Text(
+                                priceType.isNotEmpty
+                                    ? '${formatMinorAmount(price, trimZeroDecimals: true)} ($priceType)'
+                                    : formatMinorAmount(
+                                        price,
+                                        trimZeroDecimals: true,
+                                      ),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700),
+                              ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isActive
+                                    ? Colors.green.withOpacity(0.12)
+                                    : Colors.grey.withOpacity(0.16),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                context.t(isActive ? 'Active' : 'Inactive'),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      isActive ? Colors.green : Colors.black54,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-          ],
-        ),
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+          if (_isLoading)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  child: AppLoader.page(),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../utils/api_service.dart';
 import '../utils/price_formatter.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 const Color _dealGold = Color(0xFF8B6500);
@@ -2238,13 +2239,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                       shadowColor: const Color(0x338B6500),
                     ),
                     child: _isSubmitting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                        ? AppLoader.inline(
+                            size: 20,
+                            strokeWidth: 2,
+                            color: Colors.white,
                           )
                         : Text(
                             buttonLabel,

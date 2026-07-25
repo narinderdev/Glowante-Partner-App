@@ -1,7 +1,8 @@
-﻿import '../utils/api_service.dart';
+import '../utils/api_service.dart';
 
 class BranchRepository {
-  BranchRepository({ApiService? apiService}) : _apiService = apiService ?? ApiService();
+  BranchRepository({ApiService? apiService})
+      : _apiService = apiService ?? ApiService();
 
   final ApiService _apiService;
 

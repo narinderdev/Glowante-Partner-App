@@ -13,6 +13,7 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/error_parser.dart';
 import '../utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import 'bottom_nav.dart';
 import 'owner_ai_insights_screen.dart';
@@ -22,9 +23,6 @@ import 'owner_sales_reports_screen.dart';
 import 'profile_screen.dart';
 import 'SalonReviews.dart';
 import 'ad.dart';
-
-const Color _dashboardPrimaryText = Color(0xFF1C1917);
-const Color _dashboardSecondaryText = Color(0xFF78716C);
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key, this.onOpenMoreTab});
@@ -430,7 +428,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         children: [
           RefreshIndicator(
             color: AppColors.starColor,
-            onRefresh: () => RefreshFeedback.playAndRun(_loadData),
+            onRefresh: () => RefreshFeedback.playAndDetach(_loadData),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
               physics: const AlwaysScrollableScrollPhysics(),
@@ -1498,170 +1496,17 @@ class _DashboardProfileAvatar extends StatelessWidget {
   }
 }
 
-class _DashboardLoadingOverlay extends StatefulWidget {
+class _DashboardLoadingOverlay extends StatelessWidget {
   const _DashboardLoadingOverlay();
-
-  @override
-  State<_DashboardLoadingOverlay> createState() =>
-      _DashboardLoadingOverlayState();
-}
-
-class _DashboardLoadingOverlayState extends State<_DashboardLoadingOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1600),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Container(
         color: const Color(0x99FBF9F8),
-        alignment: Alignment.center,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final t = _controller.value;
-            final pulse = 0.94 + (0.06 * math.sin(t * math.pi * 2).abs());
-            final lift = 6 * math.sin(t * math.pi * 2);
-            return Transform.translate(
-              offset: Offset(0, lift),
-              child: Transform.scale(scale: pulse, child: child),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: const Color(0xFFF0E4D4)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x1A000000),
-                  blurRadius: 30,
-                  offset: Offset(0, 12),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 98,
-                  height: 98,
-                  child: AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, _) {
-                      final progress = _controller.value;
-                      return CustomPaint(
-                        painter: _DashboardLoaderPainter(progress),
-                        child: Center(
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xFFFFF8EC),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x22000000),
-                                  blurRadius: 14,
-                                  offset: Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.dashboard_customize_rounded,
-                              color: AppColors.starColor,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Loading dashboard',
-                  style: TextStyle(
-                    color: _dashboardPrimaryText,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Fetching live data',
-                  style: TextStyle(
-                    color: _dashboardSecondaryText,
-                    fontSize: 11.5,
-                    height: 1.25,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: AppLoader.page(),
       ),
     );
-  }
-}
-
-class _DashboardLoaderPainter extends CustomPainter {
-  _DashboardLoaderPainter(this.progress);
-
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = math.min(size.width, size.height) / 2 - 8;
-
-    final basePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round
-      ..color = const Color(0x1F8B6500);
-
-    final arcPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round
-      ..color = AppColors.starColor;
-
-    canvas.drawCircle(center, radius, basePaint);
-
-    final sweep = math.pi * 1.45;
-    final start = -math.pi / 2 + progress * math.pi * 2;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      start,
-      sweep,
-      false,
-      arcPaint,
-    );
-
-    final dotAngle = start + sweep;
-    final dotCenter = Offset(
-      center.dx + math.cos(dotAngle) * radius,
-      center.dy + math.sin(dotAngle) * radius,
-    );
-    final dotRadius = 5.5 + 1.2 * math.sin(progress * math.pi * 2).abs();
-    final dotPaint = Paint()..color = AppColors.starColor;
-    canvas.drawCircle(dotCenter, dotRadius, dotPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashboardLoaderPainter oldDelegate) {
-    return oldDelegate.progress != progress;
   }
 }
 

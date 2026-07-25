@@ -7,6 +7,7 @@ import '../services/language_listener.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class StylistInventoryScreen extends StatefulWidget {
@@ -159,123 +160,133 @@ class _StylistInventoryScreenState extends State<StylistInventoryScreen> {
           ),
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: () => RefreshFeedback.playAndRun(_loadData),
-        color: AppColors.starColor,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            _SelectionHeader(
-              title: context.t('Current Salon'),
-              value: _selection.label.isEmpty
-                  ? context.t('Select a salon in Bookings first')
-                  : _selection.label,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () => RefreshFeedback.playAndDetach(_loadData),
+            color: AppColors.starColor,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                _SelectionHeader(
+                  title: context.t('Current Salon'),
+                  value: _selection.label.isEmpty
+                      ? context.t('Select a salon in Bookings first')
+                      : _selection.label,
+                ),
+                if (_totalItems > 0) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    '${context.t('Inventory')}: $_totalItems',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                if (_selection.branchId == null)
+                  _InventoryEmptyState(
+                    message: context.t('Select a salon in Bookings first'),
+                  )
+                else if (_errorMessage != null && _items.isEmpty)
+                  _InventoryEmptyState(message: _errorMessage!)
+                else if (_items.isEmpty)
+                  _InventoryEmptyState(
+                    message:
+                        context.t('No inventory items found for this branch'),
+                  )
+                else
+                  ..._items.map((item) {
+                    final name = _text(
+                      item,
+                      const ['itemName', 'name', 'displayName', 'title'],
+                    );
+                    final code = _text(
+                      item,
+                      const ['skuNumber', 'sku', 'code', 'itemId'],
+                    );
+                    final unit = _text(
+                      item,
+                      const ['unitOfMeasure', 'unit', 'unitName'],
+                    );
+                    final category =
+                        _text(item, const ['category', 'categoryName']);
+                    final storeName = _text(item, const ['storeName']);
+                    final stock = _asInt(
+                      item['stockLevel'] ??
+                          item['availableStock'] ??
+                          item['currentStock'] ??
+                          item['stock'] ??
+                          item['quantity'],
+                    );
+
+                    final subtitle = <String>[
+                      if (code.isNotEmpty) 'SKU: $code',
+                      if (category.isNotEmpty) category,
+                      if (unit.isNotEmpty) unit,
+                      if (storeName.isNotEmpty) storeName,
+                    ].join(' • ');
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        title: Text(
+                          name.isEmpty ? context.t('Inventory') : name,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: subtitle.isEmpty ? null : Text(subtitle),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.starColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                context.t('Stock'),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              Text(
+                                '${stock ?? 0}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+              ],
             ),
-            if (_totalItems > 0) ...[
-              const SizedBox(height: 10),
-              Text(
-                '${context.t('Inventory')}: $_totalItems',
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
+          ),
+          if (_isLoading)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  child: AppLoader.page(),
                 ),
               ),
-            ],
-            const SizedBox(height: 12),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.only(top: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_selection.branchId == null)
-              _InventoryEmptyState(
-                message: context.t('Select a salon in Bookings first'),
-              )
-            else if (_errorMessage != null && _items.isEmpty)
-              _InventoryEmptyState(message: _errorMessage!)
-            else if (_items.isEmpty)
-              _InventoryEmptyState(
-                message: context.t('No inventory items found for this branch'),
-              )
-            else
-              ..._items.map((item) {
-                final name = _text(
-                  item,
-                  const ['itemName', 'name', 'displayName', 'title'],
-                );
-                final code = _text(
-                  item,
-                  const ['skuNumber', 'sku', 'code', 'itemId'],
-                );
-                final unit = _text(
-                  item,
-                  const ['unitOfMeasure', 'unit', 'unitName'],
-                );
-                final category =
-                    _text(item, const ['category', 'categoryName']);
-                final storeName = _text(item, const ['storeName']);
-                final stock = _asInt(
-                  item['stockLevel'] ??
-                      item['availableStock'] ??
-                      item['currentStock'] ??
-                      item['stock'] ??
-                      item['quantity'],
-                );
-
-                final subtitle = <String>[
-                  if (code.isNotEmpty) 'SKU: $code',
-                  if (category.isNotEmpty) category,
-                  if (unit.isNotEmpty) unit,
-                  if (storeName.isNotEmpty) storeName,
-                ].join(' • ');
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    title: Text(
-                      name.isEmpty ? context.t('Inventory') : name,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: subtitle.isEmpty ? null : Text(subtitle),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.starColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            context.t('Stock'),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.black54,
-                            ),
-                          ),
-                          Text(
-                            '${stock ?? 0}',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 
 const Color _reviewGold = Color(0xFF8B6500);
 const Color _reviewInk = Color(0xFF1F1B18);
@@ -373,6 +374,13 @@ class _SalonReviewsState extends State<SalonReviews>
     required String message,
     bool loading = false,
   }) {
+    // The loader itself must look and read exactly like every other screen's
+    // loader — no bespoke card/icon/title/message — so bypass all of that
+    // and just show the shared component directly.
+    if (loading) {
+      return Center(child: AppLoader.page());
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -394,15 +402,7 @@ class _SalonReviewsState extends State<SalonReviews>
                   color: _reviewSoftGold,
                   shape: BoxShape.circle,
                 ),
-                child: loading
-                    ? const Padding(
-                        padding: EdgeInsets.all(13),
-                        child: CircularProgressIndicator(
-                          color: _reviewGold,
-                          strokeWidth: 2.4,
-                        ),
-                      )
-                    : Icon(icon, color: _reviewGold, size: 24),
+                child: Icon(icon, color: _reviewGold, size: 24),
               ),
               const SizedBox(height: 14),
               Text(

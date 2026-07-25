@@ -3,6 +3,7 @@ import '../utils/colors.dart';
 import '../utils/price_formatter.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../widgets/app_loader.dart';
 
 class OfferReviewSummaryScreen extends StatefulWidget {
   const OfferReviewSummaryScreen({
@@ -67,14 +68,17 @@ class _OfferReviewSummaryScreenState extends State<OfferReviewSummaryScreen> {
   }
 
   String get _discountValue {
-    if (widget.pricingMode == 'Fixed') return _rupeeInputLabel(widget.amountOff);
+    if (widget.pricingMode == 'Fixed')
+      return _rupeeInputLabel(widget.amountOff);
     if (widget.discountType == 'Percent') return '${widget.amountOff}%';
     return _rupeeInputLabel(widget.amountOff);
   }
 
   String _rupeeInputLabel(String value) {
     final parsed = num.tryParse(value.trim());
-    return parsed == null ? (value.trim().isEmpty ? '-' : value) : formatRupeeAmount(parsed);
+    return parsed == null
+        ? (value.trim().isEmpty ? '-' : value)
+        : formatRupeeAmount(parsed);
   }
 
   Widget _sectionTitle(String title, IconData icon) {
@@ -297,7 +301,8 @@ class _OfferReviewSummaryScreenState extends State<OfferReviewSummaryScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            translateText('Please verify details before submitting.'),
+                            translateText(
+                                'Please verify details before submitting.'),
                             style: const TextStyle(
                               color: _muted,
                               fontSize: 12,
@@ -311,40 +316,41 @@ class _OfferReviewSummaryScreenState extends State<OfferReviewSummaryScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-
               _sectionTitle(
                 widget.isPackage ? 'Package Information' : 'Deal Information',
                 Icons.info_outline_rounded,
               ),
               _infoCard(
                 children: [
-                  _row(widget.isPackage ? 'Package Title' : 'Deal Title', widget.title),
+                  _row(widget.isPackage ? 'Package Title' : 'Deal Title',
+                      widget.title),
                   _row('Pricing Option', widget.pricingMode),
                   if (widget.pricingMode == 'Discount')
                     _row('Discount Type', widget.discountType),
                   _row(_discountLabel, _discountValue, highlight: true),
-                  if (widget.pricingMode == 'Discount' && widget.discountType == 'Percent')
+                  if (widget.pricingMode == 'Discount' &&
+                      widget.discountType == 'Percent')
                     _row('Max Discount', _rupeeInputLabel(widget.maxDiscount)),
                   _row('Terms', widget.terms),
                   if (widget.isPackage)
-                    _row('Duration', '${widget.durationValue} ${widget.durationUnit}')
+                    _row('Duration',
+                        '${widget.durationValue} ${widget.durationUnit}')
                   else ...[
                     _row('Start Date', widget.validFrom),
                     _row('End Date', widget.validTill),
                   ],
                 ],
               ),
-
               const SizedBox(height: 18),
               _sectionTitle('Price Summary', Icons.payments_outlined),
               Row(
                 children: [
                   _priceBox('Original Price', widget.originalPrice),
                   const SizedBox(width: 12),
-                  _priceBox('Discounted Price', widget.discountedPrice, primary: true),
+                  _priceBox('Discounted Price', widget.discountedPrice,
+                      primary: true),
                 ],
               ),
-
               const SizedBox(height: 18),
               _sectionTitle('Selected Services', Icons.spa_outlined),
               if (widget.selectedServices.isEmpty)
@@ -418,13 +424,10 @@ class _OfferReviewSummaryScreenState extends State<OfferReviewSummaryScreen> {
                     ),
                   ),
                   child: submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                      ? AppLoader.inline(
+                          size: 20,
+                          strokeWidth: 2,
+                          color: Colors.white,
                         )
                       : Text(
                           submitLabel,

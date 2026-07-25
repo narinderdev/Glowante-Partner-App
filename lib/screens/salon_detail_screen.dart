@@ -8,6 +8,7 @@ import '../utils/api_service.dart';
 import '../utils/address_formatter.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 
 class SalonDetailScreen extends StatefulWidget {
   const SalonDetailScreen({
@@ -27,6 +28,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
   List<String> _services = const [];
   List<String> _teamMembers = const [];
   String? _error;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     }
 
     setState(() {
+      _isLoading = true;
       _error = null;
     });
 
@@ -73,6 +76,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
         _primaryBranch = branchDetails;
         _services = _extractServices(serviceResponse);
         _teamMembers = _extractTeamMembers(teamResponse['data']);
+        _isLoading = false;
       });
     } catch (error) {
       if (!mounted) return;
@@ -81,6 +85,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
         _services = _extractServices(_primaryBranch ?? _salon);
         _teamMembers =
             _extractTeamMembers(_primaryBranch?['team'] ?? _salon['team']);
+        _isLoading = false;
       });
     }
   }
@@ -516,74 +521,91 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4EEE7),
       appBar: buildProfileSubpageAppBar(title: translateText('Salon Details')),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFF9F4ED), Color(0xFFF3ECE3)],
-          ),
-        ),
-        child: RefreshIndicator(
-          onRefresh: () => RefreshFeedback.playAndRun(_loadBranchBackedDetails),
-          color: AppColors.starColor,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-            children: [
-              _HeroCard(
-                title: title.isEmpty ? translateText('Salon Details') : title,
-                subtitle: translateText('Main Salon'),
-                imageUrls: imageUrls,
-                active: _salon['active'] != false,
-                // Only show a separate Branch pill when there's more than one branch —
-                // with a single branch, "Salon" and "Branch" status are the same thing.
-                branchActive: _primaryBranch != null && branchCount > 1
-                    ? _isBranchActive
-                    : null,
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFF9F4ED), Color(0xFFF3ECE3)],
               ),
-              const SizedBox(height: 14),
-              _SummaryStrip(
-                items: [
-                  _SummaryStat(
-                      label: 'Branches', value: branchCount.toString()),
-                  _SummaryStat(
-                      label: 'Services', value: _services.length.toString()),
-                  _SummaryStat(label: 'Open Days', value: openDays.toString()),
+            ),
+            child: RefreshIndicator(
+              onRefresh: () =>
+                  RefreshFeedback.playAndDetach(_loadBranchBackedDetails),
+              color: AppColors.starColor,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                children: [
+                  _HeroCard(
+                    title:
+                        title.isEmpty ? translateText('Salon Details') : title,
+                    subtitle: translateText('Main Salon'),
+                    imageUrls: imageUrls,
+                    active: _salon['active'] != false,
+                    // Only show a separate Branch pill when there's more than one branch —
+                    // with a single branch, "Salon" and "Branch" status are the same thing.
+                    branchActive: _primaryBranch != null && branchCount > 1
+                        ? _isBranchActive
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  _SummaryStrip(
+                    items: [
+                      _SummaryStat(
+                          label: 'Branches', value: branchCount.toString()),
+                      _SummaryStat(
+                          label: 'Services',
+                          value: _services.length.toString()),
+                      _SummaryStat(
+                          label: 'Open Days', value: openDays.toString()),
+                    ],
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    _WarningBox(message: _error!),
+                  ],
+                  const SizedBox(height: 14),
+                  _DetailSection(
+                    title: 'Salon Form Values',
+                    child: Column(
+                      children: _formRows()
+                          .map((row) =>
+                              _DetailLine(label: row.label, value: row.value))
+                          .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _DetailSection(
+                    title: 'Weekly Schedule',
+                    child: Column(
+                      children: _scheduleRows()
+                          .map((row) =>
+                              _DetailLine(label: row.label, value: row.value))
+                          .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _ExpandableChipSection(title: 'Services', values: _services),
+                  const SizedBox(height: 14),
+                  _ExpandableChipSection(
+                      title: 'Team Members', values: _teamMembers),
                 ],
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                _WarningBox(message: _error!),
-              ],
-              const SizedBox(height: 14),
-              _DetailSection(
-                title: 'Salon Form Values',
-                child: Column(
-                  children: _formRows()
-                      .map((row) =>
-                          _DetailLine(label: row.label, value: row.value))
-                      .toList(),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _DetailSection(
-                title: 'Weekly Schedule',
-                child: Column(
-                  children: _scheduleRows()
-                      .map((row) =>
-                          _DetailLine(label: row.label, value: row.value))
-                      .toList(),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _ExpandableChipSection(title: 'Services', values: _services),
-              const SizedBox(height: 14),
-              _ExpandableChipSection(
-                  title: 'Team Members', values: _teamMembers),
-            ],
+            ),
           ),
-        ),
+          if (_isLoading)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: const Color(0x99F4EEE7),
+                  child: AppLoader.page(),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

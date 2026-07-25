@@ -17,6 +17,7 @@ import '../utils/aws_s3_uploader.dart';
 import '../utils/colors.dart';
 import '../utils/input_validation.dart';
 import '../widgets/multi_step_flow_header.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 const Color _teamMemberAccent = Color(0xFF8B6500);
@@ -2762,13 +2763,10 @@ class _PrimaryButton extends StatelessWidget {
           ),
         ),
         child: isLoading
-            ? SizedBox(
-                width: flowStyle ? 22 : 20,
-                height: flowStyle ? 22 : 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: flowStyle ? 2.5 : 2,
-                ),
+            ? AppLoader.inline(
+                size: flowStyle ? 22 : 20,
+                strokeWidth: flowStyle ? 2.5 : 2,
+                color: Colors.white,
               )
             : Text(
                 text,

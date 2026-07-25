@@ -9,6 +9,7 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/input_validation.dart';
+import '../widgets/app_loader.dart';
 
 String _cleanText(dynamic value) => value?.toString().trim() ?? '';
 
@@ -270,13 +271,10 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
                   ),
                   onPressed: isDeleting ? null : handleDelete,
                   child: isDeleting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                      ? AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
                         )
                       : Text(translateText('Delete')),
                 ),
@@ -307,42 +305,49 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
               label: Text(translateText('Add Bank Details')),
             ),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () =>
-              RefreshFeedback.playAndRun(() => _loadAccounts(silent: true)),
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
-            children: [
-              _SummaryCard(
-                salonId: _salonId,
-                isLoading: _isLoading,
-              ),
-              const SizedBox(height: 14),
-              if (_errorMessage != null) ...[
-                _ErrorCard(message: _errorMessage!),
-                const SizedBox(height: 14),
-              ],
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 24),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_accounts.isEmpty)
-                const _EmptyAccountsState()
-              else
-                ..._accounts.expand(
-                  (account) => [
-                    _PayoutAccountCard(
-                      account: account,
-                      onEdit: () => _openForm(account: account),
-                      onDelete: () => _deleteAccount(account),
-                    ),
-                    const SizedBox(height: 12),
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: () => RefreshFeedback.playAndDetach(_loadAccounts),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
+                children: [
+                  _SummaryCard(
+                    salonId: _salonId,
+                    isLoading: _isLoading,
+                  ),
+                  const SizedBox(height: 14),
+                  if (_errorMessage != null) ...[
+                    _ErrorCard(message: _errorMessage!),
+                    const SizedBox(height: 14),
                   ],
+                  if (_accounts.isEmpty && !_isLoading)
+                    const _EmptyAccountsState()
+                  else
+                    ..._accounts.expand(
+                      (account) => [
+                        _PayoutAccountCard(
+                          account: account,
+                          onEdit: () => _openForm(account: account),
+                          onDelete: () => _deleteAccount(account),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            if (_isLoading)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  child: Container(
+                    color: const Color(0x99FBF9F8),
+                    child: AppLoader.page(),
+                  ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -409,10 +414,10 @@ class _SummaryCard extends StatelessWidget {
           ),
           if (isLoading) ...[
             const SizedBox(width: 12),
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            AppLoader.inline(
+              size: 16,
+              strokeWidth: 2,
+              color: AppColors.starColor,
             ),
           ],
         ],
@@ -1069,13 +1074,10 @@ class _SalonPayoutAccountFormScreenState
                             ),
                           ),
                           child: _isSaving
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                              ? AppLoader.inline(
+                                  size: 20,
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 )
                               : Text(
                                   translateText(

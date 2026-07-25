@@ -8,6 +8,7 @@ import '../utils/colors.dart';
 import 'AddTeamSelectServices.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class _OperatingSlot {
@@ -56,6 +57,10 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   bool _copyMondayToAllChecked = false;
   bool _isLoadingOperatingSchedule = false;
   bool _isApplyingMondayCopy = false;
+  // Schedule-conflict messages should only appear once the user actually
+  // tries to proceed — not the instant this screen loads with pre-filled
+  // data that happens to already be outside branch hours.
+  bool _hasAttemptedContinue = false;
   final Map<int, Set<int>> _rememberedSelectedServiceIdsByBranchId = {};
 
   int? _toInt(dynamic value) {
@@ -1691,7 +1696,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final isClosed = _isClosedDay(day);
     final isOff = _isMemberOffDay(day);
     final markedOff = isClosed || isOff;
-    final conflict = _conflictForDay(day);
+    final conflict = _hasAttemptedContinue ? _conflictForDay(day) : null;
 
     return Opacity(
       opacity: _useSalonHours ? 0.55 : 1,
@@ -2206,8 +2211,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   Widget build(BuildContext context) {
     final navigationDisabled =
         _isSubmitting || _isLoadingOperatingSchedule || _isApplyingMondayCopy;
-    final scheduleConflicts = _scheduleConflicts;
-    final continueDisabled = navigationDisabled || scheduleConflicts.isNotEmpty;
+    // Conflicts don't disable the button itself — tapping it while they
+    // exist is what reveals the per-day messages (see onPressed below) and
+    // blocks the actual navigation, so the user always gets an explanation
+    // instead of a silently-disabled button.
+    final continueDisabled = navigationDisabled;
 
     return PopScope(
       canPop: false,
@@ -2386,6 +2394,17 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                               onPressed: continueDisabled
                                   ? null
                                   : () async {
+                                      if (_scheduleConflicts.isNotEmpty) {
+                                        setState(
+                                          () => _hasAttemptedContinue = true,
+                                        );
+                                        Fluttertoast.showToast(
+                                          msg: translateText(
+                                            'Fix the schedule conflicts below before continuing.',
+                                          ),
+                                        );
+                                        return;
+                                      }
                                       await _goToSelectServices();
                                     },
                               style: ElevatedButton.styleFrom(
@@ -2398,13 +2417,10 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                 elevation: 2,
                               ),
                               child: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2.5,
-                                      ),
+                                  ? AppLoader.inline(
+                                      size: 22,
+                                      strokeWidth: 2.5,
+                                      color: Colors.white,
                                     )
                                   : Row(
                                       mainAxisAlignment:
@@ -2453,51 +2469,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         child: Container(
           color: Colors.black.withValues(alpha: 0.28),
           child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 22,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 30,
-                    height: 30,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: AppColors.starColor,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    translateText('Please wait...'),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF2B2520),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    translateText('Loading...'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: AppLoader.page(),
           ),
         ),
       ),

@@ -24,9 +24,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               (rawPhone is String && rawPhone.trim().isNotEmpty)
                   ? rawPhone.trim()
                   : event.phoneNumber.trim();
+          final dynamic rawRetryAfter =
+              data is Map<String, dynamic> ? data['retryAfterSeconds'] : null;
+          final int? retryAfterSeconds = rawRetryAfter is int
+              ? rawRetryAfter
+              : int.tryParse(rawRetryAfter?.toString() ?? '');
 
           emit(AuthLoginSuccess({
             'phoneNumber': phoneNumber,
+            'retryAfterSeconds': retryAfterSeconds,
             'message': extractMessage(
               response,
               fallback: 'OTP sent successfully',

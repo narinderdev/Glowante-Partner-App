@@ -6,6 +6,8 @@ import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../widgets/app_loader.dart';
+
 class StylistAttendanceHistoryScreen extends StatefulWidget {
   const StylistAttendanceHistoryScreen({
     super.key,
@@ -152,8 +154,7 @@ class _StylistAttendanceHistoryScreenState
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: () =>
-            RefreshFeedback.playAndRun(() => _loadHistory(showLoader: false)),
+        onRefresh: () => RefreshFeedback.playAndDetach(_loadHistory),
         color: AppColors.starColor,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
@@ -174,9 +175,9 @@ class _StylistAttendanceHistoryScreenState
             ),
             const SizedBox(height: 16),
             if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.only(top: 64),
-                child: Center(child: CircularProgressIndicator()),
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.5,
+                child: Center(child: AppLoader.page()),
               )
             else if (_errorMessage != null)
               _HistoryMessageCard(

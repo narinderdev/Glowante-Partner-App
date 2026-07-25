@@ -3,6 +3,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../../stylist_item_entry/stylist_used_item.dart';
+import '../../../widgets/app_loader.dart';
 
 const String _detailsFontFamily = 'Manrope';
 const Color _detailsAccent = Color(0xFFC19A6B);
@@ -104,6 +105,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
     this.isSecondaryLoading = false,
     this.onSecondaryAction,
     this.onRefresh,
+    this.isRefreshing = false,
   });
 
   final VoidCallback onBack;
@@ -139,6 +141,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   final VoidCallback onAddServices;
   final bool canAddServices;
   final Future<void> Function()? onRefresh;
+  final bool isRefreshing;
 
   @override
   Widget build(BuildContext context) {
@@ -167,13 +170,10 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
           ),
         ),
         child: isLoading
-            ? const SizedBox(
-                height: 18,
-                width: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
+            ? AppLoader.inline(
+                size: 18,
+                strokeWidth: 2,
+                color: Colors.white,
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -606,13 +606,26 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
       backgroundColor: _detailsPage,
       body: SafeArea(
         bottom: false,
-        child: onRefresh == null
-            ? content
-            : RefreshIndicator(
-                color: _detailsAccent,
-                onRefresh: () => RefreshFeedback.playAndRun(onRefresh!),
-                child: content,
+        child: Stack(
+          children: [
+            onRefresh == null
+                ? content
+                : RefreshIndicator(
+                    color: _detailsAccent,
+                    onRefresh: () => RefreshFeedback.playAndDetach(onRefresh!),
+                    child: content,
+                  ),
+            if (isRefreshing)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  child: Container(
+                    color: const Color(0x99FBF9F8),
+                    child: AppLoader.page(),
+                  ),
+                ),
               ),
+          ],
+        ),
       ),
     );
   }

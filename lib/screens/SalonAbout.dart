@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
+import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class SalonAbout extends StatefulWidget {
@@ -129,7 +130,7 @@ class _SalonAboutState extends State<SalonAbout> {
 
   Widget _buildDetailsContent(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return AppLoader.page();
     }
 
     if (_branchId == null) {

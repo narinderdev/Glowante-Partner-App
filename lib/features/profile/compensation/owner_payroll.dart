@@ -17,7 +17,7 @@ extension _OwnerPayrollUi on _ProfileCompensationScreenState {
         RefreshIndicator(
           color: AppColors.starColor,
           backgroundColor: const Color(0xFFFFFCF8),
-          onRefresh: () => RefreshFeedback.playAndRun(
+          onRefresh: () => RefreshFeedback.playAndDetach(
             () => _reloadContent(showLoader: false),
           ),
           child: ListView(
@@ -121,10 +121,7 @@ extension _OwnerPayrollUi on _ProfileCompensationScreenState {
               child: Container(
                 color: const Color(0x66FFFCF8),
                 alignment: Alignment.center,
-                child: CircularProgressIndicator(
-                  color: AppColors.starColor,
-                  strokeWidth: 3,
-                ),
+                child: AppLoader.page(),
               ),
             ),
           ),
@@ -202,13 +199,10 @@ class _PayrollNotGeneratedEmptyState extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isLoading) ...[
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
+                    AppLoader.inline(
+                      size: 16,
+                      strokeWidth: 2,
+                      color: Colors.white,
                     ),
                     const SizedBox(width: 8),
                   ],
@@ -416,13 +410,10 @@ class _ReadyPayrollPeriodCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (isLoading) ...[
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
+                      AppLoader.inline(
+                        size: 16,
+                        strokeWidth: 2,
+                        color: Colors.white,
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -755,7 +746,7 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
           child: RefreshIndicator(
             color: AppColors.starColor,
             backgroundColor: const Color(0xFFFFFCF8),
-            onRefresh: () => RefreshFeedback.playAndRun(_refreshSetupData),
+            onRefresh: () => RefreshFeedback.playAndDetach(_refreshSetupData),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
@@ -1736,10 +1727,7 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
             child: Container(
               color: const Color(0x66FFFCF8),
               alignment: Alignment.center,
-              child: CircularProgressIndicator(
-                color: AppColors.starColor,
-                strokeWidth: 3,
-              ),
+              child: AppLoader.page(),
             ),
           ),
       ],

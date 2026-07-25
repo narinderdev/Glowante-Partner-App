@@ -7,6 +7,7 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 const Color _rolesBackground = Color(0xFFFBFAF8);
@@ -279,26 +280,37 @@ class _OwnerRolesPermissionsScreenState
     return Scaffold(
       backgroundColor: _rolesBackground,
       appBar: buildProfileSubpageAppBar(title: context.t('Roles')),
-      body: RefreshIndicator(
-        color: AppColors.starColor,
-        onRefresh: () => RefreshFeedback.playAndRun(() async {
-          final branchId = _selectedBranchId;
-          if (branchId == null) {
-            await _loadInitialData();
-          } else {
-            await _loadRoles(branchId);
-          }
-        }),
-        child: _buildBody(),
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: AppColors.starColor,
+            onRefresh: () => RefreshFeedback.playAndDetach(() async {
+              final branchId = _selectedBranchId;
+              if (branchId == null) {
+                await _loadInitialData();
+              } else {
+                await _loadRoles(branchId);
+              }
+            }),
+            child: _buildBody(),
+          ),
+          if (_isLoading && _roles.isNotEmpty)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: const Color(0x99FBFAF8),
+                  child: AppLoader.page(),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading && _roles.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.starColor),
-      );
+      return AppLoader.page();
     }
 
     if (_errorMessage != null) {
@@ -1257,13 +1269,10 @@ class _RoleDialogFooter extends StatelessWidget {
             elevation: 0,
           ),
           child: isSubmitting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
+              ? AppLoader.inline(
+                  size: 18,
+                  strokeWidth: 2,
+                  color: Colors.white,
                 )
               : Text(actionLabel),
         ),

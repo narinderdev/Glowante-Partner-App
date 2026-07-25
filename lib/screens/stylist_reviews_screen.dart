@@ -8,6 +8,7 @@ import '../services/language_listener.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class StylistReviewsScreen extends StatefulWidget {
@@ -122,136 +123,146 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(title: context.t('Reviews')),
-      body: RefreshIndicator(
-        onRefresh: () => RefreshFeedback.playAndRun(_loadReviews),
-        color: AppColors.starColor,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_selection.branchId == null)
-              _EmptyState(
-                message: context.t('Select a salon in Bookings first'),
-              )
-            else if (_error != null)
-              _EmptyState(message: _error!)
-            else ...[
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      _selection.label.isEmpty
-                          ? context.t('Reviews')
-                          : _selection.label,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _overallRating.toStringAsFixed(2),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.starColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _stars(_overallRating),
-                    const SizedBox(height: 8),
-                    Text(
-                      '($_totalReviews ${context.t('Reviews')})',
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_reviews.isEmpty)
-                _EmptyState(message: context.t('No reviews found'))
-              else
-                ..._reviews.map((review) {
-                  final reviewer = review['reviewer'] is Map
-                      ? Map<String, dynamic>.from(review['reviewer'] as Map)
-                      : const <String, dynamic>{};
-                  final reviewerName =
-                      '${reviewer['firstName'] ?? ''} ${reviewer['lastName'] ?? ''}'
-                          .trim();
-                  final createdAt =
-                      DateTime.tryParse(review['createdAt']?.toString() ?? '')
-                          ?.toLocal();
-                  final comment = (review['comment'] ?? '').toString().trim();
-                  final rating = (review['rating'] as num?)?.toDouble() ?? 0.0;
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () => RefreshFeedback.playAndDetach(_loadReviews),
+            color: AppColors.starColor,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                if (_selection.branchId == null)
+                  _EmptyState(
+                    message: context.t('Select a salon in Bookings first'),
+                  )
+                else if (_error != null)
+                  _EmptyState(message: _error!)
+                else ...[
+                  Container(
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          reviewerName.isNotEmpty
-                              ? reviewerName
-                              : context.t('Customer'),
+                          _selection.label.isEmpty
+                              ? context.t('Reviews')
+                              : _selection.label,
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
+                            fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            fontSize: 16,
                           ),
                         ),
-                        if (createdAt != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            _dateFormat.format(createdAt),
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        _stars(rating),
-                        if (comment.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            comment,
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
                         const SizedBox(height: 10),
                         Text(
-                          '${context.t('Appointment')}: ${review['appointmentId'] ?? '--'}',
+                          _overallRating.toStringAsFixed(2),
                           style: const TextStyle(
-                            color: Colors.black54,
-                            fontSize: 12,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.starColor,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        _stars(_overallRating),
+                        const SizedBox(height: 8),
                         Text(
-                          '${context.t('Item')}: ${review['appointmentItemId'] ?? '--'}',
-                          style: const TextStyle(
-                            color: Colors.black54,
-                            fontSize: 12,
-                          ),
+                          '($_totalReviews ${context.t('Reviews')})',
+                          style: const TextStyle(color: Colors.black54),
                         ),
                       ],
                     ),
-                  );
-                }),
-            ],
-          ],
-        ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_reviews.isEmpty)
+                    _EmptyState(message: context.t('No reviews found'))
+                  else
+                    ..._reviews.map((review) {
+                      final reviewer = review['reviewer'] is Map
+                          ? Map<String, dynamic>.from(review['reviewer'] as Map)
+                          : const <String, dynamic>{};
+                      final reviewerName =
+                          '${reviewer['firstName'] ?? ''} ${reviewer['lastName'] ?? ''}'
+                              .trim();
+                      final createdAt = DateTime.tryParse(
+                              review['createdAt']?.toString() ?? '')
+                          ?.toLocal();
+                      final comment =
+                          (review['comment'] ?? '').toString().trim();
+                      final rating =
+                          (review['rating'] as num?)?.toDouble() ?? 0.0;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              reviewerName.isNotEmpty
+                                  ? reviewerName
+                                  : context.t('Customer'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                            if (createdAt != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _dateFormat.format(createdAt),
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            _stars(rating),
+                            if (comment.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                comment,
+                                style: const TextStyle(color: Colors.black87),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            Text(
+                              '${context.t('Appointment')}: ${review['appointmentId'] ?? '--'}',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              '${context.t('Item')}: ${review['appointmentItemId'] ?? '--'}',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                ],
+              ],
+            ),
+          ),
+          if (_loading)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  child: AppLoader.page(),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

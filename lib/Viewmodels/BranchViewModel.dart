@@ -5,7 +5,7 @@ import '../Viewmodels/AddSalonBranchRequest.dart';
 
 class BranchViewModel extends ChangeNotifier {
   final ApiService apiService = ApiService();
-  
+
   // To store the branch details after getting them from the API
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> get branches => _branches;
@@ -17,7 +17,8 @@ class BranchViewModel extends ChangeNotifier {
   // Get all branches of a salon
   Future<void> getBranchDetail(int salonId) async {
     try {
-      final response = await apiService.getBranchDetail(salonId); // Correct method to get branches
+      final response = await apiService
+          .getBranchDetail(salonId); // Correct method to get branches
       if (response['success'] == true) {
         _branches = response['data'] ?? [];
         notifyListeners();
@@ -31,9 +32,11 @@ class BranchViewModel extends ChangeNotifier {
   }
 
   // Add a new branch for the salon
-  Future<void> addSalonBranch(int salonId, AddSalonBranchRequest branchRequest) async {
+  Future<void> addSalonBranch(
+      int salonId, AddSalonBranchRequest branchRequest) async {
     try {
-      final response = await apiService.addSalonBranch(salonId, branchRequest.toJson());
+      final response =
+          await apiService.addSalonBranch(salonId, branchRequest.toJson());
       if (response['success'] == true) {
         _branches.add(response['data']);
         notifyListeners();

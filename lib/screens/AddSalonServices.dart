@@ -15,6 +15,7 @@ import '../utils/error_parser.dart';
 import '../utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/salon_flow_step_header.dart';
+import '../widgets/app_loader.dart';
 import 'bottom_nav.dart';
 
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
@@ -65,6 +66,24 @@ class _AddSalonServicesState extends State<AddSalonServices> {
   bool _isCompletingSuccess = false;
   final Map<String, ImageProvider> _imageProviders = {};
   int? _selectedSourceBranchId;
+
+  // Keeps the current checklist selection mirrored into whichever flow's
+  // persistent cubit is active, on every toggle — not just on final
+  // submit. This screen gets destroyed and recreated each time the user
+  // navigates away (e.g. back to the Schedule step) and returns, so
+  // without this the selection would only ever survive if the user
+  // happened to hit the final submit button before leaving.
+  void _syncSelectionToCubit() {
+    if (widget.branchFormData != null) {
+      context.read<AddBranchCubit>().updateSelectedServiceCodes(
+            List<String>.from(_selectedCodes),
+          );
+    } else {
+      context.read<AddSalonCubit>().updateSelectedServiceCodes(
+            List<String>.from(_selectedCodes),
+          );
+    }
+  }
 
   @override
   void initState() {
@@ -267,7 +286,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
               automaticallyImplyLeading: !isApiCalling,
             ),
             body: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? AppLoader.page()
                 : AbsorbPointer(
                     absorbing: isApiCalling,
                     child: GestureDetector(
@@ -372,6 +391,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                               _selectedCodes.add(code);
                                             }
                                           });
+                                          _syncSelectionToCubit();
                                         },
                                         child: _buildSpecialtyCard(
                                           name: name,
@@ -405,14 +425,11 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                   child: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 300),
                                     child: isApiCalling
-                                        ? const SizedBox(
-                                            key: ValueKey('loader'),
-                                            width: 22,
-                                            height: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.5,
-                                              color: Colors.white,
-                                            ),
+                                        ? AppLoader.inline(
+                                            key: const ValueKey('loader'),
+                                            size: 22,
+                                            strokeWidth: 2.5,
+                                            color: Colors.white,
                                           )
                                         : Text(
                                             translateText(
@@ -595,6 +612,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                               _selectedCodes.clear();
                             }
                           });
+                          _syncSelectionToCubit();
                         },
                 ),
               ],

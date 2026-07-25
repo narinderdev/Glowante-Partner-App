@@ -19,6 +19,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../utils/api_service.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../widgets/app_loader.dart';
 
 const Color _catalogGold = Color(0xFF8B6500);
 const Color _catalogGoldLight = Color(0xFFD0A244);
@@ -697,8 +698,8 @@ class CategoryScreenState extends State<CategoryScreen> {
         backgroundColor: Colors.white,
         child: _EditSubcategorySheet(
           subCategory: subCategory,
-          branchId: branchId, // sheet will call the cubit & show loader
-          categoryId: categoryId, // needed for add
+          branchId: branchId,
+          categoryId: categoryId,
         ),
       ),
     );
@@ -866,7 +867,7 @@ class CategoryScreenState extends State<CategoryScreen> {
 
   // ---------- OPEN ADD SERVICE SCREEN ----------
   Future<void> _openAddService(
-    Map<String, dynamic> category,
+    Map<String, dynamic>? category,
     List<dynamic> categories,
   ) async {
     if (_selectedSalon == null || _isOpeningAddService) return;
@@ -1193,13 +1194,10 @@ class CategoryScreenState extends State<CategoryScreen> {
                                 ),
                               ),
                               child: isImporting
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
+                                  ? AppLoader.inline(
+                                      size: 18,
+                                      strokeWidth: 2,
+                                      color: Colors.white,
                                     )
                                   : Text(translateText('Submit')),
                             ),
@@ -1467,22 +1465,10 @@ class CategoryScreenState extends State<CategoryScreen> {
             icon: const Icon(Icons.notifications_none_rounded),
             color: _catalogGold,
           ),
-          IconButton(
-            tooltip: translateText('Add predefined services'),
-            onPressed: _selectedSalon == null || _isOpeningPredefinedServices
-                ? null
-                : _showPredefinedServicesModal,
-            icon: _isOpeningPredefinedServices
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(_catalogGold),
-                    ),
-                  )
-                : const Icon(Icons.playlist_add_check_rounded),
-            color: _catalogGold,
+          _PredefinedServicesHintIcon(
+            enabled: _selectedSalon != null && !_isOpeningPredefinedServices,
+            isLoading: _isOpeningPredefinedServices,
+            onPressed: _showPredefinedServicesModal,
           ),
         ],
       ),
@@ -1577,7 +1563,7 @@ class CategoryScreenState extends State<CategoryScreen> {
     return RefreshIndicator(
       color: _catalogGold,
       displacement: 32,
-      onRefresh: () => RefreshFeedback.playAndRun(_refreshData),
+      onRefresh: () => RefreshFeedback.playAndDetach(_refreshData),
       child: ListView(
         controller: _catalogScrollController,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -1725,17 +1711,14 @@ class CategoryScreenState extends State<CategoryScreen> {
             onPressed: _selectedSalon == null || _isOpeningAddService
                 ? null
                 : () => _openAddService(
-                      const <String, dynamic>{},
+                      null,
                       catState.categories,
                     ),
             icon: _isOpeningAddService
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
+                ? AppLoader.inline(
+                    size: 16,
+                    strokeWidth: 2,
+                    color: Colors.white,
                   )
                 : const Icon(Icons.add_circle_outline_rounded, size: 16),
             label: _isOpeningAddService
@@ -2279,11 +2262,19 @@ class CategoryScreenState extends State<CategoryScreen> {
       if (loadId != null) {
         final categoryCubit = context.read<CategoryCubit>();
 
-        // Clear local catalog first so deleted items cannot remain from cache/state.
-        categoryCubit.resetCategories();
-
-        // Fetch fresh active catalog from backend.
-        await categoryCubit.loadCategories(loadId, silent: true);
+        // Fetch fresh active catalog from backend. Do NOT call
+        // resetCategories() first: that sets categories to [] as well as
+        // status, which makes `isInitialLoading` (isLoading &&
+        // categories.isEmpty) true again and tears down the already-visible
+        // category list mid pull-to-refresh, replacing it with the
+        // initial-load placeholder. Instead call loadCategories with its
+        // default (non-silent) status update: that flips `isLoading` to
+        // true (without touching `categories`), which drives the big
+        // AppLoader.page() overlay in `_buildLoaderOverlay()` on top of the
+        // still-visible list for the refresh's full duration, and then
+        // fully replaces `categories` with the fresh server response on
+        // success (leaving the old list intact on failure).
+        await categoryCubit.loadCategories(loadId);
       } else {
         await context.read<SalonListCubit>().loadSalons();
       }
@@ -2301,21 +2292,7 @@ class CategoryScreenState extends State<CategoryScreen> {
             child: Container(
               color: Colors.white.withValues(alpha: 0.35),
               alignment: Alignment.center,
-              child: Container(
-                width: 46,
-                height: 46,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.all(10),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: AppColors.starColor,
-                  ),
-                ),
-              ),
+              child: AppLoader.page(),
             ),
           ),
         ],
@@ -2359,6 +2336,130 @@ class CategoryScreenState extends State<CategoryScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// A one-time-per-install attention pulse around the "predefined services"
+// AppBar icon — it's easy to miss among the other icons, so a soft ring
+// pulses outward every 5s until the user notices/taps it (or forever, if
+// they never do, but at most once per install after that).
+class _PredefinedServicesHintIcon extends StatefulWidget {
+  const _PredefinedServicesHintIcon({
+    required this.enabled,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final bool isLoading;
+  final Future<void> Function() onPressed;
+
+  @override
+  State<_PredefinedServicesHintIcon> createState() =>
+      _PredefinedServicesHintIconState();
+}
+
+class _PredefinedServicesHintIconState
+    extends State<_PredefinedServicesHintIcon>
+    with SingleTickerProviderStateMixin {
+  static const _prefsKey = 'seen_predefined_services_hint';
+
+  late final AnimationController _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+  bool _dismissed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    if (prefs.getBool(_prefsKey) == true) {
+      setState(() => _dismissed = true);
+      return;
+    }
+    _scheduleNextPulse();
+  }
+
+  void _scheduleNextPulse() {
+    Future.delayed(const Duration(seconds: 5), () async {
+      if (!mounted || _dismissed) return;
+      await _pulseController.forward(from: 0);
+      if (!mounted || _dismissed) return;
+      await _pulseController.reverse();
+      _scheduleNextPulse();
+    });
+  }
+
+  Future<void> _dismiss() async {
+    if (_dismissed) return;
+    setState(() => _dismissed = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsKey, true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          if (!_dismissed)
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                final t = _pulseController.value;
+                return IgnorePointer(
+                  child: Transform.scale(
+                    scale: 1 + (t * 0.8),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _catalogGold.withValues(
+                          alpha: (1 - t) * 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          IconButton(
+            tooltip: translateText('Add predefined services'),
+            onPressed: widget.enabled
+                ? () {
+                    unawaited(_dismiss());
+                    unawaited(widget.onPressed());
+                  }
+                : null,
+            icon: widget.isLoading
+                ? AppLoader.inline(
+                    size: 18,
+                    strokeWidth: 2,
+                    color: _catalogGold,
+                  )
+                : const Icon(Icons.playlist_add_check_rounded),
+            color: _catalogGold,
+          ),
+        ],
       ),
     );
   }
@@ -3591,8 +3692,6 @@ class _ConfirmDialog extends StatelessWidget {
   }
 }
 
-/* =======================  SHEET WIDGETS  ======================= */
-/* Category: inline error + loader + API here */
 class _EditCategorySheet extends StatefulWidget {
   const _EditCategorySheet({
     this.category,
@@ -3753,6 +3852,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
                 maxLength: 30,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z &]')),
                   const FirstLetterUpperFormatter(),
                   LengthLimitingTextInputFormatter(30),
                 ],
@@ -3778,13 +3878,10 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   icon: isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                      ? AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
                         )
                       : const Icon(Icons.check_rounded),
                   onPressed: isSaving ? null : _submit,
@@ -3804,7 +3901,6 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
   }
 }
 
-/* Subcategory: inline error + loader + API here */
 class _EditSubcategorySheet extends StatefulWidget {
   const _EditSubcategorySheet({
     this.subCategory,
@@ -3920,6 +4016,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
                 maxLength: 30,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z &]')),
                   const FirstLetterUpperFormatter(),
                   LengthLimitingTextInputFormatter(30),
                 ],
@@ -3945,13 +4042,10 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   icon: isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                      ? AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
                         )
                       : const Icon(Icons.check_rounded),
                   onPressed: isSaving ? null : _submit,
@@ -3971,169 +4065,6 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
   }
 }
 
-/* Service editor: inline error (no toast). Parent still performs API. */
-// class _EditServiceSheet extends StatefulWidget {
-//   const _EditServiceSheet({required this.service});
-//   final Map<String, dynamic> service;
-
-//   @override
-//   State<_EditServiceSheet> createState() => _EditServiceSheetState();
-// }
-
-// class _EditServiceSheetState extends State<_EditServiceSheet> {
-//   late final TextEditingController nameController;
-//   late final TextEditingController descriptionController;
-//   late final TextEditingController durationController;
-//   late final TextEditingController priceController;
-//   late final ValueNotifier<bool> isActive;
-
-//   String? errorText;
-//   bool isSaving = false; // visual spinner while we pop with payload
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     final s = widget.service;
-//     nameController = TextEditingController(
-//       text: s['displayName'] ?? s['name'] ?? '',
-//     );
-//     descriptionController = TextEditingController(text: s['description'] ?? '');
-//     durationController = TextEditingController(
-//       text: (s['durationMin'] ?? s['defaultDurationMin'])?.toString() ?? '',
-//     );
-//     priceController = TextEditingController(
-//       text: (s['priceMinor'] ?? s['defaultPriceMinor'])?.toString() ?? '',
-//     );
-//     isActive = ValueNotifier<bool>(s['isActive'] ?? true);
-//   }
-
-//   @override
-//   void dispose() {
-//     nameController.dispose();
-//     descriptionController.dispose();
-//     durationController.dispose();
-//     priceController.dispose();
-//     isActive.dispose();
-//     super.dispose();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return _BottomSheetScaffold(
-//       title: 'Edit Service',
-//       child: Column(
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           _LabeledField(
-//             label: 'Service Name',
-//             controller: nameController,
-//             textCapitalization: TextCapitalization.words,
-//           ),
-//           SizedBox(height: 12),
-//           _LabeledField(
-//             label: 'Description',
-//             controller: descriptionController,
-//             maxLines: 1,
-//             textCapitalization: TextCapitalization.sentences,
-//           ),
-//           SizedBox(height: 12),
-//           _LabeledField(
-//             label: 'Duration (minutes)',
-//             controller: durationController,
-//             keyboardType: TextInputType.number,
-//           ),
-//           SizedBox(height: 12),
-//           _LabeledField(
-//             label: 'Price (minor units)',
-//             controller: priceController,
-//             keyboardType: TextInputType.number,
-//           ),
-//           SizedBox(height: 8),
-//           ValueListenableBuilder<bool>(
-//             valueListenable: isActive,
-//             builder: (context, value, _) {
-//               return SwitchListTile(
-//                 value: value,
-//                 onChanged: (nv) => isActive.value = nv,
-//                 title: const Text('Active'),
-//                 contentPadding: EdgeInsets.zero,
-//               );
-//             },
-//           ),
-//           if (errorText != null) ...[
-//             SizedBox(height: 2),
-//             Align(
-//               alignment: Alignment.centerLeft,
-//               child: Text(
-//                 errorText!,
-//                 style: const TextStyle(color: Colors.black,),
-//               ),
-//             ),
-//           ],
-//           SizedBox(height: 6),
-//           SizedBox(
-//             width: double.infinity,
-//             child: ElevatedButton.icon(
-//               icon: isSaving
-//                   ? SizedBox(
-//                       width: 18, height: 18,
-//                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-//                     )
-//                   : Icon(Icons.save_rounded),
-//               onPressed: isSaving
-//                   ? null
-//                   : () async {
-//                       final name = nameController.text.trim();
-//                       if (name.isEmpty) {
-//                         setState(() => errorText = translateText('Name is required'));
-//                         return;
-//                       }
-//                       if (!RegExp(r'^[A-Z]').hasMatch(name)) {
-//                         setState(() => errorText = 'Name must start with an uppercase letter');
-//                         return;
-//                       }
-//
-//                       FocusScope.of(context).unfocus();
-
-//                       setState(() => isSaving = true);
-//                       try {
-//                         final payload = {
-//                           'name': name,
-//                           'description': descriptionController.text.trim(),
-//                           'defaultDurationMin': int.tryParse(
-//                             durationController.text.trim(),
-//                           ),
-//                           'defaultPriceMinor': int.tryParse(
-//                             priceController.text.trim(),
-//                           ),
-//                           'isActive': isActive.value,
-//                         }..removeWhere((k, v) => v == null);
-
-//                         Navigator.of(context).pop(<String, dynamic>{
-//                           'serviceId': widget.service['id'] as int,
-//                           'payload': payload,
-//                         });
-//                       } finally {
-//                         if (mounted) setState(() => isSaving = false);
-//                       }
-//                     },
-//               style: ElevatedButton.styleFrom(
-//                 backgroundColor: Colors.black,
-//                 foregroundColor: Colors.white,
-//                 padding: const EdgeInsets.symmetric(vertical: 14),
-//                 shape: RoundedRectangleBorder(
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//               ),
-//               label: const Text('Update Service'),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-/* Service editor: field-level errors for name/price/duration */
 class _EditServiceSheet extends StatefulWidget {
   const _EditServiceSheet({required this.service});
   final Map<String, dynamic> service;
@@ -4326,13 +4257,10 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             width: double.infinity,
             child: ElevatedButton.icon(
               icon: isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+                  ? AppLoader.inline(
+                      size: 18,
+                      strokeWidth: 2,
+                      color: Colors.white,
                     )
                   : const Icon(Icons.save_rounded),
               onPressed: isSaving

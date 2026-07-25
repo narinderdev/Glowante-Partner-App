@@ -21,6 +21,7 @@ import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
 import 'bottom_nav.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../widgets/app_loader.dart';
 
 enum _BranchField { name, phone, startTime, endTime, description }
 
@@ -1040,10 +1041,6 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     FocusScope.of(context).unfocus();
     setState(() => _isNavigatingNext = true);
-    // Let the loader actually paint before building the next (heavier)
-    // screen — otherwise the button's setState and the route push both
-    // land in the same synchronous stretch of work and the spinner never
-    // gets a frame to render before the transition starts.
     await Future<void>.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
 
@@ -1125,8 +1122,6 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           ),
         ),
       );
-      // Stop the button's loader as soon as the next screen has been
-      // scheduled to appear, rather than waiting for it to be popped later.
       if (mounted) setState(() => _isNavigatingNext = false);
       final saved = await pushBranchSchedule;
       if (!mounted) return;
@@ -1214,6 +1209,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                     salonId: widget.salonId,
                     branchImageUrl: branchFormData.imageUrl,
                     sourceBranches: _sourceBranches,
+                    initialCodes: branchCubit.state.selectedServiceCodes,
                   ),
                 ),
               ),
@@ -1450,13 +1446,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               ),
                             ),
                             child: state.isSubmitting || _isNavigatingNext
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
+                                ? AppLoader.inline(
+                                    size: 20,
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   )
                                 : Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1487,11 +1480,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                   ),
                 ),
                 if (state.status == BranchFormStatus.loading)
-                  const ColoredBox(
+                  ColoredBox(
                     color: Colors.black54,
-                    child: Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
+                    child: AppLoader.page(),
                   ),
               ],
             ),

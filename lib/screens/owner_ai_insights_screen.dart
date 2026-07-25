@@ -10,6 +10,7 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
+import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 enum _AiInsightRange { week, month }
@@ -258,13 +259,18 @@ class _OwnerAiInsightsScreenState extends State<OwnerAiInsightsScreen> {
         children: [
           RefreshIndicator(
             color: AppColors.starColor,
-            onRefresh: () =>
-                RefreshFeedback.playAndRun(_loadBranchesAndInsights),
+            onRefresh: () => RefreshFeedback.playAndDetach(
+              _loadBranchesAndInsights,
+            ),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
-                if (_loadingBranches || _branchOptions.length > 1) ...[
+                // While branches are still loading, the big overlay below
+                // (gated on _loadingInsights, true at the same time) already
+                // shows a loader — don't also show this row's own spinner,
+                // or the screen shows two loaders at once.
+                if (!_loadingBranches && _branchOptions.length > 1) ...[
                   _buildBranchSelector(),
                   const SizedBox(height: 18),
                 ],
@@ -679,10 +685,10 @@ class _AiBranchSelector extends StatelessWidget {
     }
 
     if (isLoading) {
-      return const _SharedBranchSelectorShell(
+      return _SharedBranchSelectorShell(
         child: Align(
           alignment: Alignment.centerLeft,
-          child: CircularProgressIndicator(
+          child: AppLoader.inline(
             strokeWidth: 2,
             color: Color(0xFF8B6500),
           ),
@@ -1415,7 +1421,7 @@ class _AiLoadingOverlay extends StatelessWidget {
       child: Container(
         color: Colors.white.withValues(alpha: 0.38),
         alignment: Alignment.center,
-        child: const CircularProgressIndicator(color: AppColors.starColor),
+        child: AppLoader.page(),
       ),
     );
   }

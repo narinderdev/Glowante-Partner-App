@@ -11,11 +11,17 @@ import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../services/user_role_session.dart';
 import 'role_selection_screen.dart';
+import '../widgets/app_loader.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
+  final int? initialCooldownSeconds;
 
-  const OtpScreen({super.key, required this.phoneNumber});
+  const OtpScreen({
+    super.key,
+    required this.phoneNumber,
+    this.initialCooldownSeconds,
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -29,7 +35,13 @@ class _OtpScreenState extends State<OtpScreen> {
   bool _isProgrammaticFill = false;
   String errorMessage = ''; // To store error message
   bool isResendingOtp = false; // Track whether OTP is being resent
-  int remainingTime = 30; // Set initial time to 30 seconds
+  // Backend-driven cooldowns: 60s after the initial login OTP send, 600s
+  // (10 min) after a resend — both come from the API's retryAfterSeconds,
+  // these are just the fallbacks if that field is missing.
+  static const int _defaultLoginCooldownSeconds = 60;
+  static const int _defaultResendCooldownSeconds = 600;
+  late int remainingTime =
+      widget.initialCooldownSeconds ?? _defaultLoginCooldownSeconds;
   Timer? _timer; // Timer instance to handle countdown
   bool isContinueButtonEnabled =
       false; // Track if the Continue button should be enabled
@@ -149,7 +161,9 @@ class _OtpScreenState extends State<OtpScreen> {
     }
 
     // Start the countdown timer immediately when the screen is initialized
-    _startCountdown();
+    _startCountdown(
+      widget.initialCooldownSeconds ?? _defaultLoginCooldownSeconds,
+    );
   }
 
   void _maybeSubmitOtp() {
@@ -484,11 +498,13 @@ class _OtpScreenState extends State<OtpScreen> {
     );
   }
 
-  int _focusedOtpIndex() {
-    for (int i = 0; i < otpFocusNodes.length; i++) {
-      if (otpFocusNodes[i].hasFocus) return i;
-    }
-    return 0;
+  // The only box the user should ever be able to type into directly —
+  // right after the last filled digit (or the last box, once all are
+  // filled). Tapping any other box should redirect here instead of
+  // letting the user jump ahead/behind and fill out of order.
+  int _activeOtpIndex() {
+    final filled = otpControllers.where((c) => c.text.isNotEmpty).length;
+    return filled.clamp(0, otpControllers.length - 1);
   }
 
   void _focusOtpDigit(int index) {
@@ -537,7 +553,10 @@ class _OtpScreenState extends State<OtpScreen> {
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 2,
         );
-        _startCountdown();
+
+        _startCountdown(
+          _extractRetryAfterSeconds(response) ?? _defaultResendCooldownSeconds,
+        );
       } else {
         setState(() {
           errorMessage = extractMessage(
@@ -545,6 +564,16 @@ class _OtpScreenState extends State<OtpScreen> {
             fallback: 'Failed to resend OTP',
           );
         });
+
+        // The backend rejects an early resend with the ACTUAL remaining
+        // cooldown (e.g. "wait 8 minutes 37 seconds"). Re-sync the local
+        // countdown to that, in case it had already reached 0 client-side
+        // (stale state, app was backgrounded, etc.) and the button was
+        // showing as tappable again.
+        final serverRetryAfter = _extractRetryAfterSeconds(response);
+        if (serverRetryAfter != null && serverRetryAfter > 0) {
+          _startCountdown(serverRetryAfter);
+        }
       }
     } catch (e) {
       setState(() {
@@ -560,16 +589,27 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
-  void _startCountdown() {
+  // The backend puts retryAfterSeconds in different spots depending on the
+  // response: nested under `data` on success, top-level on a "too soon"
+  // validation error. Check both.
+  int? _extractRetryAfterSeconds(Map<String, dynamic> response) {
+    final dynamic responseData = response['data'];
+    final dynamic raw =
+        (responseData is Map ? responseData['retryAfterSeconds'] : null) ??
+            response['retryAfterSeconds'];
+    if (raw is int) return raw;
+    return int.tryParse(raw?.toString() ?? '');
+  }
+
+  void _startCountdown(int seconds) {
     // Log to check if the function is being called
     debugPrint("Starting countdown...");
 
     // Cancel the previous timer if it exists
     _timer?.cancel();
 
-    // Reset the remaining time to 30 seconds
     setState(() {
-      remainingTime = 30;
+      remainingTime = seconds;
     });
     debugPrint("Remaining time set to: $remainingTime"); // Log initial time set
 
@@ -585,6 +625,18 @@ class _OtpScreenState extends State<OtpScreen> {
         // print('Timer finished');  // Log when timer finishes
       }
     });
+  }
+
+  // Cooldowns can now be up to 600s (10 min) after a resend, so show
+  // minutes:seconds (e.g. "9:45") instead of a raw, hard-to-read second
+  // count once it's past a minute.
+  String _formatRemainingTime(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    if (minutes <= 0) {
+      return '$seconds ${translateText("sec")}';
+    }
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -702,7 +754,7 @@ class _OtpScreenState extends State<OtpScreen> {
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => FocusScope.of(context)
-                            .requestFocus(otpFocusNodes[_focusedOtpIndex()]),
+                            .requestFocus(otpFocusNodes[_activeOtpIndex()]),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: List.generate(6, (index) {
@@ -798,9 +850,18 @@ class _OtpScreenState extends State<OtpScreen> {
                                   textInputAction: index == 5
                                       ? TextInputAction.done
                                       : TextInputAction.next,
-                                  autofillHints: index == 0
-                                      ? const [AutofillHints.oneTimeCode]
-                                      : null,
+                                  // Explicitly empty (not null) opts every
+                                  // box out of Android's autofill
+                                  // framework — otherwise it treats each
+                                  // of the 6 boxes as its own autofillable
+                                  // field and draws a suggestion icon
+                                  // under each one. The app already reads
+                                  // the SMS itself and fills all boxes
+                                  // programmatically, so no autofill hint
+                                  // is needed here at all.
+                                  autofillHints: const <String>[],
+                                  enableSuggestions: false,
+                                  autocorrect: false,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                     LengthLimitingTextInputFormatter(1),
@@ -825,7 +886,8 @@ class _OtpScreenState extends State<OtpScreen> {
                                     isCollapsed: true,
                                     contentPadding: EdgeInsets.zero,
                                   ),
-                                  onTap: () => _focusOtpDigit(index),
+                                  onTap: () =>
+                                      _focusOtpDigit(_activeOtpIndex()),
                                   onChanged: (value) =>
                                       _handleOtpBoxChanged(index, value),
                                   onSubmitted: (_) {
@@ -901,13 +963,10 @@ class _OtpScreenState extends State<OtpScreen> {
                             shadowColor: const Color(0x338B6500),
                           ),
                           child: isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
+                              ? AppLoader.inline(
+                                  size: 20,
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 )
                               : Text(
                                   translateText("Verify & Continue")
@@ -930,7 +989,7 @@ class _OtpScreenState extends State<OtpScreen> {
                           isResendingOtp
                               ? translateText("Resending...")
                               : (remainingTime > 0
-                                  ? '${translateText("Resend OTP in")} $remainingTime ${translateText("sec")}'
+                                  ? '${translateText("Resend OTP in")} ${_formatRemainingTime(remainingTime)}'
                                   : translateText("Resend OTP")),
                           style: TextStyle(
                             color: remainingTime > 0 ? _otpMuted : _otpGold,
