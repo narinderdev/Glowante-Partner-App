@@ -89,11 +89,11 @@ class _AddServicesState extends State<AddServices> {
   // /service-catalog master list (distinct from the salon's own custom
   // Category/Subcategory above). Required, and — like Category/Subcategory
   // — locked once a service exists, only settable when first adding one.
-  // The dropdown lets the user pick a specific subcategory, but only the
-  // parent category's `code` (e.g. "men_grooming") is sent to the API —
-  // subcategories in /service-catalog don't have a `code` of their own.
+  // The dropdown lets the user pick a specific subcategory. The API receives
+  // the parent category `code` plus the selected subcategory `name`.
   String? _selectedServiceTypeKey; // 'cat:<id>' or 'sub:<id>' — dropdown value
   String? _selectedServiceTypeCode; // parent category code sent to the API
+  String? _selectedServiceTypeName; // selected service-catalog subcategory name
   bool _commissionEnabled = false;
   String _commissionType = 'percentage';
   bool _passiveWaitEnabled = _defaultPassiveWaitEnabled;
@@ -248,6 +248,11 @@ class _AddServicesState extends State<AddServices> {
         ?.toString()
         .trim();
     if (_selectedServiceTypeCode == '') _selectedServiceTypeCode = null;
+    _selectedServiceTypeName = (service['serviceTypeName'] ??
+            (rawServiceType is Map ? rawServiceType['name'] : null))
+        ?.toString()
+        .trim();
+    if (_selectedServiceTypeName == '') _selectedServiceTypeName = null;
     durationController.text =
         (_asInt(service['durationMin'] ?? service['defaultDurationMin']) ?? '')
             .toString();
@@ -384,7 +389,23 @@ class _AddServicesState extends State<AddServices> {
     }
     for (final rawCategory in serviceCatalog) {
       if (rawCategory is! Map) continue;
-      if ((rawCategory['code'] ?? '').toString() == _selectedServiceTypeCode) {
+      final categoryMatches =
+          (rawCategory['code'] ?? '').toString() == _selectedServiceTypeCode;
+      final rawSubCategories = rawCategory['subCategories'];
+      if (categoryMatches &&
+          rawSubCategories is List &&
+          _selectedServiceTypeName != null) {
+        for (final rawSubCategory in rawSubCategories) {
+          if (rawSubCategory is! Map) continue;
+          if ((rawSubCategory['name'] ?? '').toString() ==
+              _selectedServiceTypeName) {
+            final subId = _asInt(rawSubCategory['id']);
+            if (subId != null) _selectedServiceTypeKey = 'sub:$subId';
+            return;
+          }
+        }
+      }
+      if (categoryMatches) {
         final catId = _asInt(rawCategory['id']);
         if (catId != null) _selectedServiceTypeKey = 'cat:$catId';
         return;
@@ -494,6 +515,7 @@ class _AddServicesState extends State<AddServices> {
           branchCategoryId: branchCategoryId,
           branchSubCategoryId: branchSubCategoryId,
           code: _selectedServiceTypeCode!,
+          serviceTypeName: _selectedServiceTypeName!,
           displayName: displayName,
           description: desc.isEmpty ? "" : desc,
           durationMin: duration,
@@ -767,7 +789,10 @@ class _AddServicesState extends State<AddServices> {
 
   String? _validateServiceType(String? _) {
     if (_isEditMode) return null;
-    if (_selectedServiceTypeCode == null || _selectedServiceTypeCode!.isEmpty) {
+    if (_selectedServiceTypeCode == null ||
+        _selectedServiceTypeCode!.isEmpty ||
+        _selectedServiceTypeName == null ||
+        _selectedServiceTypeName!.isEmpty) {
       return translateText("Service type is required");
     }
     return null;
@@ -1163,6 +1188,8 @@ class _AddServicesState extends State<AddServices> {
                                           _selectedServiceTypeCode =
                                               (sub['categoryCode'] ?? '')
                                                   .toString();
+                                          _selectedServiceTypeName =
+                                              (sub['name'] ?? '').toString();
                                         });
                                       },
                                 decoration: _inputDecoration(

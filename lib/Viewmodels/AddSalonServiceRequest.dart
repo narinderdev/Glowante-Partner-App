@@ -4,6 +4,8 @@ class AddSalonServiceRequest {
       branchSubCategoryId; // Optional — use when attaching under a subcategory
   final String
       code; // Required — parent category `code` from the global /service-catalog list, e.g. "men_grooming"
+  final String
+      serviceTypeName; // Required — selected /service-catalog subcategory name
   final String displayName; // Required
   final String description; // Required (can be empty string)
   final int durationMin; // Required
@@ -24,6 +26,7 @@ class AddSalonServiceRequest {
     this.branchCategoryId,
     this.branchSubCategoryId,
     required this.code,
+    required this.serviceTypeName,
     required this.displayName,
     required this.description,
     required this.durationMin,
@@ -49,7 +52,8 @@ class AddSalonServiceRequest {
       "priceType": priceType,
       "priceMinor": priceMinor,
       "isActive": isActive,
-      "code": code,
+      "serviceType": code,
+      "serviceTypeName": serviceTypeName,
     };
 
     if (passiveWaitEnabled != null) {

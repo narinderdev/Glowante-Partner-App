@@ -503,7 +503,7 @@ class _DealScreenState extends State<DealScreen> {
     // The loader itself must look and read exactly like every other screen's
     // loader — no bespoke card/icon/title/message — so bypass all of that
     // and just show the shared component directly, centered on the screen's
-    // available height (not just wherever it falls in the list).
+    // available height (not just wherever it falls in the list).serviceTypeName
     if (loading) {
       return SizedBox(
         height: MediaQuery.of(context).size.height * 0.6,
