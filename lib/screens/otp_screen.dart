@@ -514,9 +514,8 @@ class _OtpScreenState extends State<OtpScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final controller = otpControllers[safeIndex];
-      controller.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: controller.text.length,
+      controller.selection = TextSelection.collapsed(
+        offset: controller.text.length,
       );
     });
     setState(() {});
@@ -862,6 +861,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                   autofillHints: const <String>[],
                                   enableSuggestions: false,
                                   autocorrect: false,
+                                  enableInteractiveSelection: false,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                     LengthLimitingTextInputFormatter(1),
@@ -874,6 +874,8 @@ class _OtpScreenState extends State<OtpScreen> {
                                     color: filled ? Colors.white : _otpInk,
                                   ),
                                   cursorColor: filled ? Colors.white : _otpGold,
+                                  cursorHeight: 24,
+                                  cursorWidth: 2,
                                   decoration: const InputDecoration(
                                     counterText: '',
                                     border: InputBorder.none,

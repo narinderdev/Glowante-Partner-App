@@ -253,6 +253,7 @@ class _FixedSlotOtpFieldState extends State<FixedSlotOtpField> {
               autofillHints: const <String>[],
               enableSuggestions: false,
               autocorrect: false,
+              enableInteractiveSelection: false,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(1),
@@ -269,6 +270,8 @@ class _FixedSlotOtpFieldState extends State<FixedSlotOtpField> {
               cursorColor: filled && widget.filledColor != null
                   ? widget.filledTextColor
                   : widget.activeColor,
+              cursorHeight: 24,
+              cursorWidth: 2,
               decoration: const InputDecoration(
                 counterText: '',
                 border: InputBorder.none,
