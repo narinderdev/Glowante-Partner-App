@@ -789,26 +789,28 @@ class _WeeklyScheduleRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _DetailStatusPill(
-                label: translateText(entry.statusLabel),
-                color: statusColor,
-              ),
-              if (isWorking) ...[
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    for (final range in entry.timeRanges)
-                      _SlotPill(label: range),
-                  ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _DetailStatusPill(
+                  label: translateText(entry.statusLabel),
+                  color: statusColor,
                 ),
+                if (isWorking) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.end,
+                    children: [
+                      for (final range in entry.timeRanges)
+                        _SlotPill(label: range),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),

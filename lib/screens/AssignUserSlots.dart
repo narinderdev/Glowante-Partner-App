@@ -78,6 +78,11 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
   final Set<String> _markedOffDays = <String>{};
   final Set<String> _closedDays = <String>{};
+  // Whatever custom slots a day had right before it was marked off — so
+  // "Mark Working" can restore them instead of always resetting to the
+  // branch's plain default hours.
+  final Map<String, List<Map<String, String>>> _offDaySnapshots =
+      <String, List<Map<String, String>>>{};
 
   final Map<String, List<_OperatingSlot>> _operatingSlotsByDay =
       <String, List<_OperatingSlot>>{};
@@ -254,7 +259,16 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
         if (slots == null) continue;
 
         final dayKey = _dayKey(day);
+
         if (mondayIsOff) {
+          // Monday going off always cascades to every other day too,
+          // snapshotting each day's current schedule first so it can be
+          // restored later — regardless of whether that day's branch
+          // hours match Monday's.
+          if (slots.isNotEmpty) {
+            _offDaySnapshots[dayKey] =
+                slots.map((slot) => Map<String, String>.from(slot)).toList();
+          }
           slots.clear();
           _markedOffDays.add(dayKey);
           continue;
@@ -262,15 +276,67 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
         _markedOffDays.remove(dayKey);
 
-        slots
-          ..clear()
-          ..addAll(
-            mondaySlots.map((slot) => Map<String, String>.from(slot)),
-          );
+        if (_dayHasSameBranchHoursAsMonday(day)) {
+          // Same branch hours as Monday — follow Monday's schedule.
+          _offDaySnapshots.remove(dayKey);
+          slots
+            ..clear()
+            ..addAll(
+              mondaySlots.map((slot) => Map<String, String>.from(slot)),
+            );
+        } else {
+          // Different branch hours — restore this day's own previous
+          // schedule instead of Monday's, falling back to a default slot
+          // from this day's own branch hours if it never had one saved.
+          final snapshot = _offDaySnapshots.remove(dayKey);
+          if (snapshot != null && snapshot.isNotEmpty) {
+            slots
+              ..clear()
+              ..addAll(snapshot.map((slot) => Map<String, String>.from(slot)));
+          } else {
+            final bounds = _branchBoundsForDay(day);
+            slots
+              ..clear()
+              ..addAll(
+                bounds == null
+                    ? const <Map<String, String>>[]
+                    : [
+                        {
+                          'start': _formatMinutes(bounds.startMinutes),
+                          'end': _formatMinutes(bounds.endMinutes),
+                        },
+                      ],
+              );
+          }
+        }
       }
 
       _sortWeeklyScheduleInPlace();
     });
+  }
+
+  bool _dayHasSameBranchHoursAsMonday(String day) {
+    final mondayBounds = _branchBoundsForDay('Monday');
+    final dayBounds = _branchBoundsForDay(day);
+    return mondayBounds != null &&
+        dayBounds != null &&
+        mondayBounds.startMinutes == dayBounds.startMinutes &&
+        mondayBounds.endMinutes == dayBounds.endMinutes;
+  }
+
+  // The branch's own overall opening/closing bounds for a day — earliest
+  // start and latest end across all its operating windows.
+  _OperatingSlot? _branchBoundsForDay(String day) {
+    final windows = _operatingSlotsByDay[_dayKey(day)];
+    if (windows == null || windows.isEmpty) return null;
+
+    var minStart = windows.first.startMinutes;
+    var maxEnd = windows.first.endMinutes;
+    for (final window in windows.skip(1)) {
+      if (window.startMinutes < minStart) minStart = window.startMinutes;
+      if (window.endMinutes > maxEnd) maxEnd = window.endMinutes;
+    }
+    return _OperatingSlot(startMinutes: minStart, endMinutes: maxEnd);
   }
 
   void _clearCopyMondaySelectionOnManualEdit(String day) {
@@ -1100,8 +1166,16 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
     try {
       setState(() {
+        final dayKey = _dayKey(day);
+        final currentSlots =
+            weeklySchedule[day] ?? const <Map<String, String>>[];
+        if (currentSlots.isNotEmpty) {
+          _offDaySnapshots[dayKey] = currentSlots
+              .map((slot) => Map<String, String>.from(slot))
+              .toList();
+        }
         weeklySchedule[day]?.clear();
-        _markedOffDays.add(_dayKey(day));
+        _markedOffDays.add(dayKey);
       });
 
       if (day == 'Monday') {
@@ -1124,15 +1198,27 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     }
 
     try {
+      final dayKey = _dayKey(day);
+      final snapshot = _offDaySnapshots.remove(dayKey);
+
       setState(() {
-        _markedOffDays.remove(_dayKey(day));
+        _markedOffDays.remove(dayKey);
       });
 
-      _addSlot(
-        day,
-        clearCopySelection: false,
-        syncMondayChanges: false,
-      );
+      if (snapshot != null && snapshot.isNotEmpty) {
+        // Restore exactly what this day had before it was marked off,
+        // instead of always resetting to the branch's plain default hours.
+        setState(() {
+          weeklySchedule[day] =
+              snapshot.map((slot) => Map<String, String>.from(slot)).toList();
+        });
+      } else {
+        _addSlot(
+          day,
+          clearCopySelection: false,
+          syncMondayChanges: false,
+        );
+      }
 
       if (day == 'Monday') {
         _syncMondayToAllOpenDays();

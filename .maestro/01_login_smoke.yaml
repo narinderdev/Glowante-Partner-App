@@ -1,0 +1,19 @@
+appId: com.glowante.salon
+---
+# First validation pass: onboarding carousel -> login -> request OTP.
+# Run with: maestro test .maestro/01_login_smoke.yaml
+- launchApp:
+    clearState: true
+# Onboarding carousel: a round arrow-icon button (no text) advances each of
+# the first 3 pages; the 4th page swaps it for a full-width "Get Started".
+- tapOn:
+    point: "85%,87%"
+- tapOn:
+    point: "85%,87%"
+- tapOn:
+    point: "85%,87%"
+- tapOn: "Get Started"
+- tapOn: "Enter mobile number"
+- inputText: "9878789898"
+- tapOn: "Login"
+- assertVisible: "Verify Your Number"

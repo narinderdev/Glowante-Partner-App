@@ -666,10 +666,16 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   void _fillEmptyDaysFromOperatingSlots(
     Map<String, List<_OperatingSlot>> operatingSlots,
   ) {
+    debugPrint(
+      '[TeamSchedule] _fillEmptyDaysFromOperatingSlots called, '
+      'operatingSlots days=${operatingSlots.keys.toList()}',
+    );
     for (final entry in operatingSlots.entries) {
       final displayDay = _displayDay(entry.key);
+      final beforeCount = weeklySchedule[displayDay]?.length;
 
       if (_memberOffDays.contains(_dayKey(displayDay))) {
+        debugPrint('[TeamSchedule] $displayDay skipped (member off)');
         continue;
       }
 
@@ -677,6 +683,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         weeklySchedule[displayDay] = weeklySchedule[displayDay]!
             .map((slot) => _normalizeSlotWithinDay(displayDay, slot))
             .toList();
+        debugPrint(
+          '[TeamSchedule] $displayDay NORMALIZED (kept existing) '
+          'beforeCount=$beforeCount afterCount=${weeklySchedule[displayDay]?.length} '
+          'branchWindows=${entry.value.length}',
+        );
         continue;
       }
 
@@ -688,6 +699,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
             },
           )
           .toList();
+      debugPrint(
+        '[TeamSchedule] $displayDay REPLACED with branch default '
+        'beforeCount=$beforeCount afterCount=${weeklySchedule[displayDay]?.length} '
+        'branchWindows=${entry.value.length}',
+      );
     }
   }
 
@@ -872,6 +888,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   bool _prefillSchedules() {
     final rawSchedules = widget.formData['schedules'];
+    debugPrint('[TeamSchedule] raw formData[schedules]=$rawSchedules');
     final isEdit = widget.formData['isEdit'] == true;
     final daysWithSchedule = <String>{};
     var foundAny = false;
@@ -916,6 +933,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       if (foundAny) {
         _sortWeeklyScheduleInPlace();
         debugPrint('[TeamSchedule] Member schedule prefill applied.');
+        for (final d in _weekDays) {
+          debugPrint(
+            '[TeamSchedule] after prefill $d slotCount=${weeklySchedule[d]?.length}',
+          );
+        }
       }
     } else {
       debugPrint('[TeamSchedule] No member schedules found in payload.');
@@ -1293,7 +1315,12 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         if (slots == null) continue;
 
         final dayKey = _dayKey(day);
+
         if (mondayIsOff) {
+          // Monday going off always cascades to every other day too,
+          // snapshotting each day's current schedule first so it can be
+          // restored later — regardless of whether that day's branch
+          // hours match Monday's.
           if (slots.isNotEmpty) {
             _memberOffDaySnapshots[dayKey] = _cloneSlotList(slots);
           }
@@ -1303,20 +1330,54 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         }
 
         _memberOffDays.remove(dayKey);
-        _memberOffDaySnapshots.remove(dayKey);
 
-        // Copy Monday's exact times as-is — do NOT silently snap them to
-        // this day's own operating hours. If the branch closes earlier on
-        // this day, that mismatch must stay visible so the per-day
-        // validation below can flag it, rather than being silently
-        // "corrected" without the user noticing.
-        slots
-          ..clear()
-          ..addAll(mondaySlots.map((slot) => Map<String, String>.from(slot)));
+        if (_dayHasSameBranchHoursAsMonday(day)) {
+          // Same branch hours as Monday — follow Monday's schedule.
+          _memberOffDaySnapshots.remove(dayKey);
+          slots
+            ..clear()
+            ..addAll(mondaySlots.map((slot) => Map<String, String>.from(slot)));
+        } else {
+          // Different branch hours — restore this day's own previous
+          // schedule instead of Monday's, falling back to the branch's
+          // own default hours if it never had one saved.
+          final snapshot = _memberOffDaySnapshots.remove(dayKey);
+          slots
+            ..clear()
+            ..addAll(
+              snapshot != null && snapshot.isNotEmpty
+                  ? snapshot.map((slot) => Map<String, String>.from(slot))
+                  : _defaultOperatingSlotsForDay(day),
+            );
+        }
       }
 
       _sortWeeklyScheduleInPlace();
     });
+  }
+
+  bool _dayHasSameBranchHoursAsMonday(String day) {
+    final mondayBounds = _branchBoundsForDay('Monday');
+    final dayBounds = _branchBoundsForDay(day);
+    return mondayBounds != null &&
+        dayBounds != null &&
+        mondayBounds.startMinutes == dayBounds.startMinutes &&
+        mondayBounds.endMinutes == dayBounds.endMinutes;
+  }
+
+  // The branch's own overall opening/closing bounds for a day — earliest
+  // start and latest end across all its operating windows.
+  _OperatingSlot? _branchBoundsForDay(String day) {
+    final windows = _operatingSlotsByDay[_dayKey(day)];
+    if (windows == null || windows.isEmpty) return null;
+
+    var minStart = windows.first.startMinutes;
+    var maxEnd = windows.first.endMinutes;
+    for (final window in windows.skip(1)) {
+      if (window.startMinutes < minStart) minStart = window.startMinutes;
+      if (window.endMinutes > maxEnd) maxEnd = window.endMinutes;
+    }
+    return _OperatingSlot(startMinutes: minStart, endMinutes: maxEnd);
   }
 
   void _copyMondayToAll(bool value) {

@@ -146,7 +146,19 @@ class _TeamScreenState extends State<TeamScreen> {
     _teamSearchController.addListener(_onTeamSearchChanged);
     _branchSelectionListener = () {
       if (!mounted || _suppressBranchSelectionRefresh) return;
+      // Only show the full loader for an actual salon/branch switch — the
+      // subsequent branch-list refetch (and then the team-members refetch
+      // for the new branch) can each take a moment, and without this the
+      // screen just keeps showing the previous branch's stale data with no
+      // loading indication until the whole async chain resolves.
+      final isActualChange =
+          StylistBranchSelectionStore.selectionNotifier.value.branchId !=
+              selectedBranchId;
       setState(() {
+        if (isActualChange) {
+          _hasTeamMembers = false;
+          _isLoadingTeamMembers = true;
+        }
         branchOptionsFuture = _getBranchOptions();
       });
     };
@@ -1339,11 +1351,16 @@ class _TeamScreenState extends State<TeamScreen> {
                     snapshot.data ?? const <Map<String, dynamic>>[];
 
                 // Only fall back to the full-page loader on the very first
-                // load. A pull-to-refresh reassigns branchOptionsFuture too,
-                // but FutureBuilder keeps the previous data while it's
-                // waiting — reuse it so the list (and its RefreshIndicator)
+                // load, OR when switching to a genuinely different
+                // salon/branch (_isLoadingTeamMembers && !_hasTeamMembers,
+                // set synchronously the moment that switch is detected). A
+                // plain pull-to-refresh of the SAME branch reassigns
+                // branchOptionsFuture too, but FutureBuilder keeps the
+                // previous data while it's waiting and neither flag gets
+                // reset — reuse it so the list (and its RefreshIndicator)
                 // stays on screen instead of being torn down mid-refresh.
-                if (isBranchesWaiting && branchesSoFar.isEmpty) {
+                if ((isBranchesWaiting && branchesSoFar.isEmpty) ||
+                    (_isLoadingTeamMembers && !_hasTeamMembers)) {
                   return AppLoader.page();
                 } else if (snapshot.hasError && branchesSoFar.isEmpty) {
                   return Center(child: Text("Error: ${snapshot.error}"));
