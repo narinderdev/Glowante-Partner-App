@@ -841,6 +841,13 @@ class CategoryScreenState extends State<CategoryScreen> {
     }
   }
 
+  Future<void> _showServiceDetailsSheet(Map<String, dynamic> service) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ServiceDetailsDialog(service: service),
+    );
+  }
+
   // ---------- CONFIRM DELETE SERVICE ----------
   Future<void> _confirmDeleteService(int serviceId) async {
     if (_selectedSalon == null) return;
@@ -1613,6 +1620,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                   onEditCategory: _showAddCategorySheet,
                   onDeleteCategory: _confirmDeleteCategory,
                   onDeleteSubcategory: _confirmDeleteSubCategory,
+                  onShowServiceDetails: _showServiceDetailsSheet,
                   onEditService: _showUpdateServiceSheet,
                   onDeleteService: _confirmDeleteService,
                   categoryExpanded: categoryExpanded,
@@ -2698,6 +2706,7 @@ class _CategoryList extends StatelessWidget {
     required this.onEditCategory,
     required this.onDeleteCategory,
     required this.onDeleteSubcategory,
+    required this.onShowServiceDetails,
     required this.onEditService,
     required this.onDeleteService,
     required this.categoryExpanded,
@@ -2723,6 +2732,7 @@ class _CategoryList extends StatelessWidget {
   final Future<void> Function(Map<String, dynamic> category) onDeleteCategory;
 
   final Future<void> Function(Map<String, dynamic>) onDeleteSubcategory;
+  final Future<void> Function(Map<String, dynamic>) onShowServiceDetails;
   final Future<void> Function(Map<String, dynamic>) onEditService;
   final Future<void> Function(int serviceId) onDeleteService;
 
@@ -2945,6 +2955,10 @@ class _CategoryList extends StatelessWidget {
                       const SizedBox(height: 8),
                       ...categoryServices.map((service) => _ServiceCard(
                             service: service,
+                            parentCategoryName:
+                                (category['displayName'] ?? category['name'])
+                                    ?.toString(),
+                            onShowServiceDetails: onShowServiceDetails,
                             onEditService: onEditService,
                             onDeleteService: onDeleteService,
                           )),
@@ -2976,8 +2990,12 @@ class _CategoryList extends StatelessWidget {
                         toggle: () => toggleExpanded(subId),
                         onEditSubcategory: onEditSubcategory,
                         onDeleteSubcategory: onDeleteSubcategory,
+                        onShowServiceDetails: onShowServiceDetails,
                         onEditService: onEditService,
                         onDeleteService: onDeleteService,
+                        parentCategoryName:
+                            (category['displayName'] ?? category['name'])
+                                ?.toString(),
                       );
                     }).toList(),
                   ),
@@ -3042,8 +3060,10 @@ class _SubcategoryTile extends StatelessWidget {
     required this.toggle,
     required this.onEditSubcategory,
     required this.onDeleteSubcategory,
+    required this.onShowServiceDetails,
     required this.onEditService,
     required this.onDeleteService,
+    this.parentCategoryName,
   });
 
   final int categoryId;
@@ -3054,8 +3074,10 @@ class _SubcategoryTile extends StatelessWidget {
   final SubcategoryOp onEditSubcategory;
   final Future<void> Function(Map<String, dynamic>) onDeleteSubcategory;
 
+  final Future<void> Function(Map<String, dynamic>) onShowServiceDetails;
   final Future<void> Function(Map<String, dynamic>) onEditService;
   final Future<void> Function(int) onDeleteService;
+  final String? parentCategoryName;
 
   @override
   Widget build(BuildContext context) {
@@ -3170,6 +3192,11 @@ class _SubcategoryTile extends StatelessWidget {
                 children: services
                     .map((service) => _ServiceCard(
                           service: service,
+                          parentCategoryName: parentCategoryName,
+                          parentSubcategoryName: (subCategory['displayName'] ??
+                                  subCategory['name'])
+                              ?.toString(),
+                          onShowServiceDetails: onShowServiceDetails,
                           onEditService: onEditService,
                           onDeleteService: onDeleteService,
                         ))
@@ -3185,13 +3212,19 @@ class _SubcategoryTile extends StatelessWidget {
 class _ServiceCard extends StatelessWidget {
   const _ServiceCard({
     required this.service,
+    required this.onShowServiceDetails,
     required this.onEditService,
     required this.onDeleteService,
+    this.parentCategoryName,
+    this.parentSubcategoryName,
   });
 
   final Map<String, dynamic> service;
+  final Future<void> Function(Map<String, dynamic>) onShowServiceDetails;
   final Future<void> Function(Map<String, dynamic>) onEditService;
   final Future<void> Function(int) onDeleteService;
+  final String? parentCategoryName;
+  final String? parentSubcategoryName;
 
   @override
   Widget build(BuildContext context) {
@@ -3216,6 +3249,14 @@ class _ServiceCard extends StatelessWidget {
       if (waitLabel.isNotEmpty) waitLabel,
       if (description.isNotEmpty) description,
     ].join(' • ');
+    final detailsService = {
+      ...service,
+      if (parentCategoryName != null && parentCategoryName!.trim().isNotEmpty)
+        '_parentCategoryName': parentCategoryName,
+      if (parentSubcategoryName != null &&
+          parentSubcategoryName!.trim().isNotEmpty)
+        '_parentSubcategoryName': parentSubcategoryName,
+    };
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -3275,6 +3316,12 @@ class _ServiceCard extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      _PlainIconButton(
+                        icon: Icons.visibility_outlined,
+                        tooltip: 'View service details',
+                        onTap: () => onShowServiceDetails(detailsService),
+                      ),
+                      const SizedBox(width: 8),
                       _PlainIconButton(
                         icon: Icons.edit_outlined,
                         tooltip: 'Edit service',
@@ -3347,6 +3394,426 @@ class _PlainIconButton extends StatelessWidget {
             size: 16,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ServiceDetailsDialog extends StatelessWidget {
+  const _ServiceDetailsDialog({required this.service});
+
+  final Map<String, dynamic> service;
+
+  String _text(dynamic value) => value?.toString().trim() ?? '';
+
+  String _mapDisplayName(dynamic value) {
+    if (value is! Map) return '';
+    return _text(value['displayName'] ?? value['name']);
+  }
+
+  String _firstText(List<dynamic> values, {String fallback = '-'}) {
+    for (final value in values) {
+      final text = _text(value);
+      if (text.isNotEmpty) return text;
+    }
+    return fallback;
+  }
+
+  String _yesNo(dynamic value) {
+    if (value == true) return translateText('Yes');
+    if (value == false) return translateText('No');
+    return '-';
+  }
+
+  String _priceLabel() {
+    final priceMinor = _serviceInt(
+      service['priceMinor'] ?? service['defaultPriceMinor'],
+    );
+    return priceMinor == null
+        ? translateText('No price')
+        : formatMinorAmount(priceMinor, trimZeroDecimals: true);
+  }
+
+  String _durationLabel() {
+    final duration = _serviceInt(
+      service['durationMin'] ?? service['defaultDurationMin'],
+    );
+    return duration == null ? '-' : '$duration min';
+  }
+
+  String _commissionTypeLabel() {
+    final type = _text(service['commissionType']).toLowerCase();
+    if (type == 'fixed') return translateText('Fixed');
+    if (type == 'percentage') return translateText('Percentage');
+    return '-';
+  }
+
+  String _commissionValueLabel() {
+    if (service['commissionEnabled'] != true) return '-';
+    final type = _text(service['commissionType']).toLowerCase();
+    if (type == 'fixed') {
+      final amount = _serviceInt(service['commissionFixedAmountMinor']);
+      return amount == null
+          ? '-'
+          : formatMinorAmount(amount, trimZeroDecimals: true);
+    }
+    if (type == 'percentage') {
+      final percentage = _serviceDouble(service['commissionPercentage']);
+      if (percentage == null) return '-';
+      return '${percentage.toStringAsFixed(percentage.truncateToDouble() == percentage ? 0 : 2)}%';
+    }
+    return '-';
+  }
+
+  String _commissionMaxLabel() {
+    final amount = _serviceInt(service['commissionMaxAmountMinor']);
+    return amount == null
+        ? '-'
+        : formatMinorAmount(amount, trimZeroDecimals: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _firstText([
+      service['displayName'],
+      service['name'],
+    ], fallback: translateText('Unnamed service'));
+    final serviceType = _firstText([
+      service['serviceTypeName'],
+      service['serviceType'],
+      service['code'],
+    ]);
+    final category = _firstText([
+      service['_parentCategoryName'],
+      _mapDisplayName(service['branchCategory']),
+    ]);
+    final subcategory = _firstText([
+      service['_parentSubcategoryName'],
+      _mapDisplayName(service['branchSubCategory']),
+    ]);
+    final placementSummary = [
+      if (category != '-') category,
+      if (subcategory != '-') subcategory,
+    ].join(' • ');
+    final description = _text(service['description']);
+    final priceType = _text(service['priceType']);
+    final active = service['isActive'] ?? service['active'];
+    final passiveWaitEnabled = service['passiveWaitEnabled'] == true;
+    final initialBusy = _serviceInt(service['initialBusyMinutes']);
+    final passiveWait = _serviceInt(service['passiveWaitMinutes']);
+    final finalBusy = _serviceInt(service['finalBusyMinutes']);
+    final commissionEnabled = service['commissionEnabled'] == true;
+    final commissionType = _text(service['commissionType']).toLowerCase();
+    final commissionTypeLabel = _commissionTypeLabel();
+    final commissionValueLabel = _commissionValueLabel();
+    final commissionMaxLabel = _commissionMaxLabel();
+
+    final basicRows = [
+      if (serviceType != '-')
+        _ServiceDetailRowData(translateText('Service Type'), serviceType),
+      if (category != '-')
+        _ServiceDetailRowData(translateText('Category'), category),
+      if (subcategory != '-')
+        _ServiceDetailRowData(translateText('Subcategory'), subcategory),
+      if (_durationLabel() != '-')
+        _ServiceDetailRowData(translateText('Duration'), _durationLabel()),
+      _ServiceDetailRowData(translateText('Price'), _priceLabel()),
+      if (priceType.isNotEmpty)
+        _ServiceDetailRowData(translateText('Price Type'), priceType),
+      if (description.isNotEmpty)
+        _ServiceDetailRowData(translateText('Description'), description),
+      if (_yesNo(active) != '-')
+        _ServiceDetailRowData(translateText('Active'), _yesNo(active)),
+    ];
+    final passiveWaitRows = [
+      _ServiceDetailRowData(
+        translateText('Enabled'),
+        _yesNo(passiveWaitEnabled),
+      ),
+      if (passiveWaitEnabled && initialBusy != null)
+        _ServiceDetailRowData(
+          translateText('Initial Busy'),
+          '$initialBusy min',
+        ),
+      if (passiveWaitEnabled && passiveWait != null)
+        _ServiceDetailRowData(
+          translateText('Passive Wait'),
+          '$passiveWait min',
+        ),
+      if (passiveWaitEnabled && finalBusy != null)
+        _ServiceDetailRowData(
+          translateText('Final Busy'),
+          '$finalBusy min',
+        ),
+    ];
+    final commissionRows = [
+      _ServiceDetailRowData(
+        translateText('Enabled'),
+        _yesNo(commissionEnabled),
+      ),
+      if (commissionEnabled && commissionTypeLabel != '-')
+        _ServiceDetailRowData(translateText('Type'), commissionTypeLabel),
+      if (commissionEnabled && commissionValueLabel != '-')
+        _ServiceDetailRowData(translateText('Value'), commissionValueLabel),
+      if (commissionEnabled &&
+          commissionType == 'percentage' &&
+          commissionMaxLabel != '-')
+        _ServiceDetailRowData(
+          translateText('Max Amount'),
+          commissionMaxLabel,
+        ),
+    ];
+    final screenSize = MediaQuery.of(context).size;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 420,
+          maxHeight: screenSize.height * 0.82,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(18, 16, 12, 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFF8E8),
+                  border: Border(
+                    bottom: BorderSide(color: _catalogBorder),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _catalogGoldLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.room_service_outlined,
+                        color: _catalogGold,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            translateText('Service Details'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _catalogGold,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _catalogInk,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: _catalogInk,
+                        size: 20,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: translateText('Close'),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFAF1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _catalogGoldLight.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    serviceType,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: _catalogInk,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    [
+                                      _durationLabel(),
+                                      if (placementSummary.isNotEmpty)
+                                        placementSummary,
+                                    ].join(' • '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: _catalogMuted,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              _priceLabel(),
+                              style: const TextStyle(
+                                color: _catalogGold,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _ServiceDetailSection(
+                        title: translateText('Basic Details'),
+                        rows: basicRows,
+                      ),
+                      const SizedBox(height: 14),
+                      _ServiceDetailSection(
+                        title: translateText('Passive Wait'),
+                        rows: passiveWaitRows,
+                      ),
+                      const SizedBox(height: 14),
+                      _ServiceDetailSection(
+                        title: translateText('Commission'),
+                        rows: commissionRows,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceDetailRowData {
+  const _ServiceDetailRowData(this.label, this.value);
+
+  final String label;
+  final String value;
+}
+
+class _ServiceDetailSection extends StatelessWidget {
+  const _ServiceDetailSection({
+    required this.title,
+    required this.rows,
+  });
+
+  final String title;
+  final List<_ServiceDetailRowData> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _catalogBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _catalogGold,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...rows.map((row) => _ServiceDetailRow(row: row)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceDetailRow extends StatelessWidget {
+  const _ServiceDetailRow({required this.row});
+
+  final _ServiceDetailRowData row;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 112,
+            child: Text(
+              row.label,
+              style: const TextStyle(
+                color: _catalogMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              row.value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: _catalogInk,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
