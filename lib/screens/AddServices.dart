@@ -244,7 +244,7 @@ class _AddServicesState extends State<AddServices> {
     final rawServiceType = service['serviceType'];
     _selectedServiceTypeCode = (service['code'] ??
             service['serviceTypeCode'] ??
-            (rawServiceType is Map ? rawServiceType['code'] : null))
+            (rawServiceType is Map ? rawServiceType['code'] : rawServiceType))
         ?.toString()
         .trim();
     if (_selectedServiceTypeCode == '') _selectedServiceTypeCode = null;
@@ -1157,14 +1157,35 @@ class _AddServicesState extends State<AddServices> {
                               const SizedBox(height: 7),
                               DropdownButtonFormField<String>(
                                 isExpanded: true,
-                                initialValue: _validateSelectedCategoryKey(
-                                  _selectedServiceTypeKey,
-                                  buildServiceTypeItems(serviceCatalog),
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: _serviceMuted,
+                                  size: 22,
                                 ),
+                                initialValue: _isEditMode
+                                    ? (_selectedServiceTypeKey ??
+                                        'current-service-type')
+                                    : _validateSelectedCategoryKey(
+                                        _selectedServiceTypeKey,
+                                        buildServiceTypeItems(serviceCatalog),
+                                      ),
                                 hint: Text(
                                   translateText("Select Service Type"),
                                 ),
-                                items: buildServiceTypeItems(serviceCatalog),
+                                items: _isEditMode
+                                    ? [
+                                        DropdownMenuItem<String>(
+                                          value: _selectedServiceTypeKey ??
+                                              'current-service-type',
+                                          child: Text(
+                                            _selectedServiceTypeName ??
+                                                _selectedServiceTypeCode ??
+                                                '',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ]
+                                    : buildServiceTypeItems(serviceCatalog),
                                 onChanged: _isEditMode
                                     ? null
                                     : (key) {
@@ -1708,6 +1729,10 @@ InputDecoration _inputDecoration(
     ),
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
     enabledBorder: OutlineInputBorder(
+      borderSide: const BorderSide(color: _serviceBorder),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    disabledBorder: OutlineInputBorder(
       borderSide: const BorderSide(color: _serviceBorder),
       borderRadius: BorderRadius.circular(8),
     ),
