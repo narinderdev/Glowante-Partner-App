@@ -500,9 +500,8 @@ class _AddServicesState extends State<AddServices> {
                   commissionMax.isNotEmpty
               ? _minorIntFromRupeeText(commissionMax)
               : null,
-          // Locked once set — this just re-sends the existing value, it's
-          // never editable from this screen once the service exists.
-          'code': _selectedServiceTypeCode,
+          'serviceType': _selectedServiceTypeCode,
+          'serviceTypeName': _selectedServiceTypeName,
         }..removeWhere((key, value) => value == null);
 
         await ApiService().updateService(
@@ -788,7 +787,6 @@ class _AddServicesState extends State<AddServices> {
   }
 
   String? _validateServiceType(String? _) {
-    if (_isEditMode) return null;
     if (_selectedServiceTypeCode == null ||
         _selectedServiceTypeCode!.isEmpty ||
         _selectedServiceTypeName == null ||
@@ -995,6 +993,28 @@ class _AddServicesState extends State<AddServices> {
       widget.categories ?? [],
       selectedParentCategory: widget.selectedCategory,
     );
+    final serviceTypeItems = buildServiceTypeItems(serviceCatalog);
+    final selectedServiceTypeKey = _validateSelectedCategoryKey(
+      _selectedServiceTypeKey,
+      serviceTypeItems,
+    );
+    final hasCurrentServiceType =
+        (_selectedServiceTypeName?.isNotEmpty ?? false) ||
+            (_selectedServiceTypeCode?.isNotEmpty ?? false);
+    final serviceTypeValue = selectedServiceTypeKey ??
+        (_isEditMode && hasCurrentServiceType ? 'current-service-type' : null);
+    final serviceTypeDropdownItems = serviceTypeValue == 'current-service-type'
+        ? [
+            DropdownMenuItem<String>(
+              value: 'current-service-type',
+              child: Text(
+                _selectedServiceTypeName ?? _selectedServiceTypeCode ?? '',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            ...serviceTypeItems,
+          ]
+        : serviceTypeItems;
     final selectedDuration = _selectedDuration;
 
     return Scaffold(
@@ -1156,63 +1176,83 @@ class _AddServicesState extends State<AddServices> {
                               ),
                               const SizedBox(height: 7),
                               DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                icon: const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  color: _serviceMuted,
-                                  size: 22,
+                                key: ValueKey(
+                                  'service-type-${serviceTypeValue ?? 'empty'}',
                                 ),
-                                initialValue: _isEditMode
-                                    ? (_selectedServiceTypeKey ??
-                                        'current-service-type')
-                                    : _validateSelectedCategoryKey(
-                                        _selectedServiceTypeKey,
-                                        buildServiceTypeItems(serviceCatalog),
-                                      ),
+                                isExpanded: true,
+                                initialValue: serviceTypeValue,
                                 hint: Text(
                                   translateText("Select Service Type"),
                                 ),
-                                items: _isEditMode
-                                    ? [
-                                        DropdownMenuItem<String>(
-                                          value: _selectedServiceTypeKey ??
-                                              'current-service-type',
-                                          child: Text(
-                                            _selectedServiceTypeName ??
-                                                _selectedServiceTypeCode ??
-                                                '',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ]
-                                    : buildServiceTypeItems(serviceCatalog),
-                                onChanged: _isEditMode
-                                    ? null
-                                    : (key) {
-                                        if (key == null) return;
-                                        final separator = key.indexOf(':');
-                                        final type = separator == -1
-                                            ? ''
-                                            : key.substring(0, separator);
-                                        if (type != 'sub') return;
-                                        final id = int.parse(
-                                          key.substring(separator + 1),
-                                        );
-                                        final sub =
-                                            findServiceCatalogSubcategory(
-                                          serviceCatalog,
-                                          id,
-                                        );
-                                        if (sub == null) return;
-                                        setState(() {
-                                          _selectedServiceTypeKey = key;
-                                          _selectedServiceTypeCode =
-                                              (sub['categoryCode'] ?? '')
-                                                  .toString();
-                                          _selectedServiceTypeName =
-                                              (sub['name'] ?? '').toString();
-                                        });
-                                      },
+                                items: serviceTypeDropdownItems,
+                                selectedItemBuilder: (context) =>
+                                    serviceTypeDropdownItems.map((item) {
+                                  final value = item.value;
+                                  if (value == 'current-service-type') {
+                                    return Text(
+                                      _selectedServiceTypeName ??
+                                          _selectedServiceTypeCode ??
+                                          '',
+                                      overflow: TextOverflow.ellipsis,
+                                    );
+                                  }
+                                  if (value == null) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final separator = value.indexOf(':');
+                                  final type = separator == -1
+                                      ? ''
+                                      : value.substring(0, separator);
+                                  final id = int.tryParse(
+                                    value.substring(separator + 1),
+                                  );
+                                  if (id == null) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final label = type == 'sub'
+                                      ? (findServiceCatalogSubcategory(
+                                                serviceCatalog,
+                                                id,
+                                              )?['name'] ??
+                                              '')
+                                          .toString()
+                                      : (findCategoryById(
+                                                serviceCatalog,
+                                                id,
+                                              )?['name'] ??
+                                              '')
+                                          .toString();
+                                  return Text(
+                                    label,
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                }).toList(),
+                                onChanged: (key) {
+                                  if (key == null ||
+                                      key == 'current-service-type') {
+                                    return;
+                                  }
+                                  final separator = key.indexOf(':');
+                                  final type = separator == -1
+                                      ? ''
+                                      : key.substring(0, separator);
+                                  if (type != 'sub') return;
+                                  final id = int.parse(
+                                    key.substring(separator + 1),
+                                  );
+                                  final sub = findServiceCatalogSubcategory(
+                                    serviceCatalog,
+                                    id,
+                                  );
+                                  if (sub == null) return;
+                                  setState(() {
+                                    _selectedServiceTypeKey = key;
+                                    _selectedServiceTypeCode =
+                                        (sub['categoryCode'] ?? '').toString();
+                                    _selectedServiceTypeName =
+                                        (sub['name'] ?? '').toString();
+                                  });
+                                },
                                 decoration: _inputDecoration(
                                   hint: translateText("Select Service Type"),
                                 ),

@@ -4953,6 +4953,10 @@ class ApiService {
       'priceType': body['priceType'] ?? 'fixed',
       'priceMinor': body['priceMinor'] ?? body['defaultPriceMinor'],
       'isActive': body['isActive'] ?? true,
+      if (body.containsKey('serviceType') || body.containsKey('code'))
+        'serviceType': body['serviceType'] ?? body['code'],
+      if (body.containsKey('serviceTypeName'))
+        'serviceTypeName': body['serviceTypeName'],
       if (body.containsKey('passiveWaitEnabled'))
         'passiveWaitEnabled': body['passiveWaitEnabled'],
       if (body.containsKey('initialBusyMinutes'))
