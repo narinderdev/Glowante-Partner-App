@@ -2008,7 +2008,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                       color: Colors.white,
                                     )
                                   : Text(
-                                      translateText('Continue').toUpperCase(),
+                                      translateText('Add Customer').toUpperCase(),
                                       style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w800,
