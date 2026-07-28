@@ -52,11 +52,15 @@ class StylistAppointmentServiceSegment {
     required this.title,
     required this.timeLabel,
     this.metaLabel,
+    this.priceLabel,
+    this.staffLabel,
   });
 
   final String title;
   final String timeLabel;
   final String? metaLabel;
+  final String? priceLabel;
+  final String? staffLabel;
 }
 
 class StylistAppointmentPreferenceData {
@@ -92,6 +96,8 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
     required this.serviceSegments,
     required this.preferences,
     required this.totalAmount,
+    this.paidAmount,
+    this.payAtSalonAmount,
     required this.primaryAction,
     required this.primaryActionColor,
     required this.isPrimaryLoading,
@@ -128,6 +134,8 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   final List<StylistAppointmentServiceSegment> serviceSegments;
   final List<StylistAppointmentPreferenceData> preferences;
   final String totalAmount;
+  final String? paidAmount;
+  final String? payAtSalonAmount;
   final String? primaryAction;
   final Color primaryActionColor;
   final bool isPrimaryLoading;
@@ -346,6 +354,33 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if ((paidAmount ?? '').trim().isNotEmpty ||
+                        (payAtSalonAmount ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _DetailInfoPill(
+                              icon: Icons.verified_outlined,
+                              label: context.t('Already Paid'),
+                              value: (paidAmount ?? '').trim().isEmpty
+                                  ? '-'
+                                  : paidAmount!.trim(),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _DetailInfoPill(
+                              icon: Icons.storefront_outlined,
+                              label: context.t('Pay at Salon'),
+                              value: (payAtSalonAmount ?? '').trim().isEmpty
+                                  ? '-'
+                                  : payAtSalonAmount!.trim(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (assignedStaffLabel.trim().isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Row(
@@ -778,18 +813,60 @@ class _DetailServiceRow extends StatelessWidget {
                     ),
                   ),
                 ],
+                if ((segment.staffLabel ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.person_outline,
+                        size: 12,
+                        color: _detailsSecondaryText,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          segment.staffLabel!,
+                          overflow: TextOverflow.ellipsis,
+                          style: _detailsTextStyle(
+                            size: 11,
+                            weight: FontWeight.w600,
+                            color: _detailsSecondaryText,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            '(${segment.timeLabel})',
-            textAlign: TextAlign.right,
-            style: _detailsTextStyle(
-              size: 12,
-              weight: FontWeight.w700,
-              color: _detailsAccent,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '(${segment.timeLabel})',
+                textAlign: TextAlign.right,
+                style: _detailsTextStyle(
+                  size: 12,
+                  weight: FontWeight.w700,
+                  color: _detailsAccent,
+                ),
+              ),
+              if ((segment.priceLabel ?? '').isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  segment.priceLabel!,
+                  textAlign: TextAlign.right,
+                  style: _detailsTextStyle(
+                    size: 12,
+                    weight: FontWeight.w700,
+                    color: _detailsPrimaryText,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

@@ -982,6 +982,18 @@ List<StylistAppointmentServiceSegment> _detailServiceSegments(
 
       if (end != null) fallbackStart = end;
 
+      final linePriceMinor = _asInt(
+        item['linePriceMinor'] ??
+            item['priceMinor'] ??
+            item['branchService']?['priceMinor'],
+      );
+
+      final staffName = _personName(item['teamMember']) != ''
+          ? _personName(item['teamMember'])
+          : (_personName(item['professional']) != ''
+              ? _personName(item['professional'])
+              : _personName(item['assignedUserBranch']?['user']));
+
       return StylistAppointmentServiceSegment(
         title: name.isEmpty ? appointmentLabel : name,
         timeLabel: (start != null && end != null)
@@ -989,6 +1001,10 @@ List<StylistAppointmentServiceSegment> _detailServiceSegments(
             : '--',
         metaLabel:
             durationMin != null && durationMin > 0 ? '${durationMin}m' : null,
+        priceLabel: linePriceMinor != null && linePriceMinor > 0
+            ? formatMinorAmount(linePriceMinor)
+            : null,
+        staffLabel: staffName.isEmpty ? null : staffName,
       );
     }).toList();
   }
@@ -1089,6 +1105,18 @@ String _bookingTotalPrice(Map<String, dynamic> booking) {
   }
 
   return formatMinorAmount(0);
+}
+
+String? _bookingPaidAmount(Map<String, dynamic> booking) {
+  final noShowProtectionMinor = _asInt(booking['noShowProtectionMinor']);
+  if (noShowProtectionMinor == null) return null;
+  return formatMinorAmount(noShowProtectionMinor);
+}
+
+String? _bookingPayAtSalonAmount(Map<String, dynamic> booking) {
+  final payAtSalonMinor = _asInt(booking['payAtSalonMinor']);
+  if (payAtSalonMinor == null) return null;
+  return formatMinorAmount(payAtSalonMinor);
 }
 
 String _statusLabel(BuildContext context, String status) {
@@ -9208,6 +9236,8 @@ class _StylistBookingDetailScreenState
         widget.isOwnerMode ? _assignedStaffSummary(context, _booking) : '';
     final timeRange = _bookingTimeRange(_booking);
     final totalAmount = _bookingTotalPrice(_booking);
+    final paidAmount = _bookingPaidAmount(_booking);
+    final payAtSalonAmount = _bookingPayAtSalonAmount(_booking);
     final bookingDate = _bookingDate(_booking);
     final elapsed = _detailElapsedTime();
     final scheduledMinutes = _bookingDurationMinutes(_booking);
@@ -9294,6 +9324,8 @@ class _StylistBookingDetailScreenState
         serviceSegments: serviceSegments,
         preferences: preferences,
         totalAmount: totalAmount,
+        paidAmount: paidAmount,
+        payAtSalonAmount: payAtSalonAmount,
         primaryAction: primaryAction,
         primaryActionColor: primaryColor,
         isPrimaryLoading: isPrimaryProcessing,
