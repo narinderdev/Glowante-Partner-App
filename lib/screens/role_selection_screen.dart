@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../bloc/salon/add_salon_cubit.dart';
-import '../repositories/salon_repository.dart';
 import '../services/user_role_session.dart';
 import '../utils/localization_helper.dart';
 import 'UpdateProfileScreen.dart';
-import 'add_salon_screen.dart';
 import 'bottom_nav.dart';
 import 'stylist_bottom_nav.dart';
 
@@ -211,26 +207,10 @@ class RoleSelectionScreen extends StatelessWidget {
       return;
     }
 
-    final salons = user['salons'];
-    final hasSalon = salons is List && salons.isNotEmpty;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => hasSalon
-            ? const BottomNav(tabIndex: 2)
-            : BlocProvider(
-                create: (context) =>
-                    AddSalonCubit(context.read<SalonRepository>()),
-                child: AddSalonScreen(
-                  id: user['id']?.toString(),
-                  phoneNumber: user['phoneNumber']?.toString(),
-                  fullPhoneNumber: user['fullPhoneNumber']?.toString(),
-                  firstName: user['firstName']?.toString(),
-                  lastName: user['lastName']?.toString(),
-                  email: user['email']?.toString(),
-                  isProceedFrom: 'onboarding',
-                ),
-              ),
+        builder: (_) => const BottomNav(tabIndex: 2),
       ),
     );
   }

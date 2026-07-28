@@ -597,6 +597,7 @@ class SalonsScreenState extends State<SalonsScreen> {
   @override
   Widget build(BuildContext context) {
     final isIos = Theme.of(context).platform == TargetPlatform.iOS;
+    final hasSalon = context.watch<SalonListCubit>().state.salons.isNotEmpty;
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: _SalonsAppBar(
@@ -764,7 +765,7 @@ class SalonsScreenState extends State<SalonsScreen> {
           },
         ),
       ),
-      floatingActionButton: widget.readOnly
+      floatingActionButton: (widget.readOnly || !hasSalon)
           ? null
           : Padding(
               padding: const EdgeInsets.only(right: 4, bottom: 12),
