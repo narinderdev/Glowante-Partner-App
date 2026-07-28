@@ -149,6 +149,24 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     return '';
   }
 
+  // Counts only the salon's real, explicitly-added branches — mirrors the
+  // isMainBranch filtering on the Salons list screen, since
+  // salon['branches'] also includes the salon's own main-location entry.
+  int _visibleBranchCount(String salonTitle) {
+    final branches = _salon['branches'];
+    if (branches is! List) return 0;
+
+    bool isMainBranch(dynamic rawBranch) {
+      if (rawBranch is! Map) return false;
+      final rawIsMain = rawBranch['isMain'];
+      if (rawIsMain is bool) return rawIsMain;
+      return _cleanText(rawBranch['name']).toLowerCase() ==
+          salonTitle.trim().toLowerCase();
+    }
+
+    return branches.where((branch) => !isMainBranch(branch)).length;
+  }
+
   Map<String, dynamic>? _resolvePrimaryBranch(Map<String, dynamic> salon) {
     final branches = salon['branches'];
     if (branches is! List || branches.isEmpty) return null;
@@ -471,7 +489,7 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
             'about',
           ])),
       _DetailRowData(
-          'Complete Address',
+          'Address',
           _firstText([
             address,
             addressField(['line1', 'addressLine1', 'buildingName']),
@@ -514,9 +532,14 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     final imageUrls = _imageUrls();
     final openDays =
         _scheduleRows().where((row) => row.value != 'Closed').length;
-    final branchCount = _salon['branches'] is List
-        ? (_salon['branches'] as List).length
-        : (_primaryBranch == null ? 0 : 1);
+    // Only count explicitly-added branches. _salon['branches'] includes the
+    // salon's own main-location entry alongside any real added branches
+    // (same as on the Salons list screen), and _primaryBranch can also be
+    // populated from that implicit default record even when no real
+    // branches exist — so neither a raw list length nor _primaryBranch
+    // alone is the right count; the main entry must be filtered out first,
+    // matching the same isMainBranch check used on the Salons list.
+    final branchCount = _visibleBranchCount(title);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4EEE7),
@@ -555,7 +578,8 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
                   _SummaryStrip(
                     items: [
                       _SummaryStat(
-                          label: 'Branches', value: branchCount.toString()),
+                          label: branchCount <= 1 ? 'Branch' : 'Branches',
+                          value: branchCount.toString()),
                       _SummaryStat(
                           label: 'Services',
                           value: _services.length.toString()),

@@ -2592,7 +2592,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                                   side:
                                       const BorderSide(color: _bookingsBorder),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
                                 child: Text(

@@ -1945,7 +1945,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               elevation: 8,
                               shadowColor: const Color(0x338B6500),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(7),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
                             child: state.isSubmitting || _isNavigatingNext
@@ -1960,8 +1960,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                       Text(
                                         translateText(
                                           widget.isEdit
-                                              ? 'Save Changes'
-                                              : 'Next Step',
+                                              ? 'Next'
+                                              : 'Next',
                                         ),
                                         style: const TextStyle(
                                           fontSize: 15,

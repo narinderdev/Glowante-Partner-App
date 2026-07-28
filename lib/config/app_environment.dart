@@ -8,7 +8,7 @@ enum AppFlavor {
 
 class AppEnvironment {
   static const String _flavorName =
-      String.fromEnvironment('APP_FLAVOR', defaultValue: 'dev');
+      String.fromEnvironment('APP_FLAVOR', defaultValue: 'test');
 
   static AppFlavor get flavor {
     switch (_flavorName.toLowerCase()) {

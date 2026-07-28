@@ -2039,7 +2039,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                           backgroundColor: AppColors.starColor,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           elevation: 2,
                         ),
@@ -2050,7 +2050,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                                 color: Colors.white,
                               )
                             : Text(
-                                translateText('Save & Continue').toUpperCase(),
+                                translateText('Next').toUpperCase(),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 11,

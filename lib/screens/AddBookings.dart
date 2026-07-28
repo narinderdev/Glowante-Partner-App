@@ -1338,11 +1338,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     ValueChanged<String>? onChanged,
     ValueChanged<String>? onSubmitted,
   }) {
-    return SizedBox(
-      height: height,
-      child: Stack(
-        children: [
-          TextField(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: height,
+          child: TextField(
             controller: controller,
             focusNode: focusNode,
             onChanged: onChanged,
@@ -1369,16 +1370,11 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 fontWeight: FontWeight.w500,
               ),
 
-              // Hide Flutter default counter
+              // Hide Flutter default counter (shown separately below instead)
               counterText: '',
 
               isDense: true,
-              contentPadding: EdgeInsets.fromLTRB(
-                prefixText == null ? 12 : 12,
-                14,
-                maxLength == null ? 12 : 54,
-                maxLength == null ? 14 : 24,
-              ),
+              contentPadding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
 
               prefixIcon: prefixText == null
                   ? null
@@ -1425,31 +1421,28 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               ),
             ),
           ),
-          if (maxLength != null)
-            Positioned(
-              right: 10,
-              bottom: 6,
-              child: IgnorePointer(
-                child: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: controller,
-                  builder: (context, value, _) {
-                    return Text(
-                      '${value.text.length}/$maxLength',
-                      style: TextStyle(
-                        fontSize: 10,
-                        height: 1,
-                        color: value.text.length >= maxLength
-                            ? Colors.red
-                            : _bookingMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    );
-                  },
-                ),
-              ),
+        ),
+        if (maxLength != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                return Text(
+                  '${value.text.length}/$maxLength',
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1,
+                    color: value.text.length >= maxLength
+                        ? Colors.red
+                        : _bookingMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                );
+              },
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 
@@ -2373,7 +2366,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                             backgroundColor: _bookingGold,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(999),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             elevation: 7,
                             shadowColor: const Color(0x338B6500),
@@ -7011,7 +7004,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 14),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(7),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                   ),
                                   child: Text(translateText('Back')),

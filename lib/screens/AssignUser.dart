@@ -480,7 +480,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
                     side: const BorderSide(color: _assignUserBorder),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   child: Text(
@@ -509,7 +509,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
                     disabledBackgroundColor: const Color(0xFFD8CEC5),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   child: Text(

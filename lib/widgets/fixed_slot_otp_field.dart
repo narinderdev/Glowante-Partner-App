@@ -41,262 +41,137 @@ class FixedSlotOtpField extends StatefulWidget {
   State<FixedSlotOtpField> createState() => _FixedSlotOtpFieldState();
 }
 
+// A single real, invisible TextField drives every visual box — there is
+// only ever one native keyboard/text-input connection for the whole
+// field, so focus never has to hop between separate per-digit TextFields
+// as the user types. That per-box hopping (each box its own TextField +
+// FocusNode) was what caused the keyboard to visibly flicker on iOS with
+// every keystroke, even after deferring the focus-change calls by a
+// frame — the only full fix is to not have multiple text inputs at all.
 class _FixedSlotOtpFieldState extends State<FixedSlotOtpField> {
-  late final List<TextEditingController> _controllers;
-  late final List<FocusNode> _focusNodes;
-  bool _updating = false;
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
-
-    _controllers = List.generate(
-      widget.length,
-      (_) => TextEditingController(),
-    );
-
-    _focusNodes = List.generate(
-      widget.length,
-      (_) => FocusNode(),
-    );
-
-    for (final node in _focusNodes) {
-      node.addListener(() {
-        if (mounted) setState(() {});
-      });
-    }
+    _controller = TextEditingController();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    for (final controller in _controllers) {
-      controller.dispose();
-    }
-    for (final node in _focusNodes) {
-      node.dispose();
-    }
+    _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  String _otpValue() {
-    return _controllers.map((c) => c.text).join();
-  }
-
-  bool _isComplete() {
-    return _controllers.every((c) => c.text.isNotEmpty);
-  }
-
-  void _notify() {
-    widget.onChanged(_otpValue(), _isComplete());
-  }
-
-  // The only slot the user should ever be able to type into directly —
-  // right after the last filled digit (or the last slot, once all are
-  // filled). Tapping any other slot redirects here instead of letting the
-  // user jump ahead/behind and fill out of order.
-  int _activeIndex() {
-    final filled = _controllers.where((c) => c.text.isNotEmpty).length;
-    return filled.clamp(0, widget.length - 1);
-  }
-
-  void _focusSlot(int index) {
-    if (!widget.enabled) return;
-
-    final safeIndex = index.clamp(0, widget.length - 1).toInt();
-
-    FocusScope.of(context).requestFocus(_focusNodes[safeIndex]);
-
-    _controllers[safeIndex].selection = TextSelection.collapsed(
-      offset: _controllers[safeIndex].text.length,
-    );
-  }
-
-  void _setSlot(int index, String digit) {
-    _controllers[index].text = digit;
-    _controllers[index].selection = TextSelection.collapsed(
-      offset: digit.length,
-    );
-  }
-
-  void _handleChanged(int index, String value) {
-    if (_updating) return;
-
+  void _handleChanged(String value) {
     final digits = value.replaceAll(RegExp(r'\D'), '');
+    final limited = digits.length > widget.length
+        ? digits.substring(0, widget.length)
+        : digits;
 
-    // Paste/autofill case: fill from current index forward.
-    if (digits.length > 1) {
-      _updating = true;
-
-      for (int i = 0; i < digits.length; i++) {
-        final slotIndex = index + i;
-        if (slotIndex >= widget.length) break;
-        _setSlot(slotIndex, digits[i]);
-      }
-
-      _updating = false;
-
-      setState(() {});
-      _notify();
-
-      final nextIndex = (index + digits.length).clamp(
-        0,
-        widget.length - 1,
+    if (limited != _controller.text) {
+      _controller.value = TextEditingValue(
+        text: limited,
+        selection: TextSelection.collapsed(offset: limited.length),
       );
-
-      _focusSlot(nextIndex);
-
-      if (_isComplete()) {
-        widget.onSubmitted?.call();
-      }
-
-      return;
     }
-
-    _updating = true;
-
-    if (digits.isEmpty) {
-      // Do not shift other OTP digits.
-      // Just clear this selected box.
-      _controllers[index].clear();
-    } else {
-      _setSlot(index, digits);
-    }
-
-    _updating = false;
 
     setState(() {});
-    _notify();
+    widget.onChanged(limited, limited.length == widget.length);
 
-    if (digits.isNotEmpty) {
-      if (index < widget.length - 1) {
-        _focusSlot(index + 1);
-      } else if (_isComplete()) {
-        widget.onSubmitted?.call();
-      }
-    }
-  }
-
-  void _handleBackspace(int index) {
-    if (!widget.enabled) return;
-
-    // If current box has value, clear only current box.
-    // Example: 1 2 3 4 5 6, focus on 2 => 1 _ 3 4 5 6
-    if (_controllers[index].text.isNotEmpty) {
-      _controllers[index].clear();
-
-      setState(() {});
-      _notify();
-      _focusSlot(index);
-      return;
-    }
-
-    // If current box is already empty, go previous and clear previous.
-    if (index > 0) {
-      _controllers[index - 1].clear();
-
-      setState(() {});
-      _notify();
-      _focusSlot(index - 1);
+    if (limited.length == widget.length) {
+      widget.onSubmitted?.call();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(widget.length, (index) {
-        final filled = _controllers[index].text.isNotEmpty;
-        final focused = _focusNodes[index].hasFocus && widget.enabled;
+    final text = _controller.text;
+    final activeIndex = text.length.clamp(0, widget.length - 1);
 
-        final borderColor = widget.hasError
-            ? widget.errorColor
-            : focused || filled
-                ? widget.activeColor
-                : widget.inactiveColor;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(widget.length, (index) {
+            final digit = index < text.length ? text[index] : '';
+            final filled = digit.isNotEmpty;
+            final isActive =
+                widget.enabled && _focusNode.hasFocus && index == activeIndex;
 
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: widget.fieldWidth,
-          height: widget.fieldHeight,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: filled && widget.filledColor != null
-                ? widget.filledColor
-                : widget.fillColor,
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            border: Border.all(
-              color: borderColor,
-              width: focused || filled ? 1.7 : 1.3,
-            ),
-          ),
-          child: KeyboardListener(
-            focusNode: FocusNode(skipTraversal: true),
-            onKeyEvent: (event) {
-              if (event is KeyDownEvent &&
-                  event.logicalKey == LogicalKeyboardKey.backspace) {
-                _handleBackspace(index);
-              }
-            },
+            final borderColor = widget.hasError
+                ? widget.errorColor
+                : isActive || filled
+                    ? widget.activeColor
+                    : widget.inactiveColor;
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: widget.fieldWidth,
+              height: widget.fieldHeight,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: filled && widget.filledColor != null
+                    ? widget.filledColor
+                    : widget.fillColor,
+                borderRadius: BorderRadius.circular(widget.borderRadius),
+                border: Border.all(
+                  color: borderColor,
+                  width: isActive || filled ? 1.7 : 1.3,
+                ),
+              ),
+              child: Text(
+                digit,
+                style: TextStyle(
+                  color: filled && widget.filledColor != null
+                      ? widget.filledTextColor
+                      : widget.textColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            );
+          }),
+        ),
+        Positioned.fill(
+          child: Opacity(
+            opacity: 0,
             child: TextField(
-              controller: _controllers[index],
-              focusNode: _focusNodes[index],
+              controller: _controller,
+              focusNode: _focusNode,
               enabled: widget.enabled,
               keyboardType: TextInputType.number,
-              textInputAction: index == widget.length - 1
-                  ? TextInputAction.done
-                  : TextInputAction.next,
-              maxLength: 1,
-              // Explicitly empty (not null) opts every slot out of
-              // Android's autofill framework — otherwise it treats each
-              // slot as its own autofillable field and draws a suggestion
-              // icon under each one that's been filled.
+              maxLength: widget.length,
+              // Explicitly empty (not null) opts out of the platform's
+              // autofill framework here — autofill is handled by the
+              // screen embedding this field (e.g. SMS retriever), not by
+              // this hidden field itself.
               autofillHints: const <String>[],
               enableSuggestions: false,
               autocorrect: false,
-              enableInteractiveSelection: false,
+              showCursor: false,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(1),
+                LengthLimitingTextInputFormatter(widget.length),
               ],
-              textAlign: TextAlign.center,
-              textAlignVertical: TextAlignVertical.center,
-              style: TextStyle(
-                color: filled && widget.filledColor != null
-                    ? widget.filledTextColor
-                    : widget.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-              cursorColor: filled && widget.filledColor != null
-                  ? widget.filledTextColor
-                  : widget.activeColor,
-              cursorHeight: 24,
-              cursorWidth: 2,
               decoration: const InputDecoration(
                 counterText: '',
                 border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                filled: true,
-                fillColor: Colors.transparent,
-                isDense: true,
                 isCollapsed: true,
                 contentPadding: EdgeInsets.zero,
               ),
-              onTap: () => _focusSlot(_activeIndex()),
-              onChanged: (value) => _handleChanged(index, value),
-              onSubmitted: (_) {
-                if (index < widget.length - 1) {
-                  _focusSlot(index + 1);
-                } else if (_isComplete()) {
-                  widget.onSubmitted?.call();
-                }
-              },
+              onChanged: _handleChanged,
             ),
           ),
-        );
-      }),
+        ),
+      ],
     );
   }
 }

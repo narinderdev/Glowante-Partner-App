@@ -863,7 +863,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                     backgroundColor: AppColors.starColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     elevation: 2,
                   ),

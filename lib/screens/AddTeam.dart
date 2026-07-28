@@ -2625,7 +2625,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         _promoCard(),
                         const SizedBox(height: 28),
                         _PrimaryButton(
-                          text: '${translateText('Next Step')}  →',
+                          text: '${translateText('Next')}  →',
                           height: 54,
                           flowStyle: true,
                           isLoading: _isSubmitting,

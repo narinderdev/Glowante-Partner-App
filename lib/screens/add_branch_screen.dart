@@ -1458,8 +1458,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                       Text(
                                         translateText(
                                           widget.isEdit
-                                              ? 'Save Changes'
-                                              : 'Next Step',
+                                              ? 'Next'
+                                              : 'Next',
                                         ),
                                         style: const TextStyle(
                                           fontSize: 15,

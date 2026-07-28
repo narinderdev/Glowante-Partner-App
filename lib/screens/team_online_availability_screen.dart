@@ -356,7 +356,7 @@ class _TeamOnlineAvailabilityScreenState
                           foregroundColor: const Color(0xFF374151),
                           side: BorderSide.none,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         child: Text(translateText('Previous')),
@@ -371,7 +371,7 @@ class _TeamOnlineAvailabilityScreenState
                           backgroundColor: AppColors.starColor,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           elevation: 2,
                         ),

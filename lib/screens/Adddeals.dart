@@ -2110,23 +2110,31 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
               child: _fieldWithBottomError(
                 errorText:
                     _showErrors ? _vValidFrom(validFromController.text) : null,
-                child: TextFormField(
-                  controller: validFromController,
-                  readOnly: true,
-                  autovalidateMode: _showErrors
-                      ? AutovalidateMode.onUserInteraction
-                      : AutovalidateMode.disabled,
-                  decoration: _decor(
-                    label: '${translateText('Start Date')} *',
-                    hint: translateText('Select start date'),
-                    suffix: IconButton(
-                      icon: const Icon(Icons.date_range, color: _dealGold),
-                      onPressed: () =>
-                          _pickDate(validFromController, isFrom: true),
+                // AbsorbPointer stops the field itself from ever receiving
+                // the tap (and therefore ever gaining focus) — without it,
+                // even a readOnly field briefly flashes the keyboard the
+                // instant it's tapped, before the async showDatePicker
+                // dialog has actually appeared to cover it.
+                child: GestureDetector(
+                  onTap: () => _pickDate(validFromController, isFrom: true),
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      controller: validFromController,
+                      readOnly: true,
+                      autovalidateMode: _showErrors
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
+                      decoration: _decor(
+                        label: '${translateText('Start Date')} *',
+                        hint: translateText('Select start date'),
+                        suffix: const Icon(
+                          Icons.date_range,
+                          color: _dealGold,
+                        ),
+                      ),
+                      validator: _vValidFrom,
                     ),
                   ),
-                  validator: _vValidFrom,
-                  onTap: () => _pickDate(validFromController, isFrom: true),
                 ),
               ),
             ),
@@ -2135,23 +2143,26 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
               child: _fieldWithBottomError(
                 errorText:
                     _showErrors ? _vValidTill(validTillController.text) : null,
-                child: TextFormField(
-                  controller: validTillController,
-                  readOnly: true,
-                  autovalidateMode: _showErrors
-                      ? AutovalidateMode.onUserInteraction
-                      : AutovalidateMode.disabled,
-                  decoration: _decor(
-                    label: '${translateText('End Date')} *',
-                    hint: translateText('Select end date'),
-                    suffix: IconButton(
-                      icon: const Icon(Icons.date_range, color: _dealGold),
-                      onPressed: () =>
-                          _pickDate(validTillController, isFrom: false),
+                child: GestureDetector(
+                  onTap: () => _pickDate(validTillController, isFrom: false),
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      controller: validTillController,
+                      readOnly: true,
+                      autovalidateMode: _showErrors
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
+                      decoration: _decor(
+                        label: '${translateText('End Date')} *',
+                        hint: translateText('Select end date'),
+                        suffix: const Icon(
+                          Icons.date_range,
+                          color: _dealGold,
+                        ),
+                      ),
+                      validator: _vValidTill,
                     ),
                   ),
-                  validator: _vValidTill,
-                  onTap: () => _pickDate(validTillController, isFrom: false),
                 ),
               ),
             ),

@@ -631,40 +631,16 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           ),
         ),
         const SizedBox(height: 6),
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: controller,
-          builder: (context, value, _) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    fieldError,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 12,
-                      height: 1.2,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  '${value.text.length}/$maxLength',
-                  style: TextStyle(
-                    color: value.text.length >= maxLength
-                        ? Colors.redAccent
-                        : _profileMuted,
-                    fontSize: 12,
-                    height: 1.2,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            );
-          },
+        Text(
+          fieldError,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.redAccent,
+            fontSize: 12,
+            height: 1.2,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );

@@ -1350,7 +1350,7 @@ Future<bool> showActivateSalonConfirmation({
                       const SizedBox(height: 4),
                       Text(
                         'Activating "$salonName" will also activate all '
-                        '$branchCount ${branchCount == 1 ? 'branch' : 'branches'} under it.',
+                        '$branchCount ${branchCount <= 1 ? 'branch' : 'branches'} under it.',
                         style: const TextStyle(
                           color: Color(0xFF6B4E00),
                           fontSize: 13,
@@ -1884,7 +1884,7 @@ Future<bool> showDeactivateSalonConfirmation({
                       const SizedBox(height: 4),
                       Text(
                         'Deactivating "$salonName" will also deactivate all '
-                        '$branchCount ${branchCount == 1 ? 'branch' : 'branches'} under it.',
+                        '$branchCount ${branchCount <= 1 ? 'branch' : 'branches'} under it.',
                         style: const TextStyle(
                           color: Color(0xFF6B4E00),
                           fontSize: 13,
@@ -2735,7 +2735,7 @@ class _SalonCard extends StatelessWidget {
                     runSpacing: 7,
                     children: [
                       _countChip(
-                        '$branchCount ${branchCount == 1 ? 'Branch' : 'Branches'}',
+                        '$branchCount ${branchCount <= 1 ? 'Branch' : 'Branches'}',
                       ),
                       if (staffCount > 0) _countChip('$staffCount Staff'),
                     ],
@@ -3450,7 +3450,7 @@ class _SalonDetailsDialog extends StatelessWidget {
                             if (branches.isNotEmpty)
                               _DialogStatusPill(
                                 label:
-                                    '${branches.length} ${branches.length == 1 ? 'Branch' : 'Branches'}',
+                                    '${branches.length} ${branches.length <= 1 ? 'Branch' : 'Branches'}',
                                 active: true,
                               ),
                           ],

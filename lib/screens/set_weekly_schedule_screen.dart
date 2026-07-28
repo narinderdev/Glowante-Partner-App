@@ -478,7 +478,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 17),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               side: const BorderSide(
                                 color: Color(0xFFD0A244),
@@ -514,7 +514,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                               elevation: 10,
                               shadowColor: const Color(0x338B6500),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
                             child: Row(
@@ -533,7 +533,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                                         widget.submitLabel ??
                                             (widget.totalSteps == 2
                                                 ? 'Save'
-                                                : 'Save & Continue'),
+                                                : 'Next'),
                                       ),
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(

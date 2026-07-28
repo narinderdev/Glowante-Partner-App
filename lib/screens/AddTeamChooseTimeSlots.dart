@@ -2427,7 +2427,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                   color: Color(0xFFE2D3BF),
                                 ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
                               child: Row(
@@ -2473,7 +2473,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                 backgroundColor: AppColors.starColor,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 elevation: 2,
                               ),
@@ -2490,7 +2490,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                       children: [
                                         Flexible(
                                           child: Text(
-                                            translateText('Save & Continue')
+                                            translateText('Next')
                                                 .toUpperCase(),
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w900,

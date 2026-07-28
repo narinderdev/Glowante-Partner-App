@@ -390,7 +390,7 @@ class _OfferReviewSummaryScreenState extends State<OfferReviewSummaryScreen> {
                     side: const BorderSide(color: _gold),
                     minimumSize: const Size.fromHeight(48),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   child: Text(

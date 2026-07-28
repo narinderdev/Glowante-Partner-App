@@ -383,7 +383,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             _branch['about'],
           ])),
       _DetailRowData(
-          'Complete Address',
+          'Address',
           _firstText([
             _composeAddress(address),
             _composeAddress(_branch),
