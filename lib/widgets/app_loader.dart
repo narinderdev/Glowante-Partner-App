@@ -17,13 +17,14 @@ class AppLoader extends StatelessWidget {
   factory AppLoader.page({
     Key? key,
     double size = 30,
+    String? message,
   }) {
     return AppLoader._(
       key: key,
       size: size,
       strokeWidth: 3,
       color: AppColors.starColor,
-      message: translateText('Loading...please wait'),
+      message: message ?? translateText('Loading...please wait'),
       isPage: true,
     );
   }

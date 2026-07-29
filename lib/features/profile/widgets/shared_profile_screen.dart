@@ -536,6 +536,7 @@ class _LanguageCard extends StatelessWidget {
       showDialog<void>(
         context: parentContext,
         barrierDismissible: false,
+        barrierColor: const Color(0x66FFFCF8),
         builder: (_) => const _LanguageChangingDialog(),
       );
 
@@ -630,29 +631,10 @@ class _LanguageChangingDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 64),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppLoader.inline(size: 28, strokeWidth: 3),
-              const SizedBox(height: 14),
-              Text(
-                context.t('Changing language...'),
-                textAlign: TextAlign.center,
-                style: _profileTextStyle(
-                  size: 13,
-                  weight: FontWeight.w800,
-                  color: const Color(0xFF1C1917),
-                ),
-              ),
-            ],
-          ),
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: AppLoader.page(),
         ),
       ),
     );
