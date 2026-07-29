@@ -919,6 +919,11 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                     width: 56,
                     height: toolbarHeight,
                     child: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints.tightFor(
+                        width: 56,
+                        height: toolbarHeight,
+                      ),
                       onPressed: onMenuTap,
                       tooltip: translateText('Menu'),
                       icon: const Icon(
@@ -927,20 +932,23 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  // const SizedBox(width: 3),
                   SizedBox(
                     width: 112,
                     height: toolbarHeight,
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Image.asset(
-                        'assets/images/finallogo.png',
-                        height: logoHeight,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Image.asset(
-                          'assets/images/logo.png',
+                      child: Transform.translate(
+                        offset: const Offset(0, -5),
+                        child: Image.asset(
+                          'assets/images/finallogo.png',
                           height: logoHeight,
                           fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Image.asset(
+                            'assets/images/logo.png',
+                            height: logoHeight,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
                     ),
