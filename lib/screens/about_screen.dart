@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/localization_helper.dart';
+
 class AboutScreen extends StatelessWidget {
   final Map<String, dynamic> branchDetails;
 
@@ -7,8 +9,9 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final description = branchDetails['description'] ?? 'No description available';
-    
+    final description =
+        branchDetails['description'] ?? context.t('No description available');
+
     return Scaffold(
       backgroundColor: Colors.white,
       // Remove the app bar completely
@@ -22,7 +25,7 @@ class AboutScreen extends StatelessWidget {
             // SizedBox(height: 10),
             // Text('Branch ID: ${branchDetails['id']}', style: TextStyle(fontSize: 16)),
             // SizedBox(height: 10),
-            Text('$description', style: TextStyle(fontSize: 16)),
+            Text('$description', style: const TextStyle(fontSize: 16)),
             // SizedBox(height: 10),
             // Text('Phone: ${branchDetails['phone']}', style: TextStyle(fontSize: 16)),
             // SizedBox(height: 10),

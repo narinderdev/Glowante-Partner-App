@@ -1326,14 +1326,18 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
   void _showClosedDayMessage(String day) {
     Fluttertoast.showToast(
-      msg: translateText('Salon is closed on $day.'),
+      msg: translateText(
+        'Salon is closed on {day}.',
+        params: {'day': translateText(day)},
+      ),
     );
   }
 
   void _showNoAvailableSlotMessage(String day) {
     Fluttertoast.showToast(
       msg: translateText(
-        'Salon time is over for $day. Please adjust the existing slots.',
+        'Salon time is over for {day}. Please adjust the existing slots.',
+        params: {'day': translateText(day)},
       ),
     );
   }

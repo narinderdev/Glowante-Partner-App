@@ -1952,7 +1952,7 @@ class _TopServicesCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                child: Text('$viewAllLabel →'),
+                child: Text('${context.t(viewAllLabel)} →'),
               ),
             ),
           ],

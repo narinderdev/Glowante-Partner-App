@@ -595,8 +595,8 @@ class _PayoutAccountCard extends StatelessWidget {
                               color: const Color(0xFFFFF3D5),
                               borderRadius: BorderRadius.circular(999),
                             ),
-                            child: const Text(
-                              'Default',
+                            child: Text(
+                              translateText('Default'),
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,

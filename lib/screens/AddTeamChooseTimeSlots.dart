@@ -1026,8 +1026,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final currentCount = weeklySchedule[day]?.length ?? 0;
     if (currentCount >= _maxSlotsPerDay) {
       Fluttertoast.showToast(
-          msg: translateText(
-              'You can add up to $_maxSlotsPerDay slots per day.'));
+        msg: translateText(
+          'You can add up to {count} slots per day.',
+          params: {'count': _maxSlotsPerDay.toString()},
+        ),
+      );
       return;
     }
 
@@ -1438,7 +1441,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   void _showClosedDayMessage(String day) {
     Fluttertoast.showToast(
-        msg: translateText('$day is closed for appointments.'));
+      msg: translateText(
+        '{day} is closed for appointments.',
+        params: {'day': translateText(day)},
+      ),
+    );
   }
 
   void _showNoAvailableSlotMessage(String day) {

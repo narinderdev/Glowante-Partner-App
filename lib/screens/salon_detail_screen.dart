@@ -1040,13 +1040,34 @@ class _ChipSection extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             )
-          : Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final value in values) _DetailChip(label: value),
-              ],
-            ),
+          : _DetailChipGrid(values: values),
+    );
+  }
+}
+
+class _DetailChipGrid extends StatelessWidget {
+  const _DetailChipGrid({required this.values});
+
+  final List<String> values;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 8.0;
+        final itemWidth = (constraints.maxWidth - spacing * 2) / 3;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: 8,
+          children: [
+            for (final value in values)
+              SizedBox(
+                width: itemWidth.clamp(72.0, double.infinity),
+                child: _DetailChip(label: value),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1059,17 +1080,22 @@ class _DetailChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: const Color(0xFFFFF5DB),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(7),
         border: Border.all(color: const Color(0xFFE0BE58)),
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
         style: const TextStyle(
           color: Color(0xFF6A4B10),
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -1271,14 +1297,7 @@ class _ExpandableChipSectionState extends State<_ExpandableChipSection> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final value in visibleValues)
-                      _DetailChip(label: value),
-                  ],
-                ),
+                _DetailChipGrid(values: visibleValues),
                 if (widget.values.length > widget.initialLimit) ...[
                   const SizedBox(height: 10),
                   GestureDetector(
@@ -1331,7 +1350,7 @@ class _DotStatusPill extends StatelessWidget {
           ),
           const SizedBox(width: 5),
           Text(
-            '$label: ${active ? 'Active' : 'Inactive'}',
+            '${translateText(label)}: ${translateText(active ? 'Active' : 'Inactive')}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 10,

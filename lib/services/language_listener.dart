@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'navigation_service.dart';
+
 class LanguageListener extends ChangeNotifier {
   static String _latestLang = 'en';
 
@@ -34,7 +36,22 @@ class LanguageListener extends ChangeNotifier {
     _latestLang = langCode;
     if (notify) {
       notifyListeners();
+      _scheduleVisibleTreeRebuild();
     }
   }
-}
 
+  void _scheduleVisibleTreeRebuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = appNavigatorKey.currentContext;
+      if (context is! Element || !context.mounted) return;
+
+      void markForBuild(Element element) {
+        if (!element.mounted) return;
+        element.markNeedsBuild();
+        element.visitChildren(markForBuild);
+      }
+
+      markForBuild(context);
+    });
+  }
+}

@@ -773,9 +773,10 @@ class _ServicesTabState extends State<ServicesTab> {
                   separatorBuilder: (_, __) => SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final category = categories[index];
+                    final categoryName = category['displayName'].toString();
                     final bool selected = selectedCategoryId == category['id'];
                     return ChoiceChip(
-                      label: Text('${category['displayName']}'),
+                      label: Text(translateText(categoryName)),
                       selected: selected,
                       onSelected: (_) {
                         setState(() {
@@ -852,10 +853,12 @@ class _ServicesTabState extends State<ServicesTab> {
                     separatorBuilder: (_, __) => SizedBox(width: 8),
                     itemBuilder: (context, index) {
                       final subCategory = subCategories[index];
+                      final subCategoryName =
+                          subCategory['displayName'].toString();
                       final bool selected =
                           selectedSubCategoryId == subCategory['id'];
                       return ChoiceChip(
-                        label: Text('${subCategory['displayName']}'),
+                        label: Text(translateText(subCategoryName)),
                         selected: selected,
                         onSelected: (_) {
                           setState(() {
@@ -887,6 +890,7 @@ class _ServicesTabState extends State<ServicesTab> {
                     ? Column(
                         children:
                             selectedSubCategoryServices.map<Widget>((service) {
+                          final serviceName = service['displayName'].toString();
                           return Card(
                             margin: const EdgeInsets.symmetric(vertical: 6),
                             shape: RoundedRectangleBorder(
@@ -903,7 +907,7 @@ class _ServicesTabState extends State<ServicesTab> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text('${service['displayName']}',
+                                        Text(translateText(serviceName),
                                             style: const TextStyle(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.bold)),
@@ -959,7 +963,7 @@ class _ServicesTabState extends State<ServicesTab> {
                                             fontWeight: FontWeight.bold),
                                       ),
                                       Text(
-                                        '${service['durationMin']} min',
+                                        '${service['durationMin']} ${translateText('min')}',
                                         style: const TextStyle(
                                             fontSize: 12, color: Colors.grey),
                                       ),

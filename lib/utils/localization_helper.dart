@@ -17,8 +17,9 @@ String translateText(String key, {Map<String, String>? params}) {
 
 extension LocalizationExt on BuildContext {
   String t(String key, {Map<String, String>? params}) {
-    // Safe outside build(), event handlers, async methods, dialogs, logging, etc.
-    Provider.of<LanguageListener>(this, listen: false);
+    // Build-time calls subscribe so visible text rebuilds on language changes.
+    // Event handlers, async methods, dialogs, logging, etc. stay safe.
+    Provider.of<LanguageListener>(this, listen: debugDoingBuild);
     return translateText(key, params: params);
   }
 }

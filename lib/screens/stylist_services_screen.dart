@@ -118,7 +118,7 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
     if (service['passiveWaitEnabled'] != true) return '';
     final waitMinutes = _asInt(service['passiveWaitMinutes']);
     if (waitMinutes == null || waitMinutes <= 0) return '';
-    return '${context.t('Wait')}: $waitMinutes min';
+    return '${context.t('Wait')}: $waitMinutes ${context.t('min')}';
   }
 
   ({
@@ -318,7 +318,8 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                     final details = <String>[
                       if (category.isNotEmpty) category,
                       if (subcategory.isNotEmpty) subcategory,
-                      if (duration != null && duration > 0) '$duration min',
+                      if (duration != null && duration > 0)
+                        '$duration ${context.t('min')}',
                       if (waitLabel.isNotEmpty) waitLabel,
                     ].join(' • ');
 

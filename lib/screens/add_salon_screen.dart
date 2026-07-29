@@ -2570,7 +2570,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
                   if (maxWords != null &&
                       text.split(RegExp(r'\s+')).length > maxWords) {
-                    return translateText('Maximum $maxWords words allowed');
+                    return translateText(
+                      'Maximum {count} words allowed',
+                      params: {'count': maxWords.toString()},
+                    );
                   }
 
                   return validator?.call(value);

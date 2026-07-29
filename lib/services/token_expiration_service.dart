@@ -11,8 +11,7 @@ import 'auth_session_manager.dart';
 class TokenExpirationService {
   TokenExpirationService._();
 
-  static final TokenExpirationService instance =
-      TokenExpirationService._();
+  static final TokenExpirationService instance = TokenExpirationService._();
 
   static const Duration _defaultInterval = Duration(minutes: 1);
   static const Duration _expiryGrace = Duration(seconds: 5);

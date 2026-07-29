@@ -2919,7 +2919,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       [
                         if (price is num) _formatServicePrice(price),
                         if (duration is num && duration > 0)
-                          '${duration.toInt()} min',
+                          '${duration.toInt()} ${translateText('min')}',
                       ].join('  •  '),
                       style: const TextStyle(
                         color: _bookingMuted,
@@ -3582,7 +3582,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       if (selectedProId == null) {
         _showError(
           translateText(
-            'Please select team member for ${(service['name'] ?? '').toString()}',
+            'Please select team member for {service}',
+            params: {'service': (service['name'] ?? '').toString()},
           ),
         );
         return null;
@@ -4017,7 +4018,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                 ? translateText(
                                     'Select services and team members')
                                 : translateText(
-                                    '${_selectedServices.fold<int>(0, (sum, service) => sum + (_intValue(service['qty']) ?? 1))} service(s) selected',
+                                    '{count} service(s) selected',
+                                    params: {
+                                      'count': _selectedServices
+                                          .fold<int>(
+                                            0,
+                                            (sum, service) =>
+                                                sum +
+                                                (_intValue(service['qty']) ??
+                                                    1),
+                                          )
+                                          .toString(),
+                                    },
                                   ),
                         onTap: !_hasCustomerDetails ||
                                 _loadingServices ||
@@ -4302,7 +4314,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                   const SizedBox(height: 3),
                   Text(
                     cartCount > 0
-                        ? translateText('$cartCount item(s) in customer cart')
+                        ? translateText(
+                            '{count} item(s) in customer cart',
+                            params: {'count': cartCount.toString()},
+                          )
                         : translateText('Tap to review the customer cart'),
                     style: const TextStyle(
                       color: _bookingMuted,
@@ -4410,7 +4425,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 Expanded(
                   child: Text(
                     translateText(
-                      '${_selectedServices.length} ${_selectedServices.length == 1 ? 'Service' : 'Services'} selected',
+                      '{count} service(s) selected',
+                      params: {'count': _selectedServices.length.toString()},
                     ),
                     style: const TextStyle(
                       color: _bookingMuted,
@@ -4457,7 +4473,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               Expanded(
                 child: Text(
                   translateText(
-                    '${_selectedServices.length} ${_selectedServices.length == 1 ? 'Service' : 'Services'} selected',
+                    '{count} service(s) selected',
+                    params: {'count': _selectedServices.length.toString()},
                   ),
                   style: const TextStyle(
                     color: _bookingMuted,
@@ -4515,7 +4532,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               const SizedBox(height: 5),
               Text(
                 [
-                  if (duration > 0) '${duration * qty} min',
+                  if (duration > 0) '${duration * qty} ${translateText('min')}',
                   if (qty > 1) 'x$qty',
                   if (price != null) _formatServicePrice(price * qty),
                 ].join('  •  '),
@@ -4527,8 +4544,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               ),
               if (isDeleting) ...[
                 const SizedBox(height: 6),
-                const Text(
-                  'Deleting...',
+                Text(
+                  translateText('Deleting...'),
                   style: TextStyle(
                     color: _bookingMuted,
                     fontSize: 11,
@@ -4708,7 +4725,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           _summaryRow('Services', '${_selectedServices.length}'),
           _summaryRow('Date', _formatDate(_selectedDate)),
           _summaryRow('Time', _formatTimeOfDay(_startTime)),
-          _summaryRow('Duration', '${_totalSelectedDurationMinutes()} min'),
+          _summaryRow(translateText('Duration'),
+              '${_totalSelectedDurationMinutes()} ${translateText('min')}'),
           _summaryRow('Total', _formatServicePrice(_selectedTotalPrice())),
           const SizedBox(height: 18),
           SizedBox(
@@ -4968,9 +4986,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   String? _validateCustomerName(String value, String label) {
-    if (value.isEmpty) return translateText('$label is required');
+    final translatedLabel = translateText(label);
+    if (value.isEmpty) {
+      return translateText(
+        '{label} is required',
+        params: {'label': translatedLabel},
+      );
+    }
     if (!_customerNamePattern.hasMatch(value)) {
-      return translateText('$label should contain alphabets only');
+      return translateText(
+        '{label} should contain alphabets only',
+        params: {'label': translatedLabel},
+      );
     }
     return null;
   }
@@ -4985,7 +5012,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       0,
       (sum, service) => sum + (_intValue(service['qty']) ?? 1),
     );
-    return translateText('$totalQty services selected');
+    return translateText(
+      '{count} services selected',
+      params: {'count': totalQty.toString()},
+    );
   }
 
   num _selectedTotalPrice() {
@@ -5329,7 +5359,11 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
       if (members.isEmpty) {
         Fluttertoast.showToast(
-            msg: translateText('No team member available for $serviceName'));
+          msg: translateText(
+            'No team member available for {service}',
+            params: {'service': serviceName},
+          ),
+        );
         return false;
       }
 
@@ -5337,7 +5371,11 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
       if (selected == null || selected.trim().isEmpty) {
         Fluttertoast.showToast(
-            msg: translateText('Please select team member for $serviceName'));
+          msg: translateText(
+            'Please select team member for {service}',
+            params: {'service': serviceName},
+          ),
+        );
         return false;
       }
     }
@@ -5622,8 +5660,10 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            '$branchLabel ${translateText('is closed on')} '
-            '${translateText(weekday)}',
+            '$branchLabel ${translateText(
+              'is closed on {day}',
+              params: {'day': translateText(weekday)},
+            )}',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: _bookingInk,
@@ -6981,7 +7021,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '${translateText('Total')}: ${widget.durationMinutes} min',
+                                      '${translateText('Total')}: ${widget.durationMinutes} ${translateText('min')}',
                                       style: const TextStyle(
                                         color: _bookingInk,
                                         fontSize: 16,
@@ -7221,7 +7261,10 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
                   const SizedBox(height: 12),
                   _summaryCard(
                     title: translateText('Services Portfolio'),
-                    subtitle: '$durationMinutes min total',
+                    subtitle: translateText(
+                      '{minutes} min total',
+                      params: {'minutes': '$durationMinutes'},
+                    ),
                     child: Column(
                       children: [
                         for (final service in services) _serviceLine(service),
@@ -7524,7 +7567,10 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
                 const SizedBox(height: 3),
                 Text(
                   duration is num
-                      ? '${duration.toInt() * qty} min session${qty > 1 ? '  •  x$qty' : ''}'
+                      ? '${translateText(
+                          '{minutes} min session',
+                          params: {'minutes': '${duration.toInt() * qty}'},
+                        )}${qty > 1 ? '  •  x$qty' : ''}'
                       : '',
                   style: const TextStyle(
                     color: _bookingMuted,

@@ -527,7 +527,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
-                                    '${_imageUrls.length} photos',
+                                    '${_imageUrls.length} ${translateText('photos')}',
                                     style: const TextStyle(
                                       color: AppColors.starColor,
                                       fontSize: 12,
@@ -790,8 +790,8 @@ class _EmptyGalleryBox extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          const Text(
-            'No image available',
+          Text(
+            translateText('No image available'),
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -799,8 +799,9 @@ class _EmptyGalleryBox extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Salon images will appear here once they are available.',
+          Text(
+            translateText(
+                'Salon images will appear here once they are available.'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
@@ -819,7 +820,9 @@ class _EmptyGalleryBox extends StatelessWidget {
                     color: Colors.white,
                   )
                 : const Icon(Icons.refresh_rounded, size: 16),
-            label: Text(isLoading ? 'Checking...' : 'Check again'),
+            label: Text(
+              translateText(isLoading ? 'Checking...' : 'Check again'),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.starColor,
               foregroundColor: Colors.white,
@@ -946,6 +949,6 @@ class _GalleryBranchOption {
   String get displayLabel {
     if (branchName.trim().isNotEmpty) return branchName.trim();
     if (salonName.trim().isNotEmpty) return salonName.trim();
-    return 'Branch #$branchId';
+    return "${translateText('Branch')} #$branchId";
   }
 }

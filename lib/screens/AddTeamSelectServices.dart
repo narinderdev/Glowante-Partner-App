@@ -674,7 +674,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
   //     if (response['success'] == true) {
   //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(content: Text('Team member added successfully')),
+  //         const SnackBar(content: Text(translateText('Team member added successfully')))),
   //       );
   //       Navigator.pushAndRemoveUntil(
   //         context,

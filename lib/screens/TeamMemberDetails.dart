@@ -206,6 +206,118 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
     return values;
   }
 
+  String _serviceLabel(dynamic raw) {
+    if (raw == null) return '';
+    if (raw is String || raw is num) {
+      final value = raw.toString().trim();
+      final parsedId = _toInt(value);
+      if (parsedId != null) return '${translateText('Service')} #$parsedId';
+      return value;
+    }
+    if (raw is! Map) return '';
+
+    final map = Map<String, dynamic>.from(raw);
+    for (final key in const [
+      'displayName',
+      'serviceName',
+      'name',
+      'title',
+      'label',
+      'code',
+    ]) {
+      final value = (map[key] ?? '').toString().trim();
+      if (value.isNotEmpty && value.toLowerCase() != 'null') return value;
+    }
+
+    for (final key in const [
+      'branchService',
+      'service',
+      'masterService',
+      'assignedService',
+    ]) {
+      final value = _serviceLabel(map[key]);
+      if (value.isNotEmpty) return value;
+    }
+
+    final id = _toInt(
+      map['branchServiceId'] ??
+          map['branch_service_id'] ??
+          map['serviceId'] ??
+          map['service_id'] ??
+          map['masterServiceId'] ??
+          map['master_service_id'] ??
+          map['id'],
+    );
+    return id == null ? '' : '${translateText('Service')} #$id';
+  }
+
+  List<String> _assignedServiceNames() {
+    final values = <String>[];
+    final seen = <String>{};
+
+    void add(dynamic raw) {
+      if (raw == null) return;
+      if (raw is List) {
+        for (final item in raw) {
+          add(item);
+        }
+        return;
+      }
+
+      final label = _serviceLabel(raw).trim();
+      if (label.isEmpty || label.toLowerCase() == 'null') return;
+      if (seen.add(label.toLowerCase())) values.add(label);
+    }
+
+    for (final source in [
+      member['userBranchServices'],
+      member['services'],
+      member['branchServices'],
+      member['assignedServices'],
+      member['assignedBranchServices'],
+      member['serviceIds'],
+      member['branchServiceIds'],
+      member['assignedServiceIds'],
+      member['assignedBranchServiceIds'],
+    ]) {
+      add(source);
+    }
+
+    final selectedBranchId =
+        widget.branchId ?? _toInt(_primaryAssignment()?['branchId']);
+    final branches = member['userBranches'];
+    if (branches is List) {
+      for (final rawBranch in branches) {
+        if (rawBranch is! Map) continue;
+        final assignment = Map<String, dynamic>.from(rawBranch);
+        final branch = assignment['branch'];
+        final branchId = branch is Map
+            ? _toInt(branch['id'])
+            : _toInt(assignment['branchId'] ?? assignment['branch_id']);
+        if (selectedBranchId != null &&
+            branchId != null &&
+            branchId != selectedBranchId) {
+          continue;
+        }
+        for (final source in [
+          assignment['userBranchServices'],
+          assignment['services'],
+          assignment['branchServices'],
+          assignment['assignedServices'],
+          assignment['assignedBranchServices'],
+          assignment['serviceIds'],
+          assignment['branchServiceIds'],
+          assignment['assignedServiceIds'],
+          assignment['assignedBranchServiceIds'],
+        ]) {
+          add(source);
+        }
+      }
+    }
+
+    return values;
+  }
+
   int? _toInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -511,6 +623,7 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
           member['specialization'],
       const ['name', 'label', 'code', 'title', 'value'],
     );
+    final assignedServices = _assignedServiceNames();
 
     debugPrint('Member: $member');
 
@@ -632,6 +745,16 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                       : _WeeklyScheduleSection(entries: weeklySchedule),
                 ),
                 const SizedBox(height: 14),
+                _DetailSectionCard(
+                  icon: Icons.design_services_outlined,
+                  title: 'Assigned Services',
+                  child: assignedServices.isEmpty
+                      ? const _EmptyDetailText(
+                          text: 'No services assigned',
+                        )
+                      : _AssignedServicesSection(services: assignedServices),
+                ),
+                const SizedBox(height: 14),
                 // _DetailSectionCard(
                 //   icon: Icons.emoji_objects_outlined,
                 //   title: 'Specializations',
@@ -746,6 +869,102 @@ class _WeeklyScheduleSectionState extends State<_WeeklyScheduleSection> {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _AssignedServicesSection extends StatefulWidget {
+  const _AssignedServicesSection({required this.services});
+
+  final List<String> services;
+
+  @override
+  State<_AssignedServicesSection> createState() =>
+      _AssignedServicesSectionState();
+}
+
+class _AssignedServicesSectionState extends State<_AssignedServicesSection> {
+  static const int _collapsedCount = 6;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasOverflow = widget.services.length > _collapsedCount;
+    final visibleServices = _expanded || !hasOverflow
+        ? widget.services
+        : widget.services.take(_collapsedCount).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = 8.0;
+            final itemWidth = (constraints.maxWidth - spacing * 2) / 3;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: 8,
+              children: [
+                for (final service in visibleServices)
+                  SizedBox(
+                    width: itemWidth.clamp(72.0, double.infinity),
+                    child: _AssignedServiceChip(label: service),
+                  ),
+              ],
+            );
+          },
+        ),
+        if (hasOverflow) ...[
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.starColor,
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              translateText(_expanded ? 'See less' : 'See more'),
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AssignedServiceChip extends StatelessWidget {
+  const _AssignedServiceChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFAF1),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: const Color(0xFFE8C774)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: _memberDetailText,
+        ),
+      ),
     );
   }
 }

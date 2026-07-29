@@ -25,6 +25,9 @@ class AppTranslations {
       '4.4 (43)': '4.4 (43)',
       '4.5 (43)': '4.5 (43)',
       'Accept': 'Accept',
+      'Account Actions': 'Account Actions',
+      'Account Security': 'Account Security',
+      'Account Settings': 'Account Settings',
       'Add Booking': 'Add Booking',
       'Add Branch': 'Add Branch',
       'Add Customer': 'Add Customer',
@@ -56,6 +59,7 @@ class AppTranslations {
       'Branch Name *': 'Branch Name *',
       'Enter Branch Name': 'Enter Branch Name',
       'Back': 'Back',
+      'Bank Details': 'Bank Details',
       'Become Stylish': 'Become Stylish',
       'Booking Confirmed': 'Booking Confirmed',
       'Bookings': 'Bookings',
@@ -105,6 +109,7 @@ class AppTranslations {
       'Current Salon': 'Current Salon',
       'Current Status': 'Current Status',
       'Dashboard': 'Dashboard',
+      'Data usage & protection': 'Data usage & protection',
       'Generating...': 'Generating...',
       'Generate Payroll': 'Generate Payroll',
       'Generated Payroll Periods': 'Generated Payroll Periods',
@@ -116,6 +121,7 @@ class AppTranslations {
       'Delete': 'Delete',
       'Delete Account': 'Delete Account',
       'Choose Language': 'Choose Language',
+      'Changing language...': 'Changing language...',
       'Delete Deal': 'Delete Deal',
       'Payroll': 'Payroll',
       'Review & Pay': 'Review & Pay',
@@ -194,6 +200,7 @@ class AppTranslations {
       'Items Used': 'Items Used',
       'Joining date is required': 'Joining date is required',
       'Language': 'Language',
+      'Language Selection': 'Language Selection',
       'Last Name is required': 'Last Name is required',
       'Last Name is required & Must start with a capital letter.':
           'Last Name is required & Must start with a capital letter.',
@@ -419,6 +426,8 @@ class AppTranslations {
       'Please select at least one': 'Please select at least one',
       'Please select at least one service':
           'Please select at least one service',
+      'Passwords & 2FA': 'Passwords & 2FA',
+      'Payout account for salon earnings': 'Payout account for salon earnings',
       'Please select start and end time.': 'Please select start and end time.',
       'Please verify phone number.': 'Please verify phone number.',
       'Preview branches and drill down into details.':
@@ -448,7 +457,9 @@ class AppTranslations {
       'Salon': 'Salon',
       'Salon Address': 'Salon Address',
       'Salon Images': 'Salon Images',
+      'Salon Owner': 'Salon Owner',
       'Salon added successfully': 'Salon added successfully',
+      'Salon Stylist': 'Salon Stylist',
       'Salons': 'Salons',
       'Save': 'Save',
       'Search': 'Search',
@@ -486,6 +497,7 @@ class AppTranslations {
       'Select services': 'Select services',
       'Selected Services': 'Selected Services',
       'Service added successfully!': 'Service added successfully!',
+      'Service agreements': 'Service agreements',
       'Service is required': 'Service is required',
       'Service name is required': 'Service name is required',
       'Service name is required, description is optional':
@@ -633,8 +645,7 @@ class AppTranslations {
       'Choose File': 'Choose File',
       'Choose a service to edit its default commission rule and staff overrides.':
           'Choose a service to edit its default commission rule and staff overrides.',
-      'Commission cannot exceed 100%':
-          'Commission cannot exceed 100%',
+      'Commission cannot exceed 100%': 'Commission cannot exceed 100%',
       'Configured': 'Configured',
       'Continue / Review': 'Continue / Review',
       'Convert to GRN': 'Convert to GRN',
@@ -802,6 +813,96 @@ class AppTranslations {
       'Vendor saved successfully': 'Vendor saved successfully',
       'Vendor updated successfully': 'Vendor updated successfully',
       'Weak Network Warning': 'Weak Network Warning',
+
+      // --- Screen-by-screen hardcoded-string audit ---
+      '"Beauty begins the moment\nyou decide to be yourself."':
+          '"Beauty begins the moment\nyou decide to be yourself."',
+      '"Investing in your hair is the\ncrown you never take off."':
+          '"Investing in your hair is the\ncrown you never take off."',
+      '123 Anywhere St., Any City': '123 Anywhere St., Any City',
+      'Action': 'Action',
+      'Activate Salon?': 'Activate Salon?',
+      'Add salary and commission details for each team member.':
+          'Add salary and commission details for each team member.',
+      'Advertisement': 'Advertisement',
+      'All Status': 'All Status',
+      'Amount *': 'Amount *',
+      'Back to Payroll Runs': 'Back to Payroll Runs',
+      'Bank Transfer': 'Bank Transfer',
+      'Beauty\nSalon': 'Beauty\nSalon',
+      'Branch Attendance': 'Branch Attendance',
+      'CUSTOMER DETAILS': 'CUSTOMER DETAILS',
+      'Cash': 'Cash',
+      'Change Status': 'Change Status',
+      'Commission (%)': 'Commission (%)',
+      'DEFAULT PAID LEAVES': 'DEFAULT PAID LEAVES',
+      'Deactivate Salon?': 'Deactivate Salon?',
+      'Default': 'Default',
+      'Default Paid Leaves': 'Default Paid Leaves',
+      'Effective From': 'Effective From',
+      'Employee': 'Employee',
+      'Holiday Calendar': 'Holiday Calendar',
+      'Import Branch Clients': 'Import Branch Clients',
+      'Joining Date': 'Joining Date',
+      'Jump straight to common tasks': 'Jump straight to common tasks',
+      'LAST VISIT': 'LAST VISIT',
+      'Net Payable': 'Net Payable',
+      'Net Payable (₹)': 'Net Payable (₹)',
+      'No advances found for the selected month.':
+          'No advances found for the selected month.',
+      'No attendance records found for this month.':
+          'No attendance records found for this month.',
+      'No employees found for paid leaves.':
+          'No employees found for paid leaves.',
+      'No employees found.': 'No employees found.',
+      'No holidays added for this month.': 'No holidays added for this month.',
+      'No image available': 'No image available',
+      'No team members found for payroll setup.':
+          'No team members found for payroll setup.',
+      'Note': 'Note',
+      'Order Lines': 'Order Lines',
+      'Paid': 'Paid',
+      'Paid Leaves': 'Paid Leaves',
+      'Pamper yourself in our beauty salon. We use the\nfinest products for all your beauty needs.':
+          'Pamper yourself in our beauty salon. We use the\nfinest products for all your beauty needs.',
+      'Payroll Calculation': 'Payroll Calculation',
+      'Payroll Runs': 'Payroll Runs',
+      'Payroll Summary': 'Payroll Summary',
+      'Payroll Type': 'Payroll Type',
+      'Payroll run summary': 'Payroll run summary',
+      'Please keep this screen open.': 'Please keep this screen open.',
+      'Please review all details. Once marked as paid, this payroll entry should not be modified.':
+          'Please review all details. Once marked as paid, this payroll entry should not be modified.',
+      'Record Payment': 'Record Payment',
+      'Remarks *': 'Remarks *',
+      'Review all earnings, additions and deductions before marking as paid.':
+          'Review all earnings, additions and deductions before marking as paid.',
+      'Review the payroll entries and manage payments for this period.':
+          'Review the payroll entries and manage payments for this period.',
+      'Role': 'Role',
+      'STATUS': 'STATUS',
+      'Salary (₹)': 'Salary (₹)',
+      'Salon images will appear here once they are available.':
+          'Salon images will appear here once they are available.',
+      'Save 20%': 'Save 20%',
+      'Set salary and commission for your team':
+          'Set salary and commission for your team',
+      'Set up': 'Set up',
+      'Status': 'Status',
+      'Team Member': 'Team Member',
+      'This will affect all branches': 'This will affect all branches',
+      'Total Salary': 'Total Salary',
+      'Track staff payroll advances for team members.':
+          'Track staff payroll advances for team members.',
+      'UPI': 'UPI',
+      'Updating payroll review...': 'Updating payroll review...',
+      'View': 'View',
+      'What would you like to update?': 'What would you like to update?',
+      'You can update salary or commission anytime. Changes will be used for payroll calculations.':
+          'You can update salary or commission anytime. Changes will be used for payroll calculations.',
+      'Your OTP is used only to verify your login securely.':
+          'Your OTP is used only to verify your login securely.',
+      'ⓘ Not setup yet': 'ⓘ Not setup yet',
     },
     'hi': {
       '+ Add Slot': '+ स्लॉट जोड़ें',
@@ -812,29 +913,32 @@ class AppTranslations {
       'Friday': 'शुक्रवार',
       'Saturday': 'शनिवार',
       'Sunday': 'रविवार',
-      'Business Insights': 'Business Insights',
-      'Data-Driven Growth': 'डेटा-ड्रिवन ग्रोथ',
+      'Business Insights': 'व्यावसायिक अंतर्दृष्टि',
+      'Data-Driven Growth': 'डेटा आधारित विकास',
       'Effortlessly coordinate your team, manage bookings, and elevate your salon\'s artistry from a single, intuitive workspace.':
-          'एक सरल workspace से अपनी team coordinate करें, bookings manage करें, और salon artistry को बेहतर बनाएं।',
+          'एक सरल कार्यक्षेत्र से अपनी टीम, बुकिंग और सैलून की कला को सहजता से संभालें।',
       'Elevate Your Artistry.': 'अपनी आर्टिस्ट्री को ऊंचा उठाएं।',
       'Empower your team': 'अपनी टीम को सशक्त बनाएं',
       'Gain deep insights into staff performance and customer loyalty to scale your beauty empire with confidence.':
-          'Staff performance और customer loyalty की गहरी insights से अपने beauty business को confidence के साथ बढ़ाएं।',
-      'Grow your salon': 'अपना salon बढ़ाएं',
-      "Master Your Salon's Rhythm": 'अपने salon की rhythm संभालें',
+          'स्टाफ प्रदर्शन और ग्राहक निष्ठा की गहरी जानकारी से अपना सौंदर्य व्यवसाय आत्मविश्वास के साथ बढ़ाएँ।',
+      'Grow your salon': 'अपना सैलून बढ़ाएँ',
+      "Master Your Salon's Rhythm": 'अपने सैलून की लय संभालें',
       'Minimize gaps and maximize bookings with our smart scheduling engine designed for high-end establishments.':
-          'High-end establishments के लिए बने smart scheduling engine से gaps कम करें और bookings बढ़ाएं।',
-      'Precision in Every Appointment': 'हर appointment में precision',
-      'Schedule with ease': 'आसानी से schedule करें',
-      'Smart Appointments': 'Smart Appointments',
-      'Team Management': 'Team Management',
+          'प्रीमियम संस्थानों के लिए बने स्मार्ट शेड्यूलिंग इंजन से खाली समय घटाएँ और बुकिंग बढ़ाएँ।',
+      'Precision in Every Appointment': 'हर अपॉइंटमेंट में सटीकता',
+      'Schedule with ease': 'आसानी से शेड्यूल करें',
+      'Smart Appointments': 'स्मार्ट अपॉइंटमेंट',
+      'Team Management': 'टीम प्रबंधन',
       'A world-class workspace for visionary owners to orchestrate excellence and empower talent.':
-          'Visionary owners के लिए excellence और talent को empower करने वाला world-class workspace.',
+          'दूरदर्शी मालिकों के लिए उत्कृष्टता और प्रतिभा को सशक्त बनाने वाला विश्वस्तरीय कार्यक्षेत्र।',
       '1 year+ Experience': '1 वर्ष+ अनुभव',
       '2 year+ Experience': '2 वर्ष+ अनुभव',
       '4.4 (43)': '4.4 (43)',
       '4.5 (43)': '4.5 (43)',
       'Accept': 'स्वीकार करें',
+      'Account Actions': 'खाता कार्रवाइयाँ',
+      'Account Security': 'खाता सुरक्षा',
+      'Account Settings': 'खाता सेटिंग्स',
       'Add Booking': 'बुकिंग जोड़ें',
       'Add Branch': 'शाखा जोड़ें',
       'Add Customer': 'ग्राहक जोड़ें',
@@ -868,6 +972,7 @@ class AppTranslations {
       'Assigned to': 'असाइन किया गया',
       'Assigned To': 'को असाइन किया गया',
       'Back': 'वापस',
+      'Bank Details': 'बैंक विवरण',
       'Become Stylish': 'स्टाइलिश बनें',
       'Booking Confirmed': 'बुकिंग की पुष्टि हो गई',
       'Bookings': 'बुकिंग्स',
@@ -882,6 +987,7 @@ class AppTranslations {
       'Choose Branch': 'शाखा चुनें',
       "Choose branch where you'd like to assign that team member":
           'वह शाखा चुनें जहां आप इस टीम सदस्य को असाइन करना चाहते हैं',
+      'Changing language...': 'भाषा बदली जा रही है...',
       'Brief About Member': 'सदस्य के बारे में संक्षेप',
       'Cancel': 'रद्द करें',
       'Catalog': 'कैटलॉग',
@@ -914,6 +1020,7 @@ class AppTranslations {
       'Current Salon': 'वर्तमान सैलून',
       'Current Status': 'वर्तमान स्थिति',
       'Dashboard': 'डैशबोर्ड',
+      'Data usage & protection': 'डेटा उपयोग और सुरक्षा',
       'Generating...': 'जेनरेट हो रहा है...',
       'Generate Payroll': 'पेरोल जेनरेट करें',
       'Generated Payroll Periods': 'जेनरेटेड पेरोल पीरियड्स',
@@ -939,6 +1046,7 @@ class AppTranslations {
       'Are you sure you want to delete this service?':
           'क्या आप वाकई इस सेवा को हटाना चाहते हैं?',
       'No services added yet': 'अभी तक कोई सेवाएँ नहीं जोड़ी गई हैं',
+      'No services assigned': 'कोई सेवा असाइन नहीं की गई',
       'Delete Subcategory': 'उपश्रेणी हटाएँ',
       'Are you sure you want to delete this subcategory?':
           'क्या आप वाकई इस उपश्रेणी को हटाना चाहते हैं?',
@@ -1022,6 +1130,7 @@ class AppTranslations {
       'Items Used': 'उपयोग की गई वस्तुएँ',
       'Joining date is required': 'जॉइनिंग तारीख आवश्यक है',
       'Language': 'भाषा',
+      'Language Selection': 'भाषा चयन',
       'Last Name is required': 'अंतिम नाम आवश्यक है',
       'Last Name is required & Must start with a capital letter.':
           'अंतिम नाम आवश्यक है और बड़े अक्षर से शुरू होना चाहिए।',
@@ -1261,6 +1370,8 @@ class AppTranslations {
       'Please select a salon first.': 'कृपया पहले सैलून चुनें।',
       'Please select at least one': 'कृपया कम से कम एक चुनें',
       'Please select at least one service': 'कृपया कम से कम एक सेवा चुनें',
+      'Passwords & 2FA': 'पासवर्ड और 2FA',
+      'Payout account for salon earnings': 'सैलून कमाई के लिए भुगतान खाता',
       'Please select start and end time.': 'कृपया आरंभ और समाप्ति समय चुनें।',
       'Please verify phone number': 'कृपया फ़ोन नंबर सत्यापित करें।',
       'Preview branches and drill down into details.':
@@ -1288,7 +1399,9 @@ class AppTranslations {
       'Review given by you': 'आपके द्वारा दी गई समीक्षा',
       'Export': 'एक्सपोर्ट',
       'Salon': 'सैलून',
+      'Salon Owner': 'सैलून मालिक',
       'Salon added successfully': 'सैलून सफलतापूर्वक जोड़ा गया',
+      'Salon Stylist': 'सैलून स्टाइलिस्ट',
       'Salons': 'सैलून',
       'Save': 'सेव करें',
       'Search': 'खोजें',
@@ -1330,6 +1443,7 @@ class AppTranslations {
       'Select services': 'सेवाएँ चुनें',
       'Selected Services': 'चयनित सेवाएँ',
       'Service added successfully!': 'सेवा सफलतापूर्वक जोड़ी गई!',
+      'Service agreements': 'सेवा समझौते',
       'Service is required': 'सेवा आवश्यक है',
       'Service Name *': 'सेवा का नाम *',
       'Add a service name': 'सेवा का नाम जोड़ें',
@@ -1403,6 +1517,7 @@ class AppTranslations {
       'Valid Till must be on or after Valid From.':
           'समाप्ति तिथि आरंभ तिथि के दिन या उसके बाद की होनी चाहिए।',
       'Verified': 'सत्यापित',
+      'Verified Manager': 'सत्यापित मैनेजर',
       'Verify': 'सत्यापित करें',
       'View Branch': 'शाखा देखें',
       'View Member': 'सदस्य देखें',
@@ -1563,8 +1678,7 @@ class AppTranslations {
       'Choose File': 'फ़ाइल चुनें',
       'Choose a service to edit its default commission rule and staff overrides.':
           'डिफ़ॉल्ट कमीशन नियम और स्टाफ ओवरराइड संपादित करने के लिए एक सेवा चुनें।',
-      'Commission cannot exceed 100%':
-          'कमीशन 100% से अधिक नहीं हो सकता',
+      'Commission cannot exceed 100%': 'कमीशन 100% से अधिक नहीं हो सकता',
       'Configured': 'कॉन्फ़िगर किया गया',
       'Continue / Review': 'जारी रखें / समीक्षा करें',
       'Convert to GRN': 'जीआरएन में बदलें',
@@ -1728,7 +1842,1189 @@ class AppTranslations {
       'Vendor deleted successfully': 'वेंडर सफलतापूर्वक हटाया गया',
       'Vendor saved successfully': 'वेंडर सफलतापूर्वक सहेजा गया',
       'Vendor updated successfully': 'वेंडर सफलतापूर्वक अपडेट किया गया',
+      // Auto-filled missing Hindi translations from screen audit.
+      '0': '0',
+      '"Excellence is in every detail of the service\nyou provide."':
+          '"उत्कृष्टता सेवा के हर विवरण में है\nआप प्रदान करें।"',
+      '"Time is the ultimate luxury.\nManage it with precision."':
+          '"समय परम विलासिता है।\nइसे सटीकता से प्रबंधित करें।"',
+      '"Your artistry defines the experience. Choose the specialties that will become your salon\'s signature."':
+          '"आपकी कलात्मकता अनुभव को परिभाषित करती है। उन विशेषताओं को चुनें जो आपके सैलून की पहचान बन जाएंगी।"',
+      '(Category)': '(वर्ग)',
+      '(Inc. taxes)': '(इंक. कर)',
+      '1. Select staff members': '1. स्टाफ सदस्यों का चयन करें',
+      '2. Set commission rate': '2. कमीशन दर निर्धारित करें',
+      '2FA settings will be available soon.':
+          '2एफए सेटिंग्स जल्द ही उपलब्ध होंगी।',
+      'ADD BOOKING': 'बुकिंग जोड़ें',
+      'AI Insights': 'एआई अंतर्दृष्टि',
+      'AI Insights ✨': 'एआई अंतर्दृष्टि ✨',
+      'AI report generation is coming soon':
+          'एआई रिपोर्ट जनरेशन जल्द ही आ रही है',
+      'ASSIGNED SERVICES': 'सौंपी गई सेवाएँ',
+      'Assigned Services': 'सौंपी गई सेवाएँ',
+      'Account Holder': 'खाताधारक',
+      'Account Holder Name': 'खाता धारक का नाम',
+      'Account Number': 'खाता संख्या',
+      'Account Number is required': 'खाता संख्या आवश्यक है',
+      'Account number must contain only digits':
+          'खाता संख्या में केवल अंक होने चाहिए',
+      'Account numbers do not match': 'खाता संख्या मेल नहीं खाती',
+      'Accurate locations help clients find your salon faster and improve your local search ranking.':
+          'सटीक स्थान ग्राहकों को आपका सैलून तेज़ी से ढूंढने में मदद करते हैं और आपकी स्थानीय खोज रैंकिंग में सुधार करते हैं।',
+      'Action Taken': 'कार्रवाई की',
+      'Activate Upgrade': 'अपग्रेड सक्रिय करें',
+      'Activate upcoming membership now?': 'आगामी सदस्यता अभी सक्रिय करें?',
+      'Add': 'जोड़ना',
+      'Add Bank Details': 'बैंक विवरण जोड़ें',
+      'Add New Customer': 'नया ग्राहक जोड़ें',
+      'Add Payroll Setup': 'पेरोल सेटअप जोड़ें',
+      'Add Role': 'भूमिका जोड़ें',
+      'Add Services': 'सेवाएँ जोड़ें',
+      'Add Services is available only for active jobs':
+          'ऐड सर्विसेज केवल सक्रिय नौकरियों के लिए उपलब्ध है',
+      'Add Slot': 'स्लॉट जोड़ें',
+      'Add a payout account to receive salon settlements.':
+          'सैलून सेटलमेंट प्राप्त करने के लिए एक पेआउट खाता जोड़ें।',
+      'Add a team member or select another date to view the schedule.':
+          'शेड्यूल देखने के लिए एक टीम सदस्य जोड़ें या कोई अन्य तिथि चुनें।',
+      'Add override': 'ओवरराइड जोड़ें',
+      'Add photo': 'तस्वीर जोड़ो',
+      'Add predefined services': 'पूर्वनिर्धारित सेवाएँ जोड़ें',
+      'Add staff override': 'स्टाफ ओवरराइड जोड़ें',
+      'Add staff-specific commission rates for any service.':
+          'किसी भी सेवा के लिए कर्मचारी-विशिष्ट कमीशन दरें जोड़ें।',
+      'Added': 'जोड़ा',
+      'Additional revenue': 'अतिरिक्त राजस्व',
+      'Advance': 'अग्रिम',
+      'Advertisement': 'विज्ञापन',
+      'Afternoon': 'दोपहर',
+      'All': 'सभी',
+      'All Customers': 'सभी ग्राहक',
+      'All purchase order items are already added':
+          'सभी क्रय ऑर्डर आइटम पहले ही जोड़े जा चुके हैं',
+      'Allow location access': 'स्थान पहुंच की अनुमति दें',
+      'Allow location access to autofill your address details':
+          'अपने पते के विवरण को स्वतः भरने के लिए स्थान पहुंच की अनुमति दें',
+      'Already Paid': 'पहले से भुगतान किया हुआ',
+      'Amount off cannot exceed original price.':
+          'छूट की राशि मूल कीमत से अधिक नहीं हो सकती.',
+      'Applied': 'लागू',
+      'Applies to all staff unless overridden.':
+          'जब तक ओवरराइड न किया जाए, सभी कर्मचारियों पर लागू होता है।',
+      'Appointments Overview': 'नियुक्तियों का अवलोकन',
+      'Approved': 'अनुमत',
+      'Are you also a stylist?': 'क्या आप भी स्टाइलिस्ट हैं?',
+      'Are you sure you want to delete':
+          'क्या आप आश्वस्त है कि आपको डिलीट करना है',
+      'Are you sure you want to delete the advance of':
+          'क्या आप वाकई अग्रिम को हटाना चाहते हैं?',
+      'Are you sure you want to delete this branch?':
+          'क्या आप वाकई इस शाखा को हटाना चाहते हैं?',
+      'Are you sure you want to delete this payout account?':
+          'क्या आप वाकई इस भुगतान खाते को हटाना चाहते हैं?',
+      'Are you sure you want to delete this salon?':
+          'क्या आप वाकई इस सैलून को हटाना चाहते हैं?',
+      'Are you sure you want to delete this team member?':
+          'क्या आप वाकई इस टीम सदस्य को हटाना चाहते हैं?',
+      'Are you sure you want to delete this team member? This action cannot be undone.':
+          'क्या आप वाकई इस टीम सदस्य को हटाना चाहते हैं? इस एक्शन को वापस नहीं किया जा सकता।',
+      'Assign': 'सौंपना',
+      'Assign Permissions': 'अनुमतियाँ निर्दिष्ट करें',
+      'Assign services and roles to help your team members shine in their expertise.':
+          'अपनी टीम के सदस्यों को उनकी विशेषज्ञता में चमक लाने में मदद करने के लिए सेवाएँ और भूमिकाएँ सौंपें।',
+      'Assign to branch': 'शाखा को सौंपें',
+      'Assigned Artisan': 'नियुक्त कारीगर',
+      'Assigned branches': 'सौंपी गई शाखाएँ',
+      'At least one day must be working.':
+          'कम से कम एक दिन तो काम करना ही चाहिए.',
+      'Attendance': 'उपस्थिति',
+      'Autofill active': 'स्वतः भरण सक्रिय',
+      'Available Slots': 'उपलब्ध स्लॉट',
+      'Available branches': 'उपलब्ध शाखाएँ',
+      'Avg Rating': 'औसत रेटिंग',
+      'Avg Revenue / Staff': 'औसत राजस्व/कर्मचारी',
+      'Avg. Rating': 'औसत रेटिंग',
+      'Avg. Service Time': 'औसत सेवा का समय',
+      'BRANCHES': 'शाखाओं',
+      'Bank Name': 'बैंक का नाम',
+      'Bank account deleted successfully': 'बैंक खाता सफलतापूर्वक हटा दिया गया',
+      'Backend limit reached. New additions may be rejected.':
+          'बैकएंड सीमा पूरी हो गई है। नई प्रविष्टियाँ अस्वीकार हो सकती हैं।',
+      'Bank details saved successfully': 'बैंक विवरण सफलतापूर्वक सहेजा गया',
+      'Basic Details': 'बुनियादी विवरण',
+      'Basic Information': 'मूल जानकारी',
+      'Billing Duration': 'बिलिंग अवधि',
+      'Book Now': 'अभी बुक करें',
+      'Booking Status': 'बुकिंग स्थिति',
+      'Booking Summary': 'बुकिंग सारांश',
+      'Booking time is over for today':
+          'आज के लिए बुकिंग का समय समाप्त हो गया है',
+      'Branch Address is required': 'शाखा का पता आवश्यक है',
+      'Branch Details': 'शाखा विवरण',
+      'Branch Images': 'शाखा छवियाँ',
+      'Branch Information': 'शाखा सूचना',
+      'Branch Name': 'शाखा का नाम',
+      'Branch added successfully!': 'शाखा सफलतापूर्वक जोड़ी गई!',
+      'Branch deleted successfully': 'शाखा सफलतापूर्वक हटा दी गई',
+      'Branch overview and live operating info':
+          'शाखा अवलोकन और लाइव परिचालन जानकारी',
+      'Branch timings': 'शाखा का समय',
+      'Branch updated successfully': 'शाखा सफलतापूर्वक अद्यतन की गई',
+      'Brief About Team Member': 'टीम सदस्य के बारे में संक्षिप्त जानकारी',
+      'Brief about team member is required':
+          'टीम के सदस्य के बारे में संक्षिप्त जानकारी आवश्यक है',
+      'Build Your Empire': 'अपना साम्राज्य बनाएं',
+      'Bundle services': 'बंडल सेवाएँ',
+      'Bundle services for customers': 'ग्राहकों के लिए बंडल सेवाएँ',
+      'Busy end': 'व्यस्त अंत',
+      'Busy start': 'व्यस्त शुरुआत',
+      'Busy with': 'में व्यस्त',
+      'CATEGORY': 'वर्ग',
+      'CLOSED': 'बंद',
+      'CUSTOM RATE': 'कस्टम दर',
+      'Cannot add booking:': 'बुकिंग नहीं जोड़ सकते:',
+      'Capture 5 face angles in one guided flow to prepare local attendance matching on this device.':
+          'इस डिवाइस पर स्थानीय उपस्थिति मिलान तैयार करने के लिए एक निर्देशित प्रवाह में 5 फेस एंगल कैप्चर करें।',
+      'Category or subcategory is required': 'श्रेणी या उपश्रेणी आवश्यक है',
+      'Category/Subcategory *': 'श्रेणी/उपश्रेणी *',
+      'Choose Role': 'भूमिका चुनें',
+      'Choose Services': 'सेवाएँ चुनें',
+      'Choose Your Membership Plan': 'अपनी सदस्यता योजना चुनें',
+      'Choose Your Specialties': 'अपनी विशिष्टताएँ चुनें',
+      'Choose a service to configure staff-specific commission overrides.':
+          'स्टाफ-विशिष्ट कमीशन ओवरराइड को कॉन्फ़िगर करने के लिए एक सेवा चुनें।',
+      'Choose at least one service.': 'कम से कम एक सेवा चुनें.',
+      'Choose from gallery': 'गैलरी से चयन करो',
+      'Choose from gallery or take a new photo.':
+          'गैलरी से चुनें या एक नई फ़ोटो लें।',
+      'Choose salon services': 'सैलून सेवाएँ चुनें',
+      'Choose the inventory items used in this job and enter the quantity consumed for each selected item.':
+          'इस कार्य में प्रयुक्त इन्वेंट्री आइटम चुनें और प्रत्येक चयनित आइटम के लिए उपभोग की गई मात्रा दर्ज करें।',
+      'Choose the services that best describe the luxury experience for your client. Multi-selection enabled.':
+          'ऐसी सेवाएँ चुनें जो आपके ग्राहक के विलासिता अनुभव का सबसे अच्छा वर्णन करती हों। बहु-चयन सक्षम.',
+      'Choose who should appear in the team list.':
+          'चुनें कि टीम सूची में किसे शामिल होना चाहिए।',
+      'Clear': 'स्पष्ट',
+      'Clear All': 'सभी साफ करें',
+      'Clear all': 'सभी साफ करें',
+      'Clear date': 'स्पष्ट तिथि',
+      'Clear search': 'स्पष्ट खोज',
+      'Clear selection': 'स्पष्ट चयन',
+      'Clear services': 'साफ़ सेवाएँ',
+      'Client': 'ग्राहक',
+      'Client Identity': 'ग्राहक की पहचान',
+      'Client Reviews': 'ग्राहक समीक्षाएँ',
+      'Closed': 'बंद',
+      'Commences': 'शुरू',
+      'Comment': 'टिप्पणी',
+      'Commission %': 'आयोग %',
+      'Commission Max *': 'कमीशन अधिकतम*',
+      'Commission Type *': 'कमीशन का प्रकार*',
+      'Commission amount is required': 'कमीशन राशि आवश्यक है',
+      'Commission amount must be less than the price':
+          'कमीशन की रकम कीमत से कम होनी चाहिए',
+      'Commission cannot exceed 100%.': 'कमीशन 100% से अधिक नहीं हो सकता।',
+      'Commission enabled': 'आयोग सक्षम',
+      'Commission off': 'कमीशन बंद',
+      'Commission percentage is required': 'कमीशन प्रतिशत आवश्यक है',
+      'Commission percentage must be less than 100':
+          'कमीशन प्रतिशत 100 से कम होना चाहिए',
+      'Commission setup needs active branch services and staff members.':
+          'आयोग की स्थापना के लिए सक्रिय शाखा सेवाओं और स्टाफ सदस्यों की आवश्यकता है।',
+      'Commission type': 'कमीशन का प्रकार',
+      'Complete Purchase': 'पूर्ण खरीद',
+      'Complete profile setup first.': 'पहले प्रोफ़ाइल सेटअप पूरा करें.',
+      'Complete setup': 'पूरा सेटअप',
+      'Completed and in-progress actions will appear here once available.':
+          'पूर्ण और प्रगतिरत कार्रवाइयां उपलब्ध होते ही यहां दिखाई देंगी।',
+      'Concludes': 'निष्कर्ष निकाला है',
+      'Configure your salon\'s operational hours for a seamless booking experience.':
+          'निर्बाध बुकिंग अनुभव के लिए अपने सैलून के परिचालन घंटे कॉन्फ़िगर करें।',
+      'Confirm Account Number is required': 'पुष्टि खाता संख्या आवश्यक है',
+      'Confirm Booking': 'बुकिंग की पुष्टि करें',
+      'Confirm Location': 'स्थान की पुष्टि करें',
+      'Confirm Time': 'समय की पुष्टि करें',
+      'Confirmed': 'की पुष्टि',
+      'Continue To Review': 'समीक्षा करना जारी रखें',
+      'Continue as': 'ऐसे ही जारी रखें',
+      'Copy from Branch': 'शाखा से प्रतिलिपि',
+      'Could not get coordinates. Please use current location or select a more specific suggestion.':
+          'निर्देशांक प्राप्त नहीं हो सके. कृपया वर्तमान स्थान का उपयोग करें या अधिक विशिष्ट सुझाव चुनें।',
+      'Create GRN': 'जीआरएन बनाएं',
+      'Create a salon payout account reference':
+          'एक सैलून पेआउट खाता संदर्भ बनाएं',
+      'Create a vendor profile': 'एक विक्रेता प्रोफ़ाइल बनाएं',
+      'Create discounts and offers': 'छूट और ऑफ़र बनाएं',
+      'Create offers': 'ऑफ़र बनाएँ',
+      'Created At': 'पर बनाया गया',
+      'Current Plan': 'वर्तमान योजना',
+      'Current rate': 'वर्तमान दर',
+      'Custom service commission rates assigned to individual staff.':
+          'कस्टम सेवा कमीशन दरें व्यक्तिगत कर्मचारियों को सौंपी गईं।',
+      'Customer Cart': 'ग्राहक कार्ट',
+      'Customer Management': 'ग्राहक प्रबंधन',
+      'Customer phone number not available':
+          'ग्राहक का फ़ोन नंबर उपलब्ध नहीं है',
+      'Daily Schedule': 'दैनिक कार्यक्रम',
+      'Deactivate': 'निष्क्रिय करें',
+      'Deactivate Salon': 'सैलून निष्क्रिय करें',
+      'Deal Review': 'सौदे की समीक्षा',
+      'Deal Summary': 'डील सारांश',
+      'Default': 'गलती करना',
+      'Default commission': 'डिफ़ॉल्ट कमीशन',
+      'Delete Advance': 'अग्रिम हटाएँ',
+      'Delete Branch': 'शाखा हटाएँ',
+      'Delete Salon': 'सैलून हटाएँ',
+      'Delete Team Member': 'टीम सदस्य हटाएँ',
+      'Delete override?': 'ओवरराइड हटाएँ?',
+      'Delivery date is required': 'डिलीवरी दिनांक आवश्यक है',
+      'Discounted price cannot be negative.':
+          'रियायती मूल्य ऋणात्मक नहीं हो सकता.',
+      'Duration *': 'अवधि *',
+      'Duration cannot exceed 3 digits': 'अवधि 3 अंकों से अधिक नहीं हो सकती',
+      'Duration must be positive': 'अवधि सकारात्मक होनी चाहिए',
+      'Each line must use a different item':
+          'प्रत्येक पंक्ति में एक अलग आइटम का उपयोग करना चाहिए',
+      'Edit Payroll Setup': 'पेरोल सेटअप संपादित करें',
+      'Edit override': 'ओवरराइड संपादित करें',
+      'Effective date cannot be before joining date.':
+          'प्रभावी तिथि ज्वाइनिंग तिथि से पहले नहीं हो सकती.',
+      'Eg: Men: Grooming Package': 'जैसे: पुरुष: सौंदर्य पैकेज',
+      'Elevate your salon\'s potential with\nseamless team management\nand effortless bookings.':
+          'अपने सैलून की क्षमता को बढ़ाएं\nनिर्बाध टीम प्रबंधन\nऔर सहज बुकिंग।',
+      'Empowering Your Talent': 'अपनी प्रतिभा को सशक्त बनाना',
+      'Enable location permissions in Settings to use your current location.':
+          'अपने वर्तमान स्थान का उपयोग करने के लिए सेटिंग्स में स्थान अनुमतियाँ सक्षम करें।',
+      'Enabled': 'सक्रिय',
+      'End Date': 'अंतिम तिथि',
+      'End Date is required.': 'अंतिम तिथि आवश्यक है.',
+      'End Date must be on or after Start Date.':
+          'समाप्ति तिथि प्रारंभ तिथि पर या उसके बाद होनी चाहिए।',
+      'End time must be greater than start time.':
+          'समाप्ति समय प्रारंभ समय से अधिक होना चाहिए.',
+      'End time was adjusted to keep a 10-minute gap.':
+          'समाप्ति समय को 10 मिनट का अंतर रखने के लिए समायोजित किया गया था।',
+      'Ensure your client arrives 15 minutes before the selected time slot.':
+          'सुनिश्चित करें कि आपका ग्राहक चयनित समय स्लॉट से 15 मिनट पहले पहुंचे।',
+      'Enter a valid 10-digit phone number starting with 6, 7, 8, or 9':
+          '6, 7, 8, या 9 से शुरू होने वाला वैध 10-अंकीय फ़ोन नंबर दर्ज करें',
+      'Enter a valid IFSC code': 'एक वैध IFSC कोड दर्ज करें',
+      'Enter a valid duration.': 'एक वैध अवधि दर्ज करें.',
+      'Enter a valid max commission amount':
+          'मान्य अधिकतम कमीशन राशि दर्ज करें',
+      'Enter a valid price before enabling commission':
+          'कमीशन सक्षम करने से पहले एक वैध मूल्य दर्ज करें',
+      'Enter duration to configure busy start, passive wait, and busy end.':
+          'व्यस्त प्रारंभ, निष्क्रिय प्रतीक्षा और व्यस्त समाप्ति को कॉन्फ़िगर करने के लिए अवधि दर्ज करें।',
+      'Enter experience in years': 'वर्षों में अनुभव दर्ज करें',
+      'Enter price first to configure commission':
+          'कमीशन कॉन्फ़िगर करने के लिए पहले मूल्य दर्ज करें',
+      'Enter the 6-digit code sent to': 'भेजे गए 6-अंकीय कोड को दर्ज करें',
+      'Enter the OTP sent to': 'भेजे गए ओटीपी को दर्ज करें',
+      'Enter valid experience': 'वैध अनुभव दर्ज करें',
+      'Enter vendor name': 'विक्रेता का नाम दर्ज करें',
+      'Evening': 'शाम',
+      'Experience cannot be negative': 'अनुभव नकारात्मक नहीं हो सकता',
+      'Experience is required': 'अनुभव आवश्यक है',
+      'Expired': 'खत्म हो चुका',
+      'Export is coming soon': 'निर्यात जल्द ही होने वाला है',
+      'Failed to assign team member': 'टीम सदस्य नियुक्त करने में विफल',
+      'Failed to delete bank details': 'बैंक विवरण हटाने में विफल',
+      'Failed to load bank details': 'बैंक विवरण लोड करने में विफल',
+      'Failed to save bank details': 'बैंक विवरण सहेजने में विफल',
+      'Failed to upload profile photo.': 'प्रोफ़ाइल फ़ोटो अपलोड करने में विफल.',
+      'Filter team members': 'टीम के सदस्यों को फ़िल्टर करें',
+      'Final Busy': 'अंतिम व्यस्त',
+      'Find an existing profile or create a new one.':
+          'कोई मौजूदा प्रोफ़ाइल ढूंढें या एक नई प्रोफ़ाइल बनाएं.',
+      'First Name must be at least 2 characters':
+          'प्रथम नाम कम से कम 2 अक्षर का होना चाहिए',
+      'First enter the service price, then configure a fixed amount or percentage.':
+          'पहले सेवा मूल्य दर्ज करें, फिर एक निश्चित राशि या प्रतिशत कॉन्फ़िगर करें।',
+      'Fix the schedule conflicts below before continuing.':
+          'जारी रखने से पहले नीचे दिए गए शेड्यूल विरोधों को ठीक करें।',
+      'Fixed Amount (Rs.)': 'निश्चित राशि (रु.)',
+      'Fixed commission': 'निश्चित कमीशन',
+      'Gallery': 'गैलरी',
+      'General': 'सामान्य',
+      'Generate AI Report': 'एआई रिपोर्ट तैयार करें',
+      'Glowante': 'ग्लोवंते',
+      'Go back to login': 'लॉगिन करने के लिए वापस जाएँ',
+      'Good afternoon': 'शुभ दोपहर',
+      'Good evening': 'शुभ संध्या',
+      'Good morning': 'शुभ प्रभात',
+      'Here\'s what\'s happening at your salon today.':
+          'आज आपके सैलून में क्या हो रहा है, यह यहां बताया गया है।',
+      'Hide live status': 'लाइव स्थिति छिपाएँ',
+      'High Impact': 'उच्च प्रभाव',
+      'Hold': 'पकड़ना',
+      'Holidays Calendar': 'छुट्टियाँ कैलेंडर',
+      'Home': 'घर',
+      'How was the service?': 'सेवा कैसी थी?',
+      'I used inventory items for this job':
+          'मैंने इस कार्य के लिए इन्वेंट्री आइटम का उपयोग किया',
+      'IFSC': 'आईएफएससी',
+      'IFSC code is required': 'आईएफएससी कोड आवश्यक है',
+      'INCLUDED SERVICES': 'सम्मिलित सेवाएँ',
+      'If all images look fine, store them. Otherwise retake and capture the full sequence again.':
+          'यदि सभी छवियाँ ठीक दिखती हैं, तो उन्हें संग्रहीत करें। अन्यथा दोबारा लें और पूरे अनुक्रम को दोबारा कैप्चर करें।',
+      'Inactive team members cannot be assigned to another branch.':
+          'निष्क्रिय टीम के सदस्यों को किसी अन्य शाखा में नहीं सौंपा जा सकता है।',
+      'Informational': 'सूचना',
+      'Initial Busy': 'प्रारंभिक व्यस्त',
+      'Insight': 'अंतर्दृष्टि',
+      'Insights Summary': 'अंतर्दृष्टि सारांश',
+      'Insights will appear here once data is available.':
+          'डेटा उपलब्ध होते ही अंतर्दृष्टि यहां दिखाई देगी।',
+      'Invalid OTP': 'अमान्य ओटीपी',
+      'Invalid appointment': 'अमान्य नियुक्ति',
+      'Inventory item is active': 'इन्वेंटरी आइटम सक्रिय है',
+      'Inventory item is inactive': 'इन्वेंटरी आइटम निष्क्रिय है',
+      'Inventory store': 'इन्वेंटरी स्टोर',
+      'Item Details': 'आइटम विवरण',
+      'Item already selected in another line':
+          'किसी अन्य पंक्ति में आइटम पहले से ही चयनित है',
+      'Item is required': 'वस्तु आवश्यक है',
+      'Keep supplier contact and status details current.':
+          'सप्लायर संपर्क और स्थिति विवरण अपडेट रखें।',
+      'Joining Date is required': 'ज्वाइनिंग तिथि आवश्यक है',
+      'Joining and leaving dates are checked automatically.':
+          'शामिल होने और छोड़ने की तिथियां स्वचालित रूप से जांची जाती हैं।',
+      'Joining date': 'में शामिल होने की तारीख',
+      'LAST VISIT': 'अंतिम विज़िट',
+      'LOW STOCK': 'कम स्टॉक',
+      'Last Name must be at least 2 characters':
+          'अंतिम नाम कम से कम 2 अक्षर का होना चाहिए',
+      'Leaves': 'पत्तियों',
+      'Leaves & Holidays': 'पत्तियाँ और छुट्टियाँ',
+      'Login': 'लॉग इन करें',
+      'Logout request failed on the server.':
+          'सर्वर पर लॉगआउट अनुरोध विफल रहा।',
+      'MASTER CATALOG': 'मास्टर कैटलॉग',
+      'MOBILE NUMBER': 'मोबाइल नंबर',
+      'Main Salon': 'मुख्य सैलून',
+      'Manage Services': 'सेवाएँ प्रबंधित करें',
+      'Manage active deals for this branch':
+          'इस शाखा के लिए सक्रिय सौदे प्रबंधित करें',
+      'Manage branch roles and assigned permissions for the selected branch.':
+          'चयनित शाखा के लिए शाखा भूमिकाएँ और निर्दिष्ट अनुमतियाँ प्रबंधित करें।',
+      'Manage salon photos': 'सैलून फ़ोटो प्रबंधित करें',
+      'Manage service bundles for this branch':
+          'इस शाखा के लिए सेवा बंडल प्रबंधित करें',
+      'Manage stylists, staff and roles':
+          'स्टाइलिस्टों, कर्मचारियों और भूमिकाओं को प्रबंधित करें',
+      'Manage the bank account used for salon settlements.':
+          'सैलून निपटान के लिए उपयोग किए गए बैंक खाते को प्रबंधित करें।',
+      'Manage your team, offers, packages and gallery from one place.':
+          'अपनी टीम, ऑफ़र, पैकेज और गैलरी को एक ही स्थान से प्रबंधित करें।',
+      'Manually Enter Address': 'पता मैन्युअल रूप से दर्ज करें',
+      'Mark No Show': 'नो शो चिह्नित करें',
+      'Mark No Show?': 'मार्क नो शो?',
+      'Max Amount': 'अधिकतम राशि',
+      'Max Discount Amount (₹) *': 'अधिकतम छूट राशि (₹) *',
+      'Max Stock': 'मैक्स स्टॉक',
+      'Max Stock Level': 'अधिकतम स्टॉक स्तर',
+      'Max Stock is required': 'मैक्स स्टॉक आवश्यक है',
+      'Max Stock must be a number': 'मैक्स स्टॉक एक संख्या होनी चाहिए',
+      'Max Stock must be at least 1': 'मैक्स स्टॉक कम से कम 1 होना चाहिए',
+      'Max commission amount is required': 'अधिकतम कमीशन राशि आवश्यक है',
+      'Maximum amount': 'अधिकतम राशि',
+      'Maximum discount amount cannot exceed the original price.':
+          'अधिकतम छूट राशि मूल कीमत से अधिक नहीं हो सकती.',
+      'Membership': 'सदस्यता',
+      'Menu': 'मेनू',
+      'Min Stock': 'न्यूनतम स्टॉक',
+      'Mins': 'मिनट',
+      'Missing branch id': 'शाखा आईडी गुम है',
+      'Missing payout account id': 'भुगतान खाता आईडी गुम है',
+      'Monitor daily operations and business efficiency.':
+          'दैनिक संचालन और व्यावसायिक दक्षता की निगरानी करें।',
+      'More': 'अधिक',
+      'Morning': 'सुबह',
+      'Must be >= 0': '>= 0 होना चाहिए',
+      'My Membership': 'मेरी सदस्यता',
+      'New Session': 'नया सत्र',
+      'No': 'नहीं',
+      'No Show': 'कोई शो नहीं',
+      'No Show is available 15 minutes after start time':
+          'प्रारंभ समय के 15 मिनट बाद कोई भी शो उपलब्ध नहीं होता है',
+      'No Shows': 'कोई शो नहीं',
+      'No appointments found for\nthe selected day.':
+          'के लिए कोई नियुक्ति नहीं मिली\nचयनित दिन.',
+      'No appointments overview data': 'कोई अपॉइंटमेंट अवलोकन डेटा नहीं',
+      'No appointments overview data available.':
+          'कोई अपॉइंटमेंट अवलोकन डेटा उपलब्ध नहीं है.',
+      'No attendance present for this month':
+          'इस माह के लिए कोई उपस्थिति उपस्थित नहीं है',
+      'No available slots for the selected date and team member.':
+          'चयनित तिथि और टीम सदस्य के लिए कोई स्लॉट उपलब्ध नहीं है।',
+      'No bank details added yet': 'अभी तक कोई बैंक विवरण नहीं जोड़ा गया',
+      'No booking status data': 'कोई बुकिंग स्थिति डेटा नहीं',
+      'No booking status data available.':
+          'कोई बुकिंग स्थिति डेटा उपलब्ध नहीं है.',
+      'No bookings': 'कोई बुकिंग नहीं',
+      'No bookings for today': 'आज के लिए कोई बुकिंग नहीं',
+      'No bookings for today further': 'आज के लिए आगे कोई बुकिंग नहीं',
+      'No branches added yet. Expand your network by adding a new location.':
+          'अभी तक कोई शाखा नहीं जोड़ी गई. एक नया स्थान जोड़कर अपने नेटवर्क का विस्तार करें।',
+      'No cancellation reasons available.':
+          'रद्दीकरण का कोई कारण उपलब्ध नहीं है.',
+      'No cart items yet': 'अभी तक कोई कार्ट आइटम नहीं',
+      'No commission': 'कोई कमीशन नहीं',
+      'No customers found': 'कोई ग्राहक नहीं मिला',
+      'No default commission is configured for this service.':
+          'इस सेवा के लिए कोई डिफ़ॉल्ट कमीशन कॉन्फ़िगर नहीं किया गया है।',
+      'No description available': 'कोई विवरण उपलब्ध नहीं',
+      'No description available.': 'कोई विवरण उपलब्ध नहीं।',
+      'No duration': 'कोई अवधि नहीं',
+      'No existing customer found': 'कोई मौजूदा ग्राहक नहीं मिला',
+      'No image available': 'कोई छवि उपलब्ध नहीं है',
+      'No insights yet': 'अभी तक कोई अंतर्दृष्टि नहीं',
+      'No inventory items found': 'कोई इन्वेंट्री आइटम नहीं मिला',
+      'No inventory items found for this branch.':
+          'इस शाखा के लिए कोई इन्वेंट्री आइटम नहीं मिला.',
+      'No inventory items match your search.':
+          'कोई भी इन्वेंट्री आइटम आपकी खोज से मेल नहीं खाता.',
+      'No more services available to add':
+          'जोड़ने के लिए और कोई सेवाएँ उपलब्ध नहीं हैं',
+      'No notifications yet': 'अभी तक कोई सूचना नहीं',
+      'No opportunities yet': 'अभी तक कोई अवसर नहीं',
+      'No overrides set for this service.':
+          'इस सेवा के लिए कोई ओवरराइड सेट नहीं है.',
+      'No payment history available.': 'कोई भुगतान इतिहास उपलब्ध नहीं है.',
+      'No payment method data': 'कोई भुगतान विधि डेटा नहीं',
+      'No payment method data available.':
+          'कोई भुगतान विधि डेटा उपलब्ध नहीं है.',
+      'No peak booking hour data': 'कोई व्यस्ततम बुकिंग घंटे का डेटा नहीं',
+      'No peak booking hour data available.':
+          'कोई पीक बुकिंग घंटे का डेटा उपलब्ध नहीं है।',
+      'No price': 'कोई कीमत नहीं',
+      'No quick links available.': 'कोई त्वरित लिंक उपलब्ध नहीं है.',
+      'No recent actions': 'कोई हालिया कार्रवाई नहीं',
+      'No revenue trend data': 'कोई राजस्व प्रवृत्ति डेटा नहीं',
+      'No roles found.': 'कोई भूमिका नहीं मिली.',
+      'No service category data': 'कोई सेवा श्रेणी डेटा नहीं',
+      'No service category data available.':
+          'कोई सेवा श्रेणी डेटा उपलब्ध नहीं है.',
+      'No services available for this branch':
+          'इस शाखा के लिए कोई सेवाएँ उपलब्ध नहीं हैं',
+      'No services selected': 'कोई सेवा चयनित नहीं',
+      'No staff activity found for this range.':
+          'इस अवधि में कोई स्टाफ गतिविधि नहीं मिली।',
+      'No staff found': 'कोई स्टाफ नहीं मिला',
+      'No staff performance data': 'कोई स्टाफ प्रदर्शन डेटा नहीं',
+      'No stored images found.': 'कोई संग्रहीत छवियाँ नहीं मिलीं.',
+      'No team member available for this date':
+          'इस तिथि के लिए टीम का कोई सदस्य उपलब्ध नहीं है',
+      'No team member available for this service.':
+          'इस सेवा के लिए कोई टीम सदस्य उपलब्ध नहीं है.',
+      'No team member selected': 'किसी टीम सदस्य का चयन नहीं किया गया',
+      'No team member selected.': 'किसी टीम सदस्य का चयन नहीं किया गया.',
+      'No team members available for this date':
+          'इस तिथि के लिए टीम का कोई सदस्य उपलब्ध नहीं है',
+      'No team members match the selected filters':
+          'कोई भी टीम सदस्य चयनित फ़िल्टर से मेल नहीं खाता',
+      'No time left for that day.': 'उस दिन के लिए समय नहीं बचा.',
+      'No top service data': 'कोई शीर्ष सेवा डेटा नहीं',
+      'No top service data available.': 'कोई शीर्ष सेवा डेटा उपलब्ध नहीं है.',
+      'No trend data available for this range.':
+          'इस श्रेणी के लिए कोई रुझान डेटा उपलब्ध नहीं है।',
+      'No working hours were provided for this day. Please choose another date to view or add bookings.':
+          'इस दिन के लिए कोई कार्य समय प्रदान नहीं किया गया था। कृपया बुकिंग देखने या जोड़ने के लिए कोई अन्य तिथि चुनें।',
+      'Not Assigned': 'सौंपा नहीं गया है',
+      'Not available': 'उपलब्ध नहीं है',
+      'Notes': 'टिप्पणियाँ',
+      'Notifications': 'सूचनाएं',
+      'OR': 'या',
+      'Online booking': 'ऑनलाइन बुकिंग',
+      'Only letters and spaces are allowed.':
+          'केवल अक्षर और रिक्त स्थान की अनुमति है.',
+      'Only letters, numbers, and spaces are allowed':
+          'केवल अक्षर, संख्या और रिक्त स्थान की अनुमति है',
+      'Only letters, numbers, spaces, and & are allowed':
+          'केवल अक्षर, संख्या, रिक्त स्थान और & की अनुमति है',
+      'Only members available for booking stay visible.':
+          'केवल बुकिंग के लिए उपलब्ध सदस्य ही दृश्यमान रहते हैं।',
+      'Open Cart': 'कार्ट खोलें',
+      'Open Settings': 'खुली सेटिंग',
+      'Open cart after selecting services.':
+          'सेवाओं का चयन करने के बाद कार्ट खोलें।',
+      'Operations': 'संचालन',
+      'Opportunity recommendations will show here when the API returns them.':
+          'जब एपीआई उन्हें लौटाएगा तो अवसर अनुशंसाएं यहां दिखाई देंगी।',
+      'Optional': 'वैकल्पिक',
+      'Ordered Qty is required': 'आदेशित मात्रा आवश्यक है',
+      'Others': 'अन्य',
+      'Over limit by': 'द्वारा सीमा से अधिक',
+      'Overdue': 'अतिदेय',
+      'Override rates take priority over the default rate during payroll calculation.':
+          'पेरोल गणना के दौरान ओवरराइड दरों को डिफ़ॉल्ट दर पर प्राथमिकता दी जाती है।',
+      'Overrides': 'ओवरराइड',
+      'PO Number': 'पीओ नंबर',
+      'Package Review': 'पैकेज समीक्षा',
+      'Package Summary': 'पैकेज सारांश',
+      'Package duration cannot exceed 12 months.':
+          'पैकेज की अवधि 12 महीने से अधिक नहीं हो सकती.',
+      'Page': 'पेज',
+      'Passive Wait': 'निष्क्रिय प्रतीक्षा',
+      'Passive wait': 'निष्क्रिय प्रतीक्षा',
+      'Passive wait needs at least 3 minutes of service duration.':
+          'निष्क्रिय प्रतीक्षा के लिए कम से कम 3 मिनट की सेवा अवधि की आवश्यकता होती है।',
+      'Password': 'पासवर्ड',
+      'Password management will be available soon.':
+          'पासवर्ड प्रबंधन जल्द ही उपलब्ध होगा.',
+      'Pay at Salon': 'सैलून में भुगतान करें',
+      'Pay with Razorpay': 'रेज़रपे से भुगतान करें',
+      'Payment': 'भुगतान',
+      'Payment History': 'भुगतान इतिहास',
+      'Payment Method': 'भुगतान विधि',
+      'Payout Account': 'भुगतान खाता',
+      'Payroll type is required': 'पेरोल प्रकार आवश्यक है',
+      'Peak Booking Hours': 'अधिकतम बुकिंग घंटे',
+      'Percentage': 'प्रतिशत',
+      'Percentage (%)': 'प्रतिशत (%)',
+      'Percentage cannot be greater than 100':
+          'प्रतिशत 100 से अधिक नहीं हो सकता',
+      'Percentage commission': 'प्रतिशत कमीशन',
+      'Please add a branch to view insights.':
+          'अंतर्दृष्टि देखने के लिए कृपया एक शाखा जोड़ें।',
+      'Please add a branch to view reports.':
+          'कृपया रिपोर्ट देखने के लिए एक शाखा जोड़ें।',
+      'Please add a salon first': 'कृपया पहले एक सैलून जोड़ें',
+      'Please capture all 5 required face images before storing.':
+          'कृपया भंडारण से पहले सभी 5 आवश्यक चेहरे की छवियां कैप्चर करें।',
+      'Please choose a branch location.': 'कृपया एक शाखा स्थान चुनें.',
+      'Please enable at least one working day.':
+          'कृपया कम से कम एक कार्य दिवस सक्षम करें.',
+      'Please ensure the services fit within this window.':
+          'कृपया सुनिश्चित करें कि सेवाएँ इस विंडो के अंतर्गत फिट हों।',
+      'Please enter duration first': 'कृपया पहले अवधि दर्ज करें',
+      'Please enter or select the complete address.':
+          'कृपया पूरा पता दर्ज करें या चुनें।',
+      'Please reselect services before checking availability':
+          'उपलब्धता की जाँच करने से पहले कृपया सेवाओं का पुनः चयन करें',
+      'Please select a branch first': 'कृपया पहले एक शाखा चुनें',
+      'Please select a joining date': 'कृपया शामिल होने की तारीख चुनें',
+      'Please select a team member to view available slots.':
+          'कृपया उपलब्ध स्लॉट देखने के लिए एक टीम सदस्य का चयन करें।',
+      'Please select a time slot': 'कृपया एक समय स्लॉट चुनें',
+      'Please select address from suggestions':
+          'कृपया सुझावों में से पता चुनें',
+      'Please select at least one service.': 'कृपया कम से कम एक सेवा चुनें.',
+      'Please select or verify a customer first':
+          'कृपया पहले किसी ग्राहक का चयन करें या सत्यापित करें',
+      'Please verify details before submitting.':
+          'कृपया सबमिट करने से पहले विवरण सत्यापित करें।',
+      'Potential Impact': 'संभावित प्रभाव',
+      'Predefined services imported successfully':
+          'पूर्वनिर्धारित सेवाएँ सफलतापूर्वक आयात की गईं',
+      'Present': 'उपस्थित',
+      'Prev': 'पिछला',
+      'Previous': 'पहले का',
+      'Price': 'कीमत',
+      'Price (₹)': 'कीमत (₹)',
+      'Price Type': 'मूल्य प्रकार',
+      'Price must be positive': 'कीमत सकारात्मक होनी चाहिए',
+      'Pro Tip': 'प्रो टिप',
+      'Professional Access Only  •  © 2024 Glowante':
+          'केवल व्यावसायिक पहुंच • © 2024 ग्लोवंते',
+      'Professional Reviews': 'व्यावसायिक समीक्षाएँ',
+      'Professional is busy': 'प्रोफेशनल व्यस्त है',
+      'Professional is unavailable': 'पेशेवर उपलब्ध नहीं है',
+      'Profile photo updated successfully.':
+          'प्रोफ़ाइल फ़ोटो सफलतापूर्वक अपडेट की गई.',
+      'Purchase Details': 'खरीदारी का ब्योरा',
+      'Quick Actions': 'त्वरित कार्रवाई',
+      'Rank': 'पद',
+      'Rate': 'दर',
+      'Rate *': 'दर *',
+      'Rating': 'रेटिंग',
+      'Ready to Generate': 'उत्पन्न करने के लिए तैयार',
+      'Rebook': 'दोबारा बुक करें',
+      'Rebook Rate': 'पुनः बुक दर',
+      'Receipt Details': 'रसीद विवरण',
+      'Received Qty is required': 'प्राप्त मात्रा आवश्यक है',
+      'Recent': 'हाल ही का',
+      'Recent Actions Taken': 'हाल ही में की गई कार्रवाई',
+      'Recent Customers': 'हाल के ग्राहक',
+      'Receptionist': 'रिसेप्शनिस्ट',
+      'Refresh': 'ताज़ा करना',
+      'Register a new guest to continue with this booking process.':
+          'इस बुकिंग प्रक्रिया को जारी रखने के लिए एक नए अतिथि को पंजीकृत करें।',
+      'Remarks': 'टिप्पणी',
+      'Renew Membership': 'सदस्यता नवीनीकृत करें',
+      'Renew Now': 'अब नवीनीकृत करें',
+      'Renewal Duration': 'नवीनीकरण अवधि',
+      'Reorder Qty must be at least 1': 'रीऑर्डर मात्रा कम से कम 1 होनी चाहिए',
+      'Reorder Qty is required': 'मात्रा को पुनः व्यवस्थित करना आवश्यक है',
+      'Replace Now': 'अभी बदलें',
+      'Replicate services from an existing branch to save time.':
+          'समय बचाने के लिए मौजूदा शाखा से सेवाओं को दोहराएँ।',
+      'Required Fields': 'आवश्यक फील्ड्स',
+      'Requires your attention': 'आपके ध्यान की आवश्यकता है',
+      'Resend OTP': 'ओटीपी दोबारा भेजें',
+      'Resend OTP in': 'ओटीपी पुनः भेजें',
+      'Revenue': 'आय',
+      'Revenue & Sales': 'राजस्व एवं बिक्री',
+      'Revenue Overview': 'राजस्व अवलोकन',
+      'Revenue Trend': 'राजस्व प्रवृत्ति',
+      'Revenue by Payment Method': 'भुगतान विधि द्वारा राजस्व',
+      'Revenue by Service Category': 'सेवा श्रेणी के अनुसार राजस्व',
+      'Revenue by Source': 'स्रोत द्वारा राजस्व',
+      'Review': 'समीक्षा',
+      'Review Captured Images': 'खींची गई छवियों की समीक्षा करें',
+      'Review Summary': 'सारांश की समीक्षा करें',
+      'Review your captured images. Retake if needed or store them.':
+          'अपनी खींची गई छवियों की समीक्षा करें. यदि आवश्यक हो तो पुनः लें या उन्हें संग्रहित करें।',
+      'Reviewer': 'आलोचक',
+      'Return Reason is required': 'वापसी का कारण आवश्यक है',
+      'Role': 'भूमिका',
+      'Role Name': 'भूमिका का नाम',
+      'Role name is required': 'भूमिका का नाम आवश्यक है',
+      'Roles & Permissions': 'भूमिकाएँ एवं अनुमतियाँ',
+      'SALON EXCELLENCE STANDARD': 'सैलून उत्कृष्टता मानक',
+      'SALON IS CLOSED': 'सैलून बंद है',
+      'STAFF': 'कर्मचारी',
+      'Salary is required': 'वेतन चाहिए',
+      'Sales & Reports': 'बिक्री एवं रिपोर्ट',
+      'Salon Address is required': 'सैलून का पता आवश्यक है',
+      'Salon Deals': 'सैलून सौदे',
+      'Salon Details': 'सैलून विवरण',
+      'Salon Hours': 'सैलून का समय',
+      'Salon Packages': 'सैलून पैकेज',
+      'Salon Payout Accounts': 'सैलून भुगतान खाते',
+      'Salon Reviews': 'सैलून समीक्षाएँ',
+      'Salon closes at': 'सैलून बंद हो जाता है',
+      'Salon deleted successfully': 'सैलून सफलतापूर्वक हटा दिया गया',
+      'Salon is closed on': 'सैलून बंद है',
+      'Salon is closed on the selected date': 'चयनित तिथि पर सैलून बंद है',
+      'Salon overview, operating hours, and team snapshot':
+          'सैलून अवलोकन, परिचालन घंटे और टीम स्नैपशॉट',
+      'Salon tools': 'सैलून उपकरण',
+      'Salon updated successfully': 'सैलून सफलतापूर्वक अपडेट किया गया',
+      'Salons with clear descriptions and high-quality photos receive 40% more bookings.':
+          'स्पष्ट विवरण और उच्च गुणवत्ता वाली तस्वीरों वाले सैलून को 40% अधिक बुकिंग प्राप्त होती है।',
+      'Same as branch timings': 'शाखा समय के समान',
+      'Save changes': 'परिवर्तनों को सुरक्षित करें',
+      'Schedule Appointment': 'नियुक्ति की सूची बनाना',
+      'Schedule a Client': 'एक ग्राहक को शेड्यूल करें',
+      'Scheduling Experience': 'शेड्यूलिंग अनुभव',
+      'Search address': 'पता खोजें',
+      'Search by name or role': 'नाम या भूमिका के आधार पर खोजें',
+      'Search by name, phone, or email': 'नाम, फ़ोन या ईमेल से खोजें',
+      'Search staff or service': 'कर्मचारी या सेवा खोजें',
+      'Select All': 'सबका चयन करें',
+      'Select Category/Subcategory': 'श्रेणी/उपश्रेणी चुनें',
+      'Select Customer': 'ग्राहक का चयन करें',
+      'Select Inventory Used': 'प्रयुक्त इन्वेंटरी का चयन करें',
+      'Select Service Type': 'सेवा प्रकार चुनें',
+      'Select Team Member': 'टीम सदस्य का चयन करें',
+      'Select Time': 'समय चुनें',
+      'Select View Only': 'केवल देखें का चयन करें',
+      'Select a branch to view details':
+          'विवरण देखने के लिए एक शाखा का चयन करें',
+      'Select a plan that fits your salon and branches.':
+          'ऐसी योजना चुनें जो आपके सैलून और शाखाओं के लिए उपयुक्त हो।',
+      'Select a salon first to manage bank details.':
+          'बैंक विवरण प्रबंधित करने के लिए पहले एक सैलून चुनें।',
+      'Select a salon to manage payout accounts.':
+          'पेआउट खाते प्रबंधित करने के लिए एक सैलून चुनें।',
+      'Select a valid duration unit.': 'एक वैध अवधि इकाई का चयन करें.',
+      'Select customer first': 'पहले ग्राहक चुनें',
+      'Select end date': 'अंतिम तिथि चुनें',
+      'Select end time': 'समाप्ति समय चुनें',
+      'Select how you want to use Glowante for this session.':
+          'चुनें कि आप इस सत्र के लिए ग्लोवंते का उपयोग कैसे करना चाहते हैं।',
+      'Select services and team members':
+          'सेवाओं और टीम के सदस्यों का चयन करें',
+      'Select services not already booked for this appointment.':
+          'इस अपॉइंटमेंट के लिए पहले से बुक न की गई सेवाओं का चयन करें।',
+      'Select services this team member can perform at the branch.':
+          'ऐसी सेवाएँ चुनें जो टीम का यह सदस्य शाखा में कर सकता है।',
+      'Select start date': 'आरंभ तिथि चुनें',
+      'Select start time': 'आरंभ समय चुनें',
+      'Select start time first': 'पहले प्रारंभ समय चुनें',
+      'Select the actions this role can perform across branch modules.':
+          'उन क्रियाओं का चयन करें जो यह भूमिका शाखा मॉड्यूल में कर सकती है।',
+      'Select the categories that define your salon\'s professional catalog.':
+          'उन श्रेणियों का चयन करें जो आपके सैलून की पेशेवर सूची को परिभाषित करती हैं।',
+      'Select time': 'समय चुनें',
+      'Select unit': 'इकाई का चयन करें',
+      'Selected': 'चयनित',
+      'Selected Customer': 'चयनित ग्राहक',
+      'Selected Services & Team': 'चयनित सेवाएँ एवं टीम',
+      'Selected staff': 'चयनित कर्मचारी',
+      'Service': 'सेवा',
+      'Service Details': 'सेवा विवरण',
+      'Service Type': 'सेवा प्रकार',
+      'Service Type *': 'सेवा प्रकार*',
+      'Service time': 'सेवा का समय',
+      'Service type is required': 'सेवा प्रकार आवश्यक है',
+      'Services Portfolio': 'सेवा पोर्टफोलियो',
+      'Session expired. Please log in again.':
+          'सत्र समाप्त हुआ। कृपया फिर भाग लें।',
+      'Set Working Schedule': 'कार्य अनुसूची निर्धारित करें',
+      'Set a custom commission rate for one or more staff members.':
+          'एक या अधिक स्टाफ सदस्यों के लिए कस्टम कमीशन दर निर्धारित करें।',
+      'Set as default': 'डिफाल्ट के रूप में सेट',
+      'Set up salary and commission for your team':
+          'अपनी टीम के लिए वेतन और कमीशन निर्धारित करें',
+      'Setup incomplete': 'सेटअप अधूरा',
+      'Should this team member be available for online booking?':
+          'क्या यह टीम सदस्य ऑनलाइन बुकिंग के लिए उपलब्ध होना चाहिए?',
+      'Show less': 'कम दिखाओ',
+      'Show more': 'और दिखाएँ',
+      'Show results': 'परिणाम दिखाएं',
+      'Show team list': 'टीम सूची दिखाएँ',
+      'Showing': 'दिखा',
+      'Showing 0 results': '0 परिणाम दिखा रहा है',
+      'Smart insights and recommendations to help you grow your salon business.':
+          'आपके सैलून व्यवसाय को बढ़ाने में मदद करने के लिए स्मार्ट अंतर्दृष्टि और अनुशंसाएँ।',
+      'Some required details are missing or invalid.':
+          'कुछ आवश्यक विवरण गुम या अमान्य हैं.',
+      'Something went wrong': 'कुछ गलत हो गया',
+      'Something went wrong. Please try again.':
+          'कुछ गलत हो गया। कृपया पुन: प्रयास करें।',
+      'Split duration into busy start, passive wait, and busy end.':
+          'अवधि को व्यस्त प्रारंभ, निष्क्रिय प्रतीक्षा और व्यस्त अंत में विभाजित करें।',
+      'Staff': 'कर्मचारी',
+      'Staff Live Status': 'स्टाफ लाइव स्थिति',
+      'Staff Performance': 'स्टाफ प्रदर्शन',
+      'Staff overrides': 'स्टाफ ओवरराइड करता है',
+      'Staff overrides take priority over this default rate.':
+          'स्टाफ ओवरराइड्स को इस डिफ़ॉल्ट दर पर प्राथमिकता दी जाती है।',
+      'Start Date': 'आरंभ करने की तिथि',
+      'Start Date cannot be in the past.': 'आरंभ तिथि अतीत की नहीं हो सकती.',
+      'Start Date is required.': 'प्रारंभ दिनांक आवश्यक है.',
+      'Start Setup': 'सेटअप प्रारंभ करें',
+      'Start building your world-class salon team. Add stylists, therapists, and coordinators to manage their schedules and performance.':
+          'अपनी विश्व स्तरीय सैलून टीम बनाना शुरू करें। उनके शेड्यूल और प्रदर्शन को प्रबंधित करने के लिए स्टाइलिस्ट, चिकित्सक और समन्वयक जोड़ें।',
+      'Start time was adjusted to keep a 10-minute gap.':
+          'प्रारंभ समय को 10 मिनट का अंतर रखने के लिए समायोजित किया गया था।',
+      'Status': 'स्थिति',
+      'Stock Details': 'स्टॉक विवरण',
+      'Store': 'स्टोर',
+      'Store Images': 'छवियाँ संग्रहीत करें',
+      'Store is inactive': 'स्टोर निष्क्रिय है',
+      'Store is visible for operations': 'परिचालन के लिए स्टोर दृश्यमान है',
+      'Store location': 'स्टोर स्थान',
+      'Subcategory': 'उपश्रेणी',
+      'Subscription payments from your membership history.':
+          'आपके सदस्यता इतिहास से सदस्यता भुगतान।',
+      'Summary': 'सारांश',
+      'TEAM MEMBER': 'टीम के सदस्य',
+      'THE DIGITAL HEART OF YOUR SALON': 'आपके सैलून का डिजिटल दिल',
+      'TODAY': 'आज',
+      'Take from camera': 'कैमरे से लें',
+      'Tap one or more services to filter team members.':
+          'टीम के सदस्यों को फ़िल्टर करने के लिए एक या अधिक सेवाओं पर टैप करें।',
+      'Tap to review the customer cart':
+          'ग्राहक कार्ट की समीक्षा करने के लिए टैप करें',
+      'Tap to search or add new': 'नया खोजने या जोड़ने के लिए टैप करें',
+      'Team': 'टीम',
+      'Team Member': 'टीम के सदस्य',
+      'Team member deleted successfully': 'टीम सदस्य सफलतापूर्वक हटा दिया गया',
+      'Team member selected.': 'टीम के सदस्य का चयन किया गया.',
+      'Team member updated successfully':
+          'टीम सदस्य सफलतापूर्वक अपडेट किया गया',
+      'Team members are hidden when their employment dates do not include the selected date.':
+          'टीम के सदस्य तब छिपे रहते हैं जब उनकी रोजगार तिथियों में चयनित तिथि शामिल नहीं होती है।',
+      'Team members who do not have working hours on the selected day are hidden from the schedule.':
+          'टीम के सदस्य जिनके पास चयनित दिन पर काम के घंटे नहीं हैं, उन्हें शेड्यूल से छिपा दिया गया है।',
+      'Team members whose joining date is later than the selected date are hidden from the schedule.':
+          'टीम के सदस्य जिनकी शामिल होने की तारीख चयनित तारीख से बाद की है, उन्हें शेड्यूल से छिपा दिया गया है।',
+      'Terms': 'शर्तें',
+      'The backend returns only the masked account number. Re-enter the full account number to update bank details.':
+          'बैकएंड केवल छिपा हुआ खाता नंबर लौटाता है। बैंक विवरण अद्यतन करने के लिए पूर्ण खाता संख्या पुनः दर्ज करें।',
+      'This Month': 'इस महीने',
+      'This Week': 'इस सप्ताह',
+      'This account will be used for salon settlement payouts.':
+          'इस खाते का उपयोग सैलून निपटान भुगतान के लिए किया जाएगा।',
+      'This branch is inactive. Booking is disabled.':
+          'यह शाखा निष्क्रिय है. बुकिंग अक्षम है.',
+      'This member isn\'t part of this salon.':
+          'यह सदस्य इस सैलून का हिस्सा नहीं है.',
+      'This rate overrides the default commission for the selected staff on this service.':
+          'यह दर इस सेवा पर चयनित कर्मचारियों के लिए डिफ़ॉल्ट कमीशन को ओवरराइड करती है।',
+      'This salon is inactive. Booking is disabled.':
+          'यह सैलून निष्क्रिय है. बुकिंग अक्षम है.',
+      'This will mark the appointment as no show. This cannot be undone.':
+          'इससे नियुक्ति को नो शो के रूप में चिह्नित किया जाएगा। इसे असंपादित नहीं किया जा सकता है।',
+      'Time Remaining': 'शेष समय',
+      'Today\'s Appointments': 'आज की नियुक्तियाँ',
+      'Top Cancellation Reasons': 'शीर्ष रद्दीकरण कारण',
+      'Top Opportunities': 'शीर्ष अवसर',
+      'Top Services by Revenue': 'राजस्व के आधार पर शीर्ष सेवाएँ',
+      'Total': 'कुल',
+      'Total Appointments': 'कुल नियुक्तियाँ',
+      'Total Insights': 'कुल अंतर्दृष्टि',
+      'Total Investment': 'कुल निवेश',
+      'Total Revenue': 'कुल मुनाफा',
+      'Total Selected': 'कुल चयनित',
+      'Total Staff': 'कुल स्टाफ',
+      'Total team members': 'टीम के कुल सदस्य',
+      'Track and pay your team based on their work, tips, and commissions.':
+          'अपनी टीम को उनके काम, टिप्स और कमीशन के आधार पर ट्रैक करें और भुगतान करें।',
+      'Track your revenue, sales performance and growth.':
+          'अपने राजस्व, बिक्री प्रदर्शन और वृद्धि को ट्रैक करें।',
+      'Treatment Focus': 'उपचार फोकस',
+      'Try Again': 'पुनः प्रयास करें',
+      'Turn on location services to use your current location':
+          'अपने वर्तमान स्थान का उपयोग करने के लिए स्थान सेवाएँ चालू करें',
+      'Two-factor authentication': 'दो-कारक प्रमाणीकरण',
+      'Type': 'प्रकार',
+      'UPI ID': 'यूपीआई आईडी',
+      'Unable to capture attendance image.':
+          'उपस्थिति छवि कैप्चर करने में असमर्थ.',
+      'Unable to load availability for the selected date':
+          'चयनित तिथि के लिए उपलब्धता लोड करने में असमर्थ',
+      'Unable to load branch details.': 'शाखा विवरण लोड करने में असमर्थ.',
+      'Unable to load customers right now.':
+          'अभी ग्राहकों को लोड करने में असमर्थ.',
+      'Unable to load customers.': 'ग्राहकों को लोड करने में असमर्थ.',
+      'Unable to load insights': 'अंतर्दृष्टि लोड करने में असमर्थ',
+      'Unable to load report': 'रिपोर्ट लोड करने में असमर्थ',
+      'Unable to open messages app': 'संदेश ऐप खोलने में असमर्थ',
+      'Unable to open phone app': 'फ़ोन ऐप खोलने में असमर्थ',
+      'Unable to open photos. Please allow storage or photo access and try again.':
+          'फ़ोटो खोलने में असमर्थ. कृपया भंडारण या फोटो पहुंच की अनुमति दें और पुनः प्रयास करें।',
+      'Unable to open the camera. Please allow camera permission and try again.':
+          'कैमरा खोलने में असमर्थ. कृपया कैमरे की अनुमति दें और पुनः प्रयास करें।',
+      'Unable to refresh appointment details':
+          'नियुक्ति विवरण ताज़ा करने में असमर्थ',
+      'Unable to resolve your account. Please sign in again.':
+          'आपके खाते का समाधान करने में असमर्थ. कृपया पुनः साइन इन करें.',
+      'Unable to save GRN. Please try again.':
+          'जीआरएन सहेजने में असमर्थ. कृपया पुन: प्रयास करें।',
+      'Unable to validate phone or email right now. Please try again.':
+          'अभी फ़ोन या ईमेल सत्यापित करने में असमर्थ. कृपया पुन: प्रयास करें।',
+      'Unassigned': 'सौंपे नहीं गए',
+      'Uncategorized': 'अवर्गीकृत',
+      'Unit': 'इकाई',
+      'Unknown reason': 'अज्ञात कारण',
+      'Unknown service': 'अज्ञात सेवा',
+      'Unnamed Branch': 'अनाम शाखा',
+      'Unnamed customer': 'अनाम ग्राहक',
+      'Unnamed service': 'अनाम सेवा',
+      'Upcoming Membership': 'आगामी सदस्यता',
+      'Update the custom commission rate for this staff member.':
+          'इस स्टाफ सदस्य के लिए कस्टम कमीशन दर अपडेट करें।',
+      'Update vendor details': 'विक्रेता विवरण अद्यतन करें',
+      'Updating profile photo': 'प्रोफ़ाइल फ़ोटो अपडेट किया जा रहा है',
+      'Upload\nPhoto': 'अपलोड करें\nफ़ोटो',
+      'Uploading and saving your changes': 'अपने परिवर्तन अपलोड करना और सहेजना',
+      'Use this payout account by default.':
+          'डिफ़ॉल्ट रूप से इस भुगतान खाते का उपयोग करें.',
+      'Validity Date Range': 'वैधता दिनांक सीमा',
+      'Vendor': 'विक्रेता',
+      'Vendor Status': 'विक्रेता स्थिति',
+      'Vendor profile': 'विक्रेता प्रोफ़ाइल',
+      'Verify & Continue': 'सत्यापित करें और जारी रखें',
+      'Verify OTP': 'ओटीपी सत्यापित करें',
+      'Verify Your Number': 'अपना नंबर सत्यापित करें',
+      'View': 'देखना',
+      'View All': 'सभी को देखें',
+      'View Schedule': 'शेड्यूल देखें',
+      'View Summary Report': 'सारांश रिपोर्ट देखें',
+      'View all services': 'सभी सेवाएँ देखें',
+      'View live status': 'लाइव स्थिति देखें',
+      'View profile, expertise, and assigned branches.':
+          'प्रोफ़ाइल, विशेषज्ञता और निर्दिष्ट शाखाएँ देखें।',
+      'View your current plan, payment status, and expiry.':
+          'अपनी वर्तमान योजना, भुगतान स्थिति और समाप्ति देखें।',
+      'Wait': 'इंतज़ार',
+      'Welcome': 'स्वागत',
+      'Working days and hours': 'कार्य दिवस और घंटे',
+      'Workspace Entry': 'कार्यक्षेत्र प्रवेश',
+      'Write comment': 'टिप्पणी लिखें',
+      'Yes': 'हाँ',
+      'You can add up to 10 photos. Remove a photo before choosing another.':
+          'आप अधिकतम 10 फ़ोटो जोड़ सकते हैं. दूसरा चुनने से पहले एक फ़ोटो हटाएँ.',
+      'You can now calculate salary & commission.':
+          'अब आप वेतन और कमीशन की गणना कर सकते हैं।',
+      'You can start this job 15 minutes before appointment time':
+          'यह काम आप अपॉइंटमेंट टाइम से 15 मिनट पहले शुरू कर सकते हैं',
+      'You do not have permission to access these tools.':
+          'आपके पास इन टूल तक पहुंचने की अनुमति नहीं है.',
+      'You havent generated any payroll yet':
+          'आपने अभी तक कोई पेरोल जेनरेट नहीं किया है',
+      'Your Stored Images': 'आपकी संग्रहीत छवियाँ',
+      'Your current membership will be terminated immediately, and any remaining validity will be lost. The new membership will become active instantly. No refund or credit will be provided for unused days. Do you want to continue?':
+          'आपकी वर्तमान सदस्यता तुरंत समाप्त कर दी जाएगी, और शेष वैधता भी समाप्त हो जाएगी। नई सदस्यता तुरंत सक्रिय हो जाएगी. अप्रयुक्त दिनों के लिए कोई रिफंड या क्रेडिट प्रदान नहीं किया जाएगा। क्या आप जारी रखना चाहते हैं?',
+      'Your dashboard will show bookings, revenue, clients, and staff activity once a salon is available.':
+          'सैलून उपलब्ध होने पर आपका डैशबोर्ड बुकिंग, राजस्व, ग्राहक और कर्मचारियों की गतिविधि दिखाएगा।',
+      'Your membership has expired. Renew to continue service.':
+          'आपकी सदस्यता समाप्त हो गई है. सेवा जारी रखने के लिए नवीनीकरण करें.',
+      'Your vision, our platform. Let\'s create a space where beauty meets business excellence.':
+          'आपका दृष्टिकोण, हमारा मंच। आइए एक ऐसा स्थान बनाएं जहां सुंदरता व्यावसायिक उत्कृष्टता से मेल खाती हो।',
+      'completed': 'पुरा होना',
+      'days left': 'दिन शेष',
+      'e.g. 100': 'जैसे 100',
+      'e.g. 3': 'जैसे 3',
+      'e.g. 50': 'जैसे 50',
+      'for': 'के लिए',
+      'is closed on {day}': '{day} को बंद है',
+      'is outside branch hours': 'शाखा समय के बाहर है',
+      'left': 'बाएं',
+      'left of': 'के बाएँ',
+      'min': 'मिन',
+      'mins': 'मिनट',
+      'minutes': 'मिनट',
+      'of': 'का',
+      'optional': 'वैकल्पिक',
+      'pending': 'लंबित',
+      'remaining': 'शेष',
+      'sec': 'सेकंड',
+      'sessions used': 'सत्रों का उपयोग किया गया',
+      'this staff override': 'यह स्टाफ़ ओवरराइड करता है',
+      'vs last month': 'बनाम पिछले महीने',
+      'year': 'वर्ष',
+      'years': 'साल',
+      // Manual leftovers from screen audit: ellipsis, placeholders, and format hints.
+      'Any terms & conditions...': 'कोई भी नियम और शर्तें...',
+      'Checking In...': 'चेक इन हो रहा है...',
+      'Checking Out...': 'चेक आउट हो रहा है...',
+      'Confirming...': 'पुष्टि हो रही है...',
+      'Find services...': 'सेवाएँ खोजें...',
+      'Resending...': 'दोबारा भेजा जा रहा है...',
+      'Search customer...': 'ग्राहक खोजें...',
+      'Search inventory...': 'इन्वेंटरी खोजें...',
+      'Search roles...': 'भूमिकाएँ खोजें...',
+      'Search services...': 'सेवाएँ खोजें...',
+      'Search your location...': 'अपना स्थान खोजें...',
+      'Searching salons...': 'सैलून खोजे जा रहे हैं...',
+      'Storing captured images...': 'कैप्चर की गई छवियाँ सहेजी जा रही हैं...',
+      'Tell us about the team member\'s experience and expertise...':
+          'टीम सदस्य के अनुभव और विशेषज्ञता के बारे में बताएं...',
       'Weak Network Warning': 'कमज़ोर नेटवर्क चेतावनी',
+      'dd/mm/yyyy': 'दिन/माह/वर्ष',
+      '{day} closing time must be after opening time.':
+          '{day} का बंद होने का समय खुलने के समय के बाद होना चाहिए।',
+      '{day} end time must be after start time.':
+          '{day} का समाप्ति समय आरंभ समय के बाद होना चाहिए।',
+      '{count} item(s) in customer cart': 'ग्राहक कार्ट में {count} आइटम',
+      '{count} service(s) selected': '{count} सेवाएँ चयनित',
+      '{count} services selected': '{count} सेवाएँ चयनित',
+      '{day} is closed for appointments.': '{day} अपॉइंटमेंट के लिए बंद है।',
+      '{label} is required': '{label} आवश्यक है',
+      '{label} should contain alphabets only':
+          '{label} में केवल अक्षर होने चाहिए',
+      'Booking time is over for today. Branch closed at {time}':
+          'आज के लिए बुकिंग समय समाप्त हो गया है। शाखा {time} पर बंद हो गई।',
+      'Can\'t be greater than {remaining}': '{remaining} से अधिक नहीं हो सकता',
+      'Deleted "{name}"': '"{name}" हटाया गया',
+      'Effective from cannot be earlier than the joining date for {target}: {names}.':
+          '{target} के लिए प्रभावी तिथि जॉइनिंग तिथि से पहले नहीं हो सकती: {names}।',
+      'Fixed amount cannot be greater than Rs. {amount}':
+          'निश्चित राशि रु. {amount} से अधिक नहीं हो सकती',
+      'Max commission cannot exceed {amount}':
+          'अधिकतम कमीशन {amount} से अधिक नहीं हो सकता',
+      'Maximum {count} words allowed': 'अधिकतम {count} शब्दों की अनुमति है',
+      'No team member available for {service}':
+          '{service} के लिए कोई टीम सदस्य उपलब्ध नहीं है',
+      'Please select team member for {service}':
+          '{service} के लिए टीम सदस्य चुनें',
+      'Salon is closed on {day}.': 'सैलून {day} को बंद है।',
+      'Salon time is over for {day}. Please adjust the existing slots.':
+          '{day} के लिए सैलून का समय समाप्त हो गया है। कृपया मौजूदा स्लॉट समायोजित करें।',
+      'This rate overrides the default {rate} commission for the selected staff on this service.':
+          'यह दर इस सेवा पर चयनित स्टाफ के लिए डिफ़ॉल्ट {rate} कमीशन को ओवरराइड करती है।',
+      'Updated "{name}"': '"{name}" अपडेट किया गया',
+      'Updated category "{name}"': 'श्रेणी "{name}" अपडेट की गई',
+      'Updated subcategory "{name}"': 'उपश्रेणी "{name}" अपडेट की गई',
+      'You can add up to {count} slots per day.':
+          'आप प्रति दिन अधिकतम {count} स्लॉट जोड़ सकते हैं।',
+      'Your membership will expire in {days} days. Renew early to avoid service interruption.':
+          'आपकी सदस्यता {days} दिनों में समाप्त हो जाएगी। सेवा बाधित होने से बचने के लिए जल्दी नवीनीकरण करें।',
+      // Manual entries for wrapped hardcoded Text labels.
+      'Add Advance': 'एडवांस जोड़ें',
+      'All Roles': 'सभी भूमिकाएँ',
+      'Apply': 'लागू करें',
+      'Cancel payroll': 'पेरोल रद्द करें',
+      'Custom Roles': 'कस्टम भूमिकाएँ',
+      'Delete "{name}" from the calendar?': 'कैलेंडर से "{name}" हटाएँ?',
+      'Delete adjustment': 'समायोजन हटाएँ',
+      'Delete holiday': 'छुट्टी हटाएँ',
+      'End': 'समाप्ति',
+      'Enter 0 or a positive number': '0 या धनात्मक संख्या दर्ज करें',
+      'Go to Payroll Dashboard': 'पेरोल डैशबोर्ड पर जाएँ',
+      'Holiday': 'छुट्टी',
+      'Module': 'मॉड्यूल',
+      'Month': 'महीना',
+      'Monthly': 'मासिक',
+      'No lines found': 'कोई लाइन नहीं मिली',
+      'Paid leave days': 'भुगतानित छुट्टी के दिन',
+      'Paid leaves': 'भुगतानित छुट्टियाँ',
+      'Preview: {member} • {amount} on {date}':
+          'पूर्वावलोकन: {member} • {amount} {date} को',
+      'Razorpay': 'रेज़रपे',
+      'Save Payment': 'भुगतान सहेजें',
+      'Saved Credit Card (**** 4242)': 'सहेजा गया क्रेडिट कार्ड (**** 4242)',
+      'Select month': 'महीना चुनें',
+      'Select team member': 'टीम सदस्य चुनें',
+      'Start': 'आरंभ',
+      'System Roles': 'सिस्टम भूमिकाएँ',
+      'This month': 'इस महीने',
+      'This will cancel the payroll run for this period.':
+          'यह इस अवधि के पेरोल रन को रद्द कर देगा।',
+      'This will remove the adjustment from payroll calculations.':
+          'यह समायोजन को पेरोल गणना से हटा देगा।',
+      'Year': 'वर्ष',
+      'Yearly (Save 15%)': 'वार्षिक (15% बचत)',
+      'Yearly (Save 20%)': 'वार्षिक (20% बचत)',
+      'Yes, activate': 'हाँ, सक्रिय करें',
+      'Yes, cancel': 'हाँ, रद्द करें',
+      'Yes, deactivate': 'हाँ, निष्क्रिय करें',
+      'member': 'सदस्य',
+      'members': 'सदस्य',
+
+      // --- Previously English-only keys (missing Hindi translation) ---
+      'Branch Name *': 'शाखा का नाम *',
+      'Copy Monday to All Days': 'सोमवार को सभी दिनों में कॉपी करें',
+      'Create Package Deal': 'पैकेज डील बनाएं',
+      'Enter Branch Name': 'शाखा का नाम दर्ज करें',
+      'First Name is required.': 'पहला नाम आवश्यक है।',
+      'Last Name must start with a capital letter.':
+          'अंतिम नाम एक बड़े अक्षर से शुरू होना चाहिए।',
+      'Please verify phone number.': 'कृपया फोन नंबर सत्यापित करें।',
+      'Select at least one service.': 'कम से कम एक सेवा चुनें।',
+
+      // --- Screen-by-screen hardcoded-string audit ---
+      '"Beauty begins the moment\nyou decide to be yourself."':
+          '"सुंदरता तभी शुरू होती है\nजब आप खुद बनने का फैसला करते हैं।"',
+      '"Investing in your hair is the\ncrown you never take off."':
+          '"अपने बालों में निवेश करना वह\nताज है जिसे आप कभी नहीं उतारते।"',
+      '123 Anywhere St., Any City': '123 एनीव्हेयर स्ट्रीट, एनी सिटी',
+      'Action': 'कार्रवाई',
+      'Activate Salon?': 'सैलून सक्रिय करें?',
+      'Add salary and commission details for each team member.':
+          'प्रत्येक टीम सदस्य के लिए वेतन और कमीशन विवरण जोड़ें।',
+      'All Status': 'सभी स्थिति',
+      'Amount *': 'राशि *',
+      'Back to Payroll Runs': 'पेरोल रन पर वापस जाएं',
+      'Bank Transfer': 'बैंक ट्रांसफर',
+      'Beauty\nSalon': 'ब्यूटी\nसैलून',
+      'Branch Attendance': 'शाखा उपस्थिति',
+      'CUSTOMER DETAILS': 'ग्राहक विवरण',
+      'Cash': 'नकद',
+      'Change Status': 'स्थिति बदलें',
+      'Commission (%)': 'कमीशन (%)',
+      'DEFAULT PAID LEAVES': 'डिफ़ॉल्ट सवैतनिक अवकाश',
+      'Deactivate Salon?': 'सैलून निष्क्रिय करें?',
+      'Default Paid Leaves': 'डिफ़ॉल्ट सवैतनिक अवकाश',
+      'Effective From': 'प्रभावी तिथि',
+      'Employee': 'कर्मचारी',
+      'Holiday Calendar': 'अवकाश कैलेंडर',
+      'Import Branch Clients': 'शाखा ग्राहक आयात करें',
+      'Jump straight to common tasks': 'सीधे सामान्य कार्यों पर जाएं',
+      'Net Payable': 'शुद्ध देय राशि',
+      'Net Payable (₹)': 'शुद्ध देय राशि (₹)',
+      'No advances found for the selected month.':
+          'चयनित माह के लिए कोई एडवांस नहीं मिला।',
+      'No attendance records found for this month.':
+          'इस माह के लिए कोई उपस्थिति रिकॉर्ड नहीं मिला।',
+      'No employees found for paid leaves.':
+          'सवैतनिक अवकाश के लिए कोई कर्मचारी नहीं मिला।',
+      'No employees found.': 'कोई कर्मचारी नहीं मिला।',
+      'No holidays added for this month.':
+          'इस माह के लिए कोई अवकाश नहीं जोड़ा गया।',
+      'No team members found for payroll setup.':
+          'पेरोल सेटअप के लिए कोई टीम सदस्य नहीं मिला।',
+      'Note': 'नोट',
+      'Order Lines': 'ऑर्डर लाइनें',
+      'Paid': 'भुगतान किया गया',
+      'Paid Leaves': 'सवैतनिक अवकाश',
+      'Pamper yourself in our beauty salon. We use the\nfinest products for all your beauty needs.':
+          'हमारे ब्यूटी सैलून में खुद को निखारें। हम आपकी सभी\nसुंदरता जरूरतों के लिए बेहतरीन उत्पादों का उपयोग करते हैं।',
+      'Payroll Calculation': 'पेरोल गणना',
+      'Payroll Runs': 'पेरोल रन',
+      'Payroll Summary': 'पेरोल सारांश',
+      'Payroll Type': 'पेरोल प्रकार',
+      'Payroll run summary': 'पेरोल रन सारांश',
+      'Please keep this screen open.': 'कृपया इस स्क्रीन को खुला रखें।',
+      'Please review all details. Once marked as paid, this payroll entry should not be modified.':
+          'कृपया सभी विवरणों की समीक्षा करें। भुगतान के रूप में चिह्नित होने के बाद, इस पेरोल प्रविष्टि को संशोधित नहीं किया जाना चाहिए।',
+      'Record Payment': 'भुगतान दर्ज करें',
+      'Remarks *': 'टिप्पणी *',
+      'Review all earnings, additions and deductions before marking as paid.':
+          'भुगतान के रूप में चिह्नित करने से पहले सभी कमाई, जोड़ और कटौती की समीक्षा करें।',
+      'Review the payroll entries and manage payments for this period.':
+          'इस अवधि के लिए पेरोल प्रविष्टियों की समीक्षा करें और भुगतान प्रबंधित करें।',
+      'STATUS': 'स्थिति',
+      'Salary (₹)': 'वेतन (₹)',
+      'Salon images will appear here once they are available.':
+          'सैलून की छवियां उपलब्ध होते ही यहां दिखाई देंगी।',
+      'Save 20%': '20% बचाएं',
+      'Set salary and commission for your team':
+          'अपनी टीम के लिए वेतन और कमीशन सेट करें',
+      'Set up': 'सेट अप करें',
+      'This will affect all branches': 'यह सभी शाखाओं को प्रभावित करेगा',
+      'Total Salary': 'कुल वेतन',
+      'Track staff payroll advances for team members.':
+          'टीम सदस्यों के लिए स्टाफ पेरोल एडवांस ट्रैक करें।',
+      'UPI': 'यूपीआई',
+      'Updating payroll review...': 'पेरोल समीक्षा अपडेट हो रही है...',
+      'What would you like to update?': 'आप क्या अपडेट करना चाहेंगे?',
+      'You can update salary or commission anytime. Changes will be used for payroll calculations.':
+          'आप कभी भी वेतन या कमीशन अपडेट कर सकते हैं। परिवर्तनों का उपयोग पेरोल गणना के लिए किया जाएगा।',
+      'Your OTP is used only to verify your login securely.':
+          'आपके OTP का उपयोग केवल आपके लॉगिन को सुरक्षित रूप से सत्यापित करने के लिए किया जाता है।',
+      'ⓘ Not setup yet': 'ⓘ अभी तक सेट अप नहीं किया गया',
+
+      // --- Second screen-by-screen audit round ---
+      'branch': 'शाखा',
+      'Confirm All': 'सभी की पुष्टि करें',
+      'Staff members': 'कर्मचारी सदस्य',
+      'Cloud Storage': 'क्लाउड स्टोरेज',
+      'Team Members Included': 'शामिल टीम सदस्य',
+      'Team Members Not Included': 'शामिल नहीं किए गए टीम सदस्य',
+      '{minutes} min total': 'कुल {minutes} मिनट',
+      '{minutes} min session': '{minutes} मिनट का सेशन',
+      'Activating "{salon}" will also activate all {count} {branch} under it.':
+          '"{salon}" को सक्रिय करने से इसके अंतर्गत सभी {count} {branch} भी सक्रिय हो जाएंगी।',
+      'Deactivating "{salon}" will also deactivate all {count} {branch} under it.':
+          '"{salon}" को निष्क्रिय करने से इसके अंतर्गत सभी {count} {branch} भी निष्क्रिय हो जाएंगी।',
+
+      // --- Third screen-by-screen audit round ---
+      'Amount Off': 'छूट राशि',
+      'Percentage Off': 'छूट प्रतिशत',
+      'Make Live': 'लाइव करें',
+      'Loading...please wait': 'लोड हो रहा है... कृपया प्रतीक्षा करें',
+      'Optimized Search Presence': 'अनुकूलित खोज उपस्थिति',
+      'Premium Booking Experience': 'प्रीमियम बुकिंग अनुभव',
+      'Premium Plan': 'प्रीमियम प्लान',
+      'Inventory & Staff Management': 'इन्वेंटरी और स्टाफ प्रबंधन',
+      '"The foundation of luxury is the precision of your process."':
+          '"विलासिता की नींव आपकी प्रक्रिया की सटीकता है।"',
+      '"Every branch should deliver the same signature experience."':
+          '"हर शाखा को एक जैसा खास अनुभव देना चाहिए।"',
+      'Edit Salon': 'सैलून संपादित करें',
+      'Tap to collapse': 'संक्षिप्त करने के लिए टैप करें',
+      'Tap to open': 'खोलने के लिए टैप करें',
+      'photos': 'फोटो',
+      'Item Number': 'आइटम संख्या',
+      'Ordered': 'ऑर्डर की गई',
+      'Return': 'वापसी',
+      'Received Quantity': 'प्राप्त मात्रा',
+      'Qty': 'मात्रा',
+      "Today's Bookings": 'आज की बुकिंग',
+      'Active Stylist': 'सक्रिय स्टाइलिस्ट',
+      'Active Stylists': 'सक्रिय स्टाइलिस्ट',
+      'Customers Served': 'सेवा प्राप्त ग्राहक',
+      'Customer Served': 'सेवा प्राप्त ग्राहक',
+      'Pending Payments': 'लंबित भुगतान',
+      'Pending Payment': 'लंबित भुगतान',
+      'No live staff activity is available.':
+          'कोई लाइव स्टाफ गतिविधि उपलब्ध नहीं है।',
+      'Weekly Schedule': 'साप्ताहिक शेड्यूल',
+      'Salon Time': 'सैलून समय',
+      'Branch Time': 'शाखा समय',
+      'See more': 'और देखें',
+      'See less': 'कम देखें',
+      'Open Days': 'खुले दिन',
+      'Checking...': 'जाँच हो रही है...',
+      'Check again': 'फिर से जाँचें',
     },
   };
 

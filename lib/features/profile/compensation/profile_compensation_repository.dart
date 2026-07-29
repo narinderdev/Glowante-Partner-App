@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/stylist_branch_selection.dart';
 import '../../../utils/api_service.dart';
+import '../../../utils/localization_helper.dart';
 import 'profile_compensation_models.dart';
 
 class ProfileCompensationRepository {
@@ -1955,7 +1956,7 @@ class ProfileCompensationRepository {
             override['userName'] ??
                 override['staffName'] ??
                 override['teamMemberName'],
-            fallback: 'Team Member #$staffId',
+            fallback: '${translateText('Team Member')} #$staffId',
           ),
           ruleType: isFixed
               ? CommissionRuleTypes.fixed
@@ -2033,7 +2034,8 @@ class ProfileCompensationRepository {
 
     return ProfileTeamMember(
       id: id,
-      name: fullName.isEmpty ? 'Team Member #$id' : fullName,
+      name:
+          fullName.isEmpty ? '${translateText('Team Member')} #$id' : fullName,
       role: roleText.isEmpty ? 'Team Member' : roleText,
       phoneNumber: _cleanText(
         map['phoneNumber'] ??

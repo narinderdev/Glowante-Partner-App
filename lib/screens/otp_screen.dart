@@ -805,18 +805,19 @@ class _OtpScreenState extends State<OtpScreen> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: _otpBorder),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.shield_outlined,
                         color: _otpGold,
                         size: 20,
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Your OTP is used only to verify your login securely.',
-                          style: TextStyle(
+                          translateText(
+                              'Your OTP is used only to verify your login securely.'),
+                          style: const TextStyle(
                             color: _otpMuted,
                             fontSize: 12,
                             height: 1.35,

@@ -425,7 +425,10 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                                           _remainingToReceive(line);
                                       if (qty > remaining) {
                                         return context.t(
-                                          "Can't be greater than $remaining",
+                                          "Can't be greater than {remaining}",
+                                          params: {
+                                            'remaining': remaining.toString(),
+                                          },
                                         );
                                       }
                                       return null;

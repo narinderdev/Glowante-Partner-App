@@ -636,13 +636,13 @@ class _TeamScreenState extends State<TeamScreen> {
       final name = (service['displayName'] ??
               service['name'] ??
               service['serviceName'] ??
-              'Service #$serviceId')
+              "${translateText('Service')} #$serviceId")
           .toString()
           .trim();
       options.add(
         _TeamServiceFilterOption(
           id: serviceId,
-          name: name.isEmpty ? 'Service #$serviceId' : name,
+          name: name.isEmpty ? "${translateText('Service')} #$serviceId" : name,
         ),
       );
       seen.add(serviceId);
@@ -1248,6 +1248,10 @@ class _TeamScreenState extends State<TeamScreen> {
       if (response['success'] == true && response['data'] is Map) {
         detailMember = Map<String, dynamic>.from(
             response['data'] as Map<dynamic, dynamic>);
+      } else {
+        debugPrint(
+          'Team member detail unavailable, using list payload: ${response['message'] ?? response['error'] ?? response}',
+        );
       }
     } catch (error) {
       debugPrint('Failed to load team member details: $error');
@@ -1342,7 +1346,11 @@ class _TeamScreenState extends State<TeamScreen> {
                     (_isLoadingTeamMembers && !_hasTeamMembers)) {
                   return AppLoader.page();
                 } else if (snapshot.hasError && branchesSoFar.isEmpty) {
-                  return Center(child: Text("Error: ${snapshot.error}"));
+                  return Center(
+                    child: Text(
+                      '${translateText('Error')}: ${snapshot.error}',
+                    ),
+                  );
                 } else if (branchesSoFar.isEmpty) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1433,7 +1441,9 @@ class _TeamScreenState extends State<TeamScreen> {
                             SizedBox(
                               height: MediaQuery.of(context).size.height * 0.45,
                               child: Center(
-                                child: Text("Error: ${teamSnapshot.error}"),
+                                child: Text(
+                                  '${translateText('Error')}: ${teamSnapshot.error}',
+                                ),
                               ),
                             ),
                           );

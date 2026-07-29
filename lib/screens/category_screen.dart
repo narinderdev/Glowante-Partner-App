@@ -220,7 +220,7 @@ String _servicePassiveWaitLabel(Map<String, dynamic> service) {
   if (service['passiveWaitEnabled'] != true) return '';
   final waitMinutes = _serviceInt(service['passiveWaitMinutes']);
   if (waitMinutes == null || waitMinutes <= 0) return '';
-  return '${translateText('Wait')}: $waitMinutes min';
+  return '${translateText('Wait')}: $waitMinutes ${translateText('min')}';
 }
 
 int _serviceCountForCategory(Map<String, dynamic> category) {
@@ -3243,8 +3243,9 @@ class _ServiceCard extends StatelessWidget {
     final String priceLabel = price != null
         ? formatMinorAmount(price, trimZeroDecimals: true)
         : translateText('No price');
-    final String durationLabel =
-        duration != null ? '$duration min' : translateText('No duration');
+    final String durationLabel = duration != null
+        ? '$duration ${translateText('min')}'
+        : translateText('No duration');
     final String serviceMeta = [
       durationLabel,
       if (waitLabel.isNotEmpty) waitLabel,
@@ -3439,7 +3440,7 @@ class _ServiceDetailsDialog extends StatelessWidget {
     final duration = _serviceInt(
       service['durationMin'] ?? service['defaultDurationMin'],
     );
-    return duration == null ? '-' : '$duration min';
+    return duration == null ? '-' : '$duration ${translateText('min')}';
   }
 
   String _commissionTypeLabel() {
@@ -3534,17 +3535,17 @@ class _ServiceDetailsDialog extends StatelessWidget {
       if (passiveWaitEnabled && initialBusy != null)
         _ServiceDetailRowData(
           translateText('Initial Busy'),
-          '$initialBusy min',
+          '$initialBusy ${translateText('min')}',
         ),
       if (passiveWaitEnabled && passiveWait != null)
         _ServiceDetailRowData(
           translateText('Passive Wait'),
-          '$passiveWait min',
+          '$passiveWait ${translateText('min')}',
         ),
       if (passiveWaitEnabled && finalBusy != null)
         _ServiceDetailRowData(
           translateText('Final Busy'),
-          '$finalBusy min',
+          '$finalBusy ${translateText('min')}',
         ),
     ];
     final commissionRows = [

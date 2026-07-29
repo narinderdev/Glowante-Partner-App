@@ -87,10 +87,10 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Default Paid Leaves',
-                      style: TextStyle(
+                      translateText('Default Paid Leaves'),
+                      style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                         color: _leaveInk,
@@ -103,7 +103,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                         : () {
                             _openBranchPaidLeaveConfigDialog();
                           },
-                    child: const Text('Edit'),
+                    child: Text(context.t('Edit')),
                   ),
                 ],
               ),
@@ -119,8 +119,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'DEFAULT PAID LEAVES',
+                    Text(
+                      translateText('DEFAULT PAID LEAVES'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
@@ -378,10 +378,10 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Paid Leaves',
-                  style: TextStyle(
+                  translateText('Paid Leaves'),
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                     color: _leaveInk,
@@ -412,8 +412,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
           ),
           const SizedBox(height: 16),
           if (paidLeaves.employees.isEmpty)
-            const Text(
-              'No employees found for paid leaves.',
+            Text(
+              translateText('No employees found for paid leaves.'),
               style: TextStyle(
                 fontSize: 13,
                 color: _leaveMuted,
@@ -463,7 +463,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                             : () {
                                 _openPaidLeaveDialog(employee);
                               },
-                        child: const Text('Edit'),
+                        child: Text(context.t('Edit')),
                       ),
                     ],
                   ),
@@ -493,8 +493,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Branch Attendance',
+          Text(
+            translateText('Branch Attendance'),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
@@ -512,8 +512,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
           ),
           const SizedBox(height: 16),
           if (attendance.employees.isEmpty)
-            const Text(
-              'No attendance records found for this month.',
+            Text(
+              translateText('No attendance records found for this month.'),
               style: TextStyle(
                 fontSize: 13,
                 color: _leaveMuted,
@@ -607,10 +607,10 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Holiday Calendar',
-                  style: TextStyle(
+                  translateText('Holiday Calendar'),
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                     color: _leaveInk,
@@ -639,8 +639,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
           ),
           const SizedBox(height: 16),
           if (holidayCalendar.holidays.isEmpty)
-            const Text(
-              'No holidays added for this month.',
+            Text(
+              translateText('No holidays added for this month.'),
               style: TextStyle(
                 fontSize: 13,
                 color: _leaveMuted,
@@ -694,14 +694,14 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                             _confirmDeleteHoliday(holiday);
                           }
                         },
-                        itemBuilder: (context) => const [
+                        itemBuilder: (context) => [
                           PopupMenuItem<String>(
                             value: 'edit',
-                            child: Text('Edit'),
+                            child: Text(context.t('Edit')),
                           ),
                           PopupMenuItem<String>(
                             value: 'delete',
-                            child: Text('Delete'),
+                            child: Text(context.t('Delete')),
                           ),
                         ],
                       ),
@@ -806,14 +806,21 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Delete holiday'),
+          title: Text(context.t('Delete holiday')),
           content: Text(
-            'Delete "${holiday.title.isEmpty ? 'Holiday' : holiday.title}" from the calendar?',
+            context.t(
+              'Delete "{name}" from the calendar?',
+              params: {
+                'name': holiday.title.isEmpty
+                    ? context.t('Holiday')
+                    : holiday.title,
+              },
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
+              child: Text(context.t('Cancel')),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(dialogContext, true),
@@ -821,7 +828,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 backgroundColor: const Color(0xFFB02A37),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Delete'),
+              child: Text(context.t('Delete')),
             ),
           ],
         );
@@ -860,15 +867,15 @@ class _LeaveMonthPickerDialogState extends State<_LeaveMonthPickerDialog> {
     final years =
         List<int>.generate(6, (index) => DateTime.now().year - 2 + index);
     return AlertDialog(
-      title: const Text('Select month'),
+      title: Text(context.t('Select month')),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<int>(
               initialValue: _selectedMonth,
-              decoration: const InputDecoration(
-                labelText: 'Month',
+              decoration: InputDecoration(
+                labelText: context.t('Month'),
                 border: OutlineInputBorder(),
               ),
               items: List<DropdownMenuItem<int>>.generate(
@@ -876,7 +883,9 @@ class _LeaveMonthPickerDialogState extends State<_LeaveMonthPickerDialog> {
                 (index) => DropdownMenuItem<int>(
                   value: index + 1,
                   child: Text(
-                    DateFormat('MMMM').format(DateTime(2026, index + 1)),
+                    DateFormat.MMMM(
+                      Localizations.localeOf(context).languageCode,
+                    ).format(DateTime(2026, index + 1)),
                   ),
                 ),
               ),
@@ -889,8 +898,8 @@ class _LeaveMonthPickerDialogState extends State<_LeaveMonthPickerDialog> {
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
               initialValue: _selectedYear,
-              decoration: const InputDecoration(
-                labelText: 'Year',
+              decoration: InputDecoration(
+                labelText: context.t('Year'),
                 border: OutlineInputBorder(),
               ),
               items: years
@@ -913,7 +922,7 @@ class _LeaveMonthPickerDialogState extends State<_LeaveMonthPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.t('Cancel')),
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(
@@ -924,7 +933,7 @@ class _LeaveMonthPickerDialogState extends State<_LeaveMonthPickerDialog> {
             backgroundColor: AppColors.starColor,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Apply'),
+          child: Text(context.t('Apply')),
         ),
       ],
     );
@@ -973,21 +982,23 @@ class _PaidLeaveDialogState extends State<_PaidLeaveDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Paid leaves • ${widget.employeeName}'),
+      title: Text(
+        '${context.t('Paid leaves')} • ${widget.employeeName}',
+      ),
       content: Form(
         key: _formKey,
         child: TextFormField(
           maxLength: 120,
           controller: _controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Paid leave days',
+          decoration: InputDecoration(
+            labelText: context.t('Paid leave days'),
             border: OutlineInputBorder(),
           ),
           validator: (value) {
             final days = int.tryParse(value?.trim() ?? '');
             if (days == null || days < 0) {
-              return 'Enter 0 or a positive number';
+              return context.t('Enter 0 or a positive number');
             }
             return null;
           },
@@ -999,7 +1010,7 @@ class _PaidLeaveDialogState extends State<_PaidLeaveDialog> {
             FocusScope.of(context).unfocus();
             Navigator.of(context).pop();
           },
-          child: const Text('Cancel'),
+          child: Text(context.t('Cancel')),
         ),
         ElevatedButton(
           onPressed: _submit,
@@ -1007,7 +1018,7 @@ class _PaidLeaveDialogState extends State<_PaidLeaveDialog> {
             backgroundColor: AppColors.starColor,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Save'),
+          child: Text(context.t('Save')),
         ),
       ],
     );
@@ -1143,7 +1154,7 @@ class _HolidayDialogState extends State<_HolidayDialog> {
             FocusScope.of(context).unfocus();
             Navigator.of(context).pop();
           },
-          child: const Text('Cancel'),
+          child: Text(context.t('Cancel')),
         ),
         ElevatedButton(
           onPressed: _submit,
@@ -1151,7 +1162,7 @@ class _HolidayDialogState extends State<_HolidayDialog> {
             backgroundColor: AppColors.starColor,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Save'),
+          child: Text(context.t('Save')),
         ),
       ],
     );

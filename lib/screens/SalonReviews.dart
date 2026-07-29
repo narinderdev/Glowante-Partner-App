@@ -956,7 +956,7 @@ class _ReviewBranchOption {
   String get displayLabel {
     if (branchName.trim().isNotEmpty) return branchName.trim();
     if (salonName.trim().isNotEmpty) return salonName.trim();
-    return 'Branch #$branchId';
+    return "${translateText('Branch')} #$branchId";
   }
 }
 

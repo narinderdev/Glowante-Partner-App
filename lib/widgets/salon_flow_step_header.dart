@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/localization_helper.dart';
+
 class SalonFlowStepHeader extends StatelessWidget {
   const SalonFlowStepHeader({
     super.key,
@@ -124,7 +126,7 @@ class _FlowStepIndicator extends StatelessWidget {
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              label,
+              context.t(label),
               maxLines: 1,
               softWrap: false,
               textAlign: TextAlign.center,

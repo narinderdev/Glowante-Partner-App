@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
-
-// The only page-loader message in the app — changing what the user sees
-// while any screen loads means editing this one line, not a call site.
-const String _kAppLoaderMessage = 'Loading...please wait';
+import '../utils/localization_helper.dart';
 
 class AppLoader extends StatelessWidget {
   const AppLoader._({
@@ -24,7 +21,7 @@ class AppLoader extends StatelessWidget {
       size: size,
       strokeWidth: 3,
       color: AppColors.starColor,
-      message: _kAppLoaderMessage,
+      message: translateText('Loading...please wait'),
       isPage: true,
     );
   }

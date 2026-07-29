@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/localization_helper.dart';
+
 class MultiStepFlowHeader extends StatelessWidget {
   const MultiStepFlowHeader({
     super.key,
@@ -121,7 +123,7 @@ class _FlowNode extends StatelessWidget {
           width: double.infinity,
           height: 20,
           child: Text(
-            label.toUpperCase(),
+            context.t(label).toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             softWrap: false,

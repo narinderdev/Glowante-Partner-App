@@ -311,10 +311,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.setString('imageUrl', normalized);
   }
 
-  void _changeLanguage(String langCode) {
+  Future<void> _changeLanguage(String langCode) async {
     _logProfile('language_changed', details: langCode);
     final langListener = Provider.of<LanguageListener>(context, listen: false);
-    langListener.changeLanguage(langCode);
+    await langListener.changeLanguage(langCode);
   }
 
   void _showLogoutModal(BuildContext context) {
@@ -702,8 +702,8 @@ class _ProfileUploadOverlay extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Please keep this screen open.',
+          Text(
+            translateText('Please keep this screen open.'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,

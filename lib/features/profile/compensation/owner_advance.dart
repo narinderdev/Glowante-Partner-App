@@ -103,8 +103,9 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Track staff payroll advances for team members.',
+                    Text(
+                      translateText(
+                          'Track staff payroll advances for team members.'),
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.35,
@@ -204,7 +205,7 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
                               ),
                             ),
                             icon: const Icon(Icons.add_rounded, size: 18),
-                            label: const Text('Add Advance'),
+                            label: Text(context.t('Add Advance')),
                           ),
                         ),
                       ],
@@ -228,11 +229,12 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
                   ],
                 ),
                 child: filteredAdvances.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(20),
+                    ? Padding(
+                        padding: const EdgeInsets.all(20),
                         child: Text(
-                          'No advances found for the selected month.',
-                          style: TextStyle(
+                          translateText(
+                              'No advances found for the selected month.'),
+                          style: const TextStyle(
                             fontSize: 14,
                             color: Color(0xFF6B7280),
                           ),
@@ -821,21 +823,6 @@ class _AdvanceMonthPickerDialog extends StatefulWidget {
 }
 
 class _AdvanceMonthPickerDialogState extends State<_AdvanceMonthPickerDialog> {
-  static const List<String> _monthLabels = <String>[
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
   late int _selectedYear;
   late int _selectedMonth;
 
@@ -894,7 +881,7 @@ class _AdvanceMonthPickerDialogState extends State<_AdvanceMonthPickerDialog> {
                       final now = DateTime.now();
                       Navigator.pop(context, DateTime(now.year, now.month));
                     },
-                    child: const Text('This month'),
+                    child: Text(context.t('This month')),
                   ),
                 ],
               ),
@@ -927,7 +914,9 @@ class _AdvanceMonthPickerDialogState extends State<_AdvanceMonthPickerDialog> {
                       },
                       child: Center(
                         child: Text(
-                          _monthLabels[index],
+                          DateFormat.MMM(
+                            Localizations.localeOf(context).languageCode,
+                          ).format(DateTime(2026, index + 1)),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -946,7 +935,7 @@ class _AdvanceMonthPickerDialogState extends State<_AdvanceMonthPickerDialog> {
                 alignment: Alignment.centerLeft,
                 child: TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Clear'),
+                  child: Text(context.t('Clear')),
                 ),
               ),
             ],
@@ -1437,7 +1426,24 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                           border: Border.all(color: const Color(0xFFE8DED6)),
                         ),
                         child: Text(
-                          'Preview: ${_selectedMember?.name ?? 'Select team member'} • ${formatRupeeAmount(int.tryParse(_amountController.text.trim()) ?? 0, trimZeroDecimals: true)} on ${_givenDate == null ? 'Select date' : DateFormat('dd MMM yyyy').format(_givenDate!)}',
+                          context.t(
+                            'Preview: {member} • {amount} on {date}',
+                            params: {
+                              'member': _selectedMember?.name ??
+                                  context.t('Select team member'),
+                              'amount': formatRupeeAmount(
+                                int.tryParse(_amountController.text.trim()) ??
+                                    0,
+                                trimZeroDecimals: true,
+                              ),
+                              'date': _givenDate == null
+                                  ? context.t('Select date')
+                                  : DateFormat.yMMMd(
+                                      Localizations.localeOf(context)
+                                          .languageCode,
+                                    ).format(_givenDate!),
+                            },
+                          ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 2,
                           style: const TextStyle(
@@ -1462,7 +1468,7 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: const Text('Cancel'),
+                              child: Text(context.t('Cancel')),
                             ),
                           ),
                           const SizedBox(width: 10),

@@ -58,10 +58,10 @@ extension _OwnerPayrollUi on _ProfileCompensationScreenState {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Payroll Runs',
-                              style: TextStyle(
+                              translateText('Payroll Runs'),
+                              style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF1C1917),
@@ -779,8 +779,8 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      CircleAvatar(
+                    children: [
+                      const CircleAvatar(
                         radius: 18,
                         backgroundColor: Color(0xFFB45309),
                         child: Icon(
@@ -789,23 +789,25 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                           size: 18,
                         ),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Set salary and commission for your team',
-                              style: TextStyle(
+                              translateText(
+                                  'Set salary and commission for your team'),
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFFB45309),
                               ),
                             ),
-                            SizedBox(height: 6),
+                            const SizedBox(height: 6),
                             Text(
-                              'You can update salary or commission anytime. Changes will be used for payroll calculations.',
-                              style: TextStyle(
+                              translateText(
+                                  'You can update salary or commission anytime. Changes will be used for payroll calculations.'),
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF6B7280),
                               ),
@@ -828,7 +830,7 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Team Members (${_visibleTeamMembers.length})',
+                          '${translateText('Team Members')} (${_visibleTeamMembers.length})',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -836,8 +838,9 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Add salary and commission details for each team member.',
+                        Text(
+                          translateText(
+                              'Add salary and commission details for each team member.'),
                           style: TextStyle(
                             fontSize: 13,
                             color: Color(0xFF6B7280),
@@ -869,8 +872,9 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                   width: tableWidth,
                                   child: Column(
                                     children: [
-                                      const Padding(
-                                        padding: EdgeInsets.only(bottom: 12),
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 12),
                                         child: Row(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
@@ -878,8 +882,8 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                             Expanded(
                                               flex: 3,
                                               child: Text(
-                                                'Team Member',
-                                                style: TextStyle(
+                                                translateText('Team Member'),
+                                                style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                   color: Color(0xFF6B7280),
@@ -889,8 +893,8 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                             Expanded(
                                               flex: 2,
                                               child: Text(
-                                                'Payroll Type',
-                                                style: TextStyle(
+                                                translateText('Payroll Type'),
+                                                style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                   color: Color(0xFF6B7280),
@@ -899,8 +903,8 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                             ),
                                             Expanded(
                                               child: Text(
-                                                'Salary (₹)',
-                                                style: TextStyle(
+                                                translateText('Salary (₹)'),
+                                                style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                   color: Color(0xFF6B7280),
@@ -909,8 +913,8 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                             ),
                                             Expanded(
                                               child: Text(
-                                                'Commission (%)',
-                                                style: TextStyle(
+                                                translateText('Commission (%)'),
+                                                style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                   color: Color(0xFF6B7280),
@@ -919,8 +923,8 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                             ),
                                             Expanded(
                                               child: Text(
-                                                'Joining Date',
-                                                style: TextStyle(
+                                                translateText('Joining Date'),
+                                                style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                   color: Color(0xFF6B7280),
@@ -929,8 +933,8 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                             ),
                                             Expanded(
                                               child: Text(
-                                                'Effective From',
-                                                style: TextStyle(
+                                                translateText('Effective From'),
+                                                style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                   color: Color(0xFF6B7280),
@@ -941,9 +945,9 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                               width: 96,
                                               child: Center(
                                                 child: Text(
-                                                  'Action',
+                                                  translateText('Action'),
                                                   textAlign: TextAlign.center,
-                                                  style: TextStyle(
+                                                  style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w700,
                                                     color: Color(0xFF6B7280),
@@ -957,14 +961,15 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                       const Divider(height: 1),
                                       const SizedBox(height: 14),
                                       if (_visibleTeamMembers.isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
                                             vertical: 34,
                                           ),
                                           child: Center(
                                             child: Text(
-                                              'No team members found for payroll setup.',
-                                              style: TextStyle(
+                                              translateText(
+                                                  'No team members found for payroll setup.'),
+                                              style: const TextStyle(
                                                 fontSize: 13,
                                                 color: Color(0xFF64748B),
                                               ),
@@ -1217,7 +1222,7 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: const Text('Review'),
+                              child: Text(context.t('Review')),
                             ),
                           ],
                         ),

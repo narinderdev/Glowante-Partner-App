@@ -525,8 +525,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       if (text.isNotEmpty) return text;
     }
     return _cleanText(purchase['purchaseType']).toUpperCase() == 'DEAL'
-        ? 'Deal'
-        : 'Package';
+        ? translateText('Deal')
+        : translateText('Package');
   }
 
   String _purchaseBranchName(Map<String, dynamic> purchase) {
@@ -932,8 +932,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'CUSTOMER DETAILS',
+                                Text(
+                                  translateText('CUSTOMER DETAILS'),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -972,7 +972,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            child: const Text('Close'),
+                            child: Text(context.t('Close')),
                           ),
                         ],
                       ),
@@ -985,8 +985,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'STATUS',
+                                Text(
+                                  translateText('STATUS'),
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
@@ -1010,8 +1010,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'LAST VISIT',
+                                Text(
+                                  translateText('LAST VISIT'),
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
@@ -1235,7 +1235,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Import Branch Clients',
+                              translateText('Import Branch Clients'),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -2130,8 +2130,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                                                                   .circular(10),
                                                         ),
                                                       ),
-                                                      child: const Text(
-                                                        'View',
+                                                      child: Text(
+                                                        translateText('View'),
                                                         style: TextStyle(
                                                           fontWeight:
                                                               FontWeight.w700,

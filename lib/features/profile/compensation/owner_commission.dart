@@ -2003,7 +2003,11 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     final names = invalidMembers.map((member) => member.name).join(', ');
 
     return context.t(
-      'Effective from cannot be earlier than the joining date for ${invalidMembers.length == 1 ? 'member' : 'members'}: $names.',
+      'Effective from cannot be earlier than the joining date for {target}: {names}.',
+      params: {
+        'target': context.t(invalidMembers.length == 1 ? 'member' : 'members'),
+        'names': names,
+      },
     );
   }
 
@@ -2442,7 +2446,8 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
       final priceRupees = minorAmountToRupees(selectedService?.priceMinor);
       if (priceRupees != null && parsed > priceRupees) {
         return translateText(
-          'Fixed amount cannot be greater than Rs. ${_formatOverrideNumber(priceRupees)}',
+          'Fixed amount cannot be greater than Rs. {amount}',
+          params: {'amount': _formatOverrideNumber(priceRupees)},
         );
       }
     }
@@ -3393,7 +3398,12 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                                       'This rate overrides the default commission for the selected staff on this service.',
                                     )
                                   : context.t(
-                                      'This rate overrides the default ${_serviceDefaultCommissionLabel(selectedService)} commission for the selected staff on this service.',
+                                      'This rate overrides the default {rate} commission for the selected staff on this service.',
+                                      params: {
+                                        'rate': _serviceDefaultCommissionLabel(
+                                          selectedService,
+                                        ),
+                                      },
                                     ),
                               style: const TextStyle(
                                 fontSize: 11,

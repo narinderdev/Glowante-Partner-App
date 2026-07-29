@@ -767,7 +767,8 @@ class _AddServicesState extends State<AddServices> {
                 ? allowedMaxRupee.toStringAsFixed(0)
                 : allowedMaxRupee.toStringAsFixed(2));
         return translateText(
-          "Max commission cannot exceed $allowedMaxText",
+          'Max commission cannot exceed {amount}',
+          params: {'amount': allowedMaxText},
         );
       }
     }
@@ -950,7 +951,7 @@ class _AddServicesState extends State<AddServices> {
             children: [
               Expanded(
                 child: Text(
-                  '${translateText('Busy start')}: $start min',
+                  '${translateText('Busy start')}: $start ${translateText('min')}',
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -960,7 +961,7 @@ class _AddServicesState extends State<AddServices> {
               ),
               Expanded(
                 child: Text(
-                  '${translateText('Passive wait')}: $passive min',
+                  '${translateText('Passive wait')}: $passive ${translateText('min')}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 10,
@@ -971,7 +972,7 @@ class _AddServicesState extends State<AddServices> {
               ),
               Expanded(
                 child: Text(
-                  '${translateText('Busy end')}: $finalBusy min',
+                  '${translateText('Busy end')}: $finalBusy ${translateText('min')}',
                   textAlign: TextAlign.right,
                   style: const TextStyle(
                     fontSize: 10,
@@ -1427,14 +1428,14 @@ class _AddServicesState extends State<AddServices> {
                                 DropdownButtonFormField<String>(
                                   initialValue: _commissionType,
                                   decoration: _inputDecoration(),
-                                  items: const [
+                                  items: [
                                     DropdownMenuItem(
                                       value: 'fixed',
-                                      child: Text('Fixed'),
+                                      child: Text(translateText('Fixed')),
                                     ),
                                     DropdownMenuItem(
                                       value: 'percentage',
-                                      child: Text('Percentage'),
+                                      child: Text(translateText('Percentage')),
                                     ),
                                   ],
                                   onChanged: (value) {

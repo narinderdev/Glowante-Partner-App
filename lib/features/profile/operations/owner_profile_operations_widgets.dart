@@ -230,7 +230,7 @@ class _DetailLine extends StatelessWidget {
           ),
           children: [
             TextSpan(
-              text: '$label: ',
+              text: '${context.t(label)}: ',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             TextSpan(text: value),
@@ -432,7 +432,7 @@ class _LinesTableState extends State<_LinesTable> {
               .map(
                 (header) => DataColumn(
                   label: Text(
-                    header,
+                    translateText(header),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

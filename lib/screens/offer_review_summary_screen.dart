@@ -62,9 +62,11 @@ class _OfferReviewSummaryScreenState extends State<OfferReviewSummaryScreen> {
   static const Color _softGold = Color(0xFFF5EAD2);
 
   String get _discountLabel {
-    if (widget.pricingMode == 'Fixed') return 'Amount Off';
-    if (widget.discountType == 'Percent') return 'Percentage Off';
-    return 'Amount Off';
+    if (widget.pricingMode == 'Fixed') return translateText('Amount Off');
+    if (widget.discountType == 'Percent') {
+      return translateText('Percentage Off');
+    }
+    return translateText('Amount Off');
   }
 
   String get _discountValue {

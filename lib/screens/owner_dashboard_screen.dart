@@ -333,7 +333,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final header = _dashboard['header'];
     if (header is Map) {
       final subtext = _cleanText(header['subtext']);
-      if (subtext.isNotEmpty) return subtext;
+      if (subtext.isNotEmpty) return context.t(subtext);
     }
     return context.t("Here's what's happening at your salon today.");
   }
@@ -444,11 +444,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   )
                 else if (_selectedBranchId == null && !_isLoadingDashboard)
                   Padding(
-                    padding: const EdgeInsets.only(top: 60),
-                    child: Text(
-                      context.t('No Salons available'),
-                      textAlign: TextAlign.center,
-                    ),
+                    padding: const EdgeInsets.fromLTRB(16, 72, 16, 0),
+                    child: const _DashboardNoSalonState(),
                   )
                 else if (_selectedBranchId != null) ...[
                   if (_branchOptions.length > 1) _buildBranchSelector(),
@@ -1528,6 +1525,138 @@ class _DashboardAvatarFallback extends StatelessWidget {
   }
 }
 
+class _DashboardNoSalonState extends StatelessWidget {
+  const _DashboardNoSalonState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8D8C8)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 20,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 74,
+            height: 74,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3D5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE8C774)),
+            ),
+            child: const Icon(
+              Icons.storefront_rounded,
+              color: AppColors.starColor,
+              size: 36,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            context.t('No salons available'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF2D2926),
+              fontSize: 22,
+              height: 1.2,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.t(
+              'Your dashboard will show bookings, revenue, clients, and staff activity once a salon is available.',
+            ),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF6B5B4D),
+              fontSize: 13,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 22),
+          const Row(
+            children: [
+              Expanded(
+                child: _DashboardNoSalonMetric(
+                  icon: Icons.currency_rupee_rounded,
+                  label: 'Revenue',
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: _DashboardNoSalonMetric(
+                  icon: Icons.calendar_month_rounded,
+                  label: 'Bookings',
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: _DashboardNoSalonMetric(
+                  icon: Icons.groups_2_rounded,
+                  label: 'Team',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardNoSalonMetric extends StatelessWidget {
+  const _DashboardNoSalonMetric({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 78,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEDE1D5)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: AppColors.starColor, size: 22),
+          const SizedBox(height: 8),
+          Text(
+            context.t(label),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF6B5B4D),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DashboardSection extends StatelessWidget {
   const _DashboardSection({
     required this.child,
@@ -1742,7 +1871,7 @@ class _KpiCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Text(
-            label.toUpperCase(),
+            context.t(label).toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1766,7 +1895,7 @@ class _KpiCard extends StatelessWidget {
           if (hasChange) ...[
             const SizedBox(height: 4),
             Text(
-              '$changeIcon ${percentBuilder(data['change_percent'])} $changeLabel',
+              '$changeIcon ${percentBuilder(data['change_percent'])} ${context.t(changeLabel)}',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -1837,7 +1966,9 @@ class _RevenueOverviewCard extends StatelessWidget {
                   border: Border.all(color: AppColors.starColor),
                 ),
                 child: Text(
-                  periodLabel.isEmpty ? context.t('This Month') : periodLabel,
+                  periodLabel.isEmpty
+                      ? context.t('This Month')
+                      : context.t(periodLabel),
                   style: TextStyle(
                     fontSize: 10,
                     height: 1.1,
@@ -1862,7 +1993,7 @@ class _RevenueOverviewCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '$changeIcon ${percentBuilder(data['change_percent'])} ${cleanText(data['change_label'])}',
+                '$changeIcon ${percentBuilder(data['change_percent'])} ${context.t(cleanText(data['change_label']))}',
                 style: TextStyle(
                   color: changeColor,
                   fontSize: 10,
@@ -1975,7 +2106,7 @@ class _RevenueSourceCard extends StatelessWidget {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                cleanText(source['label']),
+                                context.t(cleanText(source['label'])),
                                 style: const TextStyle(fontSize: 13),
                               ),
                             ),
@@ -2631,7 +2762,7 @@ class _AppointmentSummaryTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            label.toUpperCase(),
+            context.t(label).toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -2669,7 +2800,6 @@ class _AppointmentEmptyBookNow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 142,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
       decoration: BoxDecoration(
         color: const Color(0xFFFAFAFA),
@@ -2677,6 +2807,7 @@ class _AppointmentEmptyBookNow extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE8E1DB)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(
@@ -3188,7 +3319,7 @@ class _NotificationDashboardRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  cleanText(item['title']),
+                  context.t(cleanText(item['title'])),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -3327,7 +3458,7 @@ class _EmptyDashedBox extends StatelessWidget {
           Icon(icon, color: const Color(0xFFC8B7D8), size: 28),
           const SizedBox(height: 12),
           Text(
-            message,
+            translateText(message),
             textAlign: TextAlign.center,
             style: const TextStyle(color: Color(0xFF8A6F58)),
           ),
@@ -3675,7 +3806,8 @@ class _DrawerProfileQuoteCardState extends State<_DrawerProfileQuoteCard> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            '"Investing in your hair is the\ncrown you never take off."',
+            translateText(
+                '"Investing in your hair is the\ncrown you never take off."'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 8.5,

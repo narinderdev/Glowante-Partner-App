@@ -204,7 +204,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         _MembershipSalonOption(
           salonId: salonId,
           name: _cleanText(salon['name']).isEmpty
-              ? 'Salon #$salonId'
+              ? '${translateText('Salon')} #$salonId'
               : _cleanText(salon['name']),
           address:
               salonAddress.isNotEmpty ? salonAddress : fallbackBranchAddress,
@@ -951,8 +951,8 @@ class _PlansHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: const Color(0xFFE8C774)),
               ),
-              child: const Text(
-                'Save 20%',
+              child: Text(
+                translateText('Save 20%'),
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
@@ -1172,9 +1172,16 @@ class _PlanCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _FeatureLine(text: '${plan.branchLimit} Branch'),
-          _FeatureLine(text: '${plan.staffLimit} Staff members'),
-          _FeatureLine(text: '${plan.storageLimit}GB Cloud Storage'),
+          _FeatureLine(
+            text:
+                '${plan.branchLimit} ${translateText(plan.branchLimit <= 1 ? 'Branch' : 'Branches')}',
+          ),
+          _FeatureLine(
+            text: '${plan.staffLimit} ${translateText('Staff members')}',
+          ),
+          _FeatureLine(
+            text: '${plan.storageLimit}GB ${translateText('Cloud Storage')}',
+          ),
           for (final feature in plan.includedFeatures.take(5))
             _FeatureLine(text: feature),
           const SizedBox(height: 16),
@@ -1197,7 +1204,7 @@ class _PlanCard extends StatelessWidget {
               child: Text(
                 isCurrent
                     ? context.t('Current Plan')
-                    : context.t('Choose ${plan.name}'),
+                    : '${context.t('Choose')} ${context.t(plan.name)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1688,7 +1695,9 @@ class _ExpiryBanner extends StatelessWidget {
     final message = expired
         ? context.t('Your membership has expired. Renew to continue service.')
         : context.t(
-            'Your membership will expire in $days days. Renew early to avoid service interruption.');
+            'Your membership will expire in {days} days. Renew early to avoid service interruption.',
+            params: {'days': days.toString()},
+          );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2445,13 +2454,15 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                     SizedBox(
                       width: double.infinity,
                       child: SegmentedButton<bool>(
-                        segments: const [
+                        segments: [
                           ButtonSegment<bool>(
                             value: false,
-                            label: Text('Monthly'),
+                            label: Text(context.t('Monthly')),
                           ),
                           ButtonSegment<bool>(
-                              value: true, label: Text('Yearly (Save 15%)')),
+                            value: true,
+                            label: Text(context.t('Yearly (Save 15%)')),
+                          ),
                         ],
                         selected: {_yearlyBilling},
                         showSelectedIcon: false,
@@ -2543,14 +2554,16 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                       ),
                       icon: const Icon(Icons.keyboard_arrow_down_rounded,
                           size: 18),
-                      items: const [
+                      items: [
                         DropdownMenuItem<String>(
                           value: 'Saved Credit Card (**** 4242)',
-                          child: Text('Saved Credit Card (**** 4242)'),
+                          child: Text(
+                            context.t('Saved Credit Card (**** 4242)'),
+                          ),
                         ),
                         DropdownMenuItem<String>(
                           value: 'Razorpay',
-                          child: Text('Razorpay'),
+                          child: Text(context.t('Razorpay')),
                         ),
                       ],
                       onChanged: (value) {
@@ -2753,10 +2766,15 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
               ),
               const SizedBox(height: 8),
               SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment<bool>(value: false, label: Text('Monthly')),
+                segments: [
                   ButtonSegment<bool>(
-                      value: true, label: Text('Yearly (Save 20%)')),
+                    value: false,
+                    label: Text(context.t('Monthly')),
+                  ),
+                  ButtonSegment<bool>(
+                    value: true,
+                    label: Text(context.t('Yearly (Save 20%)')),
+                  ),
                 ],
                 selected: {_yearlyBilling},
                 showSelectedIcon: false,

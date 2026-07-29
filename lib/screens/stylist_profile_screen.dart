@@ -96,9 +96,9 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
     return '';
   }
 
-  void _changeLanguage(String langCode) {
+  Future<void> _changeLanguage(String langCode) async {
     final langListener = Provider.of<LanguageListener>(context, listen: false);
-    langListener.changeLanguage(langCode);
+    await langListener.changeLanguage(langCode);
   }
 
   void _openDoc(String title, String url) {

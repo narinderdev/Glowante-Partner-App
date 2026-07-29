@@ -31,7 +31,7 @@
 //             // App bar with back button only
 //             SliverAppBar(
 //               pinned: true,
-//               title: const Text('Branch Details'),
+//               title: Text(translateText('Branch Details'))),
 //               automaticallyImplyLeading: true,
 //               iconTheme: const IconThemeData(color: Colors.white),
 //               backgroundColor: Colors.purple,

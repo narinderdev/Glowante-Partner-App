@@ -812,12 +812,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(timeRange,
                         style: const TextStyle(color: Colors.black54)),
                     SizedBox(height: 4),
-                    Text('Status: $status',
+                    Text('${translateText('Status')}: $status',
                         style: const TextStyle(color: Colors.black54)),
                     if (priceTotal != null) ...[
                       SizedBox(height: 4),
                       Text(
-                        'Total Price: ${formatMinorAmount(priceTotal)}',
+                        '${translateText('Total Price')}: ${formatMinorAmount(priceTotal)}',
                         style: const TextStyle(color: Colors.black87),
                       ),
                     ],
@@ -869,8 +869,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             ? AppLoader.inline(
                                 size: 18, strokeWidth: 2, color: Colors.white)
                             : Text(apptIds.length <= 1
-                                ? 'Confirm'
-                                : 'Confirm All (${apptIds.length})'),
+                                ? translateText('Confirm')
+                                : '${translateText('Confirm All')} (${apptIds.length})'),
                       ),
                     ),
                     SizedBox(height: 8),
@@ -1516,7 +1516,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title,
+          Text(translateText(title),
               style: TextStyle(color: color, fontWeight: FontWeight.w600)),
           SizedBox(height: 4),
           Text('$count',

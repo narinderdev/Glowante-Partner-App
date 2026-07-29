@@ -706,7 +706,7 @@ class SalonsScreenState extends State<SalonsScreen> {
                             0,
                             0,
                             0,
-                            widget.readOnly ? 18 : 128,
+                            widget.readOnly ? 18 : 220,
                           ),
                           sliver: SliverList(
                             delegate:
@@ -791,7 +791,7 @@ class SalonsScreenState extends State<SalonsScreen> {
       floatingActionButton: (widget.readOnly || !hasSalon)
           ? null
           : Padding(
-              padding: const EdgeInsets.only(right: 4, bottom: 12),
+              padding: const EdgeInsets.only(right: 4, bottom: 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1361,11 +1361,11 @@ Future<bool> showActivateSalonConfirmation({
                         color: Color(0xFF8B6500)),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      "Activate Salon?",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      translateText("Activate Salon?"),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                   ),
                   IconButton(
@@ -1387,8 +1387,8 @@ Future<bool> showActivateSalonConfirmation({
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "This will affect all branches",
+                      Text(
+                        translateText("This will affect all branches"),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF6B4E00),
@@ -1396,8 +1396,16 @@ Future<bool> showActivateSalonConfirmation({
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Activating "$salonName" will also activate all '
-                        '$branchCount ${branchCount <= 1 ? 'branch' : 'branches'} under it.',
+                        translateText(
+                          'Activating "{salon}" will also activate all {count} {branch} under it.',
+                          params: {
+                            'salon': salonName,
+                            'count': '$branchCount',
+                            'branch': translateText(
+                              branchCount <= 1 ? 'branch' : 'branches',
+                            ),
+                          },
+                        ),
                         style: const TextStyle(
                           color: Color(0xFF6B4E00),
                           fontSize: 13,
@@ -1420,7 +1428,7 @@ Future<bool> showActivateSalonConfirmation({
                 children: [
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text("Cancel"),
+                    child: Text(translateText('Cancel')),
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton(
@@ -1429,7 +1437,7 @@ Future<bool> showActivateSalonConfirmation({
                       backgroundColor: const Color(0xFF047857),
                       foregroundColor: Colors.white,
                     ),
-                    child: const Text("Yes, activate"),
+                    child: Text(translateText('Yes, activate')),
                   ),
                 ],
               ),
@@ -1586,10 +1594,10 @@ Future<void> showChangeStatusModal({
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        "Change Status",
-                        style: TextStyle(
+                        translateText("Change Status"),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1C1917),
@@ -1611,8 +1619,8 @@ Future<void> showChangeStatusModal({
                   ],
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  "What would you like to update?",
+                Text(
+                  translateText("What would you like to update?"),
                   style: TextStyle(
                     fontSize: 12,
                     color: Color(0xFF78716C),
@@ -1654,8 +1662,8 @@ Future<void> showChangeStatusModal({
                         ),
                         shape: const StadiumBorder(),
                       ),
-                      child: const Text(
-                        "Cancel",
+                      child: Text(
+                        translateText("Cancel"),
                         style: TextStyle(
                           fontSize: 13,
                           color: Color(0xFF6B7280),
@@ -1894,11 +1902,11 @@ Future<bool> showDeactivateSalonConfirmation({
                         color: Color(0xFF8B6500)),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      "Deactivate Salon?",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      translateText("Deactivate Salon?"),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                   ),
                   IconButton(
@@ -1920,8 +1928,8 @@ Future<bool> showDeactivateSalonConfirmation({
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "This will affect all branches",
+                      Text(
+                        translateText("This will affect all branches"),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF6B4E00),
@@ -1929,8 +1937,16 @@ Future<bool> showDeactivateSalonConfirmation({
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Deactivating "$salonName" will also deactivate all '
-                        '$branchCount ${branchCount <= 1 ? 'branch' : 'branches'} under it.',
+                        translateText(
+                          'Deactivating "{salon}" will also deactivate all {count} {branch} under it.',
+                          params: {
+                            'salon': salonName,
+                            'count': '$branchCount',
+                            'branch': translateText(
+                              branchCount <= 1 ? 'branch' : 'branches',
+                            ),
+                          },
+                        ),
                         style: const TextStyle(
                           color: Color(0xFF6B4E00),
                           fontSize: 13,
@@ -1953,7 +1969,7 @@ Future<bool> showDeactivateSalonConfirmation({
                 children: [
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text("Cancel"),
+                    child: Text(translateText('Cancel')),
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton(
@@ -1962,7 +1978,7 @@ Future<bool> showDeactivateSalonConfirmation({
                       backgroundColor: const Color(0xFFE53935),
                       foregroundColor: Colors.white,
                     ),
-                    child: const Text("Yes, deactivate"),
+                    child: Text(translateText('Yes, deactivate')),
                   ),
                 ],
               ),
@@ -2053,18 +2069,18 @@ class _SalonCard extends StatelessWidget {
         width: double.infinity,
         color: const Color(0xFFF7F3EF),
         alignment: Alignment.center,
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.image_not_supported_outlined,
               color: Color(0xFF8B6500),
               size: 30,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'No image available',
-              style: TextStyle(
+              translateText('No image available'),
+              style: const TextStyle(
                 color: Color(0xFF756A61),
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
@@ -2781,9 +2797,10 @@ class _SalonCard extends StatelessWidget {
                     runSpacing: 7,
                     children: [
                       _countChip(
-                        '$branchCount ${branchCount <= 1 ? 'Branch' : 'Branches'}',
+                        '$branchCount ${translateText(branchCount <= 1 ? 'Branch' : 'Branches')}',
                       ),
-                      if (staffCount > 0) _countChip('$staffCount Staff'),
+                      if (staffCount > 0)
+                        _countChip('$staffCount ${translateText('Staff')}'),
                     ],
                   ),
                 ],
@@ -3496,7 +3513,7 @@ class _SalonDetailsDialog extends StatelessWidget {
                             if (branches.isNotEmpty)
                               _DialogStatusPill(
                                 label:
-                                    '${branches.length} ${branches.length <= 1 ? 'Branch' : 'Branches'}',
+                                    '${branches.length} ${translateText(branches.length <= 1 ? 'Branch' : 'Branches')}',
                                 active: true,
                               ),
                           ],
@@ -4696,8 +4713,9 @@ class _FabActionPanel extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                const Text(
-                                  'Jump straight to common tasks',
+                                Text(
+                                  translateText(
+                                      'Jump straight to common tasks'),
                                   style: TextStyle(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w600,
@@ -4776,8 +4794,8 @@ class _QuickActionFab extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = translateText(isExpanded ? 'Close' : 'Quick actions');
     final icon = isExpanded ? Icons.close_rounded : Icons.menu_rounded;
-    final subtitle = isExpanded ? 'Tap to collapse' : 'Tap to open';
-
+    final subtitle =
+        translateText(isExpanded ? 'Tap to collapse' : 'Tap to open');
     return Material(
       color: Colors.transparent,
       elevation: isExpanded ? 10 : 9,
@@ -4789,90 +4807,114 @@ class _QuickActionFab extends StatelessWidget {
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(999),
-        child: Ink(
-          width: isExpanded ? 168 : 192,
-          height: 60,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: isExpanded
-                  ? const [Color(0xFF7A5700), Color(0xFFA67A00)]
-                  : const [Color(0xFF8B6500), Color(0xFFC2941B)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(999),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: isExpanded ? 150 : 166,
+            maxWidth: isExpanded ? 196 : 204,
+            minHeight: 58,
           ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -14,
-                left: -12,
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [Color(0x33FFFFFF), Color(0x00FFFFFF)],
-                    ),
-                  ),
+          child: IntrinsicWidth(
+            child: Ink(
+              height: 58,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isExpanded
+                      ? const [Color(0xFF7A5700), Color(0xFFA67A00)]
+                      : const [Color(0xFF8B6500), Color(0xFFC2941B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(999),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedRotation(
-                      turns: isExpanded ? 0.125 : 0,
-                      duration: const Duration(milliseconds: 180),
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: Icon(
-                          icon,
-                          size: 18,
-                          color: Colors.white,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: -14,
+                    left: -12,
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [Color(0x33FFFFFF), Color(0x00FFFFFF)],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          AnimatedRotation(
+                            turns: isExpanded ? 0.125 : 0,
+                            duration: const Duration(milliseconds: 180),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                ),
+                              ),
+                              child: Icon(
+                                icon,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.82),
-                            fontSize: 10.2,
-                            fontWeight: FontWeight.w600,
-                            height: 1,
+                          const SizedBox(width: 10),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: isExpanded ? 118 : 126,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.82),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

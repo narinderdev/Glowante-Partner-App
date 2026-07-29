@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/address_formatter.dart';
+import '../utils/localization_helper.dart';
 
 class StylistBranchSelection {
   const StylistBranchSelection({
@@ -59,7 +60,7 @@ class OwnerBranchOption {
   String get label {
     if (branchName.trim().isNotEmpty) return branchName.trim();
     if (salonName.trim().isNotEmpty) return salonName.trim();
-    return 'Branch #$branchId';
+    return "${translateText('Branch')} #$branchId";
   }
 
   String get subtitle {

@@ -152,7 +152,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             buildStars(overallRating.round()),
-                            Text("($totalReviews Reviews)",
+                            Text("($totalReviews ${translateText('Reviews')})",
                                 style: TextStyle(color: Colors.grey[600])),
                           ],
                         ),
@@ -181,11 +181,15 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16)),
                                     // Text("Appointment ID: ${appt["appointmentId"]}"),
-                                    Text("Client: ${appt["client"]}"),
                                     Text(
-                                        "Start: ${dateFormat.format(appt["startAt"])}"),
+                                      '${translateText('Client')}: ${appt["client"]}',
+                                    ),
                                     Text(
-                                        "End: ${dateFormat.format(appt["endAt"])}"),
+                                      '${translateText('Start')}: ${dateFormat.format(appt["startAt"])}',
+                                    ),
+                                    Text(
+                                      '${translateText('End')}: ${dateFormat.format(appt["endAt"])}',
+                                    ),
                                     SizedBox(height: 10),
 
                                     // 🏢 Branch review

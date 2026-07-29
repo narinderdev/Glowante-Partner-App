@@ -104,7 +104,7 @@ class _SalonBranchOption {
   String get label {
     if (branchName.isNotEmpty) return branchName;
     if (salonName.isNotEmpty) return salonName;
-    return 'Salon #$salonId';
+    return "${translateText('Salon')} #$salonId";
   }
 
   List<_BranchDaySlot> slotsForDate(DateTime date) {
@@ -194,6 +194,8 @@ class _WorkingHourRange {
   final int startMinute;
   final int endMinute;
 }
+
+const String _staffBookingSourceKey = '__sourceBooking';
 
 class _BookingStatusVisuals {
   const _BookingStatusVisuals({
@@ -411,6 +413,143 @@ List<Map<String, dynamic>> _bookingServices(Map<String, dynamic> booking) {
       .whereType<Map>()
       .map((service) => Map<String, dynamic>.from(service))
       .toList();
+}
+
+Map<String, dynamic> _originalBooking(Map<String, dynamic> booking) {
+  final source = booking[_staffBookingSourceKey];
+  if (source is Map) {
+    return Map<String, dynamic>.from(source);
+  }
+  return booking;
+}
+
+String _isoFromLocal(DateTime value) => value.toUtc().toIso8601String();
+
+DateTime? _itemStart(Map<String, dynamic> item) => _parseLocal(item['startAt']);
+
+DateTime? _itemEnd(Map<String, dynamic> item) => _parseLocal(item['endAt']);
+
+List<int> _itemUserIds(Map<String, dynamic> item) {
+  final ids = <int>[];
+
+  void add(dynamic value) {
+    final id = _asInt(value);
+    if (id != null && !ids.contains(id)) ids.add(id);
+  }
+
+  add(item['professional']?['id']);
+  add(item['assignedUserId']);
+  add(item['teamMemberId']);
+  add(item['assignedUserBranch']?['user']?['id']);
+  return ids;
+}
+
+List<int> _itemUserBranchIds(Map<String, dynamic> item) {
+  final ids = <int>[];
+
+  void add(dynamic value) {
+    final id = _asInt(value);
+    if (id != null && !ids.contains(id)) ids.add(id);
+  }
+
+  add(item['assignedUserBranchId']);
+  add(item['userBranchId']);
+  add(item['assignedUserBranch']?['id']);
+  return ids;
+}
+
+Map<String, dynamic> _staffScopedBookingView(
+  Map<String, dynamic> booking,
+  List<Map<String, dynamic>> items,
+) {
+  if (items.isEmpty) return booking;
+
+  final scopedItems =
+      items.map((item) => Map<String, dynamic>.from(item)).toList();
+  final startTimes = scopedItems.map(_itemStart).whereType<DateTime>().toList()
+    ..sort();
+  final endTimes = scopedItems.map(_itemEnd).whereType<DateTime>().toList()
+    ..sort();
+  final totalDuration = scopedItems.fold<int>(
+    0,
+    (sum, item) =>
+        sum +
+        (_asInt(item['durationMin'] ?? item['branchService']?['durationMin']) ??
+            0),
+  );
+  final totalPriceMinor = scopedItems.fold<int>(
+    0,
+    (sum, item) =>
+        sum +
+        (_asInt(
+              item['linePriceMinor'] ??
+                  item['priceMinor'] ??
+                  item['branchService']?['priceMinor'],
+            ) ??
+            0),
+  );
+
+  final view = Map<String, dynamic>.from(booking);
+  view[_staffBookingSourceKey] = _originalBooking(booking);
+  view['items'] = scopedItems;
+  view.remove('services');
+  if (startTimes.isNotEmpty) view['startAt'] = _isoFromLocal(startTimes.first);
+  if (endTimes.isNotEmpty) view['endAt'] = _isoFromLocal(endTimes.last);
+  if (totalDuration > 0) view['totalDurationMin'] = totalDuration;
+  if (totalPriceMinor > 0) view['totalPriceMinor'] = totalPriceMinor;
+  return view;
+}
+
+bool _itemMatchesStaff(
+  Map<String, dynamic> item,
+  String staffName, {
+  Set<int> userIds = const <int>{},
+  Set<int> userBranchIds = const <int>{},
+}) {
+  final normalizedStaff = staffName.trim().toLowerCase();
+  if (normalizedStaff.isEmpty) return false;
+
+  if (_itemUserIds(item).any(userIds.contains)) return true;
+  if (_itemUserBranchIds(item).any(userBranchIds.contains)) return true;
+
+  for (final name in [
+    _personName(item['assignedUserBranch']?['user']),
+    _personName(item['professional']),
+    _personName(item['teamMember']),
+  ]) {
+    if (name.trim().toLowerCase() == normalizedStaff) return true;
+  }
+
+  return false;
+}
+
+List<Map<String, dynamic>> _staffScopedBookingViewsForStaff(
+  Map<String, dynamic> booking,
+  String staffName, {
+  Set<int> userIds = const <int>{},
+  Set<int> userBranchIds = const <int>{},
+}) {
+  final items = _bookingItems(booking);
+  if (items.isNotEmpty) {
+    final matchedItems = items
+        .where(
+          (item) => _itemMatchesStaff(
+            item,
+            staffName,
+            userIds: userIds,
+            userBranchIds: userBranchIds,
+          ),
+        )
+        .toList();
+    if (matchedItems.isNotEmpty) {
+      return [_staffScopedBookingView(booking, matchedItems)];
+    }
+  }
+
+  final normalizedStaff = staffName.trim().toLowerCase();
+  final bookingMatches = _assignedStaffNames(booking)
+      .any((name) => name.trim().toLowerCase() == normalizedStaff);
+  return bookingMatches ? [booking] : const <Map<String, dynamic>>[];
 }
 
 String _plainTextValue(dynamic value) {
@@ -2867,9 +3006,13 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
               branchId: branchId,
               isSalonActive: salon['active'] != false,
               isBranchActive: branch['active'] != false,
-              salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
+              salonName: salonName.isEmpty
+                  ? "${translateText('Salon')} #$salonId"
+                  : salonName,
               branchName: branchName.isEmpty
-                  ? (salonName.isEmpty ? 'Salon #$salonId' : salonName)
+                  ? (salonName.isEmpty
+                      ? "${translateText('Salon')} #$salonId"
+                      : salonName)
                   : branchName,
               addressSummary: _branchAddressSummary(branch['address']),
               isMain: branch['isMain'] == true,
@@ -2893,11 +3036,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         _SalonBranchOption(
           salonId: salonId,
           branchId: derivedBranchId,
-          salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
+          salonName: salonName.isEmpty
+              ? "${translateText('Salon')} #$salonId"
+              : salonName,
           branchName:
               (derivedBranchName != null && derivedBranchName.isNotEmpty)
                   ? derivedBranchName
-                  : (salonName.isEmpty ? 'Salon #$salonId' : salonName),
+                  : (salonName.isEmpty
+                      ? "${translateText('Salon')} #$salonId"
+                      : salonName),
           addressSummary: _branchAddressSummary(salon['address']),
           isMain: salon['isMain'] == true,
           isSalonActive: salon['active'] != false,
@@ -2941,9 +3088,13 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         _SalonBranchOption(
           salonId: salonId,
           branchId: branchId,
-          salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
+          salonName: salonName.isEmpty
+              ? "${translateText('Salon')} #$salonId"
+              : salonName,
           branchName: branchName.isEmpty
-              ? (salonName.isEmpty ? 'Branch #$branchId' : salonName)
+              ? (salonName.isEmpty
+                  ? "${translateText('Branch')} #$branchId"
+                  : salonName)
               : branchName,
           addressSummary: _branchAddressSummary(branch['address']),
           isMain: branch['isMain'] == true,
@@ -3901,6 +4052,44 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     return names;
   }
 
+  List<String> _assignedStaffNamesForItemGrouping(
+    Map<String, dynamic> item,
+  ) {
+    final names = <String>[];
+    final seen = <String>{};
+
+    void addName(String value) {
+      final normalized = value.trim();
+      if (normalized.isEmpty) return;
+      final key = normalized.toLowerCase();
+      if (seen.add(key)) names.add(normalized);
+    }
+
+    var matchedDirectoryMember = false;
+    for (final id in _itemUserIds(item)) {
+      final name = _teamMemberNamesByUserId[id] ?? '';
+      if (name.trim().isNotEmpty) {
+        matchedDirectoryMember = true;
+        addName(name);
+      }
+    }
+    for (final id in _itemUserBranchIds(item)) {
+      final name = _teamMemberNamesByUserBranchId[id] ?? '';
+      if (name.trim().isNotEmpty) {
+        matchedDirectoryMember = true;
+        addName(name);
+      }
+    }
+
+    if (!matchedDirectoryMember) {
+      addName(_personName(item['assignedUserBranch']?['user']));
+      addName(_personName(item['professional']));
+      addName(_personName(item['teamMember']));
+    }
+
+    return names;
+  }
+
   // Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
   //     BuildContext context, List<Map<String, dynamic>> bookings,
   //     {bool includeEmptyTeamMembers = false}) {
@@ -3943,6 +4132,25 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     final groups = <String, List<Map<String, dynamic>>>{};
 
     for (final booking in bookings) {
+      final itemGroups = <String, List<Map<String, dynamic>>>{};
+      for (final item in _bookingItems(booking)) {
+        final labels = _assignedStaffNamesForItemGrouping(item);
+        for (final label in labels) {
+          itemGroups
+              .putIfAbsent(label, () => <Map<String, dynamic>>[])
+              .add(item);
+        }
+      }
+
+      if (itemGroups.isNotEmpty) {
+        for (final entry in itemGroups.entries) {
+          groups
+              .putIfAbsent(entry.key, () => <Map<String, dynamic>>[])
+              .add(_staffScopedBookingView(booking, entry.value));
+        }
+        continue;
+      }
+
       final labels = _assignedStaffNamesForGrouping(booking);
 
       if (labels.isEmpty) continue;
@@ -4055,14 +4263,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   Future<void> _openBookingDetail(Map<String, dynamic> booking) async {
     final selected = _selectedOption;
     if (selected == null) return;
+    final originalBooking = _originalBooking(booking);
 
-    _logBookingDetailsSnapshot(context, booking);
+    _logBookingDetailsSnapshot(context, originalBooking);
 
     final shouldRefresh = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => _StylistBookingDetailScreen(
-          booking: Map<String, dynamic>.from(booking),
+          booking: Map<String, dynamic>.from(originalBooking),
           branchId: selected.branchId,
           isOwnerMode: widget.isOwnerMode,
         ),
@@ -4102,6 +4311,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
           ratingSummary:
               _teamMemberRatings[staffName] ?? _ProfessionalRatingSummary.empty,
           selectedDate: _selectedDate,
+          staffUserIds:
+              _idsForTeamMemberName(_teamMemberNamesByUserId, staffName),
+          staffUserBranchIds:
+              _idsForTeamMemberName(_teamMemberNamesByUserBranchId, staffName),
           branchId: selectedOption?.branchId,
           branchStartMinute: selectedStartMinute,
           branchEndMinute: selectedEndMinute,
@@ -4175,6 +4388,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
           ),
         )
         .toList();
+  }
+
+  Set<int> _idsForTeamMemberName(Map<int, String> source, String staffName) {
+    final normalized = staffName.trim().toLowerCase();
+    if (normalized.isEmpty) return const <int>{};
+    return source.entries
+        .where((entry) => entry.value.trim().toLowerCase() == normalized)
+        .map((entry) => entry.key)
+        .toSet();
   }
 
   Future<void> _handleConfirmFromList(Map<String, dynamic> booking) async {
@@ -4298,7 +4520,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         endTime.isEmpty
             ? translateText('Booking time is over for today')
             : translateText(
-                'Booking time is over for today. Branch closed at $endTime',
+                'Booking time is over for today. Branch closed at {time}',
+                params: {'time': endTime},
               ),
       );
     }
@@ -5854,6 +6077,8 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
     required this.salonWorkingHours,
     required this.ratingSummary,
     required this.selectedDate,
+    required this.staffUserIds,
+    required this.staffUserBranchIds,
     required this.onBookingTap,
     this.branchId,
     this.branchStartMinute,
@@ -5867,6 +6092,8 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
   final List<_WorkingDayHours> salonWorkingHours;
   final _ProfessionalRatingSummary ratingSummary;
   final DateTime selectedDate;
+  final Set<int> staffUserIds;
+  final Set<int> staffUserBranchIds;
   final int? branchId;
   final int? branchStartMinute;
   final int? branchEndMinute;
@@ -5926,11 +6153,16 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
               .map((item) => Map<String, dynamic>.from(item))
               .toList()
           : const <Map<String, dynamic>>[];
-      final staffKey = widget.staffName.trim().toLowerCase();
-      final staffBookings = allBookings.where((booking) {
-        return _assignedStaffSummary(context, booking).trim().toLowerCase() ==
-            staffKey;
-      }).toList();
+      final staffBookings = allBookings
+          .expand(
+            (booking) => _staffScopedBookingViewsForStaff(
+              booking,
+              widget.staffName,
+              userIds: widget.staffUserIds,
+              userBranchIds: widget.staffUserBranchIds,
+            ),
+          )
+          .toList();
       if (!mounted) return;
       setState(() {
         _scheduleBookings = staffBookings;
@@ -7461,7 +7693,8 @@ class _BookingQuoteCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '"Beauty begins the moment\nyou decide to be yourself."',
+                  translateText(
+                      '"Beauty begins the moment\nyou decide to be yourself."'),
                   textAlign: TextAlign.center,
                   style: _bookingTextStyle(
                     size: 15,
@@ -7957,7 +8190,10 @@ class _BranchClosedState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '${context.t(branchLabel)} ${context.t('is closed on')} ${context.t(weekday)}',
+            '$branchLabel ${translateText(
+              'is closed on {day}',
+              params: {'day': context.t(weekday)},
+            )}',
             textAlign: TextAlign.center,
             style: _bookingTextStyle(
               size: 16,
@@ -8995,7 +9231,7 @@ class _StylistBookingDetailScreenState
                                               if (service.path.isNotEmpty)
                                                 service.path,
                                               if (service.durationMin > 0)
-                                                '${service.durationMin} min',
+                                                '${service.durationMin} ${translateText('min')}',
                                               if (service.priceMinor > 0)
                                                 formatMinorAmount(
                                                   service.priceMinor,
@@ -9102,7 +9338,7 @@ class _StylistBookingDetailScreenState
             (service) => StylistAppointmentServiceSegment(
               title: service.name,
               timeLabel: service.durationMin > 0
-                  ? '${service.durationMin} min'
+                  ? '${service.durationMin} ${translateText('min')}'
                   : translateText('Added'),
               metaLabel: service.priceMinor > 0
                   ? formatMinorAmount(service.priceMinor)

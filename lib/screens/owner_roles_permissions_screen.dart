@@ -586,12 +586,19 @@ class _RolesTableCard extends StatelessWidget {
                       borderSide: const BorderSide(color: AppColors.starColor),
                     ),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('All Roles')),
+                  items: [
                     DropdownMenuItem(
-                        value: 'system', child: Text('System Roles')),
+                      value: 'all',
+                      child: Text(context.t('All Roles')),
+                    ),
                     DropdownMenuItem(
-                        value: 'custom', child: Text('Custom Roles')),
+                      value: 'system',
+                      child: Text(context.t('System Roles')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'custom',
+                      child: Text(context.t('Custom Roles')),
+                    ),
                   ],
                   onChanged: (value) {
                     if (value != null) onFilterChanged(value);
@@ -698,7 +705,7 @@ class _HeaderCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Text(label.toUpperCase(), style: style),
+      child: Text(context.t(label).toUpperCase(), style: style),
     );
   }
 }
@@ -1275,7 +1282,7 @@ class _RoleDialogFooter extends StatelessWidget {
                   strokeWidth: 2,
                   color: Colors.white,
                 )
-              : Text(actionLabel),
+              : Text(context.t(actionLabel)),
         ),
       );
     }
@@ -1355,7 +1362,7 @@ class _PermissionMatrix extends StatelessWidget {
                   width: 210,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('Module'.toUpperCase(),
+                    child: Text(context.t('Module').toUpperCase(),
                         style: _smallGoldLabelStyle()),
                   ),
                 ),
@@ -1364,7 +1371,7 @@ class _PermissionMatrix extends StatelessWidget {
                     width: 82,
                     child: Center(
                       child: Text(
-                        action.label.toUpperCase(),
+                        context.t(action.label).toUpperCase(),
                         style: _smallGoldLabelStyle(),
                       ),
                     ),

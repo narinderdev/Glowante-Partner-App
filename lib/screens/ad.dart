@@ -233,8 +233,8 @@ class _AdScreenState extends State<AdScreen> {
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Advertisement',
+        title: Text(
+          translateText('Advertisement'),
           style: TextStyle(
             color: Colors.black87,
             fontSize: 18,
@@ -366,12 +366,12 @@ class _AdScreenState extends State<AdScreen> {
                                 ],
                               ),
                             ),
-                            const Positioned(
+                            Positioned(
                               left: 26,
                               bottom: 18,
                               child: Text(
-                                '123 Anywhere St., Any City',
-                                style: TextStyle(
+                                translateText('123 Anywhere St., Any City'),
+                                style: const TextStyle(
                                   fontSize: 6.5,
                                   color: _muted,
                                   fontWeight: FontWeight.w500,
@@ -465,12 +465,12 @@ class _AdTextPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 3),
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'W E L C O M E   T O',
             style: TextStyle(
               fontSize: 9,
@@ -479,10 +479,10 @@ class _AdTextPanel extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           Text(
-            'Beauty\nSalon',
-            style: TextStyle(
+            translateText('Beauty\nSalon'),
+            style: const TextStyle(
               fontFamily: 'serif',
               fontSize: 31,
               height: 0.95,
@@ -490,8 +490,8 @@ class _AdTextPanel extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 12),
-          SizedBox(
+          const SizedBox(height: 12),
+          const SizedBox(
             width: 32,
             child: Divider(
               height: 1,
@@ -499,18 +499,19 @@ class _AdTextPanel extends StatelessWidget {
               color: Color(0xFF8B6F52),
             ),
           ),
-          SizedBox(height: 14),
+          const SizedBox(height: 14),
           Text(
-            'Pamper yourself in our beauty salon. We use the\nfinest products for all your beauty needs.',
-            style: TextStyle(
+            translateText(
+                'Pamper yourself in our beauty salon. We use the\nfinest products for all your beauty needs.'),
+            style: const TextStyle(
               fontSize: 7.5,
               height: 1.65,
               color: Color(0xFF716151),
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 20),
-          Text(
+          const SizedBox(height: 20),
+          const Text(
             'O U R   S E R V I C E S',
             style: TextStyle(
               fontSize: 8,
@@ -519,15 +520,15 @@ class _AdTextPanel extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          SizedBox(height: 10),
-          _ServiceLine('Hair Treatment'),
-          _ServiceLine('Skin Care'),
-          _ServiceLine('Manicure & Pedicure'),
-          _ServiceLine('Body Massage'),
-          SizedBox(height: 20),
-          _BookButton(),
-          SizedBox(height: 10),
-          Text(
+          const SizedBox(height: 10),
+          const _ServiceLine('Hair Treatment'),
+          const _ServiceLine('Skin Care'),
+          const _ServiceLine('Manicure & Pedicure'),
+          const _ServiceLine('Body Massage'),
+          const SizedBox(height: 20),
+          const _BookButton(),
+          const SizedBox(height: 10),
+          const Text(
             '+91 98765 43210',
             style: TextStyle(
               fontSize: 7,
@@ -559,7 +560,7 @@ class _AdBranchOption {
   String get displayLabel {
     if (branchName.trim().isNotEmpty) return branchName.trim();
     if (salonName.trim().isNotEmpty) return salonName.trim();
-    return 'Branch #$branchId';
+    return "${translateText('Branch')} #$branchId";
   }
 }
 

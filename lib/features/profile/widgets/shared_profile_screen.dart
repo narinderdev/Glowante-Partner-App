@@ -76,7 +76,7 @@ class SharedProfileScreen extends StatelessWidget {
   final String phoneNumber;
   final String email;
   final String currentLanguageCode;
-  final ValueChanged<String> onLanguageChanged;
+  final Future<void> Function(String) onLanguageChanged;
   final List<ProfileMenuItemData> menuItems;
   final VoidCallback onLogout;
   final VoidCallback onDeleteAccount;
@@ -468,7 +468,7 @@ class _ProfileBadge extends StatelessWidget {
         border: filled ? null : Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Text(
-        label.toUpperCase(),
+        context.t(label).toUpperCase(),
         style: _profileTextStyle(
           size: 11,
           weight: FontWeight.w700,
@@ -513,7 +513,7 @@ class _LanguageCard extends StatelessWidget {
   });
 
   final String currentLanguageCode;
-  final ValueChanged<String> onLanguageChanged;
+  final Future<void> Function(String) onLanguageChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -526,42 +526,135 @@ class _LanguageCard extends StatelessWidget {
   }
 
   void _showLanguagePicker(BuildContext context) {
-    final theme = Theme.of(context);
-    showModalBottomSheet<void>(
+    final parentContext = context;
+
+    Future<void> selectLanguage(BuildContext dialogContext, String code) async {
+      Navigator.pop(dialogContext);
+      await Future<void>.delayed(Duration.zero);
+      if (!parentContext.mounted) return;
+
+      showDialog<void>(
+        context: parentContext,
+        barrierDismissible: false,
+        builder: (_) => const _LanguageChangingDialog(),
+      );
+
+      try {
+        await Future.wait([
+          onLanguageChanged(code),
+          Future<void>.delayed(const Duration(seconds: 2)),
+        ]);
+      } finally {
+        if (parentContext.mounted) {
+          Navigator.of(parentContext, rootNavigator: true).pop();
+        }
+      }
+    }
+
+    showDialog<void>(
       context: context,
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
       builder: (context) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _LanguageSheetOption(
-                  label: context.t('English'),
-                  selected: currentLanguageCode == 'en',
-                  onTap: () {
-                    Navigator.pop(context);
-                    onLanguageChanged('en');
-                  },
-                ),
-                const SizedBox(height: 10),
-                _LanguageSheetOption(
-                  label: 'हिंदी',
-                  selected: currentLanguageCode == 'hi',
-                  onTap: () {
-                    Navigator.pop(context);
-                    onLanguageChanged('hi');
-                  },
-                ),
-              ],
+          child: Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3D5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.language_rounded,
+                          color: AppColors.starColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          context.t('Language Selection'),
+                          style: _profileTextStyle(
+                            size: 18,
+                            weight: FontWeight.w800,
+                            color: const Color(0xFF1C1917),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                        color: const Color(0xFF8A8179),
+                        splashRadius: 18,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _LanguageSheetOption(
+                    label: context.t('English'),
+                    selected: currentLanguageCode == 'en',
+                    onTap: () => selectLanguage(context, 'en'),
+                  ),
+                  const SizedBox(height: 10),
+                  _LanguageSheetOption(
+                    label: 'हिंदी',
+                    selected: currentLanguageCode == 'hi',
+                    onTap: () => selectLanguage(context, 'hi'),
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _LanguageChangingDialog extends StatelessWidget {
+  const _LanguageChangingDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 64),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppLoader.inline(size: 28, strokeWidth: 3),
+              const SizedBox(height: 14),
+              Text(
+                context.t('Changing language...'),
+                textAlign: TextAlign.center,
+                style: _profileTextStyle(
+                  size: 13,
+                  weight: FontWeight.w800,
+                  color: const Color(0xFF1C1917),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -579,22 +672,37 @@ class _LanguageSheetOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      tileColor: selected ? const Color(0xFFF6EFE3) : const Color(0xFFFBF9F8),
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-        color: AppColors.starColor,
-      ),
-      title: Text(
-        label,
-        style: _profileTextStyle(
-          size: 16,
-          weight: FontWeight.w700,
-          color: const Color(0xFF1C1917),
+    return Material(
+      color: selected ? const Color(0xFFF6EFE3) : const Color(0xFFFBF9F8),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+                color: AppColors.starColor,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: _profileTextStyle(
+                    size: 16,
+                    weight: FontWeight.w700,
+                    color: const Color(0xFF1C1917),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      onTap: onTap,
     );
   }
 }

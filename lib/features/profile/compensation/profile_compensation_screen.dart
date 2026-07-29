@@ -1439,7 +1439,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildPayrollSetupReviewCard(
-                  title: 'Team Members Included (${included.length})',
+                  title:
+                      '${translateText('Team Members Included')} (${included.length})',
                   subtitle:
                       'These team members will be included in this payroll.',
                   members: included,
@@ -1447,7 +1448,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildPayrollSetupReviewCard(
-                  title: 'Team Members Not Included (${excluded.length})',
+                  title:
+                      '${translateText('Team Members Not Included')} (${excluded.length})',
                   subtitle:
                       'These team members do not have salary or commission set.',
                   members: excluded,
@@ -1468,7 +1470,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                       backgroundColor: AppColors.starColor,
                       foregroundColor: Colors.white,
                     ),
-                    child: const Text('Go to Payroll Dashboard'),
+                    child: Text(context.t('Go to Payroll Dashboard')),
                   ),
                 ),
               ],
@@ -1626,19 +1628,19 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                   color: const Color(0xFFF6D7B8),
                                 ),
                               ),
-                              child: const Column(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Updating payroll review...',
-                                    style: TextStyle(
+                                    translateText('Updating payroll review...'),
+                                    style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
                                       color: Color(0xFF9A3412),
                                     ),
                                   ),
-                                  SizedBox(height: 10),
-                                  LinearProgressIndicator(),
+                                  const SizedBox(height: 10),
+                                  const LinearProgressIndicator(),
                                 ],
                               ),
                             ),
@@ -1664,7 +1666,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Review the payroll entries and manage payments for this period.',
+                            translateText(
+                                'Review the payroll entries and manage payments for this period.'),
                             style: const TextStyle(
                               fontSize: 14,
                               color: Color(0xFF6B7280),
@@ -1728,9 +1731,13 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                       context: context,
                                       builder: (dialogContext) {
                                         return AlertDialog(
-                                          title: const Text('Cancel payroll'),
-                                          content: const Text(
-                                            'This will cancel the payroll run for this period.',
+                                          title: Text(
+                                            context.t('Cancel payroll'),
+                                          ),
+                                          content: Text(
+                                            context.t(
+                                              'This will cancel the payroll run for this period.',
+                                            ),
                                           ),
                                           actions: [
                                             TextButton(
@@ -1738,7 +1745,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 dialogContext,
                                                 false,
                                               ),
-                                              child: const Text('No'),
+                                              child: Text(context.t('No')),
                                             ),
                                             ElevatedButton(
                                               onPressed: () => Navigator.pop(
@@ -1750,7 +1757,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                     const Color(0xFFB02A37),
                                                 foregroundColor: Colors.white,
                                               ),
-                                              child: const Text('Yes, cancel'),
+                                              child: Text(
+                                                  context.t('Yes, cancel')),
                                             ),
                                           ],
                                         );
@@ -1844,25 +1852,25 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                     const BorderSide(color: Color(0xFFE5E7EB)),
                               ),
                             ),
-                            items: const [
+                            items: [
                               DropdownMenuItem(
                                 value: 'All Status',
                                 child: Text(
-                                  'All Status',
+                                  translateText('All Status'),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               DropdownMenuItem(
                                 value: 'Paid',
                                 child: Text(
-                                  'Paid',
+                                  translateText('Paid'),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               DropdownMenuItem(
                                 value: 'Pending',
                                 child: Text(
-                                  'Pending',
+                                  translateText('Pending'),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -1939,13 +1947,13 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                             const Divider(height: 24),
                                         itemBuilder: (context, index) {
                                           if (index == 0) {
-                                            return const Row(
+                                            return Row(
                                               children: [
                                                 Expanded(
                                                   flex: 3,
                                                   child: Text(
-                                                    'Employee',
-                                                    style: TextStyle(
+                                                    translateText('Employee'),
+                                                    style: const TextStyle(
                                                       fontSize: 12,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -1956,8 +1964,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 Expanded(
                                                   flex: 2,
                                                   child: Text(
-                                                    'Role',
-                                                    style: TextStyle(
+                                                    translateText('Role'),
+                                                    style: const TextStyle(
                                                       fontSize: 12,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -1968,8 +1976,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 Expanded(
                                                   flex: 2,
                                                   child: Text(
-                                                    'Net Payable (₹)',
-                                                    style: TextStyle(
+                                                    translateText(
+                                                        'Net Payable (₹)'),
+                                                    style: const TextStyle(
                                                       fontSize: 12,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -1980,8 +1989,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 Expanded(
                                                   flex: 2,
                                                   child: Text(
-                                                    'Status',
-                                                    style: TextStyle(
+                                                    translateText('Status'),
+                                                    style: const TextStyle(
                                                       fontSize: 12,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -1992,9 +2001,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 SizedBox(
                                                   width: 96,
                                                   child: Text(
-                                                    'Action',
+                                                    translateText('Action'),
                                                     textAlign: TextAlign.right,
-                                                    style: TextStyle(
+                                                    style: const TextStyle(
                                                       fontSize: 12,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -2007,14 +2016,16 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                           }
 
                                           if (filteredEmployees.isEmpty) {
-                                            return const Padding(
-                                              padding: EdgeInsets.symmetric(
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
                                                 vertical: 20,
                                               ),
                                               child: Center(
                                                 child: Text(
-                                                  'No employees found.',
-                                                  style: TextStyle(
+                                                  translateText(
+                                                      'No employees found.'),
+                                                  style: const TextStyle(
                                                     fontSize: 13,
                                                     color: Color(0xFF6B7280),
                                                   ),
@@ -2042,7 +2053,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                               Expanded(
                                                 flex: 2,
                                                 child: Text(
-                                                  'Team Member',
+                                                  translateText('Team Member'),
                                                   style: const TextStyle(
                                                     fontSize: 13,
                                                     color: Color(0xFF6B7280),
@@ -2168,7 +2179,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                             color: AppColors
                                                                 .starColor,
                                                           )
-                                                        : const Text('View'),
+                                                        : Text(
+                                                            context.t('View')),
                                                   ),
                                                 ),
                                               ),
@@ -2426,16 +2438,18 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                         }
 
                         return AlertDialog(
-                          title: const Text('Delete adjustment'),
-                          content: const Text(
-                            'This will remove the adjustment from payroll calculations.',
+                          title: Text(context.t('Delete adjustment')),
+                          content: Text(
+                            context.t(
+                              'This will remove the adjustment from payroll calculations.',
+                            ),
                           ),
                           actions: [
                             TextButton(
                               onPressed: isDeleting
                                   ? null
                                   : () => Navigator.pop(dialogContext, false),
-                              child: const Text('Cancel'),
+                              child: Text(context.t('Cancel')),
                             ),
                             ElevatedButton(
                               onPressed: confirmDelete,
@@ -2453,10 +2467,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                           color: Colors.white,
                                         ),
                                         const SizedBox(width: 8),
-                                        const Text('Deleting...'),
+                                        Text(context.t('Deleting...')),
                                       ],
                                     )
-                                  : const Text('Delete'),
+                                  : Text(context.t('Delete')),
                             ),
                           ],
                         );
@@ -2643,10 +2657,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                       children: [
                                         Row(
                                           children: [
-                                            const Expanded(
+                                            Expanded(
                                               child: Text(
-                                                'Record Payment',
-                                                style: TextStyle(
+                                                translateText('Record Payment'),
+                                                style: const TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.w800,
                                                   color: Color(0xFF111827),
@@ -2685,11 +2699,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                       BorderRadius.circular(10),
                                                 ),
                                               ),
-                                              items: const [
+                                              items: [
                                                 DropdownMenuItem(
                                                   value: 'Bank Transfer',
                                                   child: Text(
-                                                    'Bank Transfer',
+                                                    translateText(
+                                                        'Bank Transfer'),
                                                     overflow:
                                                         TextOverflow.ellipsis,
                                                   ),
@@ -2697,7 +2712,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 DropdownMenuItem(
                                                   value: 'Cash',
                                                   child: Text(
-                                                    'Cash',
+                                                    translateText('Cash'),
                                                     overflow:
                                                         TextOverflow.ellipsis,
                                                   ),
@@ -2705,7 +2720,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                 DropdownMenuItem(
                                                   value: 'UPI',
                                                   child: Text(
-                                                    'UPI',
+                                                    translateText('UPI'),
                                                     overflow:
                                                         TextOverflow.ellipsis,
                                                   ),
@@ -2877,7 +2892,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                   color: AppColors.starColor,
                                                 ),
                                               ),
-                                              child: const Text('Cancel'),
+                                              child: Text(context.t('Cancel')),
                                             ),
                                             const SizedBox(width: 10),
                                             ElevatedButton(
@@ -2902,12 +2917,15 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                                         const SizedBox(
                                                           width: 8,
                                                         ),
-                                                        const Text(
-                                                          'Saving...',
+                                                        Text(
+                                                          context
+                                                              .t('Saving...'),
                                                         ),
                                                       ],
                                                     )
-                                                  : const Text('Save Payment'),
+                                                  : Text(
+                                                      context.t('Save Payment'),
+                                                    ),
                                             ),
                                           ],
                                         ),
@@ -3104,8 +3122,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                           ),
                         ),
                         const SizedBox(height: 18),
-                        const Text(
-                          'Amount *',
+                        Text(
+                          translateText('Amount *'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -3187,8 +3205,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        const Text(
-                          'Remarks *',
+                        Text(
+                          translateText('Remarks *'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -3293,7 +3311,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              child: const Text('Cancel'),
+                              child: Text(context.t('Cancel')),
                             ),
                             const SizedBox(width: 10),
                             ElevatedButton(
@@ -3320,7 +3338,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                       strokeWidth: 2,
                                       color: Colors.white,
                                     )
-                                  : const Text('Save'),
+                                  : Text(context.t('Save')),
                             ),
                           ],
                         ),
@@ -3429,11 +3447,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
             color: const Color(0xFFF8FAFC),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   flex: 3,
                   child: Text(
-                    'Team Member',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    translateText('Team Member'),
+                    style:
+                        const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   ),
                 ),
                 Expanded(
@@ -3532,11 +3551,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                       ),
                     ),
                     if (showReason) ...[
-                      const Expanded(
+                      Expanded(
                         flex: 2,
                         child: Text(
-                          'ⓘ Not setup yet',
-                          style: TextStyle(
+                          translateText('ⓘ Not setup yet'),
+                          style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFEA580C),
                             fontWeight: FontWeight.w600,
@@ -3556,8 +3575,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                   const EdgeInsets.symmetric(horizontal: 10),
                               minimumSize: const Size(58, 30),
                             ),
-                            child: const Text(
-                              'Set up',
+                            child: Text(
+                              translateText('Set up'),
                               style: TextStyle(fontSize: 11),
                             ),
                           ),
@@ -3600,10 +3619,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Total Salary',
-                      style: TextStyle(
+                      translateText('Total Salary'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF111827),
@@ -4034,7 +4053,7 @@ class _RunTitleBlock extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Payroll run summary',
+          translateText('Payroll run summary'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -4365,8 +4384,8 @@ class _PayrollEmployeeCalculationScreen extends StatelessWidget {
                                     Icons.arrow_back_rounded,
                                     size: 16,
                                   ),
-                                  label: const Text(
-                                    'Back to Payroll Runs',
+                                  label: Text(
+                                    translateText('Back to Payroll Runs'),
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -4374,8 +4393,8 @@ class _PayrollEmployeeCalculationScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                const Text(
-                                  'Payroll Calculation',
+                                Text(
+                                  translateText('Payroll Calculation'),
                                   style: TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w800,
@@ -4383,8 +4402,9 @@ class _PayrollEmployeeCalculationScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
-                                  'Review all earnings, additions and deductions before marking as paid.',
+                                Text(
+                                  translateText(
+                                      'Review all earnings, additions and deductions before marking as paid.'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Color(0xFF64748B),
@@ -4744,8 +4764,8 @@ class _PayrollCalculationSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Payroll Summary',
+          Text(
+            translateText('Payroll Summary'),
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w900,
@@ -4788,8 +4808,8 @@ class _PayrollCalculationSummaryCard extends StatelessWidget {
             ),
             child: Column(
               children: [
-                const Text(
-                  'Net Payable',
+                Text(
+                  translateText('Net Payable'),
                   style: TextStyle(
                     fontSize: 12,
                     color: Color(0xFFB45309),
@@ -4827,21 +4847,22 @@ class _PayrollCalculationNoteCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFF2D29A)),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Note',
-            style: TextStyle(
+            translateText('Note'),
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w900,
               color: Color(0xFFB45309),
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Please review all details. Once marked as paid, this payroll entry should not be modified.',
-            style: TextStyle(
+            translateText(
+                'Please review all details. Once marked as paid, this payroll entry should not be modified.'),
+            style: const TextStyle(
               fontSize: 11,
               height: 1.4,
               color: Color(0xFF7C6A55),
@@ -4957,8 +4978,8 @@ class _PayrollTableState extends State<_PayrollTable> {
                           textColor: const Color(0xFF526783),
                           isHeader: true,
                           trailing: hasActionColumn
-                              ? const Text(
-                                  'Action',
+                              ? Text(
+                                  translateText('Action'),
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Color(0xFF526783),
@@ -5002,14 +5023,14 @@ class _PayrollTableState extends State<_PayrollTable> {
                                               widget.onDelete?.call(index);
                                             }
                                           },
-                                          itemBuilder: (context) => const [
+                                          itemBuilder: (context) => [
                                             PopupMenuItem(
                                               value: 'edit',
-                                              child: Text('Edit'),
+                                              child: Text(context.t('Edit')),
                                             ),
                                             PopupMenuItem(
                                               value: 'delete',
-                                              child: Text('Delete'),
+                                              child: Text(context.t('Delete')),
                                             ),
                                           ],
                                         )
@@ -5386,7 +5407,7 @@ class _ErrorStateCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text('Retry'),
+                child: Text(context.t('Retry')),
               ),
             ],
           ),

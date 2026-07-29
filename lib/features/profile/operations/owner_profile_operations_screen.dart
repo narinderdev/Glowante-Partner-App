@@ -1081,8 +1081,8 @@ class _OwnerProfileOperationsScreenState
             }
 
             return AlertDialog(
-              title: Text(title),
-              content: Text(description),
+              title: Text(context.t(title)),
+              content: Text(context.t(description)),
               actions: [
                 TextButton(
                   onPressed:
@@ -1158,7 +1158,7 @@ class _OwnerProfileOperationsScreenState
                     backgroundColor: AppColors.starColor,
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Edit Vendor'),
+                  child: Text(context.t('Edit Vendor')),
                 ),
               ),
             ],
@@ -1288,13 +1288,13 @@ class _OwnerProfileOperationsScreenState
                         _firstText(detail, const ['remarks'], fallback: 'N/A')),
                 _DetailLine(label: 'Status', value: status),
                 const SizedBox(height: 12),
-                const Text(
-                  'Order Lines',
+                Text(
+                  translateText('Order Lines'),
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 if (lines.isEmpty)
-                  const Text('No lines found')
+                  Text(context.t('No lines found'))
                 else
                   Builder(
                     builder: (context) {
@@ -1361,7 +1361,7 @@ class _OwnerProfileOperationsScreenState
                         backgroundColor: AppColors.starColor,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('Convert to GRN'),
+                      child: Text(context.t('Convert to GRN')),
                     ),
                   ),
               ],
@@ -1413,13 +1413,13 @@ class _OwnerProfileOperationsScreenState
                         detail['receivedDate'] ?? detail['createdAt'])),
                 _DetailLine(label: 'Status', value: _statusLabel(detail)),
                 const SizedBox(height: 12),
-                const Text(
-                  'GRN Lines',
+                Text(
+                  translateText('GRN Lines'),
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 if (lines.isEmpty)
-                  const Text('No lines found')
+                  Text(context.t('No lines found'))
                 else
                   Builder(
                     builder: (context) {
@@ -1482,7 +1482,7 @@ class _OwnerProfileOperationsScreenState
     final proceed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Weak Network Warning'),
+            title: Text(context.t('Weak Network Warning')),
             content: Text(
               _t(
                 'If your network is unstable, saving store details may take longer. Continue?',
