@@ -8,6 +8,7 @@ import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
+import '../utils/refresh_feedback.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../widgets/app_loader.dart';
 
@@ -353,6 +354,18 @@ class _SalonReviewsState extends State<SalonReviews>
     }
   }
 
+  Future<void> _refreshReviews() {
+    final branchId = _branchId;
+    if (branchId == null) {
+      return RefreshFeedback.playAndDetach(_loadBranchesAndReviews);
+    }
+    setState(() {
+      loading = true;
+      _error = null;
+    });
+    return RefreshFeedback.playAndDetach(() => fetchReviews(branchId));
+  }
+
   Widget buildStars(num rating) {
     final rounded = rating.round();
 
@@ -429,6 +442,32 @@ class _SalonReviewsState extends State<SalonReviews>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _refreshableStatePanel({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return RefreshIndicator(
+          onRefresh: _refreshReviews,
+          color: _reviewGold,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: _statePanel(
+                icon: icon,
+                title: title,
+                message: message,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -640,29 +679,34 @@ class _SalonReviewsState extends State<SalonReviews>
     bool showTarget = false,
   }) {
     if (reviews.isEmpty) {
-      return _statePanel(
+      return _refreshableStatePanel(
         icon: Icons.reviews_outlined,
         title: emptyTitle,
         message: emptyMessage,
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _summaryCard(rating: rating, total: reviews.length),
-          ...reviews.map(
-            (review) => _reviewCard(
-              review: review,
-              title: cardTitle,
-              extraLabel: extraLabel,
-              extraValue: extraKey == null ? null : review[extraKey],
-              showReviewer: showReviewer,
-              showTarget: showTarget,
+    return RefreshIndicator(
+      onRefresh: _refreshReviews,
+      color: _reviewGold,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _summaryCard(rating: rating, total: reviews.length),
+            ...reviews.map(
+              (review) => _reviewCard(
+                review: review,
+                title: cardTitle,
+                extraLabel: extraLabel,
+                extraValue: extraKey == null ? null : review[extraKey],
+                showReviewer: showReviewer,
+                showTarget: showTarget,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -789,7 +833,7 @@ class _SalonReviewsState extends State<SalonReviews>
     bool showTarget = false,
   }) {
     if (reviews.isEmpty) {
-      return _statePanel(
+      return _refreshableStatePanel(
         icon: Icons.reviews_outlined,
         title: emptyTitle,
         message: emptyMessage,
@@ -803,22 +847,27 @@ class _SalonReviewsState extends State<SalonReviews>
       fallbackTitle: fallbackTitle,
     );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: groups
-            .map(
-              (group) => _reviewGroupSection(
-                group: group,
-                sectionLabel: sectionLabel,
-                cardTitle: cardTitle,
-                extraLabel: extraLabel,
-                extraKey: extraKey,
-                showReviewer: showReviewer,
-                showTarget: showTarget,
-              ),
-            )
-            .toList(),
+    return RefreshIndicator(
+      onRefresh: _refreshReviews,
+      color: _reviewGold,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: groups
+              .map(
+                (group) => _reviewGroupSection(
+                  group: group,
+                  sectionLabel: sectionLabel,
+                  cardTitle: cardTitle,
+                  extraLabel: extraLabel,
+                  extraKey: extraKey,
+                  showReviewer: showReviewer,
+                  showTarget: showTarget,
+                ),
+              )
+              .toList(),
+        ),
       ),
     );
   }
@@ -834,7 +883,7 @@ class _SalonReviewsState extends State<SalonReviews>
     }
 
     if (_branchId == null) {
-      return _statePanel(
+      return _refreshableStatePanel(
         icon: Icons.storefront_rounded,
         title: 'Select a branch',
         message: 'Select a branch to view reviews.',
@@ -842,7 +891,7 @@ class _SalonReviewsState extends State<SalonReviews>
     }
 
     if (_error != null) {
-      return _statePanel(
+      return _refreshableStatePanel(
         icon: Icons.error_outline_rounded,
         title: 'Failed to reach server',
         message: _error!,

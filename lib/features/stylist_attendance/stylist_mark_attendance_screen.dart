@@ -471,10 +471,21 @@ class _StylistMarkAttendanceScreenState
       body: (_isLoading && _branchSelection.branchId == null)
           ? AppLoader.page()
           : _branchSelection.branchId == null
-              ? _AttendanceEmptyState(
-                  title: context.t('Select a branch to continue'),
-                  message: context.t(
-                    'Attendance uses the stylist branch selected in bookings or home.',
+              ? RefreshIndicator(
+                  onRefresh: () =>
+                      RefreshFeedback.playAndDetach(_loadAttendanceState),
+                  color: AppColors.starColor,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                    children: [
+                      _AttendanceEmptyState(
+                        title: context.t('Select a branch to continue'),
+                        message: context.t(
+                          'Attendance uses the stylist branch selected in bookings or home.',
+                        ),
+                      ),
+                    ],
                   ),
                 )
               : Stack(

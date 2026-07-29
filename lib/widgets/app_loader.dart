@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
@@ -49,42 +51,19 @@ class AppLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spinner = SizedBox(
-      width: size,
-      height: size,
-      child: CircularProgressIndicator(
-        strokeWidth: strokeWidth,
-        color: color,
-      ),
-    );
+    final loader = _AppIconLoader(size: size);
 
-    if (!isPage) return spinner;
+    if (!isPage) return loader;
 
-    final badgeSize = size + 46;
     final text = message?.trim() ?? '';
 
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: badgeSize,
-            height: badgeSize,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x14000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Center(child: spinner),
-          ),
+          loader,
           if (text.isNotEmpty) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 30),
             Text(
               text,
               textAlign: TextAlign.center,
@@ -96,6 +75,100 @@ class AppLoader extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _AppIconLoader extends StatefulWidget {
+  const _AppIconLoader({required this.size});
+
+  final double size;
+
+  @override
+  State<_AppIconLoader> createState() => _AppIconLoaderState();
+}
+
+class _AppIconLoaderState extends State<_AppIconLoader>
+    with SingleTickerProviderStateMixin {
+  static const _iconPaths = [
+    'assets/images/icons/hairdresser.png',
+    'assets/images/icons/makeup.png',
+    'assets/images/icons/nail-polish.png',
+  ];
+
+  late final AnimationController _controller;
+  late final Animation<double> _rotation;
+  int _iconIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    _rotation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0, end: math.pi / 4).chain(
+          CurveTween(curve: Curves.easeInOut),
+        ),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: math.pi / 4, end: -math.pi / 4).chain(
+          CurveTween(curve: Curves.easeInOut),
+        ),
+        weight: 2,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: -math.pi / 4, end: 0).chain(
+          CurveTween(curve: Curves.easeInOut),
+        ),
+        weight: 1,
+      ),
+    ]).animate(_controller);
+
+    _controller.addStatusListener((status) {
+      if (status != AnimationStatus.completed || !mounted) return;
+      setState(() => _iconIndex = (_iconIndex + 1) % _iconPaths.length);
+      _controller.forward(from: 0);
+    });
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visualSize = widget.size + 28;
+
+    return SizedBox.square(
+      dimension: visualSize,
+      child: AnimatedBuilder(
+        animation: _rotation,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: Image.asset(
+            _iconPaths[_iconIndex],
+            key: ValueKey(_iconPaths[_iconIndex]),
+            width: visualSize,
+            height: visualSize,
+            fit: BoxFit.contain,
+          ),
+        ),
+        builder: (context, child) {
+          return Transform.rotate(
+            angle: _rotation.value,
+            child: child,
+          );
+        },
       ),
     );
   }

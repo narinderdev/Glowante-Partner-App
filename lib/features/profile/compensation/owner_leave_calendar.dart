@@ -259,102 +259,112 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
     bool showMonthPicker = false,
     bool showPayrollDropdown = false,
   }) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: _leaveBorder),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x08000000),
-                blurRadius: 14,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: _leaveInk,
-                      ),
-                    ),
-                  ),
-                  if (showMonthPicker)
-                    _ActionChipButton(
-                      label: DateFormat('MMMM yyyy').format(_leaveMonth),
-                      icon: Icons.calendar_month_outlined,
-                      onTap: () {
-                        _openLeaveMonthPicker();
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                description,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _leaveMuted,
-                  height: 1.35,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (showPayrollDropdown && _payrollRuns.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue:
-                      _selectedLeavePayrollId ?? _payrollRuns.first.id,
-                  decoration: InputDecoration(
-                    labelText: 'Payroll run',
-                    filled: true,
-                    fillColor: _leaveFieldFill,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(7),
-                      borderSide: const BorderSide(color: _leaveBorder),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(7),
-                      borderSide: const BorderSide(color: _leaveBorder),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(7),
-                      borderSide:
-                          const BorderSide(color: _leaveGoldLight, width: 1.2),
-                    ),
-                  ),
-                  items: _payrollRuns
-                      .map(
-                        (run) => DropdownMenuItem<String>(
-                          value: run.id,
-                          child: Text(run.periodLabel),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _isActionInProgress
-                      ? null
-                      : (value) {
-                          _changeLeavePayroll(value);
-                        },
+    return RefreshIndicator(
+      color: AppColors.starColor,
+      backgroundColor: const Color(0xFFFFFCF8),
+      onRefresh: () => RefreshFeedback.playAndDetach(
+        () => _reloadContent(showLoader: false),
+      ),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: _leaveBorder),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x08000000),
+                  blurRadius: 14,
+                  offset: Offset(0, 8),
                 ),
               ],
-            ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: _leaveInk,
+                        ),
+                      ),
+                    ),
+                    if (showMonthPicker)
+                      _ActionChipButton(
+                        label: DateFormat('MMMM yyyy').format(_leaveMonth),
+                        icon: Icons.calendar_month_outlined,
+                        onTap: () {
+                          _openLeaveMonthPicker();
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _leaveMuted,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (showPayrollDropdown && _payrollRuns.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue:
+                        _selectedLeavePayrollId ?? _payrollRuns.first.id,
+                    decoration: InputDecoration(
+                      labelText: 'Payroll run',
+                      filled: true,
+                      fillColor: _leaveFieldFill,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(7),
+                        borderSide: const BorderSide(color: _leaveBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(7),
+                        borderSide: const BorderSide(color: _leaveBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(7),
+                        borderSide: const BorderSide(
+                          color: _leaveGoldLight,
+                          width: 1.2,
+                        ),
+                      ),
+                    ),
+                    items: _payrollRuns
+                        .map(
+                          (run) => DropdownMenuItem<String>(
+                            value: run.id,
+                            child: Text(run.periodLabel),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _isActionInProgress
+                        ? null
+                        : (value) {
+                            _changeLeavePayroll(value);
+                          },
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        ...children,
-      ],
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
     );
   }
 
