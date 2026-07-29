@@ -63,7 +63,7 @@ class AppLoader extends StatelessWidget {
         children: [
           loader,
           if (text.isNotEmpty) ...[
-            const SizedBox(height: 30),
+            const SizedBox(height: 50),
             Text(
               text,
               textAlign: TextAlign.center,
