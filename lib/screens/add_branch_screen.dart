@@ -19,6 +19,7 @@ import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
+import '../utils/input_validation.dart';
 import 'bottom_nav.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../widgets/app_loader.dart';
@@ -1338,8 +1339,11 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                 textCapitalization:
                                     TextCapitalization.sentences,
                                 maxLength: 50,
-                                inputFormatters: const [
-                                  _FirstLetterUpperFormatter(),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    AppInputRules.namePattern,
+                                  ),
+                                  const _FirstLetterUpperFormatter(),
                                 ],
                               ),
                               _buildTextField(
@@ -1457,9 +1461,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                     children: [
                                       Text(
                                         translateText(
-                                          widget.isEdit
-                                              ? 'Next'
-                                              : 'Next',
+                                          widget.isEdit ? 'Next' : 'Next',
                                         ),
                                         style: const TextStyle(
                                           fontSize: 15,

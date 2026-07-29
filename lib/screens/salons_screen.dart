@@ -14,6 +14,7 @@ import 'SalonDeal.dart';
 import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import 'notifications.dart';
+import 'owner_dashboard_screen.dart';
 import 'salon_detail_screen.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/address_formatter.dart';
@@ -48,6 +49,7 @@ class SalonsScreenState extends State<SalonsScreen> {
   final Set<int> _collapsedSalonIds = <int>{};
   final GlobalKey _fabKey = GlobalKey();
   final GlobalKey _fabPanelKey = GlobalKey();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // @override
   // void initState() {
@@ -116,6 +118,17 @@ class SalonsScreenState extends State<SalonsScreen> {
   }
 
   void collapseQuickActions() => _collapseFab();
+
+  void _openDrawerRoute(Widget screen) {
+    Navigator.pop(context);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _openOwnerDrawer() {
+    _collapseFab();
+    _dismissKeyboard();
+    _scaffoldKey.currentState?.openDrawer();
+  }
 
   bool _isPointerInside(GlobalKey key, Offset globalPosition) {
     final context = key.currentContext;
@@ -596,20 +609,25 @@ class SalonsScreenState extends State<SalonsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isIos = Theme.of(context).platform == TargetPlatform.iOS;
     final hasSalon = context.watch<SalonListCubit>().state.salons.isNotEmpty;
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFFFBFAF8),
+      drawer: OwnerDashboardDrawer(
+        onOpen: _openDrawerRoute,
+        selectedBranchId:
+            StylistBranchSelectionStore.selectionNotifier.value.branchId,
+      ),
       appBar: _SalonsAppBar(
         searchController: _searchController,
         searchFocusNode: _searchFocusNode,
         onSearchChanged: _handleSearchChanged,
         onSearchTap: _collapseFab,
         onHeaderTap: _collapseFab,
-        toolbarHeight: isIos ? 34 : 52,
-        logoHeight: isIos ? 34 : 34,
-        logoYOffset: isIos ? -6 : -3,
-        onAddSalonTap: widget.readOnly ? null : _goToAddSalon,
+        toolbarHeight: 58,
+        logoHeight: 28,
+        onMenuTap: _openOwnerDrawer,
+        onAddSalonTap: (widget.readOnly || !hasSalon) ? null : _goToAddSalon,
         onNotificationTap: () {
           _collapseFab();
           _dismissKeyboard();
@@ -857,7 +875,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onHeaderTap,
     this.toolbarHeight = 52,
     this.logoHeight = 34,
-    this.logoYOffset = 0,
+    required this.onMenuTap,
     this.onAddSalonTap,
     required this.onNotificationTap,
   });
@@ -869,7 +887,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onHeaderTap;
   final double toolbarHeight;
   final double logoHeight;
-  final double logoYOffset;
+  final VoidCallback onMenuTap;
   final VoidCallback? onAddSalonTap;
   final VoidCallback onNotificationTap;
 
@@ -893,25 +911,36 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
           child: SizedBox(
             height: toolbarHeight,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 2, 18, 2),
+              padding: const EdgeInsets.only(right: 18),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   SizedBox(
+                    width: 56,
+                    height: toolbarHeight,
+                    child: IconButton(
+                      onPressed: onMenuTap,
+                      tooltip: translateText('Menu'),
+                      icon: const Icon(
+                        Icons.menu_rounded,
+                        color: Color(0xFF8B6500),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 112,
                     height: toolbarHeight,
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Transform.translate(
-                        offset: Offset(0, logoYOffset),
-                        child: Image.asset(
-                          'assets/images/finallogo.png',
+                      child: Image.asset(
+                        'assets/images/finallogo.png',
+                        height: logoHeight,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Image.asset(
+                          'assets/images/logo.png',
                           height: logoHeight,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => Image.asset(
-                            'assets/images/logo.png',
-                            height: logoHeight,
-                            fit: BoxFit.contain,
-                          ),
                         ),
                       ),
                     ),
@@ -1714,7 +1743,6 @@ class _StatusOptionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _StatusOptionCard({
-    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
+import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/team_member_completeness.dart';
 import '../widgets/app_loader.dart';
@@ -235,29 +236,7 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   String _branchAddressSummary(dynamic rawAddress) {
-    if (rawAddress is! Map) return '';
-    final address = Map<String, dynamic>.from(rawAddress);
-    final parts = <String>[];
-
-    void push(dynamic value) {
-      final text = value?.toString().trim() ?? '';
-      if (text.isEmpty ||
-          text.toLowerCase() == 'null' ||
-          parts.contains(text)) {
-        return;
-      }
-      parts.add(text);
-    }
-
-    push(address['line1']);
-    push(address['line2']);
-    push(address['village']);
-    push(address['district']);
-    push(address['city']);
-    push(address['state']);
-    push(address['postalCode']);
-    push(address['country']);
-    return parts.join(', ');
+    return formatAddressSummary(rawAddress);
   }
 
   // Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
@@ -1412,6 +1391,8 @@ class _TeamScreenState extends State<TeamScreen> {
                           return AppLoader.page();
                         }
 
+                        final showTeamFiltersBar =
+                            members.isNotEmpty || _hasActiveTeamFilters;
                         final children = <Widget>[
                           if (branches.length > 1) ...[
                             OwnerBranchHeaderSelector<int>(
@@ -1431,8 +1412,10 @@ class _TeamScreenState extends State<TeamScreen> {
                             ),
                             const SizedBox(height: 16),
                           ],
-                          _buildTeamFiltersBar(),
-                          const SizedBox(height: 16),
+                          if (showTeamFiltersBar) ...[
+                            _buildTeamFiltersBar(),
+                            const SizedBox(height: 16),
+                          ],
                         ];
 
                         if (isWaiting && members.isEmpty) {
@@ -1847,16 +1830,16 @@ class _TeamHeaderPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
+        color: _teamGoldLight,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+        border: Border.all(color: _teamBorder),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: Colors.white,
+          color: _teamGold,
           fontSize: 11,
           fontWeight: FontWeight.w800,
         ),
@@ -2040,103 +2023,54 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                   const SizedBox(height: 14),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          _teamGold.withValues(alpha: 0.98),
-                          const Color(0xFFB88A19),
-                          const Color(0xFFDFC77A),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(22),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _teamBorder),
                       boxShadow: const [
                         BoxShadow(
-                          color: Color(0x1F8B6500),
-                          blurRadius: 18,
-                          offset: Offset(0, 10),
+                          color: Color(0x0F000000),
+                          blurRadius: 14,
+                          offset: Offset(0, 6),
                         ),
                       ],
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 34,
+                          height: 34,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(14),
+                            color: _teamGoldLight,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
                             Icons.tune_rounded,
-                            color: Colors.white,
-                            size: 24,
+                            color: _teamGold,
+                            size: 18,
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                translateText('Filter team members'),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                translateText(
-                                  'Filters update the list automatically when you apply them.',
-                                ),
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.92),
-                                  fontSize: 12,
-                                  height: 1.35,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  _TeamHeaderPill(
-                                    label:
-                                        '${translateText('Applied')}: $activeFilterCount',
-                                  ),
-                                  if (_selectedServiceIds.isNotEmpty)
-                                    _TeamHeaderPill(
-                                      label:
-                                          '${translateText('Services')}: ${_selectedServiceIds.length}',
-                                    ),
-                                  if (_dateFilter != null)
-                                    _TeamHeaderPill(
-                                      label: DateFormat('MMM d').format(
-                                        _dateFilter!,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
+                          child: Text(
+                            translateText('Filter team members'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _teamInk,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close_rounded),
-                          color: Colors.white,
-                          style: IconButton.styleFrom(
-                            backgroundColor:
-                                Colors.white.withValues(alpha: 0.12),
-                            shape: const CircleBorder(),
+                        if (activeFilterCount > 0) ...[
+                          const SizedBox(width: 8),
+                          _TeamHeaderPill(
+                            label:
+                                '${translateText('Applied')}: $activeFilterCount',
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -2311,31 +2245,33 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _clearAll,
-                          icon: const Icon(Icons.refresh_rounded, size: 18),
-                          label: Text(translateText('Clear all')),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: _teamMuted,
-                            side: const BorderSide(color: _teamBorder),
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                      if (activeFilterCount > 0) ...[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _clearAll,
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            label: Text(translateText('Clear all')),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _teamMuted,
+                              side: const BorderSide(color: _teamBorder),
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
+                        const SizedBox(width: 10),
+                      ],
                       Expanded(
-                        flex: 2,
+                        flex: activeFilterCount > 0 ? 2 : 1,
                         child: ElevatedButton.icon(
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.check_rounded, size: 19),
                           label: Text(
                             activeFilterCount > 0
                                 ? '${translateText('Show results')} ($activeFilterCount)'
-                                : translateText('Show results'),
+                                : translateText('Show team list'),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _teamGold,

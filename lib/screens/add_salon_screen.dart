@@ -19,6 +19,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 
 import '../utils/error_parser.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
+import '../utils/input_validation.dart';
 import '../widgets/app_loader.dart';
 
 class _FirstLetterUpperFormatter extends TextInputFormatter {
@@ -1802,8 +1803,11 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 hint: 'Enter your business name',
                                 enabled: true,
                                 maxLength: 50,
-                                inputFormatters: const [
-                                  _FirstLetterUpperFormatter(),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    AppInputRules.namePattern,
+                                  ),
+                                  const _FirstLetterUpperFormatter(),
                                 ],
                               ),
                               _buildTextField(
@@ -1959,9 +1963,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                     children: [
                                       Text(
                                         translateText(
-                                          widget.isEdit
-                                              ? 'Next'
-                                              : 'Next',
+                                          widget.isEdit ? 'Next' : 'Next',
                                         ),
                                         style: const TextStyle(
                                           fontSize: 15,

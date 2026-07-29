@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/stylist_branch_selection.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../utils/input_validation.dart';
 import '../utils/price_formatter.dart';
 import '../widgets/fixed_slot_otp_field.dart';
 import '../widgets/app_loader.dart';
@@ -1796,7 +1797,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         height: 56,
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(
-                              RegExp(r'[A-Za-z ]')),
+                              AppInputRules.namePattern),
                           LengthLimitingTextInputFormatter(30),
                         ],
                         onChanged: (_) {
@@ -1838,7 +1839,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         height: 56,
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(
-                              RegExp(r'[A-Za-z ]')),
+                              AppInputRules.namePattern),
                           LengthLimitingTextInputFormatter(30),
                         ],
                         onChanged: (_) {
@@ -2008,7 +2009,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                       color: Colors.white,
                                     )
                                   : Text(
-                                      translateText('Add Customer').toUpperCase(),
+                                      translateText('Add Customer')
+                                          .toUpperCase(),
                                       style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w800,

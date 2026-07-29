@@ -1649,53 +1649,58 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
   Widget _workingSlotBlock(String day, int index) {
     final isLastSlot = index == (weeklySchedule[day]!.length - 1);
+    final canDeleteSlot = (weeklySchedule[day] ?? const []).length > 1;
 
     return Container(
       margin: EdgeInsets.only(bottom: isLastSlot ? 0 : 12),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _labeledTimeField(
-                  label: 'Start Time',
-                  child: _timeDropdownField(day, index, 'start'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Text(
-                  translateText('to'),
-                  style: const TextStyle(
-                    color: Color(0xFF374151),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _labeledTimeField(
-                  label: 'End Time',
-                  child: _timeDropdownField(day, index, 'end'),
-                ),
-              ),
-            ],
+          Expanded(
+            child: _labeledTimeField(
+              label: 'Start Time',
+              child: _timeDropdownField(day, index, 'start'),
+            ),
           ),
-          if ((weeklySchedule[day] ?? const []).length > 1) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Color(0xFFE54848),
-                  size: 18,
+          const SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(top: 23),
+            child: Text(
+              translateText('to'),
+              style: const TextStyle(
+                color: Color(0xFF374151),
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _labeledTimeField(
+              label: 'End Time',
+              child: _timeDropdownField(day, index, 'end'),
+            ),
+          ),
+          if (canDeleteSlot) ...[
+            const SizedBox(width: 6),
+            Padding(
+              padding: const EdgeInsets.only(top: 18),
+              child: SizedBox(
+                width: 30,
+                height: 34,
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 30,
+                    height: 34,
+                  ),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFFE54848),
+                    size: 18,
+                  ),
+                  onPressed: () => _deleteSlot(day, index),
                 ),
-                onPressed: () => _deleteSlot(day, index),
               ),
             ),
           ],

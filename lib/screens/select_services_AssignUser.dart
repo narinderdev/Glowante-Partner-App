@@ -520,21 +520,10 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      _buildSearchBar(),
+                      _buildSearchAndSelectionAction(),
                     ],
                   ),
                 ),
-
-                if (_allServiceIds().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: _SelectionSummaryCard(
-                      selectedCount: selectedServiceIds.length,
-                      totalCount: _allServiceIds().length,
-                      allSelected: allSelected,
-                      onSelectAll: () => toggleAll(!allSelected),
-                    ),
-                  ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   // children: [
@@ -720,11 +709,18 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
 
   Widget _buildSearchBar() {
     return Container(
-      height: 56,
+      height: 54,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFD9CBBB)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _assignServicesBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: TextField(
         controller: _searchController,
@@ -739,8 +735,10 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
           prefixIcon: const Icon(
             Icons.search_rounded,
             color: AppColors.starColor,
-            size: 24,
+            size: 21,
           ),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 44, minHeight: 44),
           suffixIcon: _searchQuery.isEmpty
               ? null
               : IconButton(
@@ -753,94 +751,65 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                 ),
           hintText: translateText('Find services...'),
           hintStyle: const TextStyle(
-            color: Color(0xFF34302C),
+            color: _assignServicesMuted,
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(vertical: 15),
         ),
       ),
     );
   }
-}
 
-class _SelectionSummaryCard extends StatelessWidget {
-  const _SelectionSummaryCard({
-    required this.selectedCount,
-    required this.totalCount,
-    required this.allSelected,
-    required this.onSelectAll,
-  });
+  Widget _buildSearchAndSelectionAction() {
+    final hasAssignableServices = _allServiceIds().isNotEmpty;
 
-  final int selectedCount;
-  final int totalCount;
-  final bool allSelected;
-  final VoidCallback onSelectAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _assignServicesCardDecoration(highlighted: selectedCount > 0),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: _assignServicesSoftGold,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.handyman_outlined,
-              size: 18,
-              color: AppColors.starColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  translateText('Services selected'),
-                  style: const TextStyle(
+    return Row(
+      children: [
+        Expanded(child: _buildSearchBar()),
+        if (hasAssignableServices) ...[
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 104),
+            child: SizedBox(
+              height: 54,
+              child: OutlinedButton.icon(
+                onPressed: () => toggleAll(!allSelected),
+                icon: Icon(
+                  allSelected
+                      ? Icons.cleaning_services_outlined
+                      : Icons.done_all_rounded,
+                  size: 17,
+                ),
+                label: Text(
+                  translateText(allSelected ? 'Clear all' : 'Select all'),
+                  maxLines: 1,
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor:
+                      allSelected ? _assignServicesMuted : AppColors.starColor,
+                  backgroundColor:
+                      allSelected ? Colors.white : _assignServicesSoftGold,
+                  side: BorderSide(
+                    color: allSelected
+                        ? _assignServicesBorder
+                        : AppColors.starColor.withValues(alpha: 0.45),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: const TextStyle(
                     fontFamily: 'Manrope',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: _assignServicesText,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '$selectedCount/$totalCount',
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _assignServicesMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: onSelectAll,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.starColor,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              textStyle: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
               ),
-            ),
-            child: Text(
-              translateText(allSelected ? 'Clear all' : 'Select all'),
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 }

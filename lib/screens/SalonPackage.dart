@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../services/stylist_branch_selection.dart';
+import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/price_formatter.dart';
 import '../utils/refresh_feedback.dart';
@@ -316,29 +317,7 @@ class _PackageScreenState extends State<PackageScreen> {
   }
 
   String _branchAddressSummary(dynamic rawAddress) {
-    if (rawAddress is! Map) return '';
-    final address = Map<String, dynamic>.from(rawAddress);
-    final parts = <String>[];
-
-    void push(dynamic value) {
-      final text = value?.toString().trim() ?? '';
-      if (text.isEmpty ||
-          text.toLowerCase() == 'null' ||
-          parts.contains(text)) {
-        return;
-      }
-      parts.add(text);
-    }
-
-    push(address['line1']);
-    push(address['line2']);
-    push(address['village']);
-    push(address['district']);
-    push(address['city']);
-    push(address['state']);
-    push(address['postalCode']);
-    push(address['country']);
-    return parts.join(', ');
+    return formatAddressSummary(rawAddress);
   }
 
   Future<void> _refreshData() async {

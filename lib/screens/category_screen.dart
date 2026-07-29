@@ -18,6 +18,7 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../utils/api_service.dart';
+import '../utils/input_validation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../widgets/app_loader.dart';
 
@@ -4319,7 +4320,8 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
                 maxLength: 30,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z &]')),
+                  FilteringTextInputFormatter.allow(
+                      AppInputRules.serviceNamePattern),
                   const FirstLetterUpperFormatter(),
                   LengthLimitingTextInputFormatter(30),
                 ],
@@ -4483,7 +4485,8 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
                 maxLength: 30,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z &]')),
+                  FilteringTextInputFormatter.allow(
+                      AppInputRules.serviceNamePattern),
                   const FirstLetterUpperFormatter(),
                   LengthLimitingTextInputFormatter(30),
                 ],
@@ -4642,9 +4645,9 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             controller: nameController,
             textCapitalization: TextCapitalization.words,
             maxLength: 50,
-            inputFormatters: [
-              LengthLimitingTextInputFormatter(50),
-            ],
+            inputFormatters: AppInputRules.serviceNameFormatters(
+              maxLength: 50,
+            ),
           ),
           if (nameError != null) ...[
             SizedBox(height: 4),

@@ -298,6 +298,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     );
   }
 
+  void _refreshAddressValidation() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _formKey.currentState?.validate();
+    });
+  }
+
   String _cleanAddressText(String value) {
     final cleaned = value
         .replaceAll('\u00A0', ' ')
@@ -405,6 +412,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         longitude = lng;
       });
       _isSyncingCompleteAddress = false;
+      _refreshAddressValidation();
 
       debugPrint('CURRENT LOCATION ADDRESS=$formattedAddress');
       debugPrint('CURRENT LOCATION COMPLETE=${completeAddressController.text}');
@@ -664,6 +672,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         predictions = [];
       });
       _isSyncingCompleteAddress = false;
+      _refreshAddressValidation();
 
       debugPrint('STATE latitude = $latitude');
       debugPrint('STATE longitude = $longitude');
@@ -723,6 +732,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         predictions = [];
       });
       _isSyncingCompleteAddress = false;
+      _refreshAddressValidation();
 
       debugPrint('ERROR STATE latitude = $latitude');
       debugPrint('ERROR STATE longitude = $longitude');
@@ -1403,6 +1413,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             latitude = finalLatitude;
             longitude = finalLongitude;
           });
+          _refreshAddressValidation();
         }
       } catch (e) {
         debugPrint('Submit geocoding failed: $e');
@@ -1440,13 +1451,16 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 }
 
-final RegExp _addressAllowedRegex = RegExp(r'^[^\u0000-\u001F\u007F]+$');
+final RegExp _addressAllowedRegex = RegExp(r'^[A-Za-z0-9 &,/]+$');
 
+// Used only to strip zero-width/control characters when normalizing the
+// auto-filled Complete Address string — that field legitimately contains
+// commas, so it must stay separate from the stricter manual-field regex above.
 final RegExp _addressDisallowedRegex = RegExp(r'[\u0000-\u001F\u007F]');
 
 final List<TextInputFormatter> _addressInputFormatters = [
   FilteringTextInputFormatter.allow(
-    RegExp(r'[^\u0000-\u001F\u007F]'),
+    RegExp(r'[A-Za-z0-9 &,/]'),
   ),
 ];
 Widget _buildTextField({

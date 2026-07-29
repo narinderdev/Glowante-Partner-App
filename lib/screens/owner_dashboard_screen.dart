@@ -9,6 +9,7 @@ import '../features/profile/compensation/profile_compensation_screen.dart';
 import '../features/profile/operations/owner_profile_operations_screen.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../services/stylist_branch_selection.dart';
+import '../services/user_role_session.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/error_parser.dart';
@@ -395,7 +396,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
-      drawer: _DashboardDrawer(
+      drawer: OwnerDashboardDrawer(
         onOpen: _openDrawerRoute,
         selectedBranchId: _selectedBranchId,
       ),
@@ -482,15 +483,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             const Positioned.fill(child: _DashboardLoadingOverlay()),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'owner_dashboard_add_fab',
-        onPressed: _openBookingsTab,
-        backgroundColor: AppColors.starColor,
-        foregroundColor: Colors.white,
-        elevation: 8,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add_rounded, size: 30),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   heroTag: 'owner_dashboard_add_fab',
+      //   onPressed: _openBookingsTab,
+      //   backgroundColor: AppColors.starColor,
+      //   foregroundColor: Colors.white,
+      //   elevation: 8,
+      //   shape: const CircleBorder(),
+      //   child: const Icon(Icons.add_rounded, size: 30),
+      // ),
     );
   }
 
@@ -807,8 +808,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 }
 
-class _DashboardDrawer extends StatefulWidget {
-  const _DashboardDrawer({
+class OwnerDashboardDrawer extends StatefulWidget {
+  const OwnerDashboardDrawer({
+    super.key,
     required this.onOpen,
     required this.selectedBranchId,
   });
@@ -817,10 +819,10 @@ class _DashboardDrawer extends StatefulWidget {
   final int? selectedBranchId;
 
   @override
-  State<_DashboardDrawer> createState() => _DashboardDrawerState();
+  State<OwnerDashboardDrawer> createState() => _OwnerDashboardDrawerState();
 }
 
-class _DashboardDrawerState extends State<_DashboardDrawer> {
+class _OwnerDashboardDrawerState extends State<OwnerDashboardDrawer> {
   final Set<String> _expandedGroups = <String>{};
   String? _selectedDrawerItem;
 
@@ -831,7 +833,7 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
   }
 
   @override
-  void didUpdateWidget(covariant _DashboardDrawer oldWidget) {
+  void didUpdateWidget(covariant OwnerDashboardDrawer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedBranchId != widget.selectedBranchId) {
       _loadDrawerPermissions();
@@ -3603,11 +3605,66 @@ class _NotificationPaginationBar extends StatelessWidget {
   }
 }
 
-class _DrawerProfileQuoteCard extends StatelessWidget {
+class _DrawerProfileQuoteCard extends StatefulWidget {
   const _DrawerProfileQuoteCard();
 
   @override
+  State<_DrawerProfileQuoteCard> createState() =>
+      _DrawerProfileQuoteCardState();
+}
+
+class _DrawerProfileQuoteCardState extends State<_DrawerProfileQuoteCard> {
+  _DrawerProfileData _profile = const _DrawerProfileData();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final roleLabel = await UserRoleSession.instance.loadPrimaryRoleLabel();
+    if (!mounted) return;
+
+    final firstName =
+        _readStoredValue(prefs, const ['firstName', 'first_name']);
+    final lastName = _readStoredValue(prefs, const ['lastName', 'last_name']);
+    final profileImageUrl = _readStoredValue(prefs, const [
+      'profilePictureUrl',
+      'profile_picture_url',
+      'profileImage',
+      'profile_image',
+      'imageUrl',
+    ]);
+
+    setState(() {
+      _profile = _DrawerProfileData(
+        name: '$firstName $lastName'.trim(),
+        roleLabel: roleLabel.trim(),
+        imageUrl: profileImageUrl,
+      );
+    });
+  }
+
+  String _readStoredValue(SharedPreferences prefs, List<String> keys) {
+    for (final key in keys) {
+      final value = prefs.getString(key)?.trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'null') {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final displayName =
+        _profile.name.isEmpty ? context.t('Profile') : _profile.name;
+    final roleLabel = _profile.roleLabel.isEmpty
+        ? context.t('Salon Owner')
+        : _profile.roleLabel;
+
     return Column(
       children: [
         Container(
@@ -3647,15 +3704,21 @@ class _DrawerProfileQuoteCard extends StatelessWidget {
                   color: Colors.white,
                 ),
                 child: ClipOval(
-                  child: Image.asset(
-                    'assets/images/profile_placeholder.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.person_outline_rounded,
-                      size: 18,
-                      color: AppColors.starColor,
-                    ),
-                  ),
+                  child: _profile.imageUrl.isEmpty
+                      ? const Icon(
+                          Icons.person_outline_rounded,
+                          size: 18,
+                          color: AppColors.starColor,
+                        )
+                      : Image.network(
+                          _profile.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.person_outline_rounded,
+                            size: 18,
+                            color: AppColors.starColor,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(width: 9),
@@ -3664,7 +3727,7 @@ class _DrawerProfileQuoteCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Jandrotia Amitabh',
+                      displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -3676,7 +3739,9 @@ class _DrawerProfileQuoteCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'APP USER',
+                      roleLabel.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 7.5,
                         height: 1.1,
@@ -3694,4 +3759,16 @@ class _DrawerProfileQuoteCard extends StatelessWidget {
       ],
     );
   }
+}
+
+class _DrawerProfileData {
+  const _DrawerProfileData({
+    this.name = '',
+    this.roleLabel = '',
+    this.imageUrl = '',
+  });
+
+  final String name;
+  final String roleLabel;
+  final String imageUrl;
 }

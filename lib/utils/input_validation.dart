@@ -10,13 +10,22 @@ class AppInputRules {
   static const int mediumTextMaxLength = 120;
   static const int longTextMaxLength = 250;
 
-  static final RegExp namePattern = RegExp(r"[A-Za-z ]");
+  static final RegExp namePattern = RegExp(r"[A-Za-z0-9 &]");
+  static final RegExp serviceNamePattern = RegExp(r"[A-Za-z0-9 &-]");
   static final RegExp alphaNumericSlashDashPattern = RegExp(r'[A-Za-z0-9/-]');
   static final RegExp generalTextPattern = RegExp(r"[A-Za-z0-9 .,'&()/-]");
 
   static List<TextInputFormatter> get nameFormatters => [
         FilteringTextInputFormatter.allow(namePattern),
         LengthLimitingTextInputFormatter(nameMaxLength),
+      ];
+
+  static List<TextInputFormatter> serviceNameFormatters({
+    int maxLength = nameMaxLength,
+  }) =>
+      [
+        FilteringTextInputFormatter.allow(serviceNamePattern),
+        LengthLimitingTextInputFormatter(maxLength),
       ];
 
   static List<TextInputFormatter> get phoneFormatters => [

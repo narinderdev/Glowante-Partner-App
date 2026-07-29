@@ -6,6 +6,7 @@ import 'offer_review_summary_screen.dart';
 import 'package:flutter/services.dart';
 import 'SelectServices.dart';
 import '../utils/api_service.dart';
+import '../utils/input_validation.dart';
 import '../utils/price_formatter.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -1583,6 +1584,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
             keyboardType: TextInputType.text,
             textCapitalization: TextCapitalization.sentences,
             inputFormatters: [
+              FilteringTextInputFormatter.allow(
+                AppInputRules.serviceNamePattern,
+              ),
               _SentenceCaseTextFormatter(),
               LengthLimitingTextInputFormatter(50),
             ],
@@ -1964,8 +1968,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         keyboardType: TextInputType.text,
         textCapitalization: TextCapitalization.sentences,
         inputFormatters: [
+          FilteringTextInputFormatter.allow(AppInputRules.serviceNamePattern),
           _SentenceCaseTextFormatter(),
-          NoSpecialCharsFormatter(),
           LengthLimitingTextInputFormatter(50),
         ],
         decoration: _decor(
@@ -2270,24 +2274,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class NoSpecialCharsFormatter extends TextInputFormatter {
-  final RegExp _allowed = RegExp(r"[a-zA-Z0-9\s,.\-']");
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final filtered =
-        newValue.text.split('').where((ch) => _allowed.hasMatch(ch)).join();
-
-    return newValue.copyWith(
-      text: filtered,
-      selection: TextSelection.collapsed(offset: filtered.length),
     );
   }
 }
