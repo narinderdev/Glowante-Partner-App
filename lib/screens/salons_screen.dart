@@ -127,6 +127,10 @@ class SalonsScreenState extends State<SalonsScreen> {
   void _openOwnerDrawer() {
     _collapseFab();
     _dismissKeyboard();
+    if (context.read<SalonListCubit>().state.salons.isEmpty) {
+      Fluttertoast.showToast(msg: translateText('Please add a salon first'));
+      return;
+    }
     _scaffoldKey.currentState?.openDrawer();
   }
 
@@ -626,6 +630,7 @@ class SalonsScreenState extends State<SalonsScreen> {
         onHeaderTap: _collapseFab,
         toolbarHeight: 58,
         logoHeight: 28,
+        hasSalon: hasSalon,
         onMenuTap: _openOwnerDrawer,
         onAddSalonTap: (widget.readOnly || !hasSalon) ? null : _goToAddSalon,
         onNotificationTap: () {
@@ -875,6 +880,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onHeaderTap,
     this.toolbarHeight = 52,
     this.logoHeight = 34,
+    required this.hasSalon,
     required this.onMenuTap,
     this.onAddSalonTap,
     required this.onNotificationTap,
@@ -887,6 +893,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onHeaderTap;
   final double toolbarHeight;
   final double logoHeight;
+  final bool hasSalon;
   final VoidCallback onMenuTap;
   final VoidCallback? onAddSalonTap;
   final VoidCallback onNotificationTap;
@@ -926,9 +933,11 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                       ),
                       onPressed: onMenuTap,
                       tooltip: translateText('Menu'),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.menu_rounded,
-                        color: Color(0xFF8B6500),
+                        color: hasSalon
+                            ? const Color(0xFF8B6500)
+                            : const Color(0xFFBDB5AE),
                       ),
                     ),
                   ),
