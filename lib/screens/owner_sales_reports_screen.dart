@@ -12,7 +12,6 @@ import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import '../widgets/app_loader.dart';
-import 'bottom_nav.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 String _translateReportLabel(BuildContext context, String label) {
@@ -305,6 +304,21 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
     return const {};
   }
 
+  void _showAllServicesRevenueDialog(Map<String, dynamic> data) {
+    final rawRows = data['rows'] is List ? data['rows'] : data['data'];
+    final rows = _mapList(rawRows);
+    if (rows.isEmpty) return;
+
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.55),
+      builder: (dialogContext) => _AllServicesRevenueDialog(
+        rows: rows,
+        cleanText: _cleanText,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -570,13 +584,8 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
             final topServicesCard = _TopServicesCard(
               data: topServices,
               cleanText: _cleanText,
-              onViewAllServices: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (_) => const BottomNav(tabIndex: 2)),
-                  (route) => false,
-                );
-              },
+              onViewAllServices: () =>
+                  _showAllServicesRevenueDialog(topServices),
             );
 
             if (constraints.maxWidth >= 760) {
@@ -2064,6 +2073,377 @@ class _TopServicesCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _AllServicesRevenueDialog extends StatefulWidget {
+  const _AllServicesRevenueDialog({
+    required this.rows,
+    required this.cleanText,
+  });
+
+  final List<Map<String, dynamic>> rows;
+  final String Function(dynamic value) cleanText;
+
+  @override
+  State<_AllServicesRevenueDialog> createState() =>
+      _AllServicesRevenueDialogState();
+}
+
+class _AllServicesRevenueDialogState extends State<_AllServicesRevenueDialog> {
+  static const int _pageSize = 5;
+  final ScrollController _horizontalController = ScrollController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  String _messageWithNumbers(
+    BuildContext context,
+    String key,
+    Map<String, String> values,
+  ) {
+    var text = context.t(key);
+    for (final entry in values.entries) {
+      text = text.replaceAll('{${entry.key}}', entry.value);
+    }
+    return text;
+  }
+
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? ''}') ?? 0;
+  }
+
+  String _formatRevenue(Map<String, dynamic> row) {
+    final display = widget.cleanText(row['displayRevenue']);
+    if (display.isNotEmpty) return display;
+    return formatMinorAmount(
+      row['majorRevenue'] ?? row['revenueMinor'] ?? row['revenue'],
+      trimZeroDecimals: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalRows = widget.rows.length;
+    final totalPages = math.max(1, (totalRows / _pageSize).ceil());
+    final currentPage = _page.clamp(0, totalPages - 1).toInt();
+    final from = totalRows == 0 ? 0 : currentPage * _pageSize + 1;
+    final to = math.min(totalRows, (currentPage + 1) * _pageSize);
+    final visibleRows =
+        widget.rows.skip(currentPage * _pageSize).take(_pageSize);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 640,
+          maxHeight: MediaQuery.of(context).size.height * 0.82,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.t('Top Services by Revenue'),
+                          style: const TextStyle(
+                            color: Color(0xFF1C1917),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _messageWithNumbers(
+                            context,
+                            'Showing {from}-{to} of {total} services',
+                            {
+                              'from': '$from',
+                              'to': '$to',
+                              'total': '$totalRows',
+                            },
+                          ),
+                          style: const TextStyle(
+                            color: Color(0xFF8B7B6C),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      padding: EdgeInsets.zero,
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFFAF2),
+                        foregroundColor: AppColors.starColor,
+                        shape: const CircleBorder(),
+                      ),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFE8D8C8)),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: RawScrollbar(
+                  controller: _horizontalController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  scrollbarOrientation: ScrollbarOrientation.bottom,
+                  thickness: 5,
+                  radius: const Radius.circular(999),
+                  thumbColor: AppColors.starColor.withOpacity(0.45),
+                  trackColor: const Color(0xFFF1EBE6),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: SingleChildScrollView(
+                      controller: _horizontalController,
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: _AllServicesRevenueTable(
+                        rows: visibleRows.toList(),
+                        cleanText: widget.cleanText,
+                        asInt: _asInt,
+                        formatRevenue: _formatRevenue,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFE8D8C8)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _messageWithNumbers(
+                        context,
+                        'Page {page} of {total}',
+                        {
+                          'page': '${currentPage + 1}',
+                          'total': '$totalPages',
+                        },
+                      ),
+                      style: const TextStyle(
+                        color: Color(0xFF8B7B6C),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  _ReportPagerButton(
+                    label: context.t('Previous'),
+                    enabled: currentPage > 0,
+                    onPressed: () => setState(() => _page -= 1),
+                  ),
+                  const SizedBox(width: 8),
+                  _ReportPagerButton(
+                    label: context.t('Next'),
+                    enabled: currentPage < totalPages - 1,
+                    onPressed: () => setState(() => _page += 1),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AllServicesRevenueTable extends StatelessWidget {
+  const _AllServicesRevenueTable({
+    required this.rows,
+    required this.cleanText,
+    required this.asInt,
+    required this.formatRevenue,
+  });
+
+  final List<Map<String, dynamic>> rows;
+  final String Function(dynamic value) cleanText;
+  final int Function(dynamic value) asInt;
+  final String Function(Map<String, dynamic> row) formatRevenue;
+
+  @override
+  Widget build(BuildContext context) {
+    const tableWidth = 626.0;
+    const rankWidth = 64.0;
+    const serviceWidth = 180.0;
+    const categoryWidth = 150.0;
+    const bookingsWidth = 90.0;
+    const revenueWidth = 110.0;
+
+    return Container(
+      width: tableWidth,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE8D8C8)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AllServicesRevenueTableRow(
+              isHeader: true,
+              values: [
+                context.t('Rank'),
+                context.t('Service'),
+                context.t('Category'),
+                context.t('Bookings'),
+                context.t('Revenue'),
+              ],
+              widths: const [
+                rankWidth,
+                serviceWidth,
+                categoryWidth,
+                bookingsWidth,
+                revenueWidth,
+              ],
+            ),
+            ...rows.asMap().entries.map((entry) {
+              final row = entry.value;
+              final rank = asInt(row['rank']);
+              return _AllServicesRevenueTableRow(
+                values: [
+                  '#${rank > 0 ? rank : entry.key + 1}',
+                  cleanText(row['serviceName']),
+                  _translateReportLabel(
+                      context, cleanText(row['categoryName'])),
+                  '${asInt(row['totalBookings'] ?? row['bookings'])}',
+                  formatRevenue(row),
+                ],
+                widths: const [
+                  rankWidth,
+                  serviceWidth,
+                  categoryWidth,
+                  bookingsWidth,
+                  revenueWidth,
+                ],
+                highlightFirstColumn: true,
+                isLast: entry.key == rows.length - 1,
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AllServicesRevenueTableRow extends StatelessWidget {
+  const _AllServicesRevenueTableRow({
+    required this.values,
+    required this.widths,
+    this.isHeader = false,
+    this.highlightFirstColumn = false,
+    this.isLast = false,
+  });
+
+  final List<String> values;
+  final List<double> widths;
+  final bool isHeader;
+  final bool highlightFirstColumn;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final cells = <Widget>[];
+    for (var index = 0; index < values.length; index += 1) {
+      cells.add(
+        SizedBox(
+          width: widths[index],
+          child: Text(
+            values[index],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: index >= 3 ? TextAlign.right : TextAlign.left,
+            style: TextStyle(
+              color: isHeader || (highlightFirstColumn && index == 0)
+                  ? AppColors.starColor
+                  : const Color(0xFF1C1917),
+              fontSize: isHeader ? 10 : 12,
+              fontWeight: isHeader || index == 0 || index == 4
+                  ? FontWeight.w900
+                  : FontWeight.w700,
+              letterSpacing: isHeader ? 0.8 : 0,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: isHeader ? 36 : 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isHeader ? const Color(0xFFFFFCF8) : Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: isLast ? Colors.transparent : const Color(0xFFE8D8C8),
+          ),
+        ),
+      ),
+      child: Row(children: cells),
+    );
+  }
+}
+
+class _ReportPagerButton extends StatelessWidget {
+  const _ReportPagerButton({
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: enabled ? onPressed : null,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(58, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        foregroundColor:
+            enabled ? AppColors.starColor : const Color(0xFFC8BFB6),
+        side: BorderSide(
+          color: enabled ? const Color(0xFFE8D8C8) : const Color(0xFFF1EBE6),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+      ),
+      child: Text(label),
     );
   }
 }

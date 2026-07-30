@@ -2228,7 +2228,7 @@ class _GrowthLegendItem extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          label,
+          context.t(label),
           style: const TextStyle(fontSize: 11, color: Color(0xFF8A6F58)),
         ),
       ],

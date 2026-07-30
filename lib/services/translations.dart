@@ -219,6 +219,7 @@ class AppTranslations {
       'Name is required': 'Name is required',
       'New Category': 'New Category',
       'Next': 'Next',
+      'Page {page} of {total}': 'Page {page} of {total}',
       'No Internet Connection': 'No Internet Connection',
       'No bookings for': 'No bookings for',
       'No bookings for this date': 'No bookings for this date',
@@ -2383,6 +2384,7 @@ class AppTranslations {
       'Package duration cannot exceed 12 months.':
           'पैकेज की अवधि 12 महीने से अधिक नहीं हो सकती.',
       'Page': 'पेज',
+      'Page {page} of {total}': 'पेज {page} / {total}',
       'Passive Wait': 'निष्क्रिय प्रतीक्षा',
       'Passive wait': 'निष्क्रिय प्रतीक्षा',
       'Passive wait needs at least 3 minutes of service duration.':
@@ -2600,6 +2602,8 @@ class AppTranslations {
       'Show team list': 'टीम सूची दिखाएँ',
       'Showing': 'दिखा',
       'Showing 0 results': '0 परिणाम दिखा रहा है',
+      'Showing {from}-{to} of {total} services':
+          '{total} सेवाओं में से {from}-{to} दिखा रहा है',
       'Showing {from} to {to} of {total} results':
           '{total} में से {from} से {to} परिणाम दिखा रहा है',
       'Smart insights and recommendations to help you grow your salon business.':
@@ -3356,6 +3360,17 @@ class AppTranslations {
           'स्पष्ट मूल्य और वैधता के साथ सेवाओं को बंडल करें।',
       'Create a focused offer with service selection and discount rules.':
           'सेवा चयन और छूट नियमों के साथ केंद्रित ऑफ़र बनाएँ।',
+      'Unified Customer Dashboard': 'एकीकृत ग्राहक डैशबोर्ड',
+      'New Customers': 'नए ग्राहक',
+      'Returning Customers': 'वापस आने वाले ग्राहक',
+      'Repeat Rate': 'दोहराव दर',
+      'Loyal Customers': 'वफादार ग्राहक',
+      'Inactive Customers': 'निष्क्रिय ग्राहक',
+      'Customer Growth Trend': 'ग्राहक वृद्धि रुझान',
+      'Daily customer acquisition and retention over the selected date range.':
+          'चयनित तिथि सीमा में दैनिक ग्राहक अधिग्रहण और प्रतिधारण।',
+      'Days Attended': 'उपस्थित दिन',
+      'Total Days': 'कुल दिन',
     },
   };
 
