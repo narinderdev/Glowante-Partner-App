@@ -1299,7 +1299,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
 
   String _errorText(Object error) {
     final text = error.toString().replaceFirst('Exception: ', '').trim();
-    return text.isEmpty ? 'Something went wrong. Please try again.' : text;
+    return text.isEmpty
+        ? translateText('Something went wrong. Please try again.')
+        : text;
   }
 
   String _formatCurrency(num amount) {
@@ -1458,7 +1460,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                         child: _MetricCard(
                           label: 'Payroll Setup',
                           value: '${included.length}',
-                          subtitle: '${excluded.length} pending',
+                          subtitle: translateText(
+                            '{count} pending',
+                            params: {'count': '${excluded.length}'},
+                          ),
                         ),
                       ),
                     ],
@@ -1622,7 +1627,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                 currentRun.outstandingAmountMinor,
                               ),
                               subtitle: reviewStatus == 'cancelled'
-                                  ? '($unpaidEmployeesCount) unpaid'
+                                  ? translateText(
+                                      '({count}) unpaid',
+                                      params: {
+                                        'count': '$unpaidEmployeesCount',
+                                      },
+                                    )
                                   : '($unpaidEmployeesCount)',
                             ),
                           ),
@@ -1829,7 +1839,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                               setSheetState(() => searchQuery = value.trim());
                             },
                             decoration: InputDecoration(
-                              hintText: 'Search employee...',
+                              hintText: translateText('Search employee...'),
                               prefixIcon: const Icon(Icons.search_rounded),
                               filled: true,
                               fillColor: Colors.white,
@@ -3264,8 +3274,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                             return null;
                           },
                           decoration: InputDecoration(
-                            hintText:
-                                isAddition ? 'Festival bonus' : 'Late penalty',
+                            hintText: translateText(
+                              isAddition ? 'Festival bonus' : 'Late penalty',
+                            ),
                             hintStyle: const TextStyle(
                               color: Color(0xFFB0AAA4),
                               fontWeight: FontWeight.w400,
@@ -3466,7 +3477,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            translateText(title),
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -3475,7 +3486,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            subtitle,
+            translateText(subtitle),
             style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF6B7280),
@@ -3498,7 +3509,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    showReason ? 'Reason' : 'Payroll Type',
+                    translateText(showReason ? 'Reason' : 'Payroll Type'),
                     style: const TextStyle(
                       fontSize: 11,
                       color: Color(0xFF64748B),
@@ -3508,7 +3519,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 SizedBox(
                   width: showReason ? 80 : 90,
                   child: Text(
-                    showReason ? 'Action' : 'Salary (₹)',
+                    translateText(showReason ? 'Action' : 'Salary (₹)'),
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       fontSize: 11,
@@ -3523,136 +3534,33 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 14),
               child: Text(
-                emptyMessage,
+                translateText(emptyMessage),
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF6B7280),
                 ),
               ),
             )
-          else
-            ...members.map((member) {
-              final setup = _setupByUserId[member.id];
-
-              return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: const Color(0xFFFFF3D5),
-                            child: Text(
-                              member.name.isNotEmpty
-                                  ? member.name[0].toUpperCase()
-                                  : 'T',
-                              style: const TextStyle(
-                                color: AppColors.starColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  member.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF111827),
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  member.role.isEmpty
-                                      ? 'Team Member'
-                                      : member.role,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (showReason) ...[
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          translateText('ⓘ Not setup yet'),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFFEA580C),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 80,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: OutlinedButton(
-                            onPressed: onSetupTap,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFEA580C),
-                              side: const BorderSide(color: Color(0xFFEA580C)),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                              minimumSize: const Size(58, 30),
-                            ),
-                            child: Text(
-                              translateText('Set up'),
-                              style: TextStyle(fontSize: 11),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ] else ...[
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          PayrollTypes.label(
-                            setup?.payrollType ?? PayrollTypes.salaryOnly,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF111827),
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 90,
-                        child: Text(
-                          _formatSalaryRupees(setup?.salaryMinor ?? 0),
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF111827),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+          else if (members.length > 5)
+            SizedBox(
+              height: 5 * 76.0,
+              child: ListView.builder(
+                itemCount: members.length,
+                itemBuilder: (context, index) => _buildPayrollReviewMemberRow(
+                  members[index],
+                  showReason: showReason,
+                  onSetupTap: onSetupTap,
                 ),
-              );
-            }),
+              ),
+            )
+          else
+            ...members.map(
+              (member) => _buildPayrollReviewMemberRow(
+                member,
+                showReason: showReason,
+                onSetupTap: onSetupTap,
+              ),
+            ),
           if (!showReason && members.isNotEmpty) ...[
             const Divider(height: 1, color: Color(0xFFE5E7EB)),
             Padding(
@@ -3683,6 +3591,131 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPayrollReviewMemberRow(
+    ProfileTeamMember member, {
+    required bool showReason,
+    VoidCallback? onSetupTap,
+  }) {
+    final setup = _setupByUserId[member.id];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: const Color(0xFFFFF3D5),
+                  child: Text(
+                    member.name.isNotEmpty ? member.name[0].toUpperCase() : 'T',
+                    style: const TextStyle(
+                      color: AppColors.starColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        member.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        member.role.isEmpty
+                            ? translateText('Team Member')
+                            : translateText(member.role),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (showReason) ...[
+            Expanded(
+              flex: 2,
+              child: Text(
+                translateText('ⓘ Not setup yet'),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFFEA580C),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 80,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton(
+                  onPressed: onSetupTap,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFEA580C),
+                    side: const BorderSide(color: Color(0xFFEA580C)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(58, 30),
+                  ),
+                  child: Text(
+                    translateText('Set up'),
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            Expanded(
+              flex: 2,
+              child: Text(
+                translateText(
+                  PayrollTypes.label(
+                    setup?.payrollType ?? PayrollTypes.salaryOnly,
+                  ),
+                ),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 90,
+              child: Text(
+                _formatSalaryRupees(setup?.salaryMinor ?? 0),
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111827),
+                ),
               ),
             ),
           ],
@@ -4148,7 +4181,7 @@ class _RunMetricCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              label,
+              translateText(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -4234,7 +4267,7 @@ class _ActionChipButton extends StatelessWidget {
             ],
             if (isLoading || icon != null) const SizedBox(width: 8),
             Text(
-              label,
+              translateText(label),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -4494,7 +4527,9 @@ class _PayrollEmployeeCalculationScreen extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                isBusy ? 'Saving...' : 'Mark as Paid',
+                                translateText(
+                                  isBusy ? 'Saving...' : 'Mark as Paid',
+                                ),
                               ),
                             ),
                         ],
@@ -4689,7 +4724,7 @@ class _PayrollMetaBlock extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            label,
+            translateText(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -4701,7 +4736,7 @@ class _PayrollMetaBlock extends StatelessWidget {
           const SizedBox(height: 8),
           valueWidget ??
               Text(
-                value ?? '-',
+                translateText(value ?? '-'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

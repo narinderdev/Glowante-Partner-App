@@ -1503,7 +1503,9 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
                                 .map(
                                   (value) => DropdownMenuItem<String>(
                                     value: value,
-                                    child: Text(PayrollTypes.label(value)),
+                                    child: Text(
+                                      context.t(PayrollTypes.label(value)),
+                                    ),
                                   ),
                                 )
                                 .toList(),

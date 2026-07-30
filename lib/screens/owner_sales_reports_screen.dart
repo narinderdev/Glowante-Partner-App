@@ -3150,10 +3150,7 @@ class _RevenueBarPainter extends CustomPainter {
         barWidth,
         barHeight,
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(5)),
-        barPaint,
-      );
+      canvas.drawRect(rect, barPaint);
       _drawText(
         canvas,
         cleanText(row['label']),

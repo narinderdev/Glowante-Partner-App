@@ -3520,8 +3520,8 @@ class _ServiceDetailsDialog extends StatelessWidget {
       if (_durationLabel() != '-')
         _ServiceDetailRowData(translateText('Duration'), _durationLabel()),
       _ServiceDetailRowData(translateText('Price'), _priceLabel()),
-      if (priceType.isNotEmpty)
-        _ServiceDetailRowData(translateText('Price Type'), priceType),
+      // if (priceType.isNotEmpty)
+      //   _ServiceDetailRowData(translateText('Price Type'), priceType),
       if (description.isNotEmpty)
         _ServiceDetailRowData(translateText('Description'), description),
       if (_yesNo(active) != '-')

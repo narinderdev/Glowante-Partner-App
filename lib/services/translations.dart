@@ -3503,6 +3503,18 @@ class AppTranslations {
           'इस ओवरराइड की सेवा अब उपलब्ध नहीं है, इसलिए इसे संपादित नहीं किया जा सकता। आप इसके बजाय इसे हटा सकते हैं।',
       'GLOWANTE PAYROLL': 'ग्लोवंते पेरोल',
       'View All Opportunities': 'सभी अवसर देखें',
+      'Reason': 'कारण',
+      'No excluded team members found.':
+          'कोई बाहर रखा गया टीम सदस्य नहीं मिला।',
+      'No included team members found.': 'कोई शामिल टीम सदस्य नहीं मिला।',
+      '{count} pending': '{count} लंबित',
+      '({count}) unpaid': '({count}) अवैतनिक',
+      'Mark as Paid': 'भुगतान किया गया चिह्नित करें',
+      'Festival bonus': 'त्योहार बोनस',
+      'Late penalty': 'विलंब शुल्क',
+      'Google Pay': 'गूगल पे',
+      'PhonePe': 'फ़ोनपे',
+      'Paytm': 'पेटीएम',
     },
   };
 

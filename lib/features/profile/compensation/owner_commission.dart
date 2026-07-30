@@ -1884,9 +1884,8 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
   final TextEditingController _staffSearchController = TextEditingController();
   final TextEditingController _valueController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  final ScrollController _staffHorizontalScrollController = ScrollController();
   final ScrollController _dialogScrollController = ScrollController();
-  final ScrollController _staffVerticalScrollController = ScrollController();
+  final ScrollController _staffHorizontalScrollController = ScrollController();
   late int _selectedServiceId;
   String _ruleType = CommissionRuleTypes.percentage;
   DateTime _effectiveFrom = DateTime.now();
@@ -1923,7 +1922,6 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     _valueController.dispose();
     _notesController.dispose();
     _staffHorizontalScrollController.dispose();
-    _staffVerticalScrollController.dispose();
     _dialogScrollController.dispose();
     super.dispose();
   }
@@ -3007,18 +3005,10 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                                           ? true
                                           : null;
 
-                              final tableHeight = math.min(
-                                328.0,
-                                38.0 + (filteredStaff.length * 58.0),
-                              );
-
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Container(
-                                    height: filteredStaff.isEmpty
-                                        ? null
-                                        : tableHeight,
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(10),
@@ -3061,7 +3051,6 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                                                   bottom: 10),
                                               child: SizedBox(
                                                 width: 760,
-                                                height: tableHeight,
                                                 child: Column(
                                                   children: [
                                                     _StaffPickerHeaderRow(
@@ -3091,103 +3080,77 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                                                         _validateIfNeeded();
                                                       },
                                                     ),
-                                                    Expanded(
-                                                      child: RawScrollbar(
-                                                        controller:
-                                                            _staffVerticalScrollController,
-                                                        thumbVisibility: true,
-                                                        trackVisibility: true,
-                                                        scrollbarOrientation:
-                                                            ScrollbarOrientation
-                                                                .right,
-                                                        thickness: 4,
-                                                        radius: const Radius
-                                                            .circular(10),
-                                                        thumbColor: AppColors
-                                                            .starColor
-                                                            .withValues(
-                                                                alpha: 0.72),
-                                                        trackColor: const Color(
-                                                            0xFFFFF3D5),
-                                                        trackBorderColor:
-                                                            const Color(
-                                                                0xFFE8C774),
-                                                        child:
-                                                            ListView.separated(
-                                                          controller:
-                                                              _staffVerticalScrollController,
-                                                          padding:
-                                                              EdgeInsets.zero,
-                                                          itemCount:
-                                                              filteredStaff
-                                                                  .length,
-                                                          separatorBuilder:
-                                                              (_, __) =>
-                                                                  const Divider(
-                                                            height: 1,
-                                                            color: Color(
-                                                                0xFFE8DED6),
-                                                          ),
-                                                          itemBuilder:
-                                                              (context, index) {
-                                                            final member =
-                                                                filteredStaff[
-                                                                    index];
+                                                    ...filteredStaff
+                                                        .asMap()
+                                                        .entries
+                                                        .map((entry) {
+                                                      final index = entry.key;
+                                                      final member =
+                                                          entry.value;
 
-                                                            final isSelected =
-                                                                _selectedStaffIds
-                                                                    .contains(
-                                                                        member
-                                                                            .id);
+                                                      final isSelected =
+                                                          _selectedStaffIds
+                                                              .contains(
+                                                                  member.id);
 
-                                                            final existing =
-                                                                _existingOverrideFor(
-                                                              member.id,
-                                                            );
+                                                      final existing =
+                                                          _existingOverrideFor(
+                                                        member.id,
+                                                      );
 
-                                                            return _StaffPickerRow(
-                                                              member: member,
-                                                              selected:
-                                                                  isSelected,
-                                                              enabled:
-                                                                  !_isSaving &&
-                                                                      !_isEdit,
-                                                              currentRate:
-                                                                  _commissionRateLabel(
-                                                                existing,
-                                                                fallback: selectedService ==
-                                                                        null
-                                                                    ? 'No override'
-                                                                    : _serviceDefaultCommissionLabel(
-                                                                        selectedService,
-                                                                      ),
-                                                              ),
-                                                              onChanged:
-                                                                  (value) {
-                                                                setState(() {
-                                                                  if (value) {
-                                                                    _selectedStaffIds
-                                                                        .add(member
-                                                                            .id);
-                                                                  } else {
-                                                                    _selectedStaffIds
-                                                                        .remove(
-                                                                            member.id);
-                                                                  }
-                                                                });
-
-                                                                field.didChange(
+                                                      return Column(
+                                                        children: [
+                                                          _StaffPickerRow(
+                                                            member: member,
+                                                            selected:
+                                                                isSelected,
+                                                            enabled:
+                                                                !_isSaving &&
+                                                                    !_isEdit,
+                                                            currentRate:
+                                                                _commissionRateLabel(
+                                                              existing,
+                                                              fallback: selectedService ==
+                                                                      null
+                                                                  ? 'No override'
+                                                                  : _serviceDefaultCommissionLabel(
+                                                                      selectedService,
+                                                                    ),
+                                                            ),
+                                                            onChanged: (value) {
+                                                              setState(() {
+                                                                if (value) {
                                                                   _selectedStaffIds
-                                                                      .toSet(),
-                                                                );
+                                                                      .add(member
+                                                                          .id);
+                                                                } else {
+                                                                  _selectedStaffIds
+                                                                      .remove(
+                                                                          member
+                                                                              .id);
+                                                                }
+                                                              });
 
-                                                                _validateIfNeeded();
-                                                              },
-                                                            );
-                                                          },
-                                                        ),
-                                                      ),
-                                                    ),
+                                                              field.didChange(
+                                                                _selectedStaffIds
+                                                                    .toSet(),
+                                                              );
+
+                                                              _validateIfNeeded();
+                                                            },
+                                                          ),
+                                                          if (index !=
+                                                              filteredStaff
+                                                                      .length -
+                                                                  1)
+                                                            const Divider(
+                                                              height: 1,
+                                                              color: Color(
+                                                                  0xFFE8DED6),
+                                                            ),
+                                                        ],
+                                                      );
+                                                    }),
                                                   ],
                                                 ),
                                               ),

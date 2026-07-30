@@ -964,7 +964,7 @@ class _AdvanceDataCell extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Text(
-          value,
+          context.t(value),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
