@@ -670,60 +670,57 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
         const SizedBox(height: 16),
         _ReportSection(
           padding: EdgeInsets.zero,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final useTable = constraints.maxWidth >= 680;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (useTable) const _StaffPerformanceTableHeader(),
-                  if (rows.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                      child: _ReportEmptyState(
-                        icon: Icons.groups_outlined,
-                        title: context.t('No staff performance data'),
-                        message: context
-                            .t('No staff activity found for this range.'),
-                        compact: true,
-                      ),
-                    )
-                  else
-                    ...rows.map((row) {
-                      return useTable
-                          ? _StaffPerformanceRow(
-                              row: row,
-                              cleanText: _cleanText,
-                            )
-                          : _StaffPerformanceMobileRow(
+          child: rows.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  child: _ReportEmptyState(
+                    icon: Icons.groups_outlined,
+                    title: context.t('No staff performance data'),
+                    message:
+                        context.t('No staff activity found for this range.'),
+                    compact: true,
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _HorizontalScrollableArea(
+                      minWidth: 794,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _StaffPerformanceTableHeader(),
+                          ...rows.map((row) {
+                            return _StaffPerformanceRow(
                               row: row,
                               cleanText: _cleanText,
                             );
-                    }),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      total == 0
-                          ? context.t('Showing 0 results')
-                          : context.t(
-                              'Showing {from} to {to} of {total} results',
-                              params: {
-                                'from': '$from',
-                                'to': '$to',
-                                'total': '$total',
-                              },
-                            ),
-                      style: const TextStyle(
-                        color: Color(0xFF78716C),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                          }),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        total == 0
+                            ? context.t('Showing 0 results')
+                            : context.t(
+                                'Showing {from} to {to} of {total} results',
+                                params: {
+                                  'from': '$from',
+                                  'to': '$to',
+                                  'total': '$total',
+                                },
+                              ),
+                        style: const TextStyle(
+                          color: Color(0xFF78716C),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ],
     );
@@ -776,9 +773,9 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
       'comparison': {
         'type': changeType.isEmpty ? 'flat' : changeType,
         'displayValue': changeType == 'increase'
-            ? '+$percentageChange'
+            ? '$percentageChange'
             : changeType == 'decrease'
-                ? '-$percentageChange'
+                ? '$percentageChange'
                 : percentageChange,
         'label': context.t('vs last month'),
       },
@@ -971,16 +968,128 @@ class _OperationsOverviewCard extends StatelessWidget {
                         context.t('No appointments overview data available.'),
                     compact: true,
                   )
-                : CustomPaint(
-                    size: Size.infinite,
-                    painter: _OperationsOverviewPainter(
-                      rows: rows,
-                      cleanText: cleanText,
-                      asDouble: asDouble,
-                    ),
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final chartWidth = math.max(
+                        constraints.maxWidth,
+                        rows.length * 110.0,
+                      );
+                      return _HorizontalScrollableChart(
+                        width: chartWidth,
+                        height: 230,
+                        child: CustomPaint(
+                          size: Size(chartWidth, 230),
+                          painter: _OperationsOverviewPainter(
+                            rows: rows,
+                            cleanText: cleanText,
+                            asDouble: asDouble,
+                          ),
+                        ),
+                      );
+                    },
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HorizontalScrollableChart extends StatefulWidget {
+  const _HorizontalScrollableChart({
+    required this.width,
+    required this.height,
+    required this.child,
+  });
+
+  final double width;
+  final double height;
+  final Widget child;
+
+  @override
+  State<_HorizontalScrollableChart> createState() =>
+      _HorizontalScrollableChartState();
+}
+
+class _HorizontalScrollableChartState
+    extends State<_HorizontalScrollableChart> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RawScrollbar(
+      controller: _controller,
+      thumbVisibility: true,
+      trackVisibility: true,
+      thickness: 4,
+      radius: const Radius.circular(10),
+      thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+      trackColor: const Color(0xFFF1EBE6),
+      scrollbarOrientation: ScrollbarOrientation.bottom,
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 10),
+        child: SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+class _HorizontalScrollableArea extends StatefulWidget {
+  const _HorizontalScrollableArea({
+    required this.minWidth,
+    required this.child,
+  });
+
+  final double minWidth;
+  final Widget child;
+
+  @override
+  State<_HorizontalScrollableArea> createState() =>
+      _HorizontalScrollableAreaState();
+}
+
+class _HorizontalScrollableAreaState extends State<_HorizontalScrollableArea> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RawScrollbar(
+      controller: _controller,
+      thumbVisibility: true,
+      trackVisibility: true,
+      thickness: 4,
+      radius: const Radius.circular(10),
+      thumbColor: AppColors.starColor.withValues(alpha: 0.72),
+      trackColor: const Color(0xFFF1EBE6),
+      scrollbarOrientation: ScrollbarOrientation.bottom,
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 10),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: widget.minWidth),
+          child: widget.child,
+        ),
       ),
     );
   }
@@ -1028,13 +1137,25 @@ class _PeakBookingHoursCard extends StatelessWidget {
           else
             SizedBox(
               height: 210,
-              child: CustomPaint(
-                size: Size.infinite,
-                painter: _PeakBookingHoursPainter(
-                  rows: rows,
-                  cleanText: cleanText,
-                  asDouble: asDouble,
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final chartWidth = math.max(
+                    constraints.maxWidth,
+                    rows.length * 90.0,
+                  );
+                  return _HorizontalScrollableChart(
+                    width: chartWidth,
+                    height: 210,
+                    child: CustomPaint(
+                      size: Size(chartWidth, 210),
+                      painter: _PeakBookingHoursPainter(
+                        rows: rows,
+                        cleanText: cleanText,
+                        asDouble: asDouble,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
         ],
@@ -2470,23 +2591,28 @@ class _StaffPerformanceTableHeader extends StatelessWidget {
           SizedBox(
               width: 54,
               child: Text(context.t('Rank').toUpperCase(), style: headerStyle)),
-          Expanded(
-              flex: 3,
+          SizedBox(
+              width: 220,
               child:
                   Text(context.t('Staff').toUpperCase(), style: headerStyle)),
-          Expanded(
+          SizedBox(
+              width: 110,
               child:
                   Text(context.t('Revenue').toUpperCase(), style: headerStyle)),
-          Expanded(
+          SizedBox(
+              width: 100,
               child: Text(context.t('Services').toUpperCase(),
                   style: headerStyle)),
-          Expanded(
+          SizedBox(
+              width: 100,
               child:
                   Text(context.t('Clients').toUpperCase(), style: headerStyle)),
-          Expanded(
+          SizedBox(
+              width: 100,
               child: Text(context.t('Avg. Rating').toUpperCase(),
                   style: headerStyle)),
-          Expanded(
+          SizedBox(
+              width: 110,
               child: Text(context.t('Rebook Rate').toUpperCase(),
                   style: headerStyle)),
         ],
@@ -2521,8 +2647,8 @@ class _StaffPerformanceRow extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(width: 54, child: _RankBadge(rank: row['rank'])),
-          Expanded(
-            flex: 3,
+          SizedBox(
+            width: 220,
             child: Row(
               children: [
                 CircleAvatar(
@@ -2549,129 +2675,26 @@ class _StaffPerformanceRow extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(
+          SizedBox(
+            width: 110,
             child: Text(
               formatMinorAmount(row['revenue'], trimZeroDecimals: true),
               style: rowStyle.copyWith(color: AppColors.starColor),
             ),
           ),
-          Expanded(
+          SizedBox(
+              width: 100,
               child: Text('${row['totalServices'] ?? 0}', style: rowStyle)),
-          Expanded(child: Text('${row['totalClients'] ?? 0}', style: rowStyle)),
-          Expanded(
+          SizedBox(
+              width: 100,
+              child: Text('${row['totalClients'] ?? 0}', style: rowStyle)),
+          SizedBox(
+              width: 100,
               child: Text('${row['averageRating'] ?? 0}', style: rowStyle)),
-          Expanded(child: Text('${row['rebookRate'] ?? 0}', style: rowStyle)),
+          SizedBox(
+              width: 110,
+              child: Text('${row['rebookRate'] ?? 0}', style: rowStyle)),
         ],
-      ),
-    );
-  }
-}
-
-class _StaffPerformanceMobileRow extends StatelessWidget {
-  const _StaffPerformanceMobileRow({
-    required this.row,
-    required this.cleanText,
-  });
-
-  final Map<String, dynamic> row;
-  final String Function(dynamic value) cleanText;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = cleanText(row['name']);
-    final initial = name.isEmpty ? 'S' : name.characters.first.toUpperCase();
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE8D8C8))),
-      ),
-      child: Row(
-        children: [
-          _RankBadge(rank: row['rank']),
-          const SizedBox(width: 12),
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: const Color(0xFFF1EBE6),
-            child: Text(
-              initial,
-              style: TextStyle(
-                color: AppColors.starColor,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name.isEmpty ? context.t('Staff') : name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 4,
-                  children: [
-                    _MiniMetric(
-                      label: context.t('Services'),
-                      value: '${row['totalServices'] ?? 0}',
-                    ),
-                    _MiniMetric(
-                      label: context.t('Clients'),
-                      value: '${row['totalClients'] ?? 0}',
-                    ),
-                    _MiniMetric(
-                      label: context.t('Rating'),
-                      value: '${row['averageRating'] ?? 0}',
-                    ),
-                    _MiniMetric(
-                      label: context.t('Rebook'),
-                      value: '${row['rebookRate'] ?? 0}%',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            formatMinorAmount(row['revenue'], trimZeroDecimals: true),
-            style: TextStyle(
-              color: AppColors.starColor,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniMetric extends StatelessWidget {
-  const _MiniMetric({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '$label: $value',
-      style: const TextStyle(
-        color: Color(0xFF78716C),
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
       ),
     );
   }
@@ -2825,10 +2848,7 @@ class _PeakBookingHoursPainter extends CustomPainter {
         barWidth,
         barHeight,
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(5)),
-        barPaint,
-      );
+      canvas.drawRect(rect, barPaint);
       _drawText(
         canvas,
         _formatHourLabel(row),
@@ -3015,6 +3035,7 @@ class _OperationsOverviewPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     final path = Path();
+    final points = <Offset>[];
 
     for (var i = 0; i < rows.length; i++) {
       final value = asDouble(rows[i][key]);
@@ -3022,22 +3043,30 @@ class _OperationsOverviewPainter extends CustomPainter {
           ? chartLeft + chartWidth / 2
           : chartLeft + chartWidth * i / (rows.length - 1);
       final y = chartBottom - chartHeight * (value / scaleMax);
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
+      points.add(Offset(x, y));
+    }
+
+    if (points.isNotEmpty) {
+      path.moveTo(points.first.dx, points.first.dy);
+      for (var i = 1; i < points.length; i++) {
+        final previous = points[i - 1];
+        final current = points[i];
+        final controlX = (previous.dx + current.dx) / 2;
+        path.cubicTo(
+          controlX,
+          previous.dy,
+          controlX,
+          current.dy,
+          current.dx,
+          current.dy,
+        );
       }
     }
 
     canvas.drawPath(path, paint);
-    for (var i = 0; i < rows.length; i++) {
-      final value = asDouble(rows[i][key]);
-      final x = rows.length == 1
-          ? chartLeft + chartWidth / 2
-          : chartLeft + chartWidth * i / (rows.length - 1);
-      final y = chartBottom - chartHeight * (value / scaleMax);
-      canvas.drawCircle(Offset(x, y), 4, pointPaint);
-      canvas.drawCircle(Offset(x, y), 4, pointBorderPaint);
+    for (final point in points) {
+      canvas.drawCircle(point, 4, pointPaint);
+      canvas.drawCircle(point, 4, pointBorderPaint);
     }
   }
 

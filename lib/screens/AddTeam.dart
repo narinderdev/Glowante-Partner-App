@@ -972,7 +972,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       _cameraImage = File(picked.path);
     });
 
-    _toast('Uploading image...');
+    _toast(translateText('Uploading image...'));
 
     final uploaded =
         await AwsS3Uploader().uploadImageResult(picked, folder: 'uploads/team');
@@ -981,9 +981,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       setState(() {
         imageUrl = uploaded.cdnUrl ?? uploaded.publicUrl;
       });
-      _toast('Image uploaded successfully');
+      _toast(translateText('Image uploaded successfully'));
     } else {
-      _toast('❌ Failed to upload image');
+      _toast('❌ ${translateText('Failed to upload image')}');
     }
   }
 
@@ -1574,7 +1574,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
     final userId = (widget.initialMember?['id'] as num?)?.toInt();
     if (userId == null) {
-      _toast('Missing member id');
+      _toast(translateText('Missing member id'));
       return;
     }
 

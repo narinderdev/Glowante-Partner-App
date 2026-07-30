@@ -71,7 +71,7 @@ extension _OwnerPayrollUi on _ProfileCompensationScreenState {
                           _ActionChipButton(
                             label: _isOpeningPayrollSetup
                                 ? context.t('Opening...')
-                                : 'Manage Team Setup',
+                                : context.t('Manage Team Setup'),
                             icon: Icons.manage_accounts_outlined,
                             isLoading: _isOpeningPayrollSetup,
                             onTap:
@@ -516,7 +516,7 @@ class _PayrollSetupStepHeader extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         stepLabel(
-          label: 'Payroll Setup',
+          label: context.t('Payroll Setup'),
           isActive: isStepOneActive,
         ),
         Expanded(
@@ -534,7 +534,7 @@ class _PayrollSetupStepHeader extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         stepLabel(
-          label: 'Review',
+          label: context.t('Review'),
           isActive: isStepTwoActive,
         ),
       ],
@@ -713,7 +713,9 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                   .trim();
                               Fluttertoast.showToast(
                                 msg: message.isEmpty
-                                    ? 'Something went wrong. Please try again.'
+                                    ? translateText(
+                                        'Something went wrong. Please try again.',
+                                      )
                                     : message,
                               );
                             } finally {
@@ -986,9 +988,12 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                           final setup =
                                               _visibleSetups[member.id];
                                           final payType = setup == null
-                                              ? 'Not configured'
-                                              : PayrollTypes.label(
-                                                  setup.payrollType);
+                                              ? translateText('Not configured')
+                                              : translateText(
+                                                  PayrollTypes.label(
+                                                    setup.payrollType,
+                                                  ),
+                                                );
                                           final salaryText = setup == null ||
                                                   setup.salaryMinor == 0
                                               ? '-'
@@ -1043,7 +1048,8 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                                           member.role.isEmpty
                                                               ? context.t(
                                                                   'Team member')
-                                                              : member.role,
+                                                              : context.t(
+                                                                  member.role),
                                                           style:
                                                               const TextStyle(
                                                             fontSize: 12,
@@ -1183,7 +1189,13 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                             border: Border.all(color: const Color(0xFFF2D29A)),
                           ),
                           child: Text(
-                            '$_configuredCount members have payroll setup • $_pendingCount members need to be added\nTip: You can change payroll type, salary or commission for any team member.',
+                            translateText(
+                              '{configured} members have payroll setup • {pending} members need to be added\nTip: You can change payroll type, salary or commission for any team member.',
+                              params: {
+                                'configured': '$_configuredCount',
+                                'pending': '$_pendingCount',
+                              },
+                            ),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFFB26A00),

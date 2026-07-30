@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'localization_helper.dart';
+
 String extractErrorMessage(
   dynamic error, {
   String fallback = 'Something went wrong',
 }) {
   final message = extractMessage(error, fallback: '').trim();
-  return message.isNotEmpty ? message : fallback;
+  return message.isNotEmpty ? message : translateText(fallback);
 }
 
 String extractMessage(
@@ -17,7 +19,9 @@ String extractMessage(
   }
 
   final message = _extractFromDynamic(data)?.trim();
-  return (message != null && message.isNotEmpty) ? message : fallback;
+  return (message != null && message.isNotEmpty)
+      ? message
+      : translateText(fallback);
 }
 
 String? _extractFromJsonString(String value) {

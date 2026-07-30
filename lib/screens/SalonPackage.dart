@@ -270,7 +270,8 @@ class _PackageScreenState extends State<PackageScreen> {
         await _fetchOffers(selectedSalonId!);
       } else {
         Fluttertoast.showToast(
-            msg: res['message']?.toString() ?? 'Failed to delete deal');
+            msg: res['message']?.toString() ??
+                translateText('Failed to delete deal'));
       }
     } finally {
       if (mounted) setState(() => _deletingIds.remove(offerId));

@@ -1231,7 +1231,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           Navigator.pop(context, true);
         } else {
           Fluttertoast.showToast(
-              msg: res['message']?.toString() ?? 'Failed to update offer');
+              msg: res['message']?.toString() ??
+                  translateText('Failed to update offer'));
         }
 
         return;
@@ -1250,7 +1251,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         Navigator.pop(context, true);
       } else {
         Fluttertoast.showToast(
-            msg: res['message']?.toString() ?? 'Failed to create offer');
+            msg: res['message']?.toString() ??
+                translateText('Failed to create offer'));
       }
     } finally {
       if (mounted) {

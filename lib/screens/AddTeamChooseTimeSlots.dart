@@ -2147,7 +2147,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       if (!mounted) return;
 
       if (response['success'] == true) {
-        Fluttertoast.showToast(msg: 'Team member added successfully');
+        Fluttertoast.showToast(
+            msg: translateText('Team member added successfully'));
 
         Navigator.pushAndRemoveUntil(
           context,

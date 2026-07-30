@@ -268,7 +268,9 @@ class _OwnerRolesPermissionsScreenState
 
     final success = response['success'] == true;
     final message = response['message']?.toString() ??
-        (success ? 'Role saved successfully.' : 'Unable to save role.');
+        translateText(
+          success ? 'Role saved successfully.' : 'Unable to save role.',
+        );
     return _RoleSaveResult(success: success, message: message);
   }
 

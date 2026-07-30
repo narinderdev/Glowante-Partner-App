@@ -1127,7 +1127,9 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       await file.parent.create(recursive: true);
       await file.writeAsString(csv);
       _logClients('export_clients_success', details: file.path);
-      _showSnack('Exported to ${file.path}');
+      _showSnack(
+        translateText('Exported to {path}', params: {'path': file.path}),
+      );
     } catch (error) {
       _logClients('export_clients_failed', details: error);
       _showSnack(error.toString());
@@ -1182,12 +1184,17 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
               await file.parent.create(recursive: true);
               await file.writeAsString(template);
               if (!mounted) return;
-              _showSnack('Template saved to $targetPath');
+              _showSnack(
+                translateText(
+                  'Template saved to {path}',
+                  params: {'path': targetPath},
+                ),
+              );
             }
 
             Future<void> uploadFile() async {
               if (selectedFile?.path == null || selectedFile!.path!.isEmpty) {
-                _showSnack('Please choose a file');
+                _showSnack(translateText('Please choose a file'));
                 return;
               }
               setDialogState(() => isUploading = true);
@@ -1206,7 +1213,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                   details: 'branchId=$_selectedBranchId',
                 );
                 Navigator.of(dialogContext).pop();
-                _showSnack('Clients imported successfully');
+                _showSnack(translateText('Clients imported successfully'));
                 await _loadClientsForBranch(_selectedBranchId!,
                     saveSelection: false);
               } catch (error) {

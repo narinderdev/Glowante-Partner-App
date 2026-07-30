@@ -789,9 +789,11 @@ class _TeamScreenState extends State<TeamScreen> {
       } else {
         Fluttertoast.showToast(
             msg: response['message']?.toString() ??
-                (makeActive
-                    ? 'Failed to activate team member'
-                    : 'Failed to deactivate team member'));
+                translateText(
+                  makeActive
+                      ? 'Failed to activate team member'
+                      : 'Failed to deactivate team member',
+                ));
       }
     } catch (e) {
       if (!mounted) return;
@@ -983,7 +985,7 @@ class _TeamScreenState extends State<TeamScreen> {
       } else {
         Fluttertoast.showToast(
             msg: response['message']?.toString() ??
-                'Failed to delete team member');
+                translateText('Failed to delete team member'));
       }
     } catch (e) {
       if (!mounted) return;

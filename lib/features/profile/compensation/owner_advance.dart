@@ -58,9 +58,9 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
                                     color: const Color(0xFFFFF4E8),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
-                                  child: const Text(
-                                    'GLOWANTE PAYROLL',
-                                    style: TextStyle(
+                                  child: Text(
+                                    translateText('GLOWANTE PAYROLL'),
+                                    style: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0.7,
@@ -118,7 +118,7 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
                       cursorColor: AppColors.starColor,
                       maxLength: 60,
                       decoration: InputDecoration(
-                        hintText: 'Search by team member',
+                        hintText: translateText('Search by team member'),
                         counterText: '',
                         prefixIcon: const Icon(Icons.search_rounded),
                         filled: true,
@@ -300,26 +300,26 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
                                       child: const Row(
                                         children: [
                                           _AdvanceHeaderCell(
-                                            'TEAM MEMBER',
+                                            'Team Member',
                                             width: 140,
                                           ),
                                           _AdvanceHeaderCell(
-                                            'ADVANCE AMOUNT',
+                                            'Advance Amount',
                                             width: 140,
                                           ),
-                                          _AdvanceHeaderCell('DATE',
+                                          _AdvanceHeaderCell('Date',
                                               width: 110),
                                           _AdvanceHeaderCell(
-                                            'PAYMENT MODE',
+                                            'Payment Mode',
                                             width: 120,
                                           ),
                                           _AdvanceHeaderCell(
-                                            'PAYMENT REFERENCE',
+                                            'Payment Reference',
                                             width: 160,
                                           ),
-                                          _AdvanceHeaderCell('REMARKS',
+                                          _AdvanceHeaderCell('Remarks',
                                               width: 140),
-                                          _AdvanceHeaderCell('ACTION',
+                                          _AdvanceHeaderCell('Action',
                                               width: 112),
                                         ],
                                       ),
@@ -428,7 +428,7 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
       }
     }
     if (activeMembers.isEmpty) {
-      _showToast('No active team members found', isError: true);
+      _showToast(translateText('No active team members found'), isError: true);
       return;
     }
 
@@ -757,7 +757,7 @@ class _AdvanceInfoLine extends StatelessWidget {
           SizedBox(
             width: 118,
             child: Text(
-              label,
+              context.t(label),
               style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF78716C),
@@ -768,7 +768,7 @@ class _AdvanceInfoLine extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              value,
+              context.t(value),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -797,7 +797,7 @@ class _AdvanceHeaderCell extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Text(
-          label,
+          context.t(label).toUpperCase(),
           style: const TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w800,
@@ -1065,14 +1065,19 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
   bool _validateForSubmit() {
     final amount = int.tryParse(_amountController.text.trim());
     setState(() {
-      _memberError = _selectedMember == null ? 'Team member is required' : null;
-      _amountError =
-          amount == null || amount <= 0 ? 'Enter a valid advance amount' : null;
-      _dateError = _givenDate == null ? 'Date is required' : null;
-      _paymentModeError =
-          _paymentMode == null ? 'Payment mode is required' : null;
+      _memberError = _selectedMember == null
+          ? translateText('Team member is required')
+          : null;
+      _amountError = amount == null || amount <= 0
+          ? translateText('Enter a valid advance amount')
+          : null;
+      _dateError =
+          _givenDate == null ? translateText('Date is required') : null;
+      _paymentModeError = _paymentMode == null
+          ? translateText('Payment mode is required')
+          : null;
       _referenceError = _referenceController.text.trim().isEmpty
-          ? 'Payment reference is required'
+          ? translateText('Payment reference is required')
           : null;
     });
 
@@ -1133,10 +1138,12 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _isEditing ? 'Edit Advance' : 'Add Advance';
-    final helper = _isEditing
-        ? 'Update the advance amount, date, payment mode, or notes.'
-        : 'Record a payroll advance for an active team member.';
+    final title = translateText(_isEditing ? 'Edit Advance' : 'Add Advance');
+    final helper = translateText(
+      _isEditing
+          ? 'Update the advance amount, date, payment mode, or notes.'
+          : 'Record a payroll advance for an active team member.',
+    );
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -1325,7 +1332,7 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                               Expanded(
                                 child: Text(
                                   _givenDate == null
-                                      ? 'Select date'
+                                      ? translateText('Select date')
                                       : DateFormat('dd/MM/yyyy')
                                           .format(_givenDate!),
                                   overflow: TextOverflow.ellipsis,
@@ -1353,7 +1360,7 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                               (mode) => DropdownMenuItem<String>(
                                 value: mode,
                                 child: Text(
-                                  AdvancePaymentModes.label(mode),
+                                  context.t(AdvancePaymentModes.label(mode)),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -1365,7 +1372,7 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                                 (mode) => Align(
                                   alignment: Alignment.centerLeft,
                                   child: Text(
-                                    AdvancePaymentModes.label(mode),
+                                    context.t(AdvancePaymentModes.label(mode)),
                                     overflow: TextOverflow.ellipsis,
                                     maxLines: 1,
                                   ),
@@ -1483,17 +1490,13 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: _isSaving
-                                  ? AppLoader.inline(
-                                      size: 18,
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    )
-                                  : Text(
-                                      _isEditing
-                                          ? 'Update Advance'
-                                          : 'Save Advance',
-                                    ),
+                              child: Text(
+                                translateText(
+                                  _isEditing
+                                      ? 'Update Advance'
+                                      : 'Save Advance',
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -1519,8 +1522,8 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
     String? errorText,
   }) {
     return InputDecoration(
-      labelText: label,
-      hintText: hintText,
+      labelText: translateText(label),
+      hintText: hintText == null ? null : translateText(hintText),
       errorText: errorText,
       filled: true,
       fillColor: Colors.white,

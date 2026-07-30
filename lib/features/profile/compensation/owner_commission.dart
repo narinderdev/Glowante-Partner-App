@@ -603,7 +603,7 @@ class _CommissionTableHeaderCell extends StatelessWidget {
     return Expanded(
       flex: flex,
       child: Text(
-        label.toUpperCase(),
+        context.t(label).toUpperCase(),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
@@ -1348,22 +1348,22 @@ class _StaffOverrideTableHeader extends StatelessWidget {
           _StaffOverrideTableCell(
             width: 250,
             isHeader: true,
-            child: Text(context.t('STAFF')),
+            child: Text(context.t('Staff').toUpperCase()),
           ),
           _StaffOverrideTableCell(
             width: 210,
             isHeader: true,
-            child: Text(context.t('SERVICE')),
+            child: Text(context.t('Service').toUpperCase()),
           ),
           _StaffOverrideTableCell(
             width: 150,
             isHeader: true,
-            child: Text(context.t('CATEGORY')),
+            child: Text(context.t('Category').toUpperCase()),
           ),
           _StaffOverrideTableCell(
             width: 110,
             isHeader: true,
-            child: Text(context.t('CUSTOM RATE')),
+            child: Text(context.t('Custom Rate').toUpperCase()),
           ),
           const SizedBox(width: 40),
         ],
@@ -1424,7 +1424,7 @@ class _StaffOverrideTableRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        staffRole,
+                        context.t(staffRole),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1655,7 +1655,7 @@ class _StaffOverrideRowCard extends StatelessWidget {
                 Text(
                   showService
                       ? (service?.name ?? context.t('Unknown service'))
-                      : staffRole,
+                      : context.t(staffRole),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style:
@@ -1809,7 +1809,7 @@ String _serviceDefaultCommissionLabel(
   BranchServiceSummary service,
 ) {
   if (!service.commissionEnabled) {
-    return 'No commission';
+    return translateText('No commission');
   }
 
   if (_serviceDefaultIsPercentage(service)) {
@@ -1843,7 +1843,7 @@ String _commissionRateLabel(
   String fallback = 'No override',
 }) {
   if (override == null) {
-    return fallback;
+    return translateText(fallback);
   }
   return override.ruleType == CommissionRuleTypes.percentage
       ? '${_formatOverrideNumber(override.value)}%'
@@ -3008,7 +3008,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                                           : null;
 
                               final tableHeight = math.min(
-                                232.0,
+                                328.0,
                                 38.0 + (filteredStaff.length * 58.0),
                               );
 
@@ -3572,7 +3572,7 @@ class _StaffPickerHeaderCell extends StatelessWidget {
     return Expanded(
       flex: flex,
       child: Text(
-        label.toUpperCase(),
+        context.t(label).toUpperCase(),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(

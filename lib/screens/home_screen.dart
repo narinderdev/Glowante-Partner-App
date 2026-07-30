@@ -786,8 +786,14 @@ class _HomeScreenState extends State<HomeScreen> {
               }
 
               final msg = fail == 0
-                  ? 'Confirmed $ok appointment(s).'
-                  : 'Confirmed $ok, failed $fail.';
+                  ? translateText(
+                      'Confirmed {count} appointment(s).',
+                      params: {'count': '$ok'},
+                    )
+                  : translateText(
+                      'Confirmed {ok}, failed {fail}.',
+                      params: {'ok': '$ok', 'fail': '$fail'},
+                    );
               Fluttertoast.showToast(msg: msg);
             }
 

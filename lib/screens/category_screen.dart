@@ -565,14 +565,14 @@ class CategoryScreenState extends State<CategoryScreen> {
   Future<void> _showAddCategorySheet({Map<String, dynamic>? category}) async {
     _dismissCatalogKeyboard();
     if (_selectedSalon == null) {
-      _toast('Select a salon first.');
+      _toast(translateText('Select a salon first.'));
       return;
     }
 
     final int? branchId = _asInt(_selectedSalon?['branchId']) ??
         _asInt(_selectedSalon?['salonId']);
     if (branchId == null) {
-      _toast('Missing branch information.');
+      _toast(translateText('Missing branch information.'));
       return;
     }
 

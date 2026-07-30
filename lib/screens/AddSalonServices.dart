@@ -160,8 +160,15 @@ class _AddSalonServicesState extends State<AddSalonServices> {
       if (mounted) {
         setState(() => _isLoading = false);
         Fluttertoast.showToast(
-          msg:
-              'Unable to load services: ${extractErrorMessage(e, fallback: 'Unable to load services')}',
+          msg: translateText(
+            'Unable to load services: {error}',
+            params: {
+              'error': extractErrorMessage(
+                e,
+                fallback: translateText('Unable to load services'),
+              ),
+            },
+          ),
         );
       }
     }

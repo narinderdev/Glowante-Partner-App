@@ -3627,6 +3627,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
       debugPrint("✅ Appointment Created: $result");
       await _clearBookingCartItemsAfterSuccess();
+      StylistBranchSelectionStore.notifySalonCatalogChanged();
 
       if (!mounted) return null;
       final resultMap = Map<String, dynamic>.from(result);

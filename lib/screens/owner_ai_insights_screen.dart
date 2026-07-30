@@ -588,6 +588,9 @@ class _OwnerAiInsightsScreenState extends State<OwnerAiInsightsScreen> {
             'Opportunity recommendations will show here when the API returns them.',
           ),
           cleanText: _cleanText,
+          showImpactAmount: true,
+          viewAllLabel: context.t('View All Opportunities'),
+          onViewAll: () {},
         ),
         const SizedBox(height: 12),
         _CompactListPanel(
@@ -1064,7 +1067,8 @@ class _InsightsSummaryPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visibleBreakdown = breakdown
-        .where((item) => cleanText(item['category']).isNotEmpty)
+        .where((item) =>
+            cleanText(item['category']).isNotEmpty && asInt(item['count']) > 0)
         .toList();
     final total = visibleBreakdown.fold<int>(
       0,
@@ -1193,6 +1197,9 @@ class _CompactListPanel extends StatelessWidget {
     required this.emptyTitle,
     required this.emptyMessage,
     required this.cleanText,
+    this.showImpactAmount = false,
+    this.viewAllLabel,
+    this.onViewAll,
   });
 
   final String title;
@@ -1201,6 +1208,9 @@ class _CompactListPanel extends StatelessWidget {
   final String emptyTitle;
   final String emptyMessage;
   final String Function(dynamic value) cleanText;
+  final bool showImpactAmount;
+  final String? viewAllLabel;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
@@ -1267,7 +1277,94 @@ class _CompactListPanel extends StatelessWidget {
                 ],
               ),
             )
-          else
+          else if (showImpactAmount) ...[
+            ...items.take(4).map((item) {
+              final title = cleanText(item['title']).isEmpty
+                  ? cleanText(item['name'])
+                  : cleanText(item['title']);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDF3E9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title.isEmpty ? context.t('Insight') : title,
+                        style: const TextStyle(
+                          color: Color(0xFF161329),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              context.t('Potential Impact'),
+                              style: const TextStyle(
+                                color: Color(0xFF8B8398),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            formatMinorAmount(
+                              item['potentialImpactAmount'],
+                              trimZeroDecimals: true,
+                            ),
+                            style: TextStyle(
+                              color: AppColors.starColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            if (viewAllLabel != null && onViewAll != null) ...[
+              const SizedBox(height: 2),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: onViewAll,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.starColor,
+                    side: BorderSide(color: AppColors.starColor),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        viewAllLabel!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.arrow_forward_rounded, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ] else
             ...items.take(4).map((item) {
               final title = cleanText(item['title']).isEmpty
                   ? cleanText(item['name'])

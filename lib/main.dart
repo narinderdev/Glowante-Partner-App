@@ -11,6 +11,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import './services/network_listener.dart';
 import './services/language_listener.dart';
+import './utils/localization_helper.dart';
 import './screens/splash_screen.dart';
 
 import 'package:bloc_onboarding/bloc/auth/auth_bloc.dart';
@@ -85,7 +86,7 @@ Future<void> main() async {
             final BuildContext? newContext = appNavigatorKey.currentContext;
             if (newContext != null && newContext.mounted) {
               Fluttertoast.showToast(
-                  msg: 'Session expired. Please sign in again.');
+                  msg: translateText('Session expired. Please sign in again.'));
             }
           });
         }

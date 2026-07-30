@@ -720,7 +720,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       'save_payroll_setup_success',
       details: 'branchId=$branchId, userId=${setup.userId}',
     );
-    _showToast('Payroll setup saved successfully');
+    _showToast(translateText('Payroll setup saved successfully'));
   }
 
   Future<void> _createAdvance(PayrollAdvanceRecord advance) async {
@@ -742,7 +742,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       'create_advance_success',
       details: 'branchId=$branchId, employeeId=${advance.employeeId}',
     );
-    _showToast('Advance saved successfully');
+    _showToast(translateText('Advance saved successfully'));
   }
 
   Future<void> _updateAdvance(PayrollAdvanceRecord advance) async {
@@ -764,7 +764,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       'update_advance_success',
       details: 'branchId=$branchId, advanceId=${advance.id}',
     );
-    _showToast('Advance updated successfully');
+    _showToast(translateText('Advance updated successfully'));
   }
 
   Future<void> _deleteAdvance(PayrollAdvanceRecord advance) async {
@@ -790,7 +790,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         'delete_advance_success',
         details: 'branchId=$branchId, advanceId=${advance.id}',
       );
-      _showToast('Advance deleted successfully');
+      _showToast(translateText('Advance deleted successfully'));
     });
   }
 
@@ -817,7 +817,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         'generate_payroll_success',
         details: 'branchId=$branchId, period=${period.toIso8601String()}',
       );
-      _showToast('Payroll generated successfully');
+      _showToast(translateText('Payroll generated successfully'));
     });
   }
 
@@ -839,9 +839,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       );
       await _loadPayrollData(branch.branchId);
       _showToast(
-        didCancel
-            ? 'Payroll cancelled successfully'
-            : 'Payroll is already cancelled',
+        translateText(
+          didCancel
+              ? 'Payroll cancelled successfully'
+              : 'Payroll is already cancelled',
+        ),
       );
     });
   }
@@ -866,7 +868,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         );
       }
       await _loadLeaveData(branch);
-      _showToast('Paid leaves updated successfully');
+      _showToast(translateText('Paid leaves updated successfully'));
     });
   }
 
@@ -884,7 +886,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         paidLeaveDays: paidLeaveDays,
       );
       await _loadLeaveData(branch);
-      _showToast('Default paid leaves updated successfully');
+      _showToast(translateText('Default paid leaves updated successfully'));
     });
   }
 
@@ -948,9 +950,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       }
       await _loadLeaveData(branch);
       _showToast(
-        holidayId == null
-            ? 'Holiday added successfully'
-            : 'Holiday updated successfully',
+        translateText(
+          holidayId == null
+              ? 'Holiday added successfully'
+              : 'Holiday updated successfully',
+        ),
       );
     });
   }
@@ -966,7 +970,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         holidayId: holidayId,
       );
       await _loadLeaveData(branch);
-      _showToast('Holiday deleted successfully');
+      _showToast(translateText('Holiday deleted successfully'));
     });
   }
 
@@ -1000,7 +1004,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         'save_commission_overrides_success',
         details: 'branchId=$branchId, serviceId=$serviceId',
       );
-      _showToast('Commission override saved successfully');
+      _showToast(translateText('Commission override saved successfully'));
     } catch (error) {
       _logCompensation(
         'save_commission_overrides_failed',
@@ -1041,7 +1045,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         'delete_commission_override_success',
         details: 'branchId=$branchId, overrideId=$overrideId',
       );
-      _showToast('Override removed successfully');
+      _showToast(translateText('Override removed successfully'));
     });
   }
 
@@ -2324,7 +2328,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                         details:
                             'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, type=$type',
                       );
-                      _showToast('Adjustment saved successfully');
+                      _showToast(
+                          translateText('Adjustment saved successfully'));
                     } catch (error) {
                       _logCompensation(
                         'add_adjustment_failed',
@@ -2375,7 +2380,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                         details:
                             'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
                       );
-                      _showToast('Adjustment updated successfully');
+                      _showToast(
+                          translateText('Adjustment updated successfully'));
                     } catch (error) {
                       _logCompensation(
                         'edit_adjustment_failed',
@@ -2440,7 +2446,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                               details:
                                   'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, adjustmentId=${existing.id}',
                             );
-                            _showToast('Adjustment deleted successfully');
+                            _showToast(translateText(
+                                'Adjustment deleted successfully'));
                             if (dialogContext.mounted) {
                               Navigator.pop(dialogContext, true);
                             }
@@ -2516,18 +2523,20 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                   return false;
                 }
                 if (paymentModeController.text.trim().isEmpty) {
-                  _showToast('Payment method is required', isError: true);
+                  _showToast(translateText('Payment method is required'),
+                      isError: true);
                   return false;
                 }
                 if (paymentReferenceController.text.trim().isEmpty) {
                   _showToast(
-                    'Reference / Transaction ID is required',
+                    translateText('Reference / Transaction ID is required'),
                     isError: true,
                   );
                   return false;
                 }
                 if (paymentNotesController.text.trim().isEmpty) {
-                  _showToast('Notes are required', isError: true);
+                  _showToast(translateText('Notes are required'),
+                      isError: true);
                   return false;
                 }
                 setSheetState(() => isBusy = true);
@@ -2576,9 +2585,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                         'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}',
                   );
                   _showToast(
-                    paymentConfirmed
-                        ? 'Employee payment recorded successfully'
-                        : 'Payment status was not updated by the API yet.',
+                    translateText(
+                      paymentConfirmed
+                          ? 'Employee payment recorded successfully'
+                          : 'Payment status was not updated by the API yet.',
+                    ),
                     isError: !paymentConfirmed,
                   );
                   return paymentConfirmed;
@@ -3407,6 +3418,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
 
   Future<void> _openEditOverrideDialog(StaffCommissionOverride override) async {
     if (!_services.any((service) => service.id == override.serviceId)) {
+      _showToast(
+        translateText(
+          'This override\'s service is no longer available, so it cannot be edited. You can delete it instead.',
+        ),
+        isError: true,
+      );
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
@@ -4725,7 +4742,7 @@ class _PayrollSectionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  title,
+                  context.t(title),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
@@ -5046,7 +5063,8 @@ class _PayrollTableState extends State<_PayrollTable> {
                               ),
                             ),
                             child: Text(
-                              widget.emptyText ?? 'No records added.',
+                              widget.emptyText ??
+                                  translateText('No records added.'),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF64748B),
@@ -5063,7 +5081,7 @@ class _PayrollTableState extends State<_PayrollTable> {
                               trailing: hasActionColumn
                                   ? widget.allowActions && !row.isReadOnly
                                       ? PopupMenuButton<String>(
-                                          tooltip: 'Actions',
+                                          tooltip: context.t('Actions'),
                                           onSelected: (value) {
                                             if (value == 'edit') {
                                               widget.onEdit?.call(index);
@@ -5159,7 +5177,7 @@ class _PayrollTableLine extends StatelessWidget {
             Expanded(
               flex: index == 1 ? 3 : 2,
               child: Text(
-                cells[index],
+                context.t(cells[index]),
                 maxLines: isHeader ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: index == cells.length - 1 ? TextAlign.right : null,
@@ -5204,7 +5222,7 @@ class _SummaryLine extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              label,
+              context.t(label),
               style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF6B7280),
@@ -5275,7 +5293,7 @@ class _AdjustmentListSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  title,
+                  context.t(title),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -5301,7 +5319,7 @@ class _AdjustmentListSection extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  child: Text(addLabel),
+                  child: Text(context.t(addLabel)),
                 ),
             ],
           ),

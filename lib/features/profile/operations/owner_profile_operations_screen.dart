@@ -87,7 +87,7 @@ String _responseMessage(
   String fallback = 'Something went wrong',
 }) {
   final message = _stringValue(response['message']);
-  return message.isEmpty ? fallback : message;
+  return message.isEmpty ? translateText(fallback) : message;
 }
 
 Map<String, dynamic> _detailMap(dynamic raw) {

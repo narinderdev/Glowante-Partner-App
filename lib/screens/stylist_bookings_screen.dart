@@ -4428,7 +4428,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     }
 
     Fluttertoast.showToast(
-        msg: resp['message']?.toString() ?? 'Failed to confirm appointment');
+        msg: resp['message']?.toString() ??
+            translateText('Failed to confirm appointment'));
   }
 
   int? _selectedDateBranchEndMinute() {
@@ -4684,7 +4685,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
 
     booking['status'] = newStatus;
 
-    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Job started');
+    Fluttertoast.showToast(
+        msg: resp['message']?.toString() ?? translateText('Job started'));
 
     await _reloadBookingsForSelectedOption();
   }
@@ -4733,13 +4735,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         resp['data']?['status'] ?? 'COMPLETED',
       );
       Fluttertoast.showToast(
-          msg: resp['message']?.toString() ?? 'Appointment completed');
+          msg: resp['message']?.toString() ??
+              translateText('Appointment completed'));
       await _reloadBookingsForSelectedOption();
       return;
     }
 
     Fluttertoast.showToast(
-        msg: resp['message']?.toString() ?? 'Failed to complete appointment');
+        msg: resp['message']?.toString() ??
+            translateText('Failed to complete appointment'));
   }
 
   @override
@@ -8723,7 +8727,8 @@ class _StylistBookingDetailScreenState
 
     _syncElapsedTicker();
 
-    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Job started');
+    Fluttertoast.showToast(
+        msg: resp['message']?.toString() ?? translateText('Job started'));
   }
 
   Future<void> _handleConfirmJob() async {
@@ -8760,7 +8765,8 @@ class _StylistBookingDetailScreenState
     }
 
     Fluttertoast.showToast(
-        msg: resp['message']?.toString() ?? 'Failed to confirm appointment');
+        msg: resp['message']?.toString() ??
+            translateText('Failed to confirm appointment'));
   }
 
   Future<void> _handleCompleteJob() async {
@@ -8815,12 +8821,14 @@ class _StylistBookingDetailScreenState
       });
       _syncElapsedTicker();
       Fluttertoast.showToast(
-          msg: resp['message']?.toString() ?? 'Appointment completed');
+          msg: resp['message']?.toString() ??
+              translateText('Appointment completed'));
       return;
     }
 
     Fluttertoast.showToast(
-        msg: resp['message']?.toString() ?? 'Failed to complete appointment');
+        msg: resp['message']?.toString() ??
+            translateText('Failed to complete appointment'));
   }
 
   Future<void> _handleNoShow() async {
@@ -8861,12 +8869,14 @@ class _StylistBookingDetailScreenState
       });
       _syncElapsedTicker();
       Fluttertoast.showToast(
-          msg: resp['message']?.toString() ?? 'Appointment marked no show');
+          msg: resp['message']?.toString() ??
+              translateText('Appointment marked no show'));
       return;
     }
 
     Fluttertoast.showToast(
-        msg: resp['message']?.toString() ?? 'Failed to mark no show');
+        msg: resp['message']?.toString() ??
+            translateText('Failed to mark no show'));
   }
 
   Future<void> _showAddItemsInfo() async {
@@ -8879,7 +8889,12 @@ class _StylistBookingDetailScreenState
       _didChange = true;
     });
 
-    Fluttertoast.showToast(msg: '${item.name} added locally for this booking.');
+    Fluttertoast.showToast(
+      msg: translateText(
+        '{item} added locally for this booking.',
+        params: {'item': item.name},
+      ),
+    );
   }
 
   List<int> _completionServiceIds() => _addedServiceIds.toList();

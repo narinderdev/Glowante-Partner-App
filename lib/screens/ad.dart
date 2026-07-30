@@ -191,7 +191,12 @@ class _AdScreenState extends State<AdScreen> {
     } catch (error) {
       if (!mounted) return;
 
-      Fluttertoast.showToast(msg: 'Failed to share PDF: $error');
+      Fluttertoast.showToast(
+        msg: translateText(
+          'Failed to share PDF: {error}',
+          params: {'error': '$error'},
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -212,7 +217,12 @@ class _AdScreenState extends State<AdScreen> {
     } catch (error) {
       if (!mounted) return;
 
-      Fluttertoast.showToast(msg: 'Failed to download PDF: $error');
+      Fluttertoast.showToast(
+        msg: translateText(
+          'Failed to download PDF: {error}',
+          params: {'error': '$error'},
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
