@@ -1122,7 +1122,6 @@ class AppTranslations {
           'पहला नाम बड़े अक्षर से शुरू होना चाहिए।',
       'Gender': 'लिंग',
       'Get Started': 'शुरू करें',
-      'Hair Dresser': 'हेयरड्रेसर',
       'Includes': 'शामिल है',
       'Inactive': 'निष्क्रिय',
       'In Progress': 'प्रगति में',
@@ -1926,6 +1925,7 @@ class AppTranslations {
       'Applies to all staff unless overridden.':
           'जब तक ओवरराइड न किया जाए, सभी कर्मचारियों पर लागू होता है।',
       'Appointments Overview': 'नियुक्तियों का अवलोकन',
+      'Average Booking Value': 'औसत बुकिंग मूल्य',
       'Approved': 'अनुमत',
       'Are you also a stylist?': 'क्या आप भी स्टाइलिस्ट हैं?',
       'Are you sure you want to delete':
@@ -1999,6 +1999,8 @@ class AppTranslations {
       'Cannot add booking:': 'बुकिंग नहीं जोड़ सकते:',
       'Capture 5 face angles in one guided flow to prepare local attendance matching on this device.':
           'इस डिवाइस पर स्थानीय उपस्थिति मिलान तैयार करने के लिए एक निर्देशित प्रवाह में 5 फेस एंगल कैप्चर करें।',
+      'Card': 'कार्ड',
+      'Cards': 'कार्ड',
       'Category or subcategory is required': 'श्रेणी या उपश्रेणी आवश्यक है',
       'Category/Subcategory *': 'श्रेणी/उपश्रेणी *',
       'Choose Role': 'भूमिका चुनें',
@@ -2277,6 +2279,7 @@ class AppTranslations {
       'No booking status data available.':
           'कोई बुकिंग स्थिति डेटा उपलब्ध नहीं है.',
       'No bookings': 'कोई बुकिंग नहीं',
+      'bookings': 'बुकिंग',
       'No bookings for today': 'आज के लिए कोई बुकिंग नहीं',
       'No bookings for today further': 'आज के लिए आगे कोई बुकिंग नहीं',
       'No branches added yet. Expand your network by adding a new location.':
@@ -2392,6 +2395,8 @@ class AppTranslations {
       'Payment': 'भुगतान',
       'Payment History': 'भुगतान इतिहास',
       'Payment Method': 'भुगतान विधि',
+      'UPI/Cards': 'यूपीआई/कार्ड',
+      'Wallet': 'वॉलेट',
       'Payout Account': 'भुगतान खाता',
       'Payroll type is required': 'पेरोल प्रकार आवश्यक है',
       'Peak Booking Hours': 'अधिकतम बुकिंग घंटे',
@@ -2594,6 +2599,8 @@ class AppTranslations {
       'Show team list': 'टीम सूची दिखाएँ',
       'Showing': 'दिखा',
       'Showing 0 results': '0 परिणाम दिखा रहा है',
+      'Showing {from} to {to} of {total} results':
+          '{total} में से {from} से {to} परिणाम दिखा रहा है',
       'Smart insights and recommendations to help you grow your salon business.':
           'आपके सैलून व्यवसाय को बढ़ाने में मदद करने के लिए स्मार्ट अंतर्दृष्टि और अनुशंसाएँ।',
       'Some required details are missing or invalid.':
@@ -2654,6 +2661,7 @@ class AppTranslations {
           'बैकएंड केवल छिपा हुआ खाता नंबर लौटाता है। बैंक विवरण अद्यतन करने के लिए पूर्ण खाता संख्या पुनः दर्ज करें।',
       'This Month': 'इस महीने',
       'This Week': 'इस सप्ताह',
+      'This Year': 'इस वर्ष',
       'This account will be used for salon settlement payouts.':
           'इस खाते का उपयोग सैलून निपटान भुगतान के लिए किया जाएगा।',
       'This branch is inactive. Booking is disabled.':
@@ -2667,6 +2675,7 @@ class AppTranslations {
       'This will mark the appointment as no show. This cannot be undone.':
           'इससे नियुक्ति को नो शो के रूप में चिह्नित किया जाएगा। इसे असंपादित नहीं किया जा सकता है।',
       'Time Remaining': 'शेष समय',
+      'Today': 'आज',
       'Today\'s Appointments': 'आज की नियुक्तियाँ',
       'Top Cancellation Reasons': 'शीर्ष रद्दीकरण कारण',
       'Top Opportunities': 'शीर्ष अवसर',
@@ -2675,7 +2684,8 @@ class AppTranslations {
       'Total Appointments': 'कुल नियुक्तियाँ',
       'Total Insights': 'कुल अंतर्दृष्टि',
       'Total Investment': 'कुल निवेश',
-      'Total Revenue': 'कुल मुनाफा',
+      'Total Revenue': 'कुल राजस्व',
+      'Total Sales': 'कुल बिक्री',
       'Total Selected': 'कुल चयनित',
       'Total Staff': 'कुल स्टाफ',
       'Total team members': 'टीम के कुल सदस्य',

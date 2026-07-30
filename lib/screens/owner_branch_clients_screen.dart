@@ -1403,7 +1403,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
             final value = _cleanText(range['value']);
             return DropdownMenuItem<String>(
               value: value.isEmpty ? 'this_month' : value,
-              child: Text(label.isEmpty ? value : label),
+              child: Text(context.t(label.isEmpty ? value : label)),
             );
           }).toList(),
           onChanged: _isLoadingClients
@@ -1497,7 +1497,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  title.toUpperCase(),
+                  context.t(title).toUpperCase(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1592,9 +1592,11 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _cleanText(trend['title']).isEmpty
-                          ? 'Customer Growth Trend'
-                          : _cleanText(trend['title']),
+                      context.t(
+                        _cleanText(trend['title']).isEmpty
+                            ? 'Customer Growth Trend'
+                            : _cleanText(trend['title']),
+                      ),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -1602,9 +1604,11 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      _cleanText(trend['subtitle']).isEmpty
-                          ? 'Daily customer acquisition and retention over the selected date range.'
-                          : _cleanText(trend['subtitle']),
+                      context.t(
+                        _cleanText(trend['subtitle']).isEmpty
+                            ? 'Daily customer acquisition and retention over the selected date range.'
+                            : _cleanText(trend['subtitle']),
+                      ),
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF6B5B4D),
@@ -1650,7 +1654,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
           : null),
     );
     return Text(
-      title.isEmpty ? context.t('Customer Management') : title,
+      title.isEmpty ? context.t('Customer Management') : context.t(title),
       style: const TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w800,
@@ -1669,7 +1673,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text(label.isEmpty ? value : label),
+              label: Text(context.t(label.isEmpty ? value : label)),
               selected: isSelected,
               selectedColor: AppColors.starColor,
               backgroundColor: const Color(0xFFF8F1E9),
@@ -1732,7 +1736,9 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                     );
 
                     final title = Text(
-                      pageTitle.isEmpty ? context.t('Clients') : pageTitle,
+                      pageTitle.isEmpty
+                          ? context.t('Clients')
+                          : context.t(pageTitle),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,

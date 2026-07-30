@@ -15,6 +15,50 @@ import '../widgets/app_loader.dart';
 import 'bottom_nav.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
+String _translateReportLabel(BuildContext context, String label) {
+  final trimmed = label.trim();
+  if (trimmed.isEmpty) return '';
+
+  final exact = context.t(trimmed);
+  if (exact != trimmed) return exact;
+
+  final alias = switch (trimmed) {
+    'totalRevenue' => 'Total Revenue',
+    'totalSales' => 'Total Sales',
+    'averageBookingValue' => 'Average Booking Value',
+    'avgBookingValue' => 'Average Booking Value',
+    _ => '',
+  };
+  if (alias.isNotEmpty) {
+    final translated = context.t(alias);
+    if (translated != alias) return translated;
+  }
+
+  final normalized = trimmed
+      .replaceAll('_', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim()
+      .split(' ')
+      .map((word) {
+    if (word.isEmpty) return word;
+    return word.length == 1
+        ? word.toUpperCase()
+        : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+  }).join(' ');
+  final translated = context.t(normalized);
+  if (translated != normalized) return translated;
+
+  final minorWordNormalized = normalized
+      .replaceAll(' By ', ' by ')
+      .replaceAll(' And ', ' and ')
+      .replaceAll(' Of ', ' of ')
+      .replaceAll(' To ', ' to ');
+  final minorWordTranslation = context.t(minorWordNormalized);
+  return minorWordTranslation == minorWordNormalized
+      ? trimmed
+      : minorWordTranslation;
+}
+
 enum OwnerSalesReportModule {
   revenueSales,
   staffPerformance,
@@ -215,6 +259,12 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty || text.toLowerCase() == 'null') return '';
     return text;
+  }
+
+  String _reportText(dynamic value, {String fallback = ''}) {
+    final text = _cleanText(value);
+    final key = text.isEmpty ? fallback : text;
+    return key.isEmpty ? '' : _translateReportLabel(context, key);
   }
 
   String _branchAddressSummary(dynamic rawAddress) {
@@ -487,12 +537,11 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildReportHeader(
-          title: _cleanText(page['title']).isEmpty
-              ? context.t('Revenue & Sales')
-              : _cleanText(page['title']),
-          subtitle: _cleanText(page['subtitle']).isEmpty
-              ? context.t('Track your revenue, sales performance and growth.')
-              : _cleanText(page['subtitle']),
+          title: _reportText(page['title'], fallback: 'Revenue & Sales'),
+          subtitle: _reportText(
+            page['subtitle'],
+            fallback: 'Track your revenue, sales performance and growth.',
+          ),
         ),
         const SizedBox(height: 16),
         _buildSummaryCards(_mapList(_data['summaryCards'])),
@@ -644,7 +693,14 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
                     child: Text(
                       total == 0
                           ? context.t('Showing 0 results')
-                          : 'Showing $from to $to of $total results',
+                          : context.t(
+                              'Showing {from} to {to} of {total} results',
+                              params: {
+                                'from': '$from',
+                                'to': '$to',
+                                'total': '$total',
+                              },
+                            ),
                       style: const TextStyle(
                         color: Color(0xFF78716C),
                         fontSize: 12,
@@ -740,12 +796,11 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildReportHeader(
-          title: _cleanText(page['title']).isEmpty
-              ? context.t('Operations')
-              : _cleanText(page['title']),
-          subtitle: _cleanText(page['subtitle']).isEmpty
-              ? context.t('Monitor daily operations and business efficiency.')
-              : _cleanText(page['subtitle']),
+          title: _reportText(page['title'], fallback: 'Operations'),
+          subtitle: _reportText(
+            page['subtitle'],
+            fallback: 'Monitor daily operations and business efficiency.',
+          ),
         ),
         const SizedBox(height: 16),
         _buildSummaryCards([
@@ -876,7 +931,10 @@ class _OperationsOverviewCard extends StatelessWidget {
               _PeriodBadge(
                 label: cleanText(data['periodLabel']).isEmpty
                     ? context.t('This Month')
-                    : cleanText(data['periodLabel']),
+                    : _translateReportLabel(
+                        context,
+                        cleanText(data['periodLabel']),
+                      ),
               ),
             ],
           ),
@@ -1144,7 +1202,9 @@ class _CancellationReasonsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title.isEmpty ? context.t('Top Cancellation Reasons') : title,
+            title.isEmpty
+                ? context.t('Top Cancellation Reasons')
+                : _translateReportLabel(context, title),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 18),
@@ -1168,7 +1228,7 @@ class _CancellationReasonsCard extends StatelessWidget {
                   Text(
                     emptyMessage.isEmpty
                         ? context.t('No cancellation reasons available.')
-                        : emptyMessage,
+                        : _translateReportLabel(context, emptyMessage),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFF78716C),
@@ -1189,7 +1249,10 @@ class _CancellationReasonsCard extends StatelessWidget {
                       child: Text(
                         cleanText(row['reason']).isEmpty
                             ? context.t('Unknown reason')
-                            : cleanText(row['reason']),
+                            : _translateReportLabel(
+                                context,
+                                cleanText(row['reason']),
+                              ),
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
@@ -1226,7 +1289,7 @@ class _PeriodBadge extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE6D6C6)),
       ),
       child: Text(
-        label,
+        _translateReportLabel(context, label),
         style: TextStyle(
           fontSize: 12,
           color: AppColors.starColor,
@@ -1470,7 +1533,7 @@ class _ReportSummaryCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            title.toUpperCase(),
+            _translateReportLabel(context, title).toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1494,7 +1557,7 @@ class _ReportSummaryCard extends StatelessWidget {
           if (comparisonText.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              '$comparisonIcon $comparisonText $comparisonLabel',
+              '$comparisonIcon $comparisonText ${_translateReportLabel(context, comparisonLabel)}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -1552,7 +1615,10 @@ class _RevenueTrendCard extends StatelessWidget {
                 child: Text(
                   cleanText(data['title']).isEmpty
                       ? context.t('Revenue Trend')
-                      : cleanText(data['title']),
+                      : _translateReportLabel(
+                          context,
+                          cleanText(data['title']),
+                        ),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
@@ -1641,7 +1707,7 @@ class _PaymentMethodCard extends StatelessWidget {
           Text(
             cleanText(data['title']).isEmpty
                 ? context.t('Revenue by Payment Method')
-                : cleanText(data['title']),
+                : _translateReportLabel(context, cleanText(data['title'])),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 18),
@@ -1716,7 +1782,10 @@ class _PaymentMethodCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        getPaymentMethod(row['paymentMethod']),
+                        _translateReportLabel(
+                          context,
+                          getPaymentMethod(row['paymentMethod']),
+                        ),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -1778,7 +1847,7 @@ class _CategoryRevenueCard extends StatelessWidget {
           Text(
             cleanText(data['title']).isEmpty
                 ? context.t('Revenue by Service Category')
-                : cleanText(data['title']),
+                : _translateReportLabel(context, cleanText(data['title'])),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 18),
@@ -1801,7 +1870,10 @@ class _CategoryRevenueCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            cleanText(row['categoryName']),
+                            _translateReportLabel(
+                              context,
+                              cleanText(row['categoryName']),
+                            ),
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -1870,7 +1942,7 @@ class _TopServicesCard extends StatelessWidget {
         : <Map<String, dynamic>>[];
     final viewAllEnabled = data['viewAllEnabled'] == true || rows.isNotEmpty;
     final viewAllLabel = cleanText(data['viewAllLabel']).isEmpty
-        ? context.t('View all services')
+        ? 'View all services'
         : cleanText(data['viewAllLabel']);
 
     return _ReportSection(
@@ -1880,7 +1952,7 @@ class _TopServicesCard extends StatelessWidget {
           Text(
             cleanText(data['title']).isEmpty
                 ? context.t('Top Services by Revenue')
-                : cleanText(data['title']),
+                : _translateReportLabel(context, cleanText(data['title'])),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 16),
@@ -1911,7 +1983,7 @@ class _TopServicesCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${row['totalBookings'] ?? 0} bookings',
+                            '${row['totalBookings'] ?? 0} ${context.t('bookings')}',
                             style: const TextStyle(
                               color: Color(0xFF78716C),
                               fontSize: 12,
@@ -1952,7 +2024,8 @@ class _TopServicesCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                child: Text('${context.t(viewAllLabel)} →'),
+                child:
+                    Text('${_translateReportLabel(context, viewAllLabel)} →'),
               ),
             ),
           ],
