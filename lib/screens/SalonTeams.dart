@@ -1776,6 +1776,51 @@ class _FilterChoiceChip extends StatelessWidget {
   }
 }
 
+class _ServiceFilterChip extends StatelessWidget {
+  const _ServiceFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onSelected,
+      borderRadius: BorderRadius.circular(7),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFFFF2C9) : const Color(0xFFFFFAF1),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(
+            color: selected ? _teamGold : const Color(0xFFE8C774),
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: selected ? _teamGold : _teamInk,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TeamFilterButton extends StatelessWidget {
   const _TeamFilterButton({
     required this.hasActiveFilters,
@@ -2219,33 +2264,54 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                                         fontSize: 12,
                                       ),
                                     )
-                                  : Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
+                                  : Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
                                       children: [
-                                        ...visibleServices.map(
-                                          (service) => _FilterChoiceChip(
-                                            label: service.name,
-                                            selected: _selectedServiceIds
-                                                .contains(service.id),
-                                            onSelected: () =>
-                                                _toggleService(service.id),
+                                        GridView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          itemCount: visibleServices.length,
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 3,
+                                            mainAxisSpacing: 8,
+                                            crossAxisSpacing: 8,
+                                            mainAxisExtent: 34,
                                           ),
+                                          itemBuilder: (context, index) {
+                                            final service =
+                                                visibleServices[index];
+                                            return _ServiceFilterChip(
+                                              label: service.name,
+                                              selected: _selectedServiceIds
+                                                  .contains(service.id),
+                                              onSelected: () =>
+                                                  _toggleService(service.id),
+                                            );
+                                          },
                                         ),
-                                        if (_selectedServiceIds.isNotEmpty)
-                                          TextButton.icon(
-                                            onPressed: _clearServices,
-                                            icon: const Icon(
-                                              Icons.cleaning_services_outlined,
-                                              size: 18,
-                                            ),
-                                            label: Text(
-                                              translateText('Clear services'),
-                                            ),
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: _teamMuted,
+                                        if (_selectedServiceIds.isNotEmpty) ...[
+                                          const SizedBox(height: 10),
+                                          Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: TextButton.icon(
+                                              onPressed: _clearServices,
+                                              icon: const Icon(
+                                                Icons
+                                                    .cleaning_services_outlined,
+                                                size: 18,
+                                              ),
+                                              label: Text(
+                                                translateText('Clear services'),
+                                              ),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: _teamMuted,
+                                              ),
                                             ),
                                           ),
+                                        ],
                                       ],
                                     ),
                         ),
@@ -3108,9 +3174,11 @@ class _NoTeamMembersState extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Text(
-                  veryCompact
-                      ? '"Great things in business are done by a team."'
-                      : '"Great things in business are\nnever done by one person.\nThey’re done by a team of\npeople."',
+                  translateText(
+                    veryCompact
+                        ? '"Great things in business are done by a team."'
+                        : '"Great things in business are\nnever done by one person.\nThey’re done by a team of\npeople."',
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: const Color(0xFF6E6863),

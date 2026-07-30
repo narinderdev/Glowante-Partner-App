@@ -167,7 +167,10 @@ class _DealScreenState extends State<DealScreen> {
         offers = [];
         debugPrint('❌ Failed to load offers: ${response['message']}');
         Fluttertoast.showToast(
-            msg: response['message']?.toString() ?? "Failed to load offers");
+          msg: translateText(
+            response['message']?.toString() ?? 'Failed to load offers',
+          ),
+        );
       }
     });
   }
@@ -225,7 +228,8 @@ class _DealScreenState extends State<DealScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(translateText('Delete Deal')),
         content: Text(
-          'Are you sure you want to delete "$offerName"? This action cannot be undone.',
+          '${translateText('Are you sure you want to delete')} "$offerName"? '
+          '${translateText('This action cannot be undone.')}',
         ),
         actions: [
           TextButton(
@@ -853,10 +857,10 @@ class _OfferCardState extends State<_OfferCard> {
       final String? discountChipText = () {
         if (!isDiscount) return null;
         if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
-          return '${discountPct!.toStringAsFixed(0)}% OFF';
+          return '${discountPct!.toStringAsFixed(0)}% ${translateText('off')}';
         }
         if (discountType == 'AMOUNT' && (discountAmt ?? 0) > 0) {
-          return '${rs(discountAmt)} OFF';
+          return '${rs(discountAmt)} ${translateText('off')}';
         }
         return null;
       }();
@@ -887,7 +891,7 @@ class _OfferCardState extends State<_OfferCard> {
                 children: [
                   Expanded(
                     child: Text(
-                      name.isNotEmpty ? name : 'Unnamed Offer',
+                      name.isNotEmpty ? name : translateText('Unnamed Offer'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -907,8 +911,8 @@ class _OfferCardState extends State<_OfferCard> {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  _pillChip(type),
-                  _softChip(pricingMode),
+                  _pillChip(_offerText(type)),
+                  _softChip(_offerText(pricingMode)),
                   if (discountChipText != null) _offChip(discountChipText),
                 ],
               ),
@@ -946,7 +950,7 @@ class _OfferCardState extends State<_OfferCard> {
                       const Spacer(),
                       if (actualPrice > 0 && finalPrice < actualPrice)
                         Text(
-                          'You save ${rs(actualPrice - finalPrice)}',
+                          '${translateText('You save')} ${rs(actualPrice - finalPrice)}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.green,
@@ -981,7 +985,7 @@ class _OfferCardState extends State<_OfferCard> {
                         label: Text(
                           _showAllIncludedServices
                               ? translateText('Show less')
-                              : '+${items.length - 2} more',
+                              : '+${items.length - 2} ${translateText('more')}',
                         ),
                         labelStyle: const TextStyle(
                           color: _offerGold,
@@ -1035,7 +1039,7 @@ class _OfferCardState extends State<_OfferCard> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Terms: $terms',
+                          '${translateText('Terms')}: $terms',
                           style: const TextStyle(
                             fontSize: 12,
                             color: _offerMuted,
@@ -1130,7 +1134,8 @@ class _OfferCardState extends State<_OfferCard> {
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Text(
-            'Error rendering offer: ${widget.offer['name'] ?? 'Unknown'}\n$e',
+            '${translateText('Error rendering offer')}: '
+            '${widget.offer['name'] ?? translateText('Unknown')}\n$e',
             style: const TextStyle(color: Colors.red),
           ),
         ),
@@ -1180,7 +1185,7 @@ class _OfferCardState extends State<_OfferCard> {
 
   String _serviceLabel(dynamic item) {
     final m = item is Map ? Map<String, dynamic>.from(item) : {};
-    final name = (m['name'] ?? 'Service').toString();
+    final name = (m['name'] ?? translateText('Service')).toString();
     final qty = m['qty'] is num ? m['qty'] as num : 1;
     return '$name × ${qty.toStringAsFixed(0)}';
   }
@@ -1268,9 +1273,11 @@ class _OfferCardState extends State<_OfferCard> {
                             Icons.info_outline_rounded,
                             [
                               _reviewRow('Title', offer['name']),
-                              _reviewRow('Pricing Option', pricingMode),
+                              _reviewRow(
+                                  'Pricing Option', _offerText(pricingMode)),
                               if (pricingMode.toUpperCase() == 'DISCOUNT')
-                                _reviewRow('Discount Type', discountType),
+                                _reviewRow(
+                                    'Discount Type', _offerText(discountType)),
                               _reviewRow('Discount Amount',
                                   _moneyLabel(offer['discount'])),
                               _reviewRow(
@@ -1285,7 +1292,7 @@ class _OfferCardState extends State<_OfferCard> {
                             Icons.payments_outlined,
                             [
                               _reviewRow(
-                                  'Actual Price',
+                                  'Original Price',
                                   totalPrice is num
                                       ? widget.rs(totalPrice)
                                       : totalPrice),
@@ -1370,9 +1377,11 @@ class _OfferCardState extends State<_OfferCard> {
   Widget? _reviewServiceRow(dynamic item) {
     final m = item is Map ? Map<String, dynamic>.from(item) : {};
     final details = <String>[
-      'Qty: ${m['qty'] ?? 1}',
-      if (m['price'] != null) 'Price: ${_moneyLabel(m['price'])}',
-      if (m['duration'] != null) 'Duration: ${m['duration']}',
+      '${translateText('Qty')}: ${m['qty'] ?? 1}',
+      if (m['price'] != null)
+        '${translateText('Price')}: ${_moneyLabel(m['price'])}',
+      if (m['duration'] != null)
+        '${translateText('Duration')}: ${m['duration']}',
     ].join('  ');
     final name = (m['name'] ?? '').toString().trim();
     if (name.isEmpty && details.trim().isEmpty) return null;
@@ -1485,7 +1494,7 @@ class _OfferCardState extends State<_OfferCard> {
         ),
       ),
       child: Text(
-        s.isEmpty ? 'UNKNOWN' : s,
+        _offerText(s.isEmpty ? 'UNKNOWN' : s),
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -1549,6 +1558,40 @@ class _OfferCardState extends State<_OfferCard> {
       ),
     );
   }
+
+  String _offerText(String value) {
+    final raw = value.trim();
+    final normalized = raw.toUpperCase();
+
+    switch (normalized) {
+      case 'DEAL':
+        return translateText('Deal');
+      case 'PACKAGE':
+        return translateText('Package');
+      case 'FIXED':
+        return translateText('Fixed');
+      case 'DISCOUNT':
+        return translateText('Discount');
+      case 'AMOUNT':
+      case 'FLAT':
+        return translateText('Flat Amount');
+      case 'PERCENT':
+        return translateText('Percentage');
+      case 'ACTIVE':
+        return translateText('Active');
+      case 'INACTIVE':
+        return translateText('Inactive');
+      case 'DRAFT':
+        return translateText('Draft');
+      case 'NONE':
+        return translateText('None');
+      case 'UNKNOWN':
+      case '':
+        return translateText('Unknown');
+      default:
+        return translateText(raw);
+    }
+  }
 }
 
 // ✅ Shared button style
@@ -1583,8 +1626,10 @@ String _formatValidity(String? isoFrom, String? isoTo) {
   final from = fmt(isoFrom);
   final to = fmt(isoTo);
 
-  if (from.isNotEmpty && to.isNotEmpty) return 'Valid: $from - $to';
-  if (from.isNotEmpty) return 'Valid from: $from';
-  if (to.isNotEmpty) return 'Valid till: $to';
+  if (from.isNotEmpty && to.isNotEmpty) {
+    return '${translateText('Valid')}: $from - $to';
+  }
+  if (from.isNotEmpty) return '${translateText('Valid From')}: $from';
+  if (to.isNotEmpty) return '${translateText('Valid Till')}: $to';
   return '';
 }

@@ -27,7 +27,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                   label: 'Attendance days',
                   value: '${attendance?.daysAttended ?? 0}',
                   subtitle:
-                      '${attendance?.employeesWithAttendance ?? 0} staff with attendance',
+                      '${attendance?.employeesWithAttendance ?? 0} ${context.t('staff with attendance')}',
                 ),
               ),
               const SizedBox(width: 12),
@@ -45,7 +45,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 child: _MetricCard(
                   label: 'Records',
                   value: '${attendance?.recordsCount ?? 0}',
-                  subtitle: '${attendance?.totalEmployees ?? 0} employees',
+                  subtitle:
+                      '${attendance?.totalEmployees ?? 0} ${context.t('employees')}',
                 ),
               ),
             ],
@@ -62,7 +63,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
     final config = _branchPaidLeaveConfig;
     final branchName = config?.branchName.isNotEmpty == true
         ? config!.branchName
-        : branch?.label ?? 'Selected branch';
+        : branch?.label ?? context.t('Selected branch');
 
     return _buildLeaveModuleScaffold(
       title: 'Leaves',
@@ -97,13 +98,13 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                       ),
                     ),
                   ),
-                  TextButton(
+                  _LeaveEditButton(
+                    label: context.t('Edit'),
                     onPressed: branch == null
                         ? null
                         : () {
                             _openBranchPaidLeaveConfigDialog();
                           },
-                    child: Text(context.t('Edit')),
                   ),
                 ],
               ),
@@ -172,7 +173,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
             subtitle:
                 holidayCalendar != null && holidayCalendar.salonName.isNotEmpty
                     ? holidayCalendar.salonName
-                    : 'selected salon',
+                    : context.t('selected salon'),
           ),
         ),
         const SizedBox(height: 16),
@@ -205,7 +206,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                   subtitle:
                       paidLeaves != null && paidLeaves.payrollName.isNotEmpty
                           ? paidLeaves.payrollName
-                          : 'selected payroll',
+                          : context.t('selected payroll'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -215,7 +216,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                   label: 'Attendance days',
                   value: '${attendance?.daysAttended ?? 0}',
                   subtitle:
-                      '${attendance?.employeesWithAttendance ?? 0} staff with attendance',
+                      '${attendance?.employeesWithAttendance ?? 0} ${context.t('staff with attendance')}',
                 ),
               ),
               const SizedBox(width: 12),
@@ -236,7 +237,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                   subtitle: holidayCalendar != null &&
                           holidayCalendar.salonName.isNotEmpty
                       ? holidayCalendar.salonName
-                      : 'selected salon',
+                      : context.t('selected salon'),
                 ),
               ),
             ],
@@ -290,7 +291,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                   children: [
                     Expanded(
                       child: Text(
-                        title,
+                        context.t(title),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
@@ -310,7 +311,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  description,
+                  context.t(description),
                   style: const TextStyle(
                     fontSize: 13,
                     color: _leaveMuted,
@@ -324,7 +325,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                     initialValue:
                         _selectedLeavePayrollId ?? _payrollRuns.first.id,
                     decoration: InputDecoration(
-                      labelText: 'Payroll run',
+                      labelText: context.t('Payroll run'),
                       filled: true,
                       fillColor: _leaveFieldFill,
                       border: OutlineInputBorder(
@@ -412,8 +413,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
           const SizedBox(height: 6),
           Text(
             paidLeaves.payrollName.isEmpty
-                ? 'Paid leaves for selected branch'
-                : 'Payroll: ${paidLeaves.payrollName}',
+                ? context.t('Paid leaves for selected branch')
+                : '${context.t('Payroll')}: ${paidLeaves.payrollName}',
             style: const TextStyle(
               fontSize: 13,
               color: _leaveMuted,
@@ -457,7 +458,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${employee.role} • Paid ${employee.paidLeaveDays} • Unpaid ${employee.leaveDays}',
+                              '${employee.role} • ${context.t('Paid leave')} ${employee.paidLeaveDays} • ${context.t('Unpaid leave')} ${employee.leaveDays}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: _leaveMuted,
@@ -467,13 +468,13 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                           ],
                         ),
                       ),
-                      TextButton(
+                      _LeaveEditButton(
+                        label: context.t('Edit'),
                         onPressed: employee.payrollEmployeeId <= 0
                             ? null
                             : () {
                                 _openPaidLeaveDialog(employee);
                               },
-                        child: Text(context.t('Edit')),
                       ),
                     ],
                   ),
@@ -513,7 +514,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
           ),
           const SizedBox(height: 6),
           Text(
-            '${attendance.recordsCount} records • ${attendance.totalEmployees} employees',
+            '${attendance.recordsCount} ${context.t('records')} • ${attendance.totalEmployees} ${context.t('employees')}',
             style: const TextStyle(
               fontSize: 13,
               color: _leaveMuted,
@@ -568,7 +569,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '${employee.role} • Attended ${employee.daysAttended} • Leaves ${employee.leaves}',
+                        '${employee.role} • ${context.t('Attended')} ${employee.daysAttended} • ${context.t('Leaves')} ${employee.leaves}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: _leaveMuted,
@@ -578,7 +579,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                       if (lastRecord != null) ...[
                         const SizedBox(height: 8),
                         Text(
-                          'Last record: ${lastRecord.checkedInAtIndianTime.isEmpty ? _formatDate(lastRecord.checkedInAt ?? DateTime.now()) : lastRecord.checkedInAtIndianTime}',
+                          '${context.t('Last record')}: ${lastRecord.checkedInAtIndianTime.isEmpty ? _formatDate(lastRecord.checkedInAt ?? DateTime.now()) : lastRecord.checkedInAtIndianTime}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: _leaveInk,
@@ -628,7 +629,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 ),
               ),
               _ActionChipButton(
-                label: 'Add Holiday',
+                label: context.t('Add Holiday'),
+                filled: true,
                 icon: Icons.add_circle_outline,
                 onTap: () {
                   _openCreateHolidayDialog();
@@ -639,7 +641,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
           const SizedBox(height: 6),
           Text(
             holidayCalendar.salonName.isEmpty
-                ? 'Selected salon'
+                ? context.t('Selected salon')
                 : holidayCalendar.salonName,
             style: const TextStyle(
               fontSize: 13,
@@ -675,7 +677,9 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              holiday.title.isEmpty ? 'Holiday' : holiday.title,
+                              holiday.title.isEmpty
+                                  ? context.t('Holiday')
+                                  : holiday.title,
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
@@ -694,24 +698,33 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                           ],
                         ),
                       ),
-                      PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            _openEditHolidayDialog(holiday);
-                            return;
-                          }
-                          if (value == 'delete') {
-                            _confirmDeleteHoliday(holiday);
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          PopupMenuItem<String>(
-                            value: 'edit',
-                            child: Text(context.t('Edit')),
+                      const SizedBox(width: 10),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _LeaveEditButton(
+                            label: context.t('Edit'),
+                            onPressed: () => _openEditHolidayDialog(holiday),
                           ),
-                          PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Text(context.t('Delete')),
+                          const SizedBox(height: 8),
+                          IconButton(
+                            tooltip: context.t('Delete'),
+                            onPressed: () => _confirmDeleteHoliday(holiday),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFFFFF1F1),
+                              foregroundColor: const Color(0xFFB02A37),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(
+                                  color: Color(0xFFFFD6D6),
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                            ),
                           ),
                         ],
                       ),
@@ -991,20 +1004,18 @@ class _PaidLeaveDialogState extends State<_PaidLeaveDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        '${context.t('Paid leaves')} • ${widget.employeeName}',
-      ),
-      content: Form(
+    return _LeaveDialogShell(
+      title: context.t('Paid leaves'),
+      subtitle: widget.employeeName,
+      icon: Icons.beach_access_outlined,
+      child: Form(
         key: _formKey,
-        child: TextFormField(
-          maxLength: 120,
+        child: _LabeledTextField(
+          label: context.t('Paid leave days'),
           controller: _controller,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: context.t('Paid leave days'),
-            border: OutlineInputBorder(),
-          ),
+          maxLength: 3,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           validator: (value) {
             final days = int.tryParse(value?.trim() ?? '');
             if (days == null || days < 0) {
@@ -1015,20 +1026,19 @@ class _PaidLeaveDialogState extends State<_PaidLeaveDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        _LeaveDialogButton(
+          label: context.t('Cancel'),
           onPressed: () {
             FocusScope.of(context).unfocus();
             Navigator.of(context).pop();
           },
-          child: Text(context.t('Cancel')),
         ),
-        ElevatedButton(
+        const SizedBox(width: 12),
+        _LeaveDialogButton(
+          label: context.t('Save'),
           onPressed: _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.starColor,
-            foregroundColor: Colors.white,
-          ),
-          child: Text(context.t('Save')),
+          primary: true,
+          icon: Icons.check_rounded,
         ),
       ],
     );
@@ -1045,6 +1055,244 @@ class _HolidayFormResult {
   final DateTime holidayDate;
   final String title;
   final String description;
+}
+
+class _LeaveEditButton extends StatelessWidget {
+  const _LeaveEditButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final foreground = enabled ? Colors.white : const Color(0xFF9CA3AF);
+    final background = enabled ? _leaveGold : const Color(0xFFF3F0EC);
+    final border = enabled ? _leaveGold : _leaveBorder;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onPressed,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: border),
+            boxShadow: enabled
+                ? const [
+                    BoxShadow(
+                      color: Color(0x1A8B6500),
+                      blurRadius: 12,
+                      offset: Offset(0, 6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.edit_outlined, size: 15, color: foreground),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaveDialogShell extends StatelessWidget {
+  const _LeaveDialogShell({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.child,
+    required this.actions,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Widget child;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFCF8),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _leaveBorder),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x18000000),
+                blurRadius: 24,
+                offset: Offset(0, 14),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(18, 18, 14, 16),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      bottom: BorderSide(color: _leaveBorder),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          color: _leaveSoftGold,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(icon, color: _leaveGold, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _leaveInk,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _leaveMuted,
+                                fontSize: 12,
+                                height: 1.3,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                        color: _leaveMuted,
+                        tooltip: context.t('Close'),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+                    child: child,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                  child: Row(
+                    children: actions,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaveDialogButton extends StatelessWidget {
+  const _LeaveDialogButton({
+    required this.label,
+    required this.onPressed,
+    this.primary = false,
+    this.icon,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final bool primary;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: SizedBox(
+        height: 48,
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primary ? _leaveGold : Colors.white,
+            foregroundColor: primary ? Colors.white : _leaveInk,
+            elevation: primary ? 8 : 0,
+            shadowColor: const Color(0x338B6500),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: primary ? _leaveGold : _leaveBorder,
+              ),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 18),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _HolidayDialog extends StatefulWidget {
@@ -1115,64 +1363,56 @@ class _HolidayDialogState extends State<_HolidayDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.isEdit ? 'Edit Holiday' : 'Add Holiday'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _DateFieldButton(
-                label: 'Holiday date',
-                value: _selectedDate,
-                onTap: _pickDate,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                maxLength: 120,
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if ((value?.trim() ?? '').isEmpty) {
-                    return 'Title is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                maxLength: 120,
-                controller: _descriptionController,
-                maxLines: 2,
-                minLines: 1,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
+    return _LeaveDialogShell(
+      title: context.t(widget.isEdit ? 'Edit Holiday' : 'Add Holiday'),
+      subtitle: context.t('Manage salon holidays for the selected month.'),
+      icon: widget.isEdit
+          ? Icons.edit_calendar_outlined
+          : Icons.add_circle_outline_rounded,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _DateFieldButton(
+              label: context.t('Holiday date'),
+              value: _selectedDate,
+              onTap: _pickDate,
+            ),
+            const SizedBox(height: 12),
+            _LabeledTextField(
+              label: context.t('Title'),
+              controller: _titleController,
+              validator: (value) {
+                if ((value?.trim() ?? '').isEmpty) {
+                  return context.t('Title is required');
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            _LabeledTextField(
+              label: context.t('Description'),
+              controller: _descriptionController,
+              maxLines: 2,
+            ),
+          ],
         ),
       ),
       actions: [
-        TextButton(
+        _LeaveDialogButton(
+          label: context.t('Cancel'),
           onPressed: () {
             FocusScope.of(context).unfocus();
             Navigator.of(context).pop();
           },
-          child: Text(context.t('Cancel')),
         ),
-        ElevatedButton(
+        const SizedBox(width: 12),
+        _LeaveDialogButton(
+          label: context.t('Save'),
           onPressed: _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.starColor,
-            foregroundColor: Colors.white,
-          ),
-          child: Text(context.t('Save')),
+          primary: true,
+          icon: Icons.check_rounded,
         ),
       ],
     );

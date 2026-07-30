@@ -52,10 +52,10 @@ class AppLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!isPage)
+      return _AppSpinner(size: size, strokeWidth: strokeWidth, color: color);
+
     final loader = _AppIconLoader(size: size);
-
-    if (!isPage) return loader;
-
     final text = message?.trim() ?? '';
 
     return Center(
@@ -76,6 +76,33 @@ class AppLoader extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// A plain circular spinner for loading states that live inside a button or
+// other small, fixed-size slot — the rotating icon animation used by
+// AppLoader.page() is sized and paced for a full page, not an 18px icon.
+class _AppSpinner extends StatelessWidget {
+  const _AppSpinner({
+    required this.size,
+    required this.strokeWidth,
+    required this.color,
+  });
+
+  final double size;
+  final double strokeWidth;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CircularProgressIndicator(
+        strokeWidth: strokeWidth,
+        color: color,
       ),
     );
   }

@@ -1999,7 +1999,9 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                   ],
                 ),
               ),
-              if (_isLoadingOperatingSchedule || _isApplyingMondayCopy)
+              if (_isLoadingOperatingSchedule ||
+                  _isApplyingMondayCopy ||
+                  isSubmitting)
                 _operatingScheduleLoader(),
             ],
           ),
@@ -2052,19 +2054,13 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                           ),
                           elevation: 2,
                         ),
-                        child: isSubmitting
-                            ? AppLoader.inline(
-                                size: 22,
-                                strokeWidth: 2.5,
-                                color: Colors.white,
-                              )
-                            : Text(
-                                translateText('Next').toUpperCase(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 11,
-                                ),
-                              ),
+                        child: Text(
+                          translateText('Next').toUpperCase(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                          ),
+                        ),
                       ),
                     ),
                   ],

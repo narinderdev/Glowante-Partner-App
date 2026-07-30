@@ -1780,7 +1780,7 @@ class _OwnerProfileOperationsScreenState
                       page: _inventoryPage - 1,
                     )
                 : null,
-            child: Text(context.t('Prev')),
+            child: Text(context.t('Previous')),
           ),
           const SizedBox(width: 10),
           Text('${context.t('Page')} $_inventoryPage'),

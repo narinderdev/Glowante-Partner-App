@@ -3846,7 +3846,7 @@ class _MetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            translateText(label),
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w900,
@@ -3865,7 +3865,7 @@ class _MetricCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            subtitle,
+            translateText(subtitle),
             style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF6F665E),
@@ -4201,7 +4201,7 @@ class _StatusPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        translateText(label),
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -5321,7 +5321,7 @@ class _EmptyStateCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                title,
+                translateText(title),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 18,
@@ -5331,7 +5331,7 @@ class _EmptyStateCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                subtitle,
+                translateText(subtitle),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14,

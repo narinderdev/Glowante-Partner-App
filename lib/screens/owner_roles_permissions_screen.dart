@@ -745,7 +745,7 @@ class _RoleRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    role.isCustom ? 'Custom Role' : 'System Role',
+                    context.t(role.isCustom ? 'Custom Role' : 'System Role'),
                     style: const TextStyle(
                       fontFamily: 'Manrope',
                       fontSize: 11,
@@ -759,7 +759,12 @@ class _RoleRow extends StatelessWidget {
           ),
           SizedBox(
             width: 150,
-            child: _BodyCell('${role.permissions.length} permissions'),
+            child: _BodyCell(
+              context.t(
+                '{count} permissions',
+                params: {'count': '${role.permissions.length}'},
+              ),
+            ),
           ),
           SizedBox(width: 110, child: _BodyCell('${role.priority}')),
           SizedBox(
@@ -1048,6 +1053,21 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
                         onSelectViewOnly: _selectViewOnly,
                         onClearAll: () =>
                             setState(_selectedPermissionIds.clear),
+                        isAllSelected: widget.permissions.isNotEmpty &&
+                            _selectedPermissionIds.length ==
+                                widget.permissions.length,
+                        isViewOnlySelected: _selectedPermissionIds.isNotEmpty &&
+                            _selectedPermissionIds.length ==
+                                widget.permissions
+                                    .where((item) =>
+                                        item.action == _PermissionAction.view)
+                                    .length &&
+                            widget.permissions
+                                .where((item) =>
+                                    item.action == _PermissionAction.view)
+                                .every((item) =>
+                                    _selectedPermissionIds.contains(item.id)),
+                        isNoneSelected: _selectedPermissionIds.isEmpty,
                       ),
                       const SizedBox(height: 10),
                       SingleChildScrollView(
@@ -1110,12 +1130,18 @@ class _PermissionToolbar extends StatelessWidget {
     required this.onSelectAll,
     required this.onSelectViewOnly,
     required this.onClearAll,
+    required this.isAllSelected,
+    required this.isViewOnlySelected,
+    required this.isNoneSelected,
   });
 
   final bool readOnly;
   final VoidCallback onSelectAll;
   final VoidCallback onSelectViewOnly;
   final VoidCallback onClearAll;
+  final bool isAllSelected;
+  final bool isViewOnlySelected;
+  final bool isNoneSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -1148,20 +1174,20 @@ class _PermissionToolbar extends StatelessWidget {
     if (readOnly) return copy;
 
     final actions = [
-      TextButton(
+      _ToolbarPillButton(
+        label: context.t('Select All'),
+        selected: isAllSelected,
         onPressed: onSelectAll,
-        style: TextButton.styleFrom(foregroundColor: AppColors.starColor),
-        child: Text(context.t('Select All')),
       ),
-      TextButton(
+      _ToolbarPillButton(
+        label: context.t('Select View Only'),
+        selected: isViewOnlySelected,
         onPressed: onSelectViewOnly,
-        style: TextButton.styleFrom(foregroundColor: AppColors.starColor),
-        child: Text(context.t('Select View Only')),
       ),
-      TextButton(
+      _ToolbarPillButton(
+        label: context.t('Clear All'),
+        selected: isNoneSelected,
         onPressed: onClearAll,
-        style: TextButton.styleFrom(foregroundColor: AppColors.starColor),
-        child: Text(context.t('Clear All')),
       ),
     ];
 
@@ -1173,7 +1199,7 @@ class _PermissionToolbar extends StatelessWidget {
             children: [
               copy,
               const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 4, children: actions),
+              Wrap(runSpacing: 4, children: actions),
             ],
           );
         }
@@ -1185,6 +1211,55 @@ class _PermissionToolbar extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// A pill-shaped quick-action button — filled gold when it matches the
+// permission table's current selection state (e.g. every permission is
+// checked, so "Select All" reads as the active choice), outlined otherwise.
+class _ToolbarPillButton extends StatelessWidget {
+  const _ToolbarPillButton({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Material(
+        color: selected ? AppColors.starColor : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onPressed,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: AppColors.starColor,
+                width: selected ? 0 : 1,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: selected ? Colors.white : AppColors.starColor,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

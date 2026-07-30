@@ -300,66 +300,6 @@ class SalonsScreenState extends State<SalonsScreen> {
     }
   }
 
-  // Future<void> _setSalonActive({
-  //   required int salonId,
-  //   required bool active,
-  // }) async {
-  //   if (_isActionLoading) return;
-  //   if (!active) {
-  //     final confirmed = await showDialog<bool>(
-  //       context: context,
-  //       builder: (dialogContext) => AlertDialog(
-  //         title: Text(translateText('Deactivate Salon')),
-  //         content: Text(
-  //           translateText(
-  //             'If the main salon is deactivated, all branches will be automatically deactivated. Do you want to continue?',
-  //           ),
-  //         ),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () => Navigator.pop(dialogContext, false),
-  //             child: Text(translateText('Cancel')),
-  //           ),
-  //           ElevatedButton(
-  //             onPressed: () => Navigator.pop(dialogContext, true),
-  //             style: ElevatedButton.styleFrom(
-  //               backgroundColor: const Color(0xFF8B6500),
-  //               foregroundColor: Colors.white,
-  //             ),
-  //             child: Text(translateText('Deactivate')),
-  //           ),
-  //         ],
-  //       ),
-  //     );
-  //     if (confirmed != true) return;
-  //     if (!mounted) return;
-  //   }
-  //   final repo = context.read<SalonRepository>();
-  //   setState(() => _isActionLoading = true);
-  //   try {
-  //     debugPrint(
-  //       '[SalonAction] ${active ? 'Activate' : 'Deactivate'} salon -> salonId=$salonId',
-  //     );
-  //     if (active) {
-  //       await repo.activateSalon(salonId);
-  //     } else {
-  //       await repo.deactivateSalon(salonId);
-  //     }
-  //     if (!mounted) return;
-  //     Fluttertoast.showToast(
-  //         msg: translateText(
-  //       active
-  //           ? 'Salon activated successfully'
-  //           : 'Salon deactivated successfully',
-  //     ));
-  //     await _refreshSalons();
-  //   } catch (error) {
-  //     if (!mounted) return;
-  //     Fluttertoast.showToast(msg: error.toString());
-  //   } finally {
-  //     if (mounted) setState(() => _isActionLoading = false);
-  //   }
-  // }
   Future<void> _setSalonActive({
     required int salonId,
     required bool active,
@@ -4251,7 +4191,6 @@ class _SalonRatingBadgeState extends State<_SalonRatingBadge> {
       }
 
       final branchRatings = <num>[];
-      final fallbackRatings = <num>[];
 
       for (final appointment in appointments) {
         if (appointment is! Map) continue;
@@ -4261,38 +4200,20 @@ class _SalonRatingBadgeState extends State<_SalonRatingBadge> {
             branchReview is Map ? branchReview['rating'] : null;
         if (branchRating is num) {
           branchRatings.add(branchRating);
-          continue;
-        }
-
-        final clientReview = appointment['clientReview'];
-        final clientRating =
-            clientReview is Map ? clientReview['rating'] : null;
-        if (clientRating is num) {
-          fallbackRatings.add(clientRating);
-        }
-
-        final professionalReviews = appointment['professionalReviews'];
-        if (professionalReviews is List) {
-          for (final review in professionalReviews) {
-            final rating = review is Map ? review['rating'] : null;
-            if (rating is num) fallbackRatings.add(rating);
-          }
         }
       }
 
-      final ratings =
-          branchRatings.isNotEmpty ? branchRatings : fallbackRatings;
-      if (ratings.isEmpty) {
+      if (branchRatings.isEmpty) {
         return const _SalonRatingSummary(average: 0, count: 0);
       }
 
-      final total = ratings.fold<double>(
+      final total = branchRatings.fold<double>(
         0,
         (sum, rating) => sum + rating.toDouble(),
       );
       return _SalonRatingSummary(
-        average: total / ratings.length,
-        count: ratings.length,
+        average: total / branchRatings.length,
+        count: branchRatings.length,
       );
     } catch (_) {
       return const _SalonRatingSummary(average: 0, count: 0);

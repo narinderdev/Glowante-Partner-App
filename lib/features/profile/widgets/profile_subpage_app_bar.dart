@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../utils/localization_helper.dart';
+
 const Color _profileSubpageBackground = Colors.white;
 const Color _profileSubpageDivider = Color(0xFFF1EBE6);
 const Color _profileSubpageTitle = Color(0xFF8B6500);
@@ -46,7 +48,7 @@ AppBar buildProfileSubpageAppBar({
     ),
     title: titleWidget ??
         Text(
-          title,
+          translateText(title),
           style: _profileSubpageTitleStyle(),
         ),
     actions: actions,

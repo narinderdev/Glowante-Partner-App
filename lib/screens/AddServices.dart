@@ -1091,7 +1091,7 @@ class _AddServicesState extends State<AddServices> {
                               const SizedBox(height: 7),
                               TextFormField(
                                 controller: descController,
-                                maxLines: 2,
+                                maxLines: 1,
                                 maxLength: 50,
                                 maxLengthEnforcement:
                                     MaxLengthEnforcement.enforced,

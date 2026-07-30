@@ -431,7 +431,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             color: AppColors.starColor,
             onRefresh: () => RefreshFeedback.playAndDetach(_loadData),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 if (_errorMessage != null)
@@ -3412,7 +3412,21 @@ class _DashboardStatusPill extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: Text(
-        label.isEmpty ? 'Unknown' : _titleCase(normalized),
+        label.isEmpty
+            ? context.t('Unknown')
+            // Prefer a canonical, always-translatable label for the common
+            // categories (matching the same checks used above for color) —
+            // the raw backend text (e.g. "AVAILABLE_NOW") won't reliably
+            // match a dictionary key, but these fixed words always will.
+            : isAvailable
+                ? context.t('Available')
+                : isBusy
+                    ? context.t('Busy')
+                    : isBreak
+                        ? context.t('On Break')
+                        : isUnavailable
+                            ? context.t('Unavailable')
+                            : context.t(_titleCase(normalized)),
         maxLines: 1,
         textAlign: TextAlign.center,
         overflow: TextOverflow.ellipsis,

@@ -1121,7 +1121,7 @@ class _MemberSummaryCard extends StatelessWidget {
                     _DetailStatusPill(
                       label: reviewCount > 0
                           ? '$rating ($reviewCount)'
-                          : '$rating Rating',
+                          : '$rating ${translateText('Rating')}',
                       color: AppColors.starColor,
                     ),
                   ],

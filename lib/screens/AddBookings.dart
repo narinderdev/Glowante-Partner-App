@@ -7309,16 +7309,10 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
                     height: 50,
                     child: ElevatedButton.icon(
                       onPressed: _submitting ? null : _handleConfirmBooking,
-                      icon: _submitting
-                          ? AppLoader.inline(
-                              size: 18,
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            )
-                          : const Icon(
-                              Icons.check_circle_rounded,
-                              size: 18,
-                            ),
+                      icon: const Icon(
+                        Icons.check_circle_rounded,
+                        size: 18,
+                      ),
                       label: Text(
                         _submitting
                             ? translateText('Confirming...')
@@ -7328,7 +7322,7 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
                         backgroundColor: _bookingGold,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         elevation: 8,
                         shadowColor: const Color(0x338B6500),

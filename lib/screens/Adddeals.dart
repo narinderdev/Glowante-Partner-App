@@ -1763,7 +1763,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                   ),
                 ),
                 Text(
-                  'Qty: $qty  ${formatMinorAmount(price)}',
+                  '${translateText('Qty')}: $qty  ${formatMinorAmount(price)}',
                   style: const TextStyle(
                     color: _dealGold,
                     fontSize: 13,
