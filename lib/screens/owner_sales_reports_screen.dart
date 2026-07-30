@@ -18,6 +18,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 String _translateReportLabel(BuildContext context, String label) {
   final trimmed = label.trim();
   if (trimmed.isEmpty) return '';
+  if (trimmed == 'Other') return 'Other';
 
   final exact = context.t(trimmed);
   if (exact != trimmed) return exact;
@@ -531,7 +532,9 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
     final revenueTrend = _mapValue(_data['revenueTrend']);
     final paymentMethod = _mapValue(_data['revenueByPaymentMethod']);
     final serviceCategory = _mapValue(_data['revenueByServiceCategory']);
-    final topServices = _mapValue(_data['topServicesByRevenue']);
+    final topServices = _mapValue(_data['topServicesByRevenue']).isNotEmpty
+        ? _mapValue(_data['topServicesByRevenue'])
+        : _mapValue(_data['revenueByAllServices']);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1512,7 +1515,15 @@ class _ReportSummaryCard extends StatelessWidget {
     final comparison = data['comparison'] is Map
         ? Map<String, dynamic>.from(data['comparison'] as Map)
         : const <String, dynamic>{};
-    final comparisonType = cleanText(comparison['type']).toLowerCase();
+    final comparisonValue = _comparisonNumericValue(comparison);
+    final rawComparisonType = cleanText(
+      comparison['changeType'] ?? comparison['type'],
+    ).toLowerCase();
+    final comparisonType = comparisonValue > 0
+        ? 'increase'
+        : comparisonValue < 0
+            ? 'decrease'
+            : rawComparisonType;
     final comparisonColor = comparisonType == 'increase'
         ? const Color(0xFF047857)
         : comparisonType == 'decrease'
@@ -1523,7 +1534,7 @@ class _ReportSummaryCard extends StatelessWidget {
         : comparisonType == 'decrease'
             ? '↓'
             : '•';
-    final comparisonText = cleanText(comparison['displayValue']);
+    final comparisonText = _formatComparisonValue(comparison);
     final comparisonLabel = cleanText(comparison['label']);
 
     return _ReportSection(
@@ -1573,13 +1584,34 @@ class _ReportSummaryCard extends StatelessWidget {
   }
 
   String _formatSummaryValue(Map<String, dynamic> data) {
-    final moneyValue = data['majorValue'] ?? data['minorValue'];
-    if (moneyValue != null) {
-      return formatMinorAmount(moneyValue, trimZeroDecimals: true);
+    if (data.containsKey('majorValue')) {
+      return formatMinorAmount(data['majorValue'], trimZeroDecimals: true);
+    }
+    if (data.containsKey('minorValue')) {
+      return formatMinorAmount(data['minorValue'], trimZeroDecimals: true);
     }
     return cleanText(data['value']).isEmpty
         ? cleanText(data['count'])
         : cleanText(data['value']);
+  }
+
+  String _formatComparisonValue(Map<String, dynamic> comparison) {
+    final displayValue = cleanText(comparison['displayValue']);
+    if (displayValue.isNotEmpty) return displayValue;
+    if (!comparison.containsKey('value')) return '';
+    final rawValue = comparison['value'];
+    final value = rawValue is num ? rawValue : num.tryParse('$rawValue');
+    if (value == null) return cleanText(rawValue);
+    final text = value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1);
+    return '$text%';
+  }
+
+  double _comparisonNumericValue(Map<String, dynamic> comparison) {
+    final rawValue = comparison['value'] ?? comparison['changeValue'];
+    if (rawValue is num) return rawValue.toDouble();
+    return double.tryParse('$rawValue') ?? 0;
   }
 }
 
@@ -1934,8 +1966,9 @@ class _TopServicesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = data['rows'] is List
-        ? (data['rows'] as List)
+    final rawRows = data['rows'] is List ? data['rows'] : data['data'];
+    final rows = rawRows is List
+        ? rawRows
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
             .toList()

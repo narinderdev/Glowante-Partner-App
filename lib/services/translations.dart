@@ -2488,6 +2488,7 @@ class AppTranslations {
       'Revenue & Sales': 'राजस्व एवं बिक्री',
       'Revenue Overview': 'राजस्व अवलोकन',
       'Revenue Trend': 'राजस्व प्रवृत्ति',
+      'Revenue by All Services': 'सभी सेवाओं के अनुसार राजस्व',
       'Revenue by Payment Method': 'भुगतान विधि द्वारा राजस्व',
       'Revenue by Service Category': 'सेवा श्रेणी के अनुसार राजस्व',
       'Revenue by Source': 'स्रोत द्वारा राजस्व',
