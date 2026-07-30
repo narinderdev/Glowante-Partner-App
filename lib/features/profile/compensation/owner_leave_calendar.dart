@@ -15,44 +15,29 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
     return _buildLeaveModuleScaffold(
       title: 'Attendance',
       description: 'View team member attendance and leaves by month and year.',
-      showMonthPicker: true,
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              SizedBox(
-                width: 190,
-                child: _MetricCard(
-                  label: 'Attendance days',
-                  value: '${attendance?.daysAttended ?? 0}',
-                  subtitle:
-                      '${attendance?.employeesWithAttendance ?? 0} ${context.t('staff with attendance')}',
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 190,
-                child: _MetricCard(
-                  label: 'Leave days',
-                  value: '${attendance?.leaves ?? 0}',
-                  subtitle: DateFormat('MMMM yyyy').format(_leaveMonth),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 190,
-                child: _MetricCard(
-                  label: 'Records',
-                  value: '${attendance?.recordsCount ?? 0}',
-                  subtitle:
-                      '${attendance?.totalEmployees ?? 0} ${context.t('employees')}',
-                ),
-              ),
-            ],
+      headerTrailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AttendanceMonthSelector(
+            month: _leaveMonth.month,
+            onChanged: _isActionInProgress
+                ? null
+                : (month) {
+                    _changeLeaveMonth(DateTime(_leaveMonth.year, month));
+                  },
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(width: 8),
+          _HolidayYearSelector(
+            year: _leaveMonth.year,
+            onChanged: _isActionInProgress
+                ? null
+                : (year) {
+                    _changeLeaveMonth(DateTime(year, _leaveMonth.month));
+                  },
+          ),
+        ],
+      ),
+      children: [
         _buildAttendanceSection(attendance),
       ],
     );
@@ -61,16 +46,22 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
   Widget _buildLeavesScreen() {
     final branch = _selectedBranch;
     final config = _branchPaidLeaveConfig;
-    final branchName = config?.branchName.isNotEmpty == true
-        ? config!.branchName
-        : branch?.label ?? context.t('Selected branch');
 
     return _buildLeaveModuleScaffold(
       title: 'Leaves',
       description: 'Manage default paid leaves for the selected branch.',
+      headerTrailing: _LeaveEditButton(
+        label: context.t('Edit'),
+        onPressed: branch == null
+            ? null
+            : () {
+                _openBranchPaidLeaveConfigDialog();
+              },
+      ),
       children: [
         Container(
-          padding: const EdgeInsets.all(18),
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(9),
@@ -83,74 +74,38 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      translateText('Default Paid Leaves'),
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        color: _leaveInk,
-                      ),
-                    ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCFAF8),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE4CDAA)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  translateText('Default Paid Leaves').toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: _leaveMuted,
+                    letterSpacing: 0.4,
                   ),
-                  _LeaveEditButton(
-                    label: context.t('Edit'),
-                    onPressed: branch == null
-                        ? null
-                        : () {
-                            _openBranchPaidLeaveConfigDialog();
-                          },
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${config?.paidLeaveDays ?? 0}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: _leaveInk,
+                    height: 1,
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFCFAF8),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _leaveBorder),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      translateText('DEFAULT PAID LEAVES'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: _leaveGold,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      '${config?.paidLeaveDays ?? 0}',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: _leaveInk,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      branchName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: _leaveMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
@@ -162,21 +117,34 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
 
     return _buildLeaveModuleScaffold(
       title: 'Holidays Calendar',
-      description: 'Manage salon holidays for the selected month.',
-      showMonthPicker: true,
-      children: [
-        SizedBox(
-          width: 190,
-          child: _MetricCard(
-            label: 'Holidays',
-            value: '${holidayCalendar?.totalHolidays ?? 0}',
-            subtitle:
-                holidayCalendar != null && holidayCalendar.salonName.isNotEmpty
-                    ? holidayCalendar.salonName
-                    : context.t('selected salon'),
+      description: 'Manage salon holidays for the selected year.',
+      headerTrailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _HolidayYearSelector(
+            year: holidayCalendar?.year == 0 || holidayCalendar == null
+                ? _leaveMonth.year
+                : holidayCalendar.year,
+            onChanged: _isActionInProgress
+                ? null
+                : (year) {
+                    _changeHolidayYear(year);
+                  },
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(width: 10),
+          _ActionChipButton(
+            label: context.t('Add Holiday'),
+            filled: true,
+            radius: 10,
+            height: 38,
+            icon: Icons.add_circle_outline,
+            onTap: () {
+              _openCreateHolidayDialog();
+            },
+          ),
+        ],
+      ),
+      children: [
         _buildHolidayCalendarSection(holidayCalendar),
       ],
     );
@@ -257,6 +225,7 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
     required String title,
     required String description,
     required List<Widget> children,
+    Widget? headerTrailing,
     bool showMonthPicker = false,
     bool showPayrollDropdown = false,
   }) {
@@ -292,6 +261,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                     Expanded(
                       child: Text(
                         context.t(title),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
@@ -307,6 +278,10 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                           _openLeaveMonthPicker();
                         },
                       ),
+                    if (headerTrailing != null) ...[
+                      if (showMonthPicker) const SizedBox(width: 8),
+                      headerTrailing,
+                    ],
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -495,104 +470,129 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
     }
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: _leaveBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            translateText('Branch Attendance'),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: _leaveInk,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${attendance.recordsCount} ${context.t('records')} • ${attendance.totalEmployees} ${context.t('employees')}',
-            style: const TextStyle(
-              fontSize: 13,
-              color: _leaveMuted,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (attendance.employees.isEmpty)
-            Text(
-              translateText('No attendance records found for this month.'),
-              style: TextStyle(
-                fontSize: 13,
-                color: _leaveMuted,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else
-            ...attendance.employees.map((employee) {
-              final lastRecord =
-                  employee.records.isEmpty ? null : employee.records.first;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _leaveFieldFill,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _leaveBorder),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tableWidth =
+              constraints.maxWidth < 820 ? 820.0 : constraints.maxWidth;
+
+          return RawScrollbar(
+            controller: _attendanceTableScrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            thickness: 4,
+            radius: const Radius.circular(10),
+            thumbColor: _leaveGold.withValues(alpha: 0.72),
+            trackColor: const Color(0xFFFFF3D5),
+            trackBorderColor: const Color(0xFFE8C774),
+            child: SingleChildScrollView(
+              controller: _attendanceTableScrollController,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: 10),
+              child: SizedBox(
+                width: tableWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      color: const Color(0xFFFCFAF8),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Row(
                         children: [
-                          Expanded(
-                            child: Text(
-                              employee.userName,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: _leaveInk,
-                              ),
-                            ),
+                          _AttendanceHeaderCell(
+                            label: context.t('Name'),
+                            width: 290,
                           ),
-                          _StatusPill(
-                            label: employee.active ? 'Active' : 'Inactive',
-                            color: employee.active
-                                ? const Color(0xFF157347)
-                                : const Color(0xFF6B7280),
+                          _AttendanceHeaderCell(
+                            label: context.t('Role'),
+                            width: 180,
+                          ),
+                          _AttendanceHeaderCell(
+                            label: context.t('Days Attended'),
+                            width: 140,
+                          ),
+                          _AttendanceHeaderCell(
+                            label: context.t('Leaves'),
+                            width: 110,
+                          ),
+                          _AttendanceHeaderCell(
+                            label: context.t('Total Days'),
+                            width: 100,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${employee.role} • ${context.t('Attended')} ${employee.daysAttended} • ${context.t('Leaves')} ${employee.leaves}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: _leaveMuted,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (lastRecord != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '${context.t('Last record')}: ${lastRecord.checkedInAtIndianTime.isEmpty ? _formatDate(lastRecord.checkedInAt ?? DateTime.now()) : lastRecord.checkedInAtIndianTime}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: _leaveInk,
-                            fontWeight: FontWeight.w700,
+                    ),
+                    if (attendance.employees.isEmpty)
+                      SizedBox(
+                        width: tableWidth,
+                        height: 84,
+                        child: Center(
+                          child: Text(
+                            translateText(
+                              'No attendance records found for this month.',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _leaveMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ],
-                    ],
-                  ),
+                      )
+                    else
+                      ...attendance.employees.map((employee) {
+                        return Container(
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: _leaveBorder),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              _AttendanceNameCell(
+                                name: employee.userName,
+                                width: 290,
+                              ),
+                              _AttendanceTextCell(
+                                text: employee.role,
+                                width: 180,
+                              ),
+                              _AttendanceTextCell(
+                                text: '${employee.daysAttended}',
+                                width: 140,
+                              ),
+                              _AttendanceTextCell(
+                                text: '${employee.leaves}',
+                                width: 110,
+                              ),
+                              _AttendanceTextCell(
+                                text: '${employee.totalDays}',
+                                width: 100,
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                  ],
                 ),
-              );
-            }),
-        ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -607,132 +607,266 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
     }
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: _leaveBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  translateText('Holiday Calendar'),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: _leaveInk,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${holidayCalendar.totalHolidays} ${context.t('holidays')}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _leaveInk,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              _ActionChipButton(
-                label: context.t('Add Holiday'),
-                filled: true,
-                icon: Icons.add_circle_outline,
-                onTap: () {
-                  _openCreateHolidayDialog();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            holidayCalendar.salonName.isEmpty
-                ? context.t('Selected salon')
-                : holidayCalendar.salonName,
-            style: const TextStyle(
-              fontSize: 13,
-              color: _leaveMuted,
-              fontWeight: FontWeight.w600,
+                Text(
+                  '${holidayCalendar.year == 0 ? _leaveMonth.year : holidayCalendar.year}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _leaveMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          if (holidayCalendar.holidays.isEmpty)
-            Text(
-              translateText('No holidays added for this month.'),
-              style: TextStyle(
-                fontSize: 13,
-                color: _leaveMuted,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else
-            ...holidayCalendar.holidays.map((holiday) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _leaveFieldFill,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _leaveBorder),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              holiday.title.isEmpty
-                                  ? context.t('Holiday')
-                                  : holiday.title,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: _leaveInk,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${_formatDate(holiday.holidayDate)}${holiday.description.isEmpty ? '' : ' • ${holiday.description}'}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: _leaveMuted,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          _LeaveEditButton(
-                            label: context.t('Edit'),
-                            onPressed: () => _openEditHolidayDialog(holiday),
+          const Divider(height: 1, color: _leaveBorder),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final tableWidth =
+                  constraints.maxWidth < 620 ? 620.0 : constraints.maxWidth;
+
+              return RawScrollbar(
+                controller: _holidayTableScrollController,
+                thumbVisibility: true,
+                trackVisibility: true,
+                thickness: 4,
+                radius: const Radius.circular(10),
+                thumbColor: _leaveGold.withValues(alpha: 0.72),
+                trackColor: const Color(0xFFFFF3D5),
+                trackBorderColor: const Color(0xFFE8C774),
+                child: SingleChildScrollView(
+                  controller: _holidayTableScrollController,
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SizedBox(
+                    width: tableWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          color: const Color(0xFFFCFAF8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
                           ),
-                          const SizedBox(height: 8),
-                          IconButton(
-                            tooltip: context.t('Delete'),
-                            onPressed: () => _confirmDeleteHoliday(holiday),
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFF1F1),
-                              foregroundColor: const Color(0xFFB02A37),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: const BorderSide(
-                                  color: Color(0xFFFFD6D6),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 130,
+                                child: Text(
+                                  context.t('Date').toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _leaveGold,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 130,
+                                child: Text(
+                                  context.t('Title').toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _leaveGold,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 180,
+                                child: Text(
+                                  context.t('Description').toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _leaveGold,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 140,
+                                child: Text(
+                                  context.t('Actions').toUpperCase(),
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _leaveGold,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (holidayCalendar.holidays.isEmpty)
+                          SizedBox(
+                            width: tableWidth,
+                            height: 84,
+                            child: Center(
+                              child: Text(
+                                translateText('No holidays found.'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: _leaveMuted,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                            icon: const Icon(
-                              Icons.delete_outline_rounded,
-                              size: 18,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          )
+                        else
+                          ...holidayCalendar.holidays.map((holiday) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(color: _leaveBorder),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 130,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _leaveSoftGold.withValues(
+                                            alpha: 0.65,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.calendar_today_outlined,
+                                              size: 12,
+                                              color: _leaveGold,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              _formatDate(
+                                                holiday.holidayDate,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: _leaveInk,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 130,
+                                    child: Text(
+                                      holiday.title.isEmpty
+                                          ? context.t('Holiday')
+                                          : holiday.title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: _leaveInk,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 180,
+                                    child: Text(
+                                      holiday.description.isEmpty
+                                          ? '-'
+                                          : holiday.description,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: _leaveMuted,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 140,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        _HolidayTableActionButton(
+                                          label: context.t('Edit'),
+                                          color: _leaveGold,
+                                          onPressed: () =>
+                                              _openEditHolidayDialog(holiday),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _HolidayTableActionButton(
+                                          label: context.t('Delete'),
+                                          color: const Color(0xFFB02A37),
+                                          onPressed: () =>
+                                              _confirmDeleteHoliday(holiday),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
                   ),
                 ),
               );
-            }),
+            },
+          ),
         ],
       ),
     );
@@ -747,6 +881,16 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
       return;
     }
     await _changeLeaveMonth(selected);
+  }
+
+  Future<void> _changeHolidayYear(int year) async {
+    if (year == _leaveMonth.year) {
+      return;
+    }
+    setState(() {
+      _leaveMonth = DateTime(year, _leaveMonth.month);
+    });
+    await _reloadContent(showLoader: false);
   }
 
   Future<void> _openPaidLeaveDialog(
@@ -1076,13 +1220,13 @@ class _LeaveEditButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(10),
         onTap: onPressed,
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
           decoration: BoxDecoration(
             color: background,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: border),
             boxShadow: enabled
                 ? const [
@@ -1109,6 +1253,284 @@ class _LeaveEditButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceMonthSelector extends StatelessWidget {
+  const _AttendanceMonthSelector({
+    required this.month,
+    required this.onChanged,
+  });
+
+  final int month;
+  final ValueChanged<int>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final months = List<int>.generate(12, (index) => index + 1);
+    final effectiveMonth =
+        month < 1 || month > 12 ? DateTime.now().month : month;
+
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _leaveBorder),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: effectiveMonth,
+          borderRadius: BorderRadius.circular(12),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: _leaveMuted,
+            size: 18,
+          ),
+          style: const TextStyle(
+            color: _leaveInk,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          items: months
+              .map(
+                (item) => DropdownMenuItem<int>(
+                  value: item,
+                  child: Text(DateFormat('MMMM').format(DateTime(2000, item))),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged == null
+              ? null
+              : (value) {
+                  if (value != null) {
+                    onChanged!(value);
+                  }
+                },
+        ),
+      ),
+    );
+  }
+}
+
+class _HolidayYearSelector extends StatelessWidget {
+  const _HolidayYearSelector({
+    required this.year,
+    required this.onChanged,
+  });
+
+  final int year;
+  final ValueChanged<int>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentYear = DateTime.now().year;
+    final years = List<int>.generate(8, (index) => currentYear - 2 + index);
+    final effectiveYear = years.contains(year) ? year : currentYear;
+
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _leaveBorder),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: effectiveYear,
+          borderRadius: BorderRadius.circular(12),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: _leaveMuted,
+            size: 18,
+          ),
+          style: const TextStyle(
+            color: _leaveInk,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          items: years
+              .map(
+                (item) => DropdownMenuItem<int>(
+                  value: item,
+                  child: Text('$item'),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged == null
+              ? null
+              : (value) {
+                  if (value != null) {
+                    onChanged!(value);
+                  }
+                },
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceHeaderCell extends StatelessWidget {
+  const _AttendanceHeaderCell({
+    required this.label,
+    required this.width,
+  });
+
+  final String label;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Text(
+          label.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 10,
+            color: _leaveGold,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.4,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceNameCell extends StatelessWidget {
+  const _AttendanceNameCell({
+    required this.name,
+    required this.width,
+  });
+
+  final String name;
+  final double width;
+
+  String get _initial {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return '?';
+    }
+    return trimmed.characters.first.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: _leaveFieldFill,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                _initial,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _leaveGold,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                name.trim().isEmpty ? context.t('Team Member') : name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _leaveInk,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceTextCell extends StatelessWidget {
+  const _AttendanceTextCell({
+    required this.text,
+    required this.width,
+  });
+
+  final String text;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Text(
+          text.trim().isEmpty ? '-' : text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            color: _leaveMuted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HolidayTableActionButton extends StatelessWidget {
+  const _HolidayTableActionButton({
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String label;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 30),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: color,
+        side: BorderSide(color: color.withValues(alpha: 0.45)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(7),
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -1365,7 +1787,7 @@ class _HolidayDialogState extends State<_HolidayDialog> {
   Widget build(BuildContext context) {
     return _LeaveDialogShell(
       title: context.t(widget.isEdit ? 'Edit Holiday' : 'Add Holiday'),
-      subtitle: context.t('Manage salon holidays for the selected month.'),
+      subtitle: context.t('Manage salon holidays for the selected year.'),
       icon: widget.isEdit
           ? Icons.edit_calendar_outlined
           : Icons.add_circle_outline_rounded,
@@ -1394,7 +1816,7 @@ class _HolidayDialogState extends State<_HolidayDialog> {
             _LabeledTextField(
               label: context.t('Description'),
               controller: _descriptionController,
-              maxLines: 2,
+              maxLines: 1,
             ),
           ],
         ),

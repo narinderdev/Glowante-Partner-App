@@ -674,7 +674,6 @@ class ProfileCompensationRepository {
   }) async {
     final response = await _apiService.getSalonHolidayCalendar(
       salonId: salonId,
-      month: month.month,
       year: month.year,
     );
     _requireSuccess(response);

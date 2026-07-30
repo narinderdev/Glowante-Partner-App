@@ -84,6 +84,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   final TextEditingController _advanceSearchController =
       TextEditingController();
   final ScrollController _advanceTableScrollController = ScrollController();
+  final ScrollController _attendanceTableScrollController = ScrollController();
+  final ScrollController _holidayTableScrollController = ScrollController();
   CompensationModule _module = CompensationModule.payroll;
   _CommissionTab _commissionTab = _CommissionTab.services;
   String _commissionCategoryFilter = _commissionAllCategoriesValue;
@@ -137,6 +139,25 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         _ => false,
       };
 
+  bool get _usesSalonSelectorOnly => _module == CompensationModule.holidays;
+
+  List<OwnerBranchOption> get _salonOptions {
+    final optionsBySalon = <int, OwnerBranchOption>{};
+    for (final option in _branchOptions) {
+      optionsBySalon.putIfAbsent(option.salonId, () => option);
+    }
+    return optionsBySalon.values.toList();
+  }
+
+  OwnerBranchOption? get _selectedSalonOption {
+    final selectedSalonId = _selectedBranch?.salonId;
+    if (selectedSalonId == null) return null;
+    for (final option in _salonOptions) {
+      if (option.salonId == selectedSalonId) return option;
+    }
+    return _selectedBranch;
+  }
+
   bool get _isScreenBusy =>
       _isLoadingContent || _isRefreshingContent || _isActionInProgress;
 
@@ -187,6 +208,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     _serviceSearchController.dispose();
     _advanceSearchController.dispose();
     _advanceTableScrollController.dispose();
+    _attendanceTableScrollController.dispose();
+    _holidayTableScrollController.dispose();
     super.dispose();
   }
 
@@ -3694,7 +3717,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   Widget _buildHeader() {
-    if (!_isLoadingBranches && _branchOptions.length <= 1 && !_isScreenBusy) {
+    final selectorOptions =
+        _usesSalonSelectorOnly ? _salonOptions : _branchOptions;
+    final selectedOption =
+        _usesSalonSelectorOnly ? _selectedSalonOption : _selectedBranch;
+
+    if (!_isLoadingBranches && selectorOptions.length <= 1 && !_isScreenBusy) {
       return const SizedBox.shrink();
     }
 
@@ -3719,20 +3747,30 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: OwnerBranchHeaderSelector<OwnerBranchOption>(
-                label: _selectedBranch?.label ?? context.t('Select Branch'),
-                options: _branchOptions
-                    .map(
-                      (item) =>
-                          OwnerBranchHeaderSelectorOption<OwnerBranchOption>(
-                        value: item,
-                        label: item.label,
-                        subtitle: item.subtitle,
-                      ),
-                    )
-                    .toList(),
-                selectedValue: _selectedBranch,
-                placeholder: context.t('Select Branch'),
-                isInteractive: _branchOptions.length > 1 && !_isScreenBusy,
+                label: _usesSalonSelectorOnly
+                    ? (selectedOption?.salonName.trim().isNotEmpty == true
+                        ? selectedOption!.salonName.trim()
+                        : context.t('Select Salon'))
+                    : selectedOption?.label ?? context.t('Select Branch'),
+                options: selectorOptions.map((item) {
+                  final salonLabel = item.salonName.trim().isNotEmpty
+                      ? item.salonName.trim()
+                      : item.label;
+                  return OwnerBranchHeaderSelectorOption<OwnerBranchOption>(
+                    value: item,
+                    label: _usesSalonSelectorOnly ? salonLabel : item.label,
+                    subtitle: _usesSalonSelectorOnly
+                        ? (item.address.trim().isNotEmpty
+                            ? item.address.trim()
+                            : context.t('Salon'))
+                        : item.subtitle,
+                  );
+                }).toList(),
+                selectedValue: selectedOption,
+                placeholder: _usesSalonSelectorOnly
+                    ? context.t('Select Salon')
+                    : context.t('Select Branch'),
+                isInteractive: selectorOptions.length > 1 && !_isScreenBusy,
                 onSelected: _switchBranch,
               ),
             ),
@@ -4128,6 +4166,8 @@ class _ActionChipButton extends StatelessWidget {
     this.filled = false,
     this.icon,
     this.isLoading = false,
+    this.radius,
+    this.height,
   });
 
   final String label;
@@ -4135,18 +4175,26 @@ class _ActionChipButton extends StatelessWidget {
   final bool filled;
   final IconData? icon;
   final bool isLoading;
+  final double? radius;
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
     final foregroundColor = filled ? Colors.white : const Color(0xFF1C1917);
+    final borderRadius = BorderRadius.circular(radius ?? 999);
     return InkWell(
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: borderRadius,
       onTap: isLoading ? null : onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        height: height,
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: height == null ? 12 : 0,
+        ),
         decoration: BoxDecoration(
           color: filled ? AppColors.starColor : Colors.white,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: borderRadius,
           border: Border.all(
             color: filled ? AppColors.starColor : const Color(0xFFE9DFD1),
           ),

@@ -3290,6 +3290,8 @@ class AppTranslations {
           'चयनित शाखा के लिए डिफ़ॉल्ट सवैतनिक अवकाश प्रबंधित करें।',
       'Manage salon holidays for the selected month.':
           'चयनित महीने के लिए सैलून अवकाश प्रबंधित करें।',
+      'Manage salon holidays for the selected year.':
+          'चयनित वर्ष के लिए सैलून अवकाश प्रबंधित करें।',
       'Track attendance-based leaves, set paid leaves for payroll, and manage the salon holiday calendar.':
           'उपस्थिति आधारित अवकाश ट्रैक करें, पेरोल के लिए सवैतनिक अवकाश सेट करें, और सैलून अवकाश कैलेंडर प्रबंधित करें।',
       'Selected branch': 'चयनित शाखा',
@@ -3307,6 +3309,10 @@ class AppTranslations {
       'Last record': 'अंतिम रिकॉर्ड',
       'Edit Holiday': 'अवकाश संपादित करें',
       'Title is required': 'शीर्षक आवश्यक है',
+      'No holidays added for this year.':
+          'इस वर्ष के लिए कोई अवकाश नहीं जोड़ा गया।',
+      'No holidays found.': 'कोई अवकाश नहीं मिला।',
+      'holidays': 'अवकाश',
 
       // --- Sixth screen-by-screen audit round (deals/packages) ---
       'Flat Amount': 'फ्लैट राशि',

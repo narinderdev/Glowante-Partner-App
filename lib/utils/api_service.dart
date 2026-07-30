@@ -441,12 +441,14 @@ class ApiService {
     int? month,
     int? year,
   }) {
-    final hasMonth = month != null;
-    final hasYear = year != null;
-    if (!hasMonth && !hasYear) {
+    final queryParts = <String>[
+      if (month != null) 'month=$month',
+      if (year != null) 'year=$year',
+    ];
+    if (queryParts.isEmpty) {
       return "salons/$salonId/holiday-calendar";
     }
-    return "salons/$salonId/holiday-calendar?month=${month ?? ''}&year=${year ?? ''}";
+    return "salons/$salonId/holiday-calendar?${queryParts.join('&')}";
   }
 
   static String salonHolidayCalendarDetailsAPI(int salonId, int holidayId) =>
@@ -4810,8 +4812,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> getSalonHolidayCalendar({
     required int salonId,
-    required int month,
     required int year,
+    int? month,
   }) {
     return _authorizedJsonRequest(
       method: 'GET',
