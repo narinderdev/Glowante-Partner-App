@@ -2421,7 +2421,7 @@ class AppTranslations {
           'पूर्वनिर्धारित सेवाएँ सफलतापूर्वक आयात की गईं',
       'Present': 'उपस्थित',
       'Prev': 'पिछला',
-      'Previous': 'पहले का',
+      'Previous': 'पिछला',
       'Price': 'कीमत',
       'Price (₹)': 'कीमत (₹)',
       'Price Type': 'मूल्य प्रकार',
@@ -3025,6 +3025,11 @@ class AppTranslations {
       'Open Days': 'खुले दिन',
       'Checking...': 'जाँच हो रही है...',
       'Check again': 'फिर से जाँचें',
+      'Advances': 'एडवांस',
+      'Clients dashboard': 'ग्राहक डैशबोर्ड',
+      'Edit Role': 'भूमिका संपादित करें',
+      'Role Details': 'भूमिका विवरण',
+      '{count} permissions selected': '{count} अनुमतियाँ चयनित',
     },
   };
 

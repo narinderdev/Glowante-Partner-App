@@ -1150,14 +1150,17 @@ class _PermissionToolbar extends StatelessWidget {
     final actions = [
       TextButton(
         onPressed: onSelectAll,
+        style: TextButton.styleFrom(foregroundColor: AppColors.starColor),
         child: Text(context.t('Select All')),
       ),
       TextButton(
         onPressed: onSelectViewOnly,
+        style: TextButton.styleFrom(foregroundColor: AppColors.starColor),
         child: Text(context.t('Select View Only')),
       ),
       TextButton(
         onPressed: onClearAll,
+        style: TextButton.styleFrom(foregroundColor: AppColors.starColor),
         child: Text(context.t('Clear All')),
       ),
     ];
@@ -1248,7 +1251,10 @@ class _RoleDialogFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectedText = Text(
-      '$selectedCount permissions selected',
+      context.t(
+        '{count} permissions selected',
+        params: {'count': '$selectedCount'},
+      ),
       style: const TextStyle(
         fontFamily: 'Manrope',
         fontSize: 11,
@@ -1261,6 +1267,10 @@ class _RoleDialogFooter extends StatelessWidget {
         height: 44,
         child: OutlinedButton(
           onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.starColor,
+            side: const BorderSide(color: AppColors.starColor),
+          ),
           child: Text(context.t(label)),
         ),
       );
@@ -1392,7 +1402,7 @@ class _PermissionMatrix extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
-                        module,
+                        context.t(module),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
