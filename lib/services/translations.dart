@@ -1877,6 +1877,9 @@ class AppTranslations {
       'Assigned Services': 'सौंपी गई सेवाएँ',
       'Account Holder': 'खाताधारक',
       'Account Holder Name': 'खाता धारक का नाम',
+      'Account Holder Name is required': 'खाता धारक का नाम आवश्यक है',
+      'Account holder name must be at least 3 characters':
+          'खाता धारक का नाम कम से कम 3 अक्षरों का होना चाहिए',
       'Account Number': 'खाता संख्या',
       'Account Number is required': 'खाता संख्या आवश्यक है',
       'Account number must contain only digits':
@@ -2088,6 +2091,12 @@ class AppTranslations {
       'Deal Review': 'सौदे की समीक्षा',
       'Deal Summary': 'डील सारांश',
       'Default': 'डिफ़ॉल्ट',
+      'Secondary': 'द्वितीयक',
+      'Make default': 'डिफ़ॉल्ट बनाएँ',
+      'Make secondary': 'द्वितीयक बनाएँ',
+      'Bank details updated successfully':
+          'बैंक विवरण सफलतापूर्वक अपडेट हो गया',
+      'Failed to update bank details': 'बैंक विवरण अपडेट करने में विफल',
       'Default commission': 'डिफ़ॉल्ट कमीशन',
       'Delete Advance': 'अग्रिम हटाएँ',
       'Delete Branch': 'शाखा हटाएँ',
@@ -3079,6 +3088,7 @@ class AppTranslations {
       'Enter IFSC code': 'आईएफएससी कोड दर्ज करें',
       'Enter branch name': 'शाखा का नाम दर्ज करें',
       'Enter UPI ID': 'यूपीआई आईडी दर्ज करें',
+      'Enter a valid UPI ID': 'एक वैध यूपीआई आईडी दर्ज करें',
       'Unable to load roles': 'भूमिकाएँ लोड नहीं हो सकीं',
       'No branch found': 'कोई शाखा नहीं मिली',
       'Create or select a branch before managing roles.':

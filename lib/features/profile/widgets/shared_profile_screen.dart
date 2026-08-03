@@ -271,7 +271,7 @@ class _ProfileHero extends StatelessWidget {
           if (email.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              '${email.trim()}',
+              email.trim(),
               textAlign: TextAlign.center,
               style: _profileTextStyle(
                 size: 13,
@@ -634,7 +634,7 @@ class _LanguageChangingDialog extends StatelessWidget {
       child: Center(
         child: Material(
           color: Colors.transparent,
-          child: AppLoader.page(),
+          child: AppLoader.page(message: ''),
         ),
       ),
     );

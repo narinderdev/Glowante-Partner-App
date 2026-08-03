@@ -5,7 +5,9 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
+import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/input_validation.dart';
@@ -38,6 +40,18 @@ String _firstText(
       return value;
     }
   }
+
+  for (final nestedKey in const ['metadata', 'notes']) {
+    final nested = map[nestedKey];
+    if (nested is Map<String, dynamic>) {
+      final value = _firstText(nested, keys);
+      if (value.isNotEmpty) return value;
+    } else if (nested is Map) {
+      final value = _firstText(Map<String, dynamic>.from(nested), keys);
+      if (value.isNotEmpty) return value;
+    }
+  }
+
   return fallback;
 }
 
@@ -64,6 +78,15 @@ String _friendlyError(Object error) {
   return text;
 }
 
+bool _looksLikePayoutAccount(Map<String, dynamic> map) {
+  return map.containsKey('id') &&
+      (map.containsKey('accountHolderName') ||
+          map.containsKey('maskedAccountNumber') ||
+          map.containsKey('bankName') ||
+          map.containsKey('ifsc') ||
+          map.containsKey('provider'));
+}
+
 List<Map<String, dynamic>> _extractAccounts(dynamic raw) {
   if (raw is List) {
     return raw
@@ -85,6 +108,12 @@ List<Map<String, dynamic>> _extractAccounts(dynamic raw) {
       final nested = _extractAccounts(raw[key]);
       if (nested.isNotEmpty) return nested;
     }
+
+    if (_looksLikePayoutAccount(raw)) {
+      return [raw];
+    }
+
+    return const <Map<String, dynamic>>[];
   }
 
   if (raw is Map) {
@@ -92,6 +121,26 @@ List<Map<String, dynamic>> _extractAccounts(dynamic raw) {
   }
 
   return const <Map<String, dynamic>>[];
+}
+
+class _PayoutSalonOption {
+  const _PayoutSalonOption({
+    required this.salonId,
+    required this.name,
+    required this.address,
+  });
+
+  final int salonId;
+  final String name;
+  final String address;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _PayoutSalonOption && other.salonId == salonId;
+
+  @override
+  int get hashCode => salonId.hashCode;
 }
 
 class AddBankDetailScreen extends StatefulWidget {
@@ -108,8 +157,12 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
 
   int? _salonId;
   bool _isLoading = true;
+  bool _isLoadingSalons = true;
   String? _errorMessage;
+  List<_PayoutSalonOption> _salonOptions = const <_PayoutSalonOption>[];
+  _PayoutSalonOption? _selectedSalon;
   List<Map<String, dynamic>> _accounts = const <Map<String, dynamic>>[];
+  String? _busyPayoutRoleAction;
 
   @override
   void initState() {
@@ -119,7 +172,13 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
 
   Future<void> _bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
-    _salonId = widget.salonId ?? prefs.getInt('selected_salon_id');
+    final preferredSalonId =
+        widget.salonId ?? prefs.getInt('selected_salon_id');
+    final selectedSalon = await _loadSalonOptions(
+      prefs,
+      preferredSalonId: preferredSalonId,
+    );
+    _salonId = selectedSalon?.salonId ?? preferredSalonId;
 
     if (!mounted) return;
 
@@ -132,6 +191,87 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
       });
       return;
     }
+
+    await _loadAccounts();
+  }
+
+  Future<_PayoutSalonOption?> _loadSalonOptions(
+    SharedPreferences prefs, {
+    int? preferredSalonId,
+  }) async {
+    try {
+      final response = await _apiService.getSalonListApi();
+      final data = response['data'];
+      if (response['success'] != true || data is! List || data.isEmpty) {
+        return null;
+      }
+
+      final options = <_PayoutSalonOption>[];
+      for (final entry in data) {
+        if (entry is! Map) continue;
+        final salon = Map<String, dynamic>.from(entry);
+        final salonId = _readInt(salon['id']);
+        if (salonId == null) continue;
+
+        final salonAddress = formatAddressSummary(salon['address']);
+        final branches = salon['branches'] as List? ?? const [];
+        var fallbackBranchAddress = '';
+        for (final branchEntry in branches) {
+          if (branchEntry is! Map) continue;
+          fallbackBranchAddress = formatAddressSummary(branchEntry['address']);
+          if (fallbackBranchAddress.isNotEmpty) break;
+        }
+
+        final name = _cleanText(salon['name']);
+        options.add(
+          _PayoutSalonOption(
+            salonId: salonId,
+            name: name.isEmpty ? '${translateText('Salon')} #$salonId' : name,
+            address:
+                salonAddress.isNotEmpty ? salonAddress : fallbackBranchAddress,
+          ),
+        );
+      }
+
+      final selected = options.cast<_PayoutSalonOption?>().firstWhere(
+            (option) => option?.salonId == preferredSalonId,
+            orElse: () => options.isEmpty ? null : options.first,
+          );
+
+      if (mounted) {
+        setState(() {
+          _salonOptions = options;
+          _selectedSalon = selected;
+          _isLoadingSalons = false;
+        });
+      }
+
+      if (selected != null) {
+        await prefs.setInt('selected_salon_id', selected.salonId);
+      }
+      return selected;
+    } catch (error) {
+      debugPrint('Unable to resolve selected salon for bank details: $error');
+      if (mounted) {
+        setState(() => _isLoadingSalons = false);
+      }
+      return null;
+    }
+  }
+
+  Future<void> _switchSalon(_PayoutSalonOption salon) async {
+    if (_isLoading || salon == _selectedSalon) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('selected_salon_id', salon.salonId);
+
+    if (!mounted) return;
+    setState(() {
+      _selectedSalon = salon;
+      _salonId = salon.salonId;
+      _accounts = const <Map<String, dynamic>>[];
+      _errorMessage = null;
+    });
 
     await _loadAccounts();
   }
@@ -189,6 +329,53 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
 
     if (result == true) {
       await _loadAccounts(silent: true);
+    }
+  }
+
+  Future<void> _setPayoutAccountRole(
+    Map<String, dynamic> account,
+    String role,
+  ) async {
+    if (_salonId == null) return;
+
+    final payoutAccountId =
+        _readInt(account['id'] ?? account['payoutAccountId']);
+    if (payoutAccountId == null) return;
+
+    final actionKey = '$payoutAccountId:$role';
+    if (_busyPayoutRoleAction != null) return;
+
+    setState(() => _busyPayoutRoleAction = actionKey);
+    try {
+      final response = role == 'default'
+          ? await _apiService.setSalonPayoutAccountDefault(
+              salonId: _salonId!,
+              payoutAccountId: payoutAccountId,
+            )
+          : await _apiService.setSalonPayoutAccountSecondary(
+              salonId: _salonId!,
+              payoutAccountId: payoutAccountId,
+            );
+
+      if (response['success'] != true) {
+        throw Exception(
+          response['message']?.toString() ??
+              translateText('Failed to update bank details'),
+        );
+      }
+
+      Fluttertoast.showToast(
+        msg: response['message']?.toString() ??
+            translateText('Bank details updated successfully'),
+      );
+      await _loadAccounts(silent: true);
+    } catch (error) {
+      if (!mounted) return;
+      Fluttertoast.showToast(msg: _friendlyError(error));
+    } finally {
+      if (mounted) {
+        setState(() => _busyPayoutRoleAction = null);
+      }
     }
   }
 
@@ -317,6 +504,15 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
                     salonId: _salonId,
                     isLoading: _isLoading,
                   ),
+                  if (_isLoadingSalons || _salonOptions.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _SalonSelectorCard(
+                      isLoading: _isLoadingSalons,
+                      options: _salonOptions,
+                      selectedSalon: _selectedSalon,
+                      onSelected: _switchSalon,
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   if (_errorMessage != null) ...[
                     _ErrorCard(message: _errorMessage!),
@@ -331,6 +527,11 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
                           account: account,
                           onEdit: () => _openForm(account: account),
                           onDelete: () => _deleteAccount(account),
+                          onMakeDefault: () =>
+                              _setPayoutAccountRole(account, 'default'),
+                          onMakeSecondary: () =>
+                              _setPayoutAccountRole(account, 'secondary'),
+                          busyRoleAction: _busyPayoutRoleAction,
                         ),
                         const SizedBox(height: 12),
                       ],
@@ -382,36 +583,7 @@ class _SummaryCard extends StatelessWidget {
             size: 22,
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  translateText('Salon Payout Accounts'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF201B17),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  salonId == null
-                      ? translateText(
-                          'Select a salon to manage payout accounts.')
-                      : translateText(
-                          'Manage the bank account used for salon settlements.',
-                        ),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.45,
-                    color: Color(0xFF6F665E),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const Expanded(child: SizedBox.shrink()),
           if (isLoading) ...[
             const SizedBox(width: 12),
             AppLoader.inline(
@@ -422,6 +594,72 @@ class _SummaryCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _SalonSelectorCard extends StatelessWidget {
+  const _SalonSelectorCard({
+    required this.isLoading,
+    required this.options,
+    required this.selectedSalon,
+    required this.onSelected,
+  });
+
+  final bool isLoading;
+  final List<_PayoutSalonOption> options;
+  final _PayoutSalonOption? selectedSalon;
+  final ValueChanged<_PayoutSalonOption> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE8DED6)),
+        ),
+        child: Row(
+          children: [
+            AppLoader.inline(
+              size: 16,
+              strokeWidth: 2,
+              color: AppColors.starColor,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              translateText('Loading salons...'),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF6F665E),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return OwnerBranchHeaderSelector<_PayoutSalonOption>(
+      label: selectedSalon?.name ?? translateText('Select Salon'),
+      options: options
+          .map(
+            (salon) => OwnerBranchHeaderSelectorOption<_PayoutSalonOption>(
+              value: salon,
+              label: salon.name,
+              subtitle: salon.address.trim().isEmpty
+                  ? '${translateText('Salon')} #${salon.salonId}'
+                  : salon.address,
+            ),
+          )
+          .toList(),
+      selectedValue: selectedSalon,
+      placeholder: translateText('Select Salon'),
+      isInteractive: options.length > 1,
+      onSelected: onSelected,
     );
   }
 }
@@ -506,11 +744,17 @@ class _PayoutAccountCard extends StatelessWidget {
     required this.account,
     required this.onEdit,
     required this.onDelete,
+    required this.onMakeDefault,
+    required this.onMakeSecondary,
+    required this.busyRoleAction,
   });
 
   final Map<String, dynamic> account;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onMakeDefault;
+  final VoidCallback onMakeSecondary;
+  final String? busyRoleAction;
 
   @override
   Widget build(BuildContext context) {
@@ -531,6 +775,16 @@ class _PayoutAccountCard extends StatelessWidget {
     final branchName = _firstText(account, const ['branchName']);
     final upiId = _firstText(account, const ['upiId']);
     final isDefault = _readBool(account['isDefault'] ?? account['default']);
+    final isSecondary = !isDefault;
+    final payoutAccountId =
+        _readInt(account['id'] ?? account['payoutAccountId']);
+    final isMakingDefault = busyRoleAction == '${payoutAccountId ?? 0}:default';
+    final isMakingSecondary =
+        busyRoleAction == '${payoutAccountId ?? 0}:secondary';
+    final isAnyRoleActionBusy = busyRoleAction != null;
+    final roleButtonLabel = isDefault ? 'Make secondary' : 'Make default';
+    final roleButtonLoading = isDefault ? isMakingSecondary : isMakingDefault;
+    final roleButtonAction = isDefault ? onMakeSecondary : onMakeDefault;
 
     return Container(
       width: double.infinity,
@@ -604,6 +858,27 @@ class _PayoutAccountCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                        if (isSecondary) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF4EFE8),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              translateText('Secondary'),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF6F4D12),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -660,8 +935,61 @@ class _PayoutAccountCard extends StatelessWidget {
               label: translateText('UPI ID'),
               value: upiId,
             ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _PayoutRoleButton(
+                label: roleButtonLabel,
+                isLoading: roleButtonLoading,
+                onPressed: isAnyRoleActionBusy ? null : roleButtonAction,
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _PayoutRoleButton extends StatelessWidget {
+  const _PayoutRoleButton({
+    required this.label,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: isLoading ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.starColor,
+        disabledForegroundColor: const Color(0xFF8A7C6A),
+        side: const BorderSide(color: Color(0xFFE2D3BF)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      ),
+      child: isLoading
+          ? AppLoader.inline(
+              size: 14,
+              strokeWidth: 2,
+              color: AppColors.starColor,
+            )
+          : Text(
+              translateText(label),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
     );
   }
 }
@@ -752,6 +1080,13 @@ class _SalonPayoutAccountFormScreenState
       ]);
       _bankNameController.text =
           _firstText(account, const ['bankName', 'bank']);
+      final accountNumber = _firstText(account, const [
+        'maskedAccountNumber',
+        'accountNumber',
+        'maskedAccountNo',
+      ]);
+      _accountNumberController.text = accountNumber;
+      _confirmAccountNumberController.text = accountNumber;
       _ifscController.text = _firstText(account, const ['ifsc', 'ifscCode']);
       _branchNameController.text = _firstText(account, const ['branchName']);
       _upiIdController.text = _firstText(account, const ['upiId']);
@@ -784,6 +1119,19 @@ class _SalonPayoutAccountFormScreenState
     return _required(value, field);
   }
 
+  String? _validateAccountHolderName(String? value) {
+    final text = _cleanText(value);
+    if (text.isEmpty) {
+      return translateText('Account Holder Name is required');
+    }
+    if (text.replaceAll(' ', '').length < 3) {
+      return translateText(
+        'Account holder name must be at least 3 characters',
+      );
+    }
+    return null;
+  }
+
   String? _validateIfsc(String? value) {
     final text = _cleanText(value).toUpperCase();
     if (text.isEmpty) {
@@ -800,7 +1148,9 @@ class _SalonPayoutAccountFormScreenState
     if (text.isEmpty) {
       return translateText('Account Number is required');
     }
-    if (!RegExp(r'^\d+$').hasMatch(text)) {
+    final isMasked = widget.existingAccount != null &&
+        RegExp(r'^[*Xx]+\d{4}$').hasMatch(text);
+    if (!isMasked && !RegExp(r'^\d+$').hasMatch(text)) {
       return translateText('Account number must contain only digits');
     }
     return null;
@@ -813,6 +1163,18 @@ class _SalonPayoutAccountFormScreenState
     }
     if (text != _accountNumberController.text.trim()) {
       return translateText('Account numbers do not match');
+    }
+    return null;
+  }
+
+  String? _validateUpiId(String? value) {
+    final text = _cleanText(value);
+    if (text.isEmpty) return null;
+
+    final pattern =
+        RegExp(r'^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{2,64}$');
+    if (!pattern.hasMatch(text)) {
+      return translateText('Enter a valid UPI ID');
     }
     return null;
   }
@@ -834,16 +1196,17 @@ class _SalonPayoutAccountFormScreenState
         );
       }
 
+      final branchName = _branchNameController.text.trim();
+      final upiId = _upiIdController.text.trim();
+
       final payload = <String, dynamic>{
         'accountHolderName': _accountHolderNameController.text.trim(),
         'bankName': _bankNameController.text.trim(),
         'accountNumber': _accountNumberController.text.trim(),
         'confirmAccountNumber': _confirmAccountNumberController.text.trim(),
         'ifscCode': _ifscController.text.trim().toUpperCase(),
-        if (_branchNameController.text.trim().isNotEmpty)
-          'branchName': _branchNameController.text.trim(),
-        if (_upiIdController.text.trim().isNotEmpty)
-          'upiId': _upiIdController.text.trim(),
+        if (branchName.isNotEmpty) 'branchName': branchName,
+        'upiId': upiId,
         'isDefault': _isDefault,
       };
 
@@ -930,32 +1293,6 @@ class _SalonPayoutAccountFormScreenState
                           color: Color(0xFF201B17),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        translateText(
-                          'This account will be used for salon settlement payouts.',
-                        ),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          height: 1.45,
-                          color: Color(0xFF6F665E),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      if (isEditing) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          translateText(
-                            'The backend returns only the masked account number. Re-enter the full account number to update bank details.',
-                          ),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            height: 1.45,
-                            color: Color(0xFF8A7C6A),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
                       const SizedBox(height: 18),
                       _field(
                         controller: _accountHolderNameController,
@@ -970,10 +1307,9 @@ class _SalonPayoutAccountFormScreenState
                             AppInputRules.nameMaxLength,
                           ),
                         ],
-                        validator: (value) => _requiredAfterSubmit(
-                          value,
-                          translateText('Account Holder Name'),
-                        ),
+                        validator: (value) => _submitted
+                            ? _validateAccountHolderName(value)
+                            : null,
                       ),
                       _field(
                         controller: _bankNameController,
@@ -993,7 +1329,12 @@ class _SalonPayoutAccountFormScreenState
                         keyboardType: TextInputType.number,
                         maxLength: 20,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
+                          if (isEditing)
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9*Xx]'),
+                            )
+                          else
+                            FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(20),
                         ],
                         validator: (value) =>
@@ -1006,7 +1347,12 @@ class _SalonPayoutAccountFormScreenState
                         keyboardType: TextInputType.number,
                         maxLength: 20,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
+                          if (isEditing)
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9*Xx]'),
+                            )
+                          else
+                            FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(20),
                         ],
                         validator: (value) => _submitted
@@ -1040,7 +1386,14 @@ class _SalonPayoutAccountFormScreenState
                         label: 'UPI ID',
                         hint: 'Enter UPI ID',
                         maxLength: AppInputRules.emailMaxLength,
-                        validator: (_) => null,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                          LengthLimitingTextInputFormatter(
+                            AppInputRules.emailMaxLength,
+                          ),
+                        ],
+                        validator: (value) =>
+                            _submitted ? _validateUpiId(value) : null,
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,

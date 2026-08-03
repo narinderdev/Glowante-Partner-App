@@ -5,7 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
-import 'package:path/path.dart';
+import '../config/app_environment.dart';
 import '../services/network_listener.dart';
 import '../utils/api_service.dart';
 
@@ -30,7 +30,7 @@ class AwsS3Uploader {
   factory AwsS3Uploader() => _instance;
   AwsS3Uploader._internal();
 
-  String get _apiBase => (dotenv.env['API_BASE_URL'] ?? '').trim();
+  String get _apiBase => AppEnvironment.baseUrl;
   String get _presignPath => '/uploads/presign';
   String? get _folder => dotenv.env['UPLOAD_FOLDER']; // e.g. uploads/public
 
@@ -40,15 +40,22 @@ class AwsS3Uploader {
     return Uri.parse('$b$p');
   }
 
+  String _fileNameFromPath(String path) {
+    final normalized = path.replaceAll(r'\', '/');
+    final index = normalized.lastIndexOf('/');
+    final fileName = index == -1 ? normalized : normalized.substring(index + 1);
+    return fileName.isEmpty ? 'upload' : fileName;
+  }
+
   void _assertValidBase() {
     if (_apiBase.isEmpty) {
       throw ArgumentError(
-          'API_BASE_URL is empty. Set it to a full URL (e.g. https://api.example.com)');
+          'API base URL is empty. Configure APP_FLAVOR with --dart-define.');
     }
     final uri = Uri.tryParse(_apiBase);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
       throw ArgumentError(
-          'Invalid API_BASE_URL: $_apiBase — must include scheme and host (e.g. https://dev-api.example.com)');
+          'Invalid API base URL: $_apiBase. Configure APP_FLAVOR with --dart-define.');
     }
   }
 
@@ -72,7 +79,7 @@ class AwsS3Uploader {
       }
 
       final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}-${basename(file.path)}';
+          '${DateTime.now().millisecondsSinceEpoch}-${_fileNameFromPath(file.path)}';
       final contentType =
           lookupMimeType(file.path) ?? 'application/octet-stream';
       final selectedFolder = (folder ?? _folder)?.trim();

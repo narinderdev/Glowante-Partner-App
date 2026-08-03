@@ -186,8 +186,23 @@ class ApiService {
   static String salonPayoutAccountsAPI(int salonId) =>
       "salons/$salonId/payout-accounts";
 
+  static String salonPayoutAccountOnboardBankAPI(int salonId) =>
+      "salons/$salonId/payout-accounts/onboard-bank";
+
   static String salonPayoutAccountAPI(int salonId, int payoutAccountId) =>
       "salons/$salonId/payout-accounts/$payoutAccountId";
+
+  static String salonPayoutAccountDefaultAPI(
+    int salonId,
+    int payoutAccountId,
+  ) =>
+      "salons/$salonId/payout-accounts/$payoutAccountId/default";
+
+  static String salonPayoutAccountSecondaryAPI(
+    int salonId,
+    int payoutAccountId,
+  ) =>
+      "salons/$salonId/payout-accounts/$payoutAccountId/secondary";
 
   static String salonPayoutAccountUpdateBankAPI(
     int salonId,
@@ -5561,9 +5576,9 @@ class ApiService {
     required Map<String, dynamic> payload,
   }) async {
     final token = await getAuthToken();
-    final url = Uri.parse(baseUrl + salonPayoutAccountsAPI(salonId));
+    final url = Uri.parse(baseUrl + salonPayoutAccountOnboardBankAPI(salonId));
 
-    print("➡️ Calling Create Salon Payout Account API");
+    print("➡️ Calling Onboard Salon Payout Bank Account API");
     print("➡️ URL: $url");
     print("➡️ Payload: $payload");
 
@@ -5721,6 +5736,85 @@ class ApiService {
       };
     } catch (e) {
       print("❌ Error in deleteSalonPayoutAccount: $e");
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> setSalonPayoutAccountDefault({
+    required int salonId,
+    required int payoutAccountId,
+  }) {
+    return _patchSalonPayoutAccountRole(
+      salonId: salonId,
+      payoutAccountId: payoutAccountId,
+      path: salonPayoutAccountDefaultAPI(salonId, payoutAccountId),
+      label: 'Default',
+    );
+  }
+
+  Future<Map<String, dynamic>> setSalonPayoutAccountSecondary({
+    required int salonId,
+    required int payoutAccountId,
+  }) {
+    return _patchSalonPayoutAccountRole(
+      salonId: salonId,
+      payoutAccountId: payoutAccountId,
+      path: salonPayoutAccountSecondaryAPI(salonId, payoutAccountId),
+      label: 'Secondary',
+    );
+  }
+
+  Future<Map<String, dynamic>> _patchSalonPayoutAccountRole({
+    required int salonId,
+    required int payoutAccountId,
+    required String path,
+    required String label,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + path);
+
+    print("➡️ Calling Make Salon Payout Account $label API");
+    print("➡️ URL: $url");
+
+    try {
+      final response = await _sharedClient.patch(
+        url,
+        headers: {
+          "accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      print("⬅️ Status Code: ${response.statusCode}");
+      print("⬅️ Response Body: ${response.body}");
+
+      final body = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        if (body is Map<String, dynamic>) return body;
+        return {"success": true, "data": body};
+      }
+
+      if (body is Map<String, dynamic>) {
+        return {
+          "success": false,
+          "message": body['message']?.toString() ??
+              'Failed to update salon payout account',
+          "statusCode": response.statusCode,
+        };
+      }
+
+      return {
+        "success": false,
+        "message": 'Failed to update salon payout account',
+        "statusCode": response.statusCode,
+      };
+    } catch (e) {
+      print("❌ Error in make salon payout account $label: $e");
       return {"success": false, "message": e.toString()};
     }
   }
