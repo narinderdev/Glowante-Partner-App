@@ -2239,8 +2239,6 @@ class AppTranslations {
           'इस शाखा के लिए सेवा बंडल प्रबंधित करें',
       'Manage stylists, staff and roles':
           'स्टाइलिस्टों, कर्मचारियों और भूमिकाओं को प्रबंधित करें',
-      'Manage the bank account used for salon settlements.':
-          'सैलून निपटान के लिए उपयोग किए गए बैंक खाते को प्रबंधित करें।',
       'Manage your team, offers, packages and gallery from one place.':
           'अपनी टीम, ऑफ़र, पैकेज और गैलरी को एक ही स्थान से प्रबंधित करें।',
       'Manually Enter Address': 'पता मैन्युअल रूप से दर्ज करें',
@@ -2524,7 +2522,6 @@ class AppTranslations {
       'Salon Details': 'सैलून विवरण',
       'Salon Hours': 'सैलून का समय',
       'Salon Packages': 'सैलून पैकेज',
-      'Salon Payout Accounts': 'सैलून भुगतान खाते',
       'Salon Reviews': 'सैलून समीक्षाएँ',
       'Salon closes at': 'सैलून बंद हो जाता है',
       'Salon deleted successfully': 'सैलून सफलतापूर्वक हटा दिया गया',
@@ -2560,8 +2557,6 @@ class AppTranslations {
           'ऐसी योजना चुनें जो आपके सैलून और शाखाओं के लिए उपयुक्त हो।',
       'Select a salon first to manage bank details.':
           'बैंक विवरण प्रबंधित करने के लिए पहले एक सैलून चुनें।',
-      'Select a salon to manage payout accounts.':
-          'पेआउट खाते प्रबंधित करने के लिए एक सैलून चुनें।',
       'Select a valid duration unit.': 'एक वैध अवधि इकाई का चयन करें.',
       'Select customer first': 'पहले ग्राहक चुनें',
       'Select end date': 'अंतिम तिथि चुनें',
@@ -2671,13 +2666,9 @@ class AppTranslations {
       'Team members whose joining date is later than the selected date are hidden from the schedule.':
           'टीम के सदस्य जिनकी शामिल होने की तारीख चयनित तारीख से बाद की है, उन्हें शेड्यूल से छिपा दिया गया है।',
       'Terms': 'शर्तें',
-      'The backend returns only the masked account number. Re-enter the full account number to update bank details.':
-          'बैकएंड केवल छिपा हुआ खाता नंबर लौटाता है। बैंक विवरण अद्यतन करने के लिए पूर्ण खाता संख्या पुनः दर्ज करें।',
       'This Month': 'इस महीने',
       'This Week': 'इस सप्ताह',
       'This Year': 'इस वर्ष',
-      'This account will be used for salon settlement payouts.':
-          'इस खाते का उपयोग सैलून निपटान भुगतान के लिए किया जाएगा।',
       'This branch is inactive. Booking is disabled.':
           'यह शाखा निष्क्रिय है. बुकिंग अक्षम है.',
       'This member isn\'t part of this salon.':

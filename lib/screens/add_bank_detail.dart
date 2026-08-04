@@ -847,7 +847,7 @@ class _PayoutAccountCard extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFF3D5),
-                              borderRadius: BorderRadius.circular(999),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               translateText('Default'),
@@ -867,7 +867,7 @@ class _PayoutAccountCard extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF4EFE8),
-                              borderRadius: BorderRadius.circular(999),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               translateText('Secondary'),
@@ -973,7 +973,7 @@ class _PayoutRoleButton extends StatelessWidget {
         disabledForegroundColor: const Color(0xFF8A7C6A),
         side: const BorderSide(color: Color(0xFFE2D3BF)),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(10),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       ),
