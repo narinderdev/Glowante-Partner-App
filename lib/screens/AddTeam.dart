@@ -91,6 +91,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   final List<String> _selectedRoles = [];
   final List<String> _selectedSpecs = [];
   List<Map<String, String>>? _rememberedSchedules;
+  List<String>? _rememberedMarkedOffDays;
   List<int>? _rememberedBranchServiceIds;
 
   bool _phoneVerified = false;
@@ -136,6 +137,16 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return rawSchedules
         .whereType<Map>()
         .map((item) => Map<String, String>.from(item))
+        .toList();
+  }
+
+  List<String> _normalizeMarkedOffDays(dynamic rawDays) {
+    if (rawDays is! List) return const [];
+
+    return rawDays
+        .map((day) => day.toString().trim().toLowerCase())
+        .where((day) => day.isNotEmpty)
+        .toSet()
         .toList();
   }
 
@@ -1659,6 +1670,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         _normalizeSchedules(
           branchAssignment?['schedules'] ?? widget.initialMember?['schedules'],
         );
+    final markedOffDays = _rememberedMarkedOffDays ??
+        _normalizeMarkedOffDays(
+          branchAssignment?['markedOffDays'] ??
+              widget.initialMember?['markedOffDays'],
+        );
 
     final userId = (widget.initialMember?['id'] as num?)?.toInt();
 
@@ -1687,6 +1703,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           widget.initialMember?['allowOnlineBooking'] ??
           true,
       'branchServiceIds': branchServiceIds,
+      'markedOffDays': markedOffDays,
       if (widget.isEdit)
         'userBranchServices': branchAssignment?['userBranchServices'] ??
             widget.initialMember?['userBranchServices'] ??
@@ -1719,6 +1736,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       _rememberedBranchServiceIds =
           _normalizeServiceIds(refresh['selectedServiceIds']);
       _rememberedSchedules = _normalizeSchedules(refresh['schedules']);
+      _rememberedMarkedOffDays =
+          _normalizeMarkedOffDays(refresh['markedOffDays']);
 
       if (refresh['completed'] == true) {
         Navigator.pop(context, true);

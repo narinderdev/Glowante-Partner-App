@@ -691,14 +691,15 @@ class _AddServicesState extends State<AddServices> {
           ? translateText("Commission percentage is required")
           : translateText("Commission amount is required");
     }
-    final parsed = _commissionType == 'percentage'
-        ? double.tryParse(v)
-        : double.tryParse(v);
+    if (_commissionType == 'percentage' && !RegExp(r'^\d{1,2}$').hasMatch(v)) {
+      return translateText("Commission percentage must be 1 to 99");
+    }
+    final parsed = double.tryParse(v);
     if (parsed == null || parsed <= 0) {
       return translateText("Enter a valid commission value");
     }
-    if (_commissionType == 'percentage' && parsed >= 100) {
-      return translateText("Commission percentage must be less than 100");
+    if (_commissionType == 'percentage' && parsed > 99) {
+      return translateText("Commission percentage must be 1 to 99");
     }
     if (_commissionType == 'fixed' && parsed >= price) {
       return translateText("Commission amount must be less than the price");
@@ -1459,12 +1460,11 @@ class _AddServicesState extends State<AddServices> {
                                 TextFormField(
                                   controller: commissionValueController,
                                   maxLength:
-                                      _commissionType == 'percentage' ? 3 : 6,
+                                      _commissionType == 'percentage' ? 2 : 6,
                                   maxLengthEnforcement:
                                       MaxLengthEnforcement.enforced,
                                   keyboardType: _commissionType == 'percentage'
-                                      ? const TextInputType.numberWithOptions(
-                                          decimal: true)
+                                      ? TextInputType.number
                                       : const TextInputType.numberWithOptions(
                                           decimal: true),
                                   onChanged: (_) => setState(() {}),
@@ -1475,10 +1475,9 @@ class _AddServicesState extends State<AddServices> {
                                   inputFormatters: _commissionType ==
                                           'percentage'
                                       ? [
-                                          FilteringTextInputFormatter.allow(
-                                            RegExp(r'[0-9.]'),
-                                          ),
-                                          LengthLimitingTextInputFormatter(3),
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                          LengthLimitingTextInputFormatter(2),
                                         ]
                                       : [
                                           FilteringTextInputFormatter.allow(
@@ -1503,7 +1502,7 @@ class _AddServicesState extends State<AddServices> {
                                   currentLength:
                                       commissionValueController.text.length,
                                   maxLength:
-                                      _commissionType == 'percentage' ? 3 : 6,
+                                      _commissionType == 'percentage' ? 2 : 6,
                                 ),
                                 if (_commissionType == 'percentage') ...[
                                   const SizedBox(height: 14),

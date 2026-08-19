@@ -888,10 +888,18 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   bool _prefillSchedules() {
     final rawSchedules = widget.formData['schedules'];
+    final rawMarkedOffDays = widget.formData['markedOffDays'];
     debugPrint('[TeamSchedule] raw formData[schedules]=$rawSchedules');
-    final isEdit = widget.formData['isEdit'] == true;
-    final daysWithSchedule = <String>{};
     var foundAny = false;
+
+    if (rawMarkedOffDays is List) {
+      for (final day in rawMarkedOffDays) {
+        final dayKey = _dayKey(day.toString());
+        if (dayKey.isNotEmpty && _isKnownWeekday(dayKey)) {
+          _memberOffDays.add(dayKey);
+        }
+      }
+    }
 
     if (rawSchedules is List && rawSchedules.isNotEmpty) {
       debugPrint(
@@ -906,6 +914,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         final normalizedDay = _displayDay(day);
 
         if (!weeklySchedule.containsKey(normalizedDay)) continue;
+
+        if (_isExplicitlyClosedScheduleValue(raw)) {
+          _memberOffDays.add(_dayKey(normalizedDay));
+          continue;
+        }
 
         final startRaw = (raw['startTime'] ?? raw['start'] ?? '').toString();
         final endRaw = (raw['endTime'] ?? raw['end'] ?? '').toString();
@@ -926,7 +939,6 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
           'end': _formatMinutes(endMinutes),
         });
 
-        daysWithSchedule.add(normalizedDay);
         foundAny = true;
       }
 
@@ -941,20 +953,6 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       }
     } else {
       debugPrint('[TeamSchedule] No member schedules found in payload.');
-    }
-
-    // A day intentionally marked off is simply absent from the saved
-    // schedules (see _buildScheduleData, which skips off days when building
-    // the payload) — there's no explicit flag to read back. So in edit mode,
-    // any weekday missing a saved schedule must be restored as "off",
-    // otherwise _fillEmptyDaysFromOperatingSlots will auto-fill it with the
-    // branch's default hours instead of showing it as marked off.
-    if (isEdit) {
-      for (final day in _weekDays) {
-        if (!daysWithSchedule.contains(day)) {
-          _memberOffDays.add(_dayKey(day));
-        }
-      }
     }
 
     return foundAny;
@@ -2329,6 +2327,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       'completed': completed,
       'selectedServiceIds': branchServiceIds,
       'schedules': _buildScheduleData(),
+      'markedOffDays': _memberOffDays.toList(),
     };
   }
 
