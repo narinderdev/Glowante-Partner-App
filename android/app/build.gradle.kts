@@ -42,6 +42,33 @@ android {
         versionName = flutter.versionName
     }
 
+    // `--flavor dev|test|prod` (paired with --dart-define=APP_FLAVOR=...,
+    // see lib/config/app_environment.dart) — separate applicationIds so
+    // dev/test/prod install side by side instead of overwriting each
+    // other, both locally and via TestFlight/Play internal testing.
+    flavorDimensions += "env"
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "Glowante Dev")
+        }
+        // AGP reserves flavor names starting with "test" for its own
+        // androidTest source sets, so this is "staging" here even though
+        // the dart-define/scheme name elsewhere is "test".
+        create("staging") {
+            dimension = "env"
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-test"
+            resValue("string", "app_name", "Glowante Test")
+        }
+        create("prod") {
+            dimension = "env"
+            resValue("string", "app_name", "Glowante Partner")
+        }
+    }
+
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {

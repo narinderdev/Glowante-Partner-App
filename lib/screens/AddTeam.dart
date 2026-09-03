@@ -504,7 +504,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   }
 
   Map<String, dynamic>? _branchAssignment(Map<String, dynamic> member) {
-    final rawAssignments = member['userBranches'];
+    final rawAssignments = member['userBranches'] ?? member['branches'];
 
     if (rawAssignments is! List) {
       return null;
@@ -1427,13 +1427,17 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       _suppressLastNameError = false;
       _suppressEmailError = false;
       _suppressOtpError = false;
-      _suppressAddressError = false;
-      _suppressGenderError = false;
-      _suppressRolesError = false;
-      _suppressSpecsError = false;
-      _suppressDateError = false;
-      _suppressExperienceError = false;
-      _suppressBriefError = false;
+      // Address/Gender/Specializations/Brief and Roles/Joining
+      // Date/Experience are no longer fields on this screen (see the
+      // commented-out block in build()) — their suppress flags and
+      // validator pushes below are commented out to match, not deleted.
+      // _suppressAddressError = false;
+      // _suppressGenderError = false;
+      // _suppressRolesError = false;
+      // _suppressSpecsError = false;
+      // _suppressDateError = false;
+      // _suppressExperienceError = false;
+      // _suppressBriefError = false;
     });
 
     await _afterRebuild();
@@ -1452,13 +1456,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     push(_vFirstName(_firstNameCtrl.text));
     push(_vLastName(_lastNameCtrl.text));
     push(_vEmail(_emailCtrl.text));
-    push(_vAddress());
-    push(_vGender());
-    push(_vRoles());
-    push(_vSpecs());
-    push(_vJoiningDate());
-    push(_vBrief(_briefCtrl.text));
-    push(_vExperience(_experienceCtrl.text));
+    // push(_vAddress());
+    // push(_vGender());
+    // push(_vRoles());
+    // push(_vSpecs());
+    // push(_vJoiningDate());
+    // push(_vBrief(_briefCtrl.text));
+    // push(_vExperience(_experienceCtrl.text));
     if (errors.isNotEmpty) {
       await _showValidationDialog(errors);
       return false;
@@ -1608,7 +1612,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         'lastName': capitalizeFirst(_lastNameCtrl.text.trim()),
         'email': _emailCtrl.text.trim(),
         'gender': _gender.toLowerCase(),
-        'experience': int.parse(_experienceCtrl.text.trim()),
+        'experience': int.tryParse(_experienceCtrl.text.trim()) ?? 0,
         if (_joiningDate != null)
           'joiningDate':
               '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
@@ -1697,7 +1701,12 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       'roles': _resolveCodes(_selectedRoles, _allRoles),
       'specializations': _resolveCodes(_selectedSpecs, _allSpecs),
       'specialities': _resolveCodes(_selectedSpecs, _allSpecs),
-      'experience': int.parse(_experienceCtrl.text.trim()),
+      // Roles/Joining Date/Experience no longer have UI on this screen
+      // (see the commented-out block in build()) — team_online_
+      // availability_screen.dart's "Complete" step overwrites these keys
+      // with whatever it collects before the actual save, so this just
+      // needs to not throw on empty/unset text.
+      'experience': int.tryParse(_experienceCtrl.text.trim()) ?? 0,
       'profilePictureUrl': imageUrl ?? _existingImageUrl,
       'allowOnlineBooking': branchAssignment?['allowOnlineBooking'] ??
           widget.initialMember?['allowOnlineBooking'] ??
@@ -2181,93 +2190,101 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           ],
                         ),
                         const SizedBox(height: 34),
-                        Center(
-                          child: GestureDetector(
-                            onTap: _pickImage,
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Container(
-                                  width: 104,
-                                  height: 104,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white,
-                                    border: Border.all(
-                                      color: const Color(0xFFD8C7B3),
-                                      width: 1.4,
-                                    ),
-                                  ),
-                                  child: ClipOval(
-                                    child: _cameraImage == null
-                                        ? (_existingImageUrl != null
-                                            ? Image.network(
-                                                _existingImageUrl!,
-                                                fit: BoxFit.cover,
-                                                width: 104,
-                                                height: 104,
-                                              )
-                                            : Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.camera_alt_outlined,
-                                                    color: Color(0xFF8D867F),
-                                                    size: 28,
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Text(
-                                                    translateText(
-                                                        'Upload\nPhoto'),
-                                                    textAlign: TextAlign.center,
-                                                    style: const TextStyle(
-                                                      color: Color(0xFF8D867F),
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      height: 1.2,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ))
-                                        : Image.file(
-                                            _cameraImage!,
-                                            fit: BoxFit.cover,
-                                            width: 104,
-                                            height: 104,
-                                          ),
-                                  ),
-                                ),
-                                Positioned(
-                                  right: -4,
-                                  bottom: 8,
-                                  child: Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: BoxDecoration(
-                                      color: _teamMemberAccent,
-                                      shape: BoxShape.circle,
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x26000000),
-                                          blurRadius: 10,
-                                          offset: Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(
-                                      Icons.add_rounded,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 34),
+                        // Photo upload is commented out (not deleted) along
+                        // with Address/Gender/Specializations/Brief and
+                        // Roles/Joining Date/Experience below — the invite
+                        // -> accept -> assign flow never collects a photo
+                        // or those fields up front, and Roles/Joining
+                        // Date/Experience now live on the shared "Complete"
+                        // step (team_online_availability_screen.dart),
+                        // which both Assign User and Edit use identically.
+                        // Center(
+                        //   child: GestureDetector(
+                        //     onTap: _pickImage,
+                        //     child: Stack(
+                        //       clipBehavior: Clip.none,
+                        //       children: [
+                        //         Container(
+                        //           width: 104,
+                        //           height: 104,
+                        //           decoration: BoxDecoration(
+                        //             shape: BoxShape.circle,
+                        //             color: Colors.white,
+                        //             border: Border.all(
+                        //               color: const Color(0xFFD8C7B3),
+                        //               width: 1.4,
+                        //             ),
+                        //           ),
+                        //           child: ClipOval(
+                        //             child: _cameraImage == null
+                        //                 ? (_existingImageUrl != null
+                        //                     ? Image.network(
+                        //                         _existingImageUrl!,
+                        //                         fit: BoxFit.cover,
+                        //                         width: 104,
+                        //                         height: 104,
+                        //                       )
+                        //                     : Column(
+                        //                         mainAxisAlignment:
+                        //                             MainAxisAlignment.center,
+                        //                         children: [
+                        //                           const Icon(
+                        //                             Icons.camera_alt_outlined,
+                        //                             color: Color(0xFF8D867F),
+                        //                             size: 28,
+                        //                           ),
+                        //                           const SizedBox(height: 8),
+                        //                           Text(
+                        //                             translateText(
+                        //                                 'Upload\nPhoto'),
+                        //                             textAlign: TextAlign.center,
+                        //                             style: const TextStyle(
+                        //                               color: Color(0xFF8D867F),
+                        //                               fontSize: 11,
+                        //                               fontWeight:
+                        //                                   FontWeight.w700,
+                        //                               height: 1.2,
+                        //                             ),
+                        //                           ),
+                        //                         ],
+                        //                       ))
+                        //                 : Image.file(
+                        //                     _cameraImage!,
+                        //                     fit: BoxFit.cover,
+                        //                     width: 104,
+                        //                     height: 104,
+                        //                   ),
+                        //           ),
+                        //         ),
+                        //         Positioned(
+                        //           right: -4,
+                        //           bottom: 8,
+                        //           child: Container(
+                        //             width: 30,
+                        //             height: 30,
+                        //             decoration: BoxDecoration(
+                        //               color: _teamMemberAccent,
+                        //               shape: BoxShape.circle,
+                        //               boxShadow: const [
+                        //                 BoxShadow(
+                        //                   color: Color(0x26000000),
+                        //                   blurRadius: 10,
+                        //                   offset: Offset(0, 4),
+                        //                 ),
+                        //               ],
+                        //             ),
+                        //             child: const Icon(
+                        //               Icons.add_rounded,
+                        //               color: Colors.white,
+                        //               size: 18,
+                        //             ),
+                        //           ),
+                        //         ),
+                        //       ],
+                        //     ),
+                        //   ),
+                        // ),
+                        // const SizedBox(height: 34),
                         _sectionTitle('Personal Information'),
                         const SizedBox(height: 16),
                         _reqLabel(translateText('Phone Number')),
@@ -2423,223 +2440,230 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             _refreshValidationIfNeeded();
                           },
                         ),
-                        const SizedBox(height: 16),
-                        _addressField(),
-                        const SizedBox(height: 16),
-                        _reqLabel(translateText('Gender')),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Radio<String>(
-                              value: 'Male',
-                              groupValue: _gender,
-                              activeColor: _teamMemberAccent,
-                              onChanged: (v) => _setGender(v ?? ''),
-                            ),
-                            Text(translateText('Male')),
-                            const SizedBox(width: 16),
-                            Radio<String>(
-                              value: 'Female',
-                              groupValue: _gender,
-                              activeColor: _teamMemberAccent,
-                              onChanged: (v) => _setGender(v ?? ''),
-                            ),
-                            Text(translateText('Female')),
-                            const SizedBox(width: 16),
-                            Radio<String>(
-                              value: 'Other',
-                              groupValue: _gender,
-                              activeColor: _teamMemberAccent,
-                              onChanged: (v) => _setGender(v ?? ''),
-                            ),
-                            Text(translateText('Other')),
-                          ],
-                        ),
-                        if (_showGlobalErrors)
-                          FormField<String>(
-                            autovalidateMode: AutovalidateMode.always,
-                            validator: (_) => _vGender(),
-                            builder: (state) => state.hasError
-                                ? Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      state.errorText!,
-                                      style: TextStyle(
-                                        color: _errorColor,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        const SizedBox(height: 22),
-                        _sectionTitle('Professional Roles'),
-                        const SizedBox(height: 16),
-                        _reqLabel(translateText('Roles')),
-                        const SizedBox(height: 8),
-                        _PickField(
-                          hint: translateText('Select Roles'),
-                          values: _selectedRoles,
-                          hasError: _showGlobalErrors && _vRoles() != null,
-                          onTap: () => _openMultiSelect(
-                            title: translateText('Select Roles'),
-                            source: _allRoles,
-                            target: _selectedRoles,
-                          ),
-                        ),
-                        if (_showGlobalErrors)
-                          FormField<List<String>>(
-                            autovalidateMode: AutovalidateMode.always,
-                            validator: (_) => _vRoles(),
-                            builder: (state) => state.hasError
-                                ? Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      state.errorText!,
-                                      style: TextStyle(
-                                        color: _errorColor,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        const SizedBox(height: 16),
-                        _reqLabel(translateText('Specializations')),
-                        const SizedBox(height: 8),
-                        _PickField(
-                          hint: translateText('Select Specializations'),
-                          values: _selectedSpecs,
-                          hasError: _showGlobalErrors && _vSpecs() != null,
-                          onTap: () => _openMultiSelect(
-                            title: translateText('Select Specializations'),
-                            source: _allSpecs,
-                            target: _selectedSpecs,
-                          ),
-                        ),
-                        if (_showGlobalErrors)
-                          FormField<List<String>>(
-                            autovalidateMode: AutovalidateMode.always,
-                            validator: (_) => _vSpecs(),
-                            builder: (state) => state.hasError
-                                ? Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      state.errorText!,
-                                      style: TextStyle(
-                                        color: _errorColor,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        const SizedBox(height: 16),
-                        _reqLabel(translateText('Joining Date')),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: _pickJoiningDate,
-                          child: AbsorbPointer(
-                              child: TextFormField(
-                            readOnly: true,
-                            controller: TextEditingController(
-                              text: _joiningDate == null
-                                  ? ''
-                                  : '${_joiningDate!.day.toString().padLeft(2, '0')}/${_joiningDate!.month.toString().padLeft(2, '0')}/${_joiningDate!.year}',
-                            ),
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: _decor(
-                              hint: translateText('dd/mm/yyyy'),
-                              suffix: const Icon(
-                                Icons.calendar_month_outlined,
-                                color: Color(0xFF8D867F),
-                              ),
-                            ),
-                            validator: (_) => null,
-                          )),
-                        ),
-                        if (_showGlobalErrors)
-                          FormField<DateTime>(
-                            autovalidateMode: AutovalidateMode.always,
-                            validator: (_) => _vJoiningDate(),
-                            builder: (state) => state.hasError
-                                ? Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      state.errorText!,
-                                      style: TextStyle(
-                                        color: _errorColor,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        const SizedBox(height: 16),
-                        _reqLabel(translateText('Experience')),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _experienceCtrl,
-                          keyboardType: TextInputType.number,
-                          maxLength: 2,
-                          buildCounter: (
-                            context, {
-                            required currentLength,
-                            required isFocused,
-                            required maxLength,
-                          }) {
-                            return Text(
-                              '$currentLength/$maxLength',
-                              style: const TextStyle(
-                                color: Color(0xFF8D867F),
-                                fontSize: 12,
-                                height: 1.15,
-                              ),
-                            );
-                          },
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(2),
-                          ],
-                          decoration: _decor(
-                            hint: translateText('Enter experience in years'),
-                          ),
-                          validator: _vExperience,
-                          onChanged: (_) {
-                            _clearExperienceValidation();
-                            _refreshValidationIfNeeded();
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _reqLabel(translateText('Brief About Team Member')),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          focusNode: _brieftFocus,
-                          controller: _briefCtrl,
-                          maxLines: 4,
-                          maxLength: AppInputRules.mediumTextMaxLength,
-                          maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                          keyboardType: TextInputType.text,
-                          textCapitalization: TextCapitalization.sentences,
-                          inputFormatters:
-                              AppInputRules.generalTextFormatters(),
-                          decoration: _decor(
-                            hint: translateText(
-                              "Tell us about the team member's experience and expertise...",
-                            ),
-                          ).copyWith(
-                            contentPadding: const EdgeInsets.all(14),
-                          ),
-                          validator: _vBrief,
-                          onChanged: (_) {
-                            _clearBriefValidation();
-                            _refreshValidationIfNeeded();
-                          },
-                        ),
+                        // Address, Gender, Specializations, Brief, and
+                        // Roles/Joining Date/Experience are commented out
+                        // (not deleted) — invite -> accept -> assign never
+                        // collects these up front, and Roles/Joining
+                        // Date/Experience now live on the shared "Complete"
+                        // step (team_online_availability_screen.dart),
+                        // used identically by Assign User and Edit.
+                        // const SizedBox(height: 16),
+                        // _addressField(),
+                        // const SizedBox(height: 16),
+                        // _reqLabel(translateText('Gender')),
+                        // const SizedBox(height: 4),
+                        // Row(
+                        //   children: [
+                        //     Radio<String>(
+                        //       value: 'Male',
+                        //       groupValue: _gender,
+                        //       activeColor: _teamMemberAccent,
+                        //       onChanged: (v) => _setGender(v ?? ''),
+                        //     ),
+                        //     Text(translateText('Male')),
+                        //     const SizedBox(width: 16),
+                        //     Radio<String>(
+                        //       value: 'Female',
+                        //       groupValue: _gender,
+                        //       activeColor: _teamMemberAccent,
+                        //       onChanged: (v) => _setGender(v ?? ''),
+                        //     ),
+                        //     Text(translateText('Female')),
+                        //     const SizedBox(width: 16),
+                        //     Radio<String>(
+                        //       value: 'Other',
+                        //       groupValue: _gender,
+                        //       activeColor: _teamMemberAccent,
+                        //       onChanged: (v) => _setGender(v ?? ''),
+                        //     ),
+                        //     Text(translateText('Other')),
+                        //   ],
+                        // ),
+                        // if (_showGlobalErrors)
+                        //   FormField<String>(
+                        //     autovalidateMode: AutovalidateMode.always,
+                        //     validator: (_) => _vGender(),
+                        //     builder: (state) => state.hasError
+                        //         ? Padding(
+                        //             padding: const EdgeInsets.only(top: 6),
+                        //             child: Text(
+                        //               state.errorText!,
+                        //               style: TextStyle(
+                        //                 color: _errorColor,
+                        //                 fontSize: 12,
+                        //               ),
+                        //             ),
+                        //           )
+                        //         : const SizedBox.shrink(),
+                        //   ),
+                        // const SizedBox(height: 22),
+                        // _sectionTitle('Professional Roles'),
+                        // const SizedBox(height: 16),
+                        // _reqLabel(translateText('Roles')),
+                        // const SizedBox(height: 8),
+                        // _PickField(
+                        //   hint: translateText('Select Roles'),
+                        //   values: _selectedRoles,
+                        //   hasError: _showGlobalErrors && _vRoles() != null,
+                        //   onTap: () => _openMultiSelect(
+                        //     title: translateText('Select Roles'),
+                        //     source: _allRoles,
+                        //     target: _selectedRoles,
+                        //   ),
+                        // ),
+                        // if (_showGlobalErrors)
+                        //   FormField<List<String>>(
+                        //     autovalidateMode: AutovalidateMode.always,
+                        //     validator: (_) => _vRoles(),
+                        //     builder: (state) => state.hasError
+                        //         ? Padding(
+                        //             padding: const EdgeInsets.only(top: 6),
+                        //             child: Text(
+                        //               state.errorText!,
+                        //               style: TextStyle(
+                        //                 color: _errorColor,
+                        //                 fontSize: 12,
+                        //               ),
+                        //             ),
+                        //           )
+                        //         : const SizedBox.shrink(),
+                        //   ),
+                        // const SizedBox(height: 16),
+                        // _reqLabel(translateText('Specializations')),
+                        // const SizedBox(height: 8),
+                        // _PickField(
+                        //   hint: translateText('Select Specializations'),
+                        //   values: _selectedSpecs,
+                        //   hasError: _showGlobalErrors && _vSpecs() != null,
+                        //   onTap: () => _openMultiSelect(
+                        //     title: translateText('Select Specializations'),
+                        //     source: _allSpecs,
+                        //     target: _selectedSpecs,
+                        //   ),
+                        // ),
+                        // if (_showGlobalErrors)
+                        //   FormField<List<String>>(
+                        //     autovalidateMode: AutovalidateMode.always,
+                        //     validator: (_) => _vSpecs(),
+                        //     builder: (state) => state.hasError
+                        //         ? Padding(
+                        //             padding: const EdgeInsets.only(top: 6),
+                        //             child: Text(
+                        //               state.errorText!,
+                        //               style: TextStyle(
+                        //                 color: _errorColor,
+                        //                 fontSize: 12,
+                        //               ),
+                        //             ),
+                        //           )
+                        //         : const SizedBox.shrink(),
+                        //   ),
+                        // const SizedBox(height: 16),
+                        // _reqLabel(translateText('Joining Date')),
+                        // const SizedBox(height: 8),
+                        // GestureDetector(
+                        //   onTap: _pickJoiningDate,
+                        //   child: AbsorbPointer(
+                        //       child: TextFormField(
+                        //     readOnly: true,
+                        //     controller: TextEditingController(
+                        //       text: _joiningDate == null
+                        //           ? ''
+                        //           : '${_joiningDate!.day.toString().padLeft(2, '0')}/${_joiningDate!.month.toString().padLeft(2, '0')}/${_joiningDate!.year}',
+                        //     ),
+                        //     style: const TextStyle(
+                        //       color: Colors.black,
+                        //       fontSize: 14,
+                        //       fontWeight: FontWeight.w500,
+                        //     ),
+                        //     decoration: _decor(
+                        //       hint: translateText('dd/mm/yyyy'),
+                        //       suffix: const Icon(
+                        //         Icons.calendar_month_outlined,
+                        //         color: Color(0xFF8D867F),
+                        //       ),
+                        //     ),
+                        //     validator: (_) => null,
+                        //   )),
+                        // ),
+                        // if (_showGlobalErrors)
+                        //   FormField<DateTime>(
+                        //     autovalidateMode: AutovalidateMode.always,
+                        //     validator: (_) => _vJoiningDate(),
+                        //     builder: (state) => state.hasError
+                        //         ? Padding(
+                        //             padding: const EdgeInsets.only(top: 6),
+                        //             child: Text(
+                        //               state.errorText!,
+                        //               style: TextStyle(
+                        //                 color: _errorColor,
+                        //                 fontSize: 12,
+                        //               ),
+                        //             ),
+                        //           )
+                        //         : const SizedBox.shrink(),
+                        //   ),
+                        // const SizedBox(height: 16),
+                        // _reqLabel(translateText('Experience')),
+                        // const SizedBox(height: 8),
+                        // TextFormField(
+                        //   controller: _experienceCtrl,
+                        //   keyboardType: TextInputType.number,
+                        //   maxLength: 2,
+                        //   buildCounter: (
+                        //     context, {
+                        //     required currentLength,
+                        //     required isFocused,
+                        //     required maxLength,
+                        //   }) {
+                        //     return Text(
+                        //       '$currentLength/$maxLength',
+                        //       style: const TextStyle(
+                        //         color: Color(0xFF8D867F),
+                        //         fontSize: 12,
+                        //         height: 1.15,
+                        //       ),
+                        //     );
+                        //   },
+                        //   inputFormatters: [
+                        //     FilteringTextInputFormatter.digitsOnly,
+                        //     LengthLimitingTextInputFormatter(2),
+                        //   ],
+                        //   decoration: _decor(
+                        //     hint: translateText('Enter experience in years'),
+                        //   ),
+                        //   validator: _vExperience,
+                        //   onChanged: (_) {
+                        //     _clearExperienceValidation();
+                        //     _refreshValidationIfNeeded();
+                        //   },
+                        // ),
+                        // const SizedBox(height: 16),
+                        // _reqLabel(translateText('Brief About Team Member')),
+                        // const SizedBox(height: 8),
+                        // TextFormField(
+                        //   focusNode: _brieftFocus,
+                        //   controller: _briefCtrl,
+                        //   maxLines: 4,
+                        //   maxLength: AppInputRules.mediumTextMaxLength,
+                        //   maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        //   keyboardType: TextInputType.text,
+                        //   textCapitalization: TextCapitalization.sentences,
+                        //   inputFormatters:
+                        //       AppInputRules.generalTextFormatters(),
+                        //   decoration: _decor(
+                        //     hint: translateText(
+                        //       "Tell us about the team member's experience and expertise...",
+                        //     ),
+                        //   ).copyWith(
+                        //     contentPadding: const EdgeInsets.all(14),
+                        //   ),
+                        //   validator: _vBrief,
+                        //   onChanged: (_) {
+                        //     _clearBriefValidation();
+                        //     _refreshValidationIfNeeded();
+                        //   },
+                        // ),
                         const SizedBox(height: 34),
                         _promoCard(),
                         const SizedBox(height: 28),

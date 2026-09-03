@@ -61,6 +61,44 @@
           "other_platform_oauth_client": []
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:868697452908:android:5658e4c4500f067f930349",
+        "android_client_info": {
+          "package_name": "com.glowante.salon.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmcG-xkIES7q-MYLRzdrQtzK8jByx4II4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:868697452908:android:b64a605000585eab930349",
+        "android_client_info": {
+          "package_name": "com.glowante.salon.test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmcG-xkIES7q-MYLRzdrQtzK8jByx4II4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
     }
   ],
   "configuration_version": "1"

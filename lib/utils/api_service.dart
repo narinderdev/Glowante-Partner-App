@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print, prefer_interpolation_to_compose_strings, non_constant_identifier_names, unnecessary_string_interpolations, prefer_adjacent_string_concatenation, curly_braces_in_flow_control_structures, no_leading_underscores_for_local_identifiers
+
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io'; // 👈 needed for File
@@ -17,6 +19,51 @@ import 'dart:async';
 
 String _apiErrorMessage(dynamic body, {required String fallback}) {
   return extractErrorMessage(body, fallback: fallback);
+}
+
+/// Parses a response using the standard `{success, message, data}` envelope
+/// (the `/auth/otp/*` and `/*team-invitations*` endpoints both follow it).
+///
+/// On 200/201 the decoded envelope is returned as-is. On any other status,
+/// this builds a consistent failure map exposing the structured `error.code`
+/// from the response body (e.g. `INVALID_OTP`, `INVITATION_EXPIRED`)
+/// alongside the human-readable message, plus a `retryAfterSeconds` value
+/// read from the `Retry-After` header on 429s.
+Map<String, dynamic> _parseEnvelopeResponse(
+  http.Response response, {
+  required String fallback,
+}) {
+  dynamic decoded;
+  try {
+    decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+  } catch (_) {
+    decoded = {};
+  }
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    if (decoded is Map<String, dynamic>) return decoded;
+    return {'success': true, 'data': decoded};
+  }
+
+  final Map<String, dynamic> map =
+      decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+  final dynamic error = map['error'];
+  final String? code =
+      error is Map ? error['code']?.toString() : map['code']?.toString();
+  final String message = _apiErrorMessage(response.body, fallback: fallback);
+
+  final String? retryAfterHeader =
+      response.headers['retry-after'] ?? response.headers['Retry-After'];
+  final int? retryAfterSeconds =
+      retryAfterHeader == null ? null : int.tryParse(retryAfterHeader.trim());
+
+  return {
+    'success': false,
+    'message': message,
+    if (code != null && code.isNotEmpty) 'code': code,
+    'statusCode': response.statusCode,
+    if (retryAfterSeconds != null) 'retryAfterSeconds': retryAfterSeconds,
+  };
 }
 
 class _AuthHttpClient extends http.BaseClient {
@@ -84,9 +131,8 @@ class ApiService {
     }
 
     for (int start = 0; start < text.length; start += chunkSize) {
-      final end = (start + chunkSize < text.length)
-          ? start + chunkSize
-          : text.length;
+      final end =
+          (start + chunkSize < text.length) ? start + chunkSize : text.length;
       debugPrint('[$tag] ${text.substring(start, end)}');
     }
   }
@@ -140,10 +186,61 @@ class ApiService {
     return const <Map<String, dynamic>>[];
   }
 
-  static const String userLogin = "auth/login";
+  static const String otpRequestEndpoint = "auth/otp/request";
+  static const String otpResendEndpoint = "auth/otp/resend";
+  static const String otpVerifyChallengeEndpoint = "auth/otp/verify";
+  // Salon team invitation endpoints (see invitation_plan.md).
+  static const String teamInvitationResolveEndpoint =
+      "public/team-invitations/resolve";
+  static const String teamInvitationAcceptEndpoint =
+      "public/team-invitations/accept";
+  static const String myTeamInvitationsEndpoint = "me/team-invitations";
+  static String myTeamInvitationDeclineEndpoint(int invitationId) =>
+      "me/team-invitations/$invitationId/decline";
+  static String salonTeamInvitationsEndpoint(int salonId) =>
+      "salons/$salonId/team-invitations";
+  static String salonTeamInvitationCancelEndpoint(
+    int salonId,
+    int invitationId,
+  ) =>
+      "salons/$salonId/team-invitations/$invitationId/cancel";
+  // salon_team_part_1_updated_3.md / salon_team_part_2.md — the new
+  // dedicated Team read (summary/members/invitations/detail) and
+  // profile-completion (PATCH) endpoints. These sit alongside, and will
+  // eventually replace, the legacy endpoints above for Team-screen reads;
+  // the legacy routes stay live for backward compatibility per that spec.
+  static String salonTeamSummaryEndpoint(int salonId) =>
+      "salons/$salonId/team/summary";
+  static String salonTeamMembersEndpoint(int salonId) =>
+      "salons/$salonId/team/members";
+  static String salonTeamInvitationsV2Endpoint(int salonId) =>
+      "salons/$salonId/team/invitations";
+  static String salonTeamMemberDetailEndpoint(int salonId, int userId) =>
+      "salons/$salonId/team/$userId";
+  static String salonTeamMemberProfileEndpoint(int salonId, int userId) =>
+      "salons/$salonId/team/$userId/profile";
+  static String salonTeamMemberAvatarEndpoint(int salonId, int userId) =>
+      "salons/$salonId/team/$userId/avatar";
+  // salon_user_compensation.md — employment type + salary history, on the
+  // same salons/:salonId/team controller prefix as the routes above.
+  static String salonTeamMemberCompensationEndpoint(int salonId, int userId) =>
+      "salons/$salonId/team/$userId/compensation";
+  static String salonTeamMemberEmploymentTypeEndpoint(
+    int salonId,
+    int userId,
+  ) =>
+      "salons/$salonId/team/$userId/employment-type";
+  static String salonTeamMemberCompensationItemEndpoint(
+    int salonId,
+    int userId,
+    int compensationId,
+  ) =>
+      "salons/$salonId/team/$userId/compensation/$compensationId";
+  // Legacy endpoint, still used by the walk-in client verification flow in
+  // AddBookings.dart. Not covered by the AUTH-04 OTP challenge cutover spec
+  // (see authentication_implmentation.md) — needs its own follow-up.
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String registerUserEndpoint = "auth/register";
-  static const String resendOtpEndpoint = "auth/resend_otp";
   static const String updateUserProfile = "users/update";
   static const String createSalonEndpoint = "salons/create";
   static const String getSalonList = "salons/my";
@@ -154,7 +251,6 @@ class ApiService {
   static const String getBranchServices = "salon-service/catalog";
   static const String addSubCategory =
       "/branches/{branchId}/categories/{categoryId}/subcategories";
-  static const String checkSendOtpEndpoint = "users/check-and-send-otp";
   static String addServiceAPI(int branchId) => "branches/$branchId/services";
 
   static String getSalonServicesAPI(int branchId) =>
@@ -193,17 +289,20 @@ class ApiService {
   static String salonPayoutAccountDefaultAPI(
     int salonId,
     int payoutAccountId,
-  ) => "salons/$salonId/payout-accounts/$payoutAccountId/default";
+  ) =>
+      "salons/$salonId/payout-accounts/$payoutAccountId/default";
 
   static String salonPayoutAccountSecondaryAPI(
     int salonId,
     int payoutAccountId,
-  ) => "salons/$salonId/payout-accounts/$payoutAccountId/secondary";
+  ) =>
+      "salons/$salonId/payout-accounts/$payoutAccountId/secondary";
 
   static String salonPayoutAccountUpdateBankAPI(
     int salonId,
     int payoutAccountId,
-  ) => "salons/$salonId/payout-accounts/$payoutAccountId/update-bank";
+  ) =>
+      "salons/$salonId/payout-accounts/$payoutAccountId/update-bank";
 
   static String activateBranchAPI(int branchId) {
     return "branches/$branchId/activate";
@@ -303,7 +402,8 @@ class ApiService {
     int branchId, {
     int page = 1,
     int limit = 20,
-  }) => "branches/$branchId/inventory-items?page=$page&limit=$limit";
+  }) =>
+      "branches/$branchId/inventory-items?page=$page&limit=$limit";
   static String getBranchVendorsAPI(int branchId) =>
       "branches/$branchId/vendors";
   static String getVendorDetailsAPI(int branchId, int vendorId) =>
@@ -325,26 +425,30 @@ class ApiService {
   static String branchCommissionStaffOverrideAPI(
     int branchId,
     String overrideId,
-  ) => "v2/branches/$branchId/commission/staff-overrides/$overrideId";
+  ) =>
+      "v2/branches/$branchId/commission/staff-overrides/$overrideId";
   static String branchEmployeeSalaryHistoryAPI(int branchId, int employeeId) =>
       "v2/branches/$branchId/employees/$employeeId/salary";
   static String branchEmployeeSalaryConfigAPI(
     int branchId,
     int employeeId,
     int salaryId,
-  ) => "v2/branches/$branchId/employees/$employeeId/salary/$salaryId";
+  ) =>
+      "v2/branches/$branchId/employees/$employeeId/salary/$salaryId";
   static String generatePayrollAPI(
     int branchId, {
     required int month,
     required int year,
-  }) => "v2/branches/$branchId/payroll/generate?month=$month&year=$year";
+  }) =>
+      "v2/branches/$branchId/payroll/generate?month=$month&year=$year";
   static String cancelPayrollAPI(int branchId, String payrollId) =>
       "v2/branches/$branchId/payroll/${Uri.encodeComponent(payrollId)}/cancel";
   static String branchAdvancesAPI(
     int branchId, {
     required int month,
     required int year,
-  }) => "v2/branches/$branchId/advances?month=$month&year=$year";
+  }) =>
+      "v2/branches/$branchId/advances?month=$month&year=$year";
   static String employeeAdvancesAPI(int branchId, int employeeId) =>
       "v2/branches/$branchId/employees/$employeeId/advances";
   static String branchAdvanceDetailAPI(int branchId, int advanceId) =>
@@ -377,15 +481,16 @@ class ApiService {
       "v2/payroll/employees/$payrollEmployeeId/pay";
   static String payrollPaidLeavesReviewAPI(int branchId, {String? payrollId}) =>
       payrollId == null || payrollId.trim().isEmpty
-      ? "v2/branches/$branchId/review/paid-leaves"
-      : "v2/branches/$branchId/review/paid-leaves?payrollId=$payrollId";
+          ? "v2/branches/$branchId/review/paid-leaves"
+          : "v2/branches/$branchId/review/paid-leaves?payrollId=$payrollId";
   static String payrollEmployeeAdjustmentsAPI(int payrollEmployeeId) =>
       "v2/payroll/$payrollEmployeeId/adjustments";
 
   static String payrollEmployeeAdjustmentDetailsAPI(
     int payrollEmployeeId,
     String adjustmentId,
-  ) => "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
+  ) =>
+      "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
 
   static String payrollAdditionalChargesAPI({
     int? payrollEmployeeId,
@@ -432,7 +537,8 @@ class ApiService {
     int branchId, {
     required int month,
     required int year,
-  }) => "branches/$branchId/team/check-in-out-history?month=$month&year=$year";
+  }) =>
+      "branches/$branchId/team/check-in-out-history?month=$month&year=$year";
   static String salonHolidayCalendarAPI(int salonId, {int? month, int? year}) {
     final queryParts = <String>[
       if (month != null) 'month=$month',
@@ -643,9 +749,8 @@ class ApiService {
   static String appointmentAvailabilityAPI(int branchId, {int? userId}) {
     return Uri(
       path: "branches/$branchId/appointments/availability",
-      queryParameters: userId == null
-          ? null
-          : <String, String>{'userId': userId.toString()},
+      queryParameters:
+          userId == null ? null : <String, String>{'userId': userId.toString()},
     ).toString();
   }
 
@@ -760,9 +865,8 @@ class ApiService {
     String currency = 'INR',
     bool replaceCurrentPlan = false,
   }) async {
-    final normalizedBillingCycle = billingCycle.toUpperCase() == 'YEARLY'
-        ? 'ANNUAL'
-        : billingCycle;
+    final normalizedBillingCycle =
+        billingCycle.toUpperCase() == 'YEARLY' ? 'ANNUAL' : billingCycle;
     final payload = <String, dynamic>{
       'planId': planId,
       'billingCycle': normalizedBillingCycle,
@@ -808,9 +912,8 @@ class ApiService {
     DateTime? startDate,
     bool replaceCurrentPlan = false,
   }) {
-    final normalizedBillingCycle = billingCycle.toUpperCase() == 'YEARLY'
-        ? 'ANNUAL'
-        : billingCycle;
+    final normalizedBillingCycle =
+        billingCycle.toUpperCase() == 'YEARLY' ? 'ANNUAL' : billingCycle;
     final payload = <String, dynamic>{
       'planId': planId,
       'billingCycle': normalizedBillingCycle,
@@ -1119,14 +1222,24 @@ class ApiService {
     return localIst.toIso8601String();
   }
 
-  // Login
-  Future<Map<String, dynamic>> loginUser(
-    String phoneNumber, {
+  // Request an OTP challenge (auth/otp/request) — replaces the old
+  // auth/login endpoint. `purpose` is either 'LOGIN_OR_REGISTER' (default,
+  // staff/owner login) or 'SALON_INVITATION_ACCEPTANCE' (with a
+  // `contextToken` from the invitation email link).
+  Future<Map<String, dynamic>> requestOtp({
+    required String nationalNumber,
+    String countryIsoCode = 'IN',
+    String countryCode = '+91',
+    String purpose = 'LOGIN_OR_REGISTER',
+    String? contextToken,
     String? deviceToken,
   }) async {
-    final loginPayload = {
-      "phoneNumber": phoneNumber,
-      "source": "app",
+    final requestPayload = <String, dynamic>{
+      "purpose": purpose,
+      "countryIsoCode": countryIsoCode,
+      "countryCode": countryCode,
+      "nationalNumber": nationalNumber,
+      "source": "salon_app",
       "platform": AppEnvironment.platform,
     };
 
@@ -1136,34 +1249,26 @@ class ApiService {
       resolvedToken = prefs.getString('fcm_device_token');
     }
     if (resolvedToken != null && resolvedToken.isNotEmpty) {
-      loginPayload['deviceToken'] = resolvedToken;
+      requestPayload['deviceToken'] = resolvedToken;
     }
+    if (contextToken != null && contextToken.isNotEmpty) {
+      requestPayload['contextToken'] = contextToken;
+    }
+
+    final url = Uri.parse(baseUrl + otpRequestEndpoint);
+    final headers = {"Content-Type": "application/json"};
+    final body = json.encode(requestPayload);
 
     _logRequest(
-      tag: 'LoginAPI Request',
-      url: Uri.parse(baseUrl + userLogin),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode(loginPayload),
-    );
+        tag: 'OtpRequest Request', url: url, headers: headers, body: body);
 
-    final response = await _sharedClient.post(
-      Uri.parse(baseUrl + userLogin),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode(loginPayload),
-    );
+    final response =
+        await _sharedClient.post(url, headers: headers, body: body);
 
-    debugPrint("[LoginAPI] status=${response.statusCode}");
-    _debugPrintChunked("LoginAPI body", response.body);
+    debugPrint("[OtpRequest] status=${response.statusCode}");
+    _debugPrintChunked("OtpRequest body", response.body);
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final decoded = json.decode(response.body);
-      _debugPrintChunked("LoginAPI decoded", decoded);
-      return decoded;
-    } else {
-      throw Exception(
-        _apiErrorMessage(response.body, fallback: 'Failed login'),
-      );
-    }
+    return _parseEnvelopeResponse(response, fallback: 'Failed to send OTP');
   }
 
   // Verify OTP
@@ -1253,6 +1358,811 @@ class ApiService {
       'statusCode': response.statusCode,
     };
   }
+
+  // Verify an OTP challenge (auth/otp/verify) — replaces the old
+  // auth/verify-otp endpoint for staff/owner login. Keyed on the
+  // `challengeId` returned by requestOtp/resendOtp, not the phone number.
+  Future<Map<String, dynamic>> verifyOtpChallenge(
+    String challengeId,
+    String otp,
+  ) async {
+    final url = Uri.parse(baseUrl + otpVerifyChallengeEndpoint);
+    final headers = {"Content-Type": "application/json"};
+    final body = json.encode({"challengeId": challengeId, "otp": otp});
+
+    _logRequest(
+        tag: 'OtpVerify Request', url: url, headers: headers, body: body);
+
+    final response =
+        await _sharedClient.post(url, headers: headers, body: body);
+
+    debugPrint("[OtpVerify] status=${response.statusCode}");
+    _debugPrintChunked("OtpVerify body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'OTP verification failed',
+    );
+  }
+
+  // Resend an OTP challenge (auth/otp/resend) — replaces the old
+  // auth/resend_otp endpoint. Only the challengeId is sent; phone, purpose,
+  // and device cannot change on resend.
+  Future<Map<String, dynamic>> resendOtpChallenge(String challengeId) async {
+    final url = Uri.parse(baseUrl + otpResendEndpoint);
+    final headers = {"Content-Type": "application/json"};
+    final body = json.encode({"challengeId": challengeId});
+
+    _logRequest(
+        tag: 'OtpResend Request', url: url, headers: headers, body: body);
+
+    final response =
+        await _sharedClient.post(url, headers: headers, body: body);
+
+    debugPrint("[OtpResend] status=${response.statusCode}");
+    _debugPrintChunked("OtpResend body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Failed to resend OTP',
+    );
+  }
+
+  // ---------------------- SALON TEAM INVITATIONS ----------------------
+  // See invitation_plan.md. Phase 1: invitation = salon membership only;
+  // branch/services are assigned separately after accept.
+
+  // Unauthenticated — landing-page metadata for an invitation link.
+  Future<Map<String, dynamic>> resolveTeamInvitation(
+    String invitationToken,
+  ) async {
+    final url = Uri.parse(baseUrl + teamInvitationResolveEndpoint)
+        .replace(queryParameters: {'invitationToken': invitationToken});
+
+    _logRequest(
+      tag: 'ResolveTeamInvitation Request',
+      url: url,
+      headers: const {},
+      body: '',
+    );
+
+    final response = await _sharedClient.get(url);
+
+    debugPrint("[ResolveTeamInvitation] status=${response.statusCode}");
+    _debugPrintChunked("ResolveTeamInvitation body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load this invitation',
+    );
+  }
+
+  // Requires the invitee's Bearer JWT (obtained via the OTP challenge with
+  // purpose=SALON_INVITATION_ACCEPTANCE + this same invitationToken as
+  // contextToken). The JWT's phone must match the invitation's invitedPhone.
+  Future<Map<String, dynamic>> acceptTeamInvitation(
+    String invitationToken,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+
+    final url = Uri.parse(baseUrl + teamInvitationAcceptEndpoint);
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+    final body = jsonEncode({'invitationToken': invitationToken});
+
+    _logRequest(
+      tag: 'AcceptTeamInvitation Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
+
+    final response =
+        await _sharedClient.post(url, headers: headers, body: body);
+
+    debugPrint("[AcceptTeamInvitation] status=${response.statusCode}");
+    _debugPrintChunked("AcceptTeamInvitation body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to accept this invitation',
+    );
+  }
+
+  // Invitations sent to the logged-in user's own phone number.
+  Future<Map<String, dynamic>> getMyTeamInvitations({
+    String status = 'PENDING',
+    int limit = 20,
+    String? cursor,
+  }) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+
+    final baseUri = Uri.parse(baseUrl + myTeamInvitationsEndpoint);
+    final queryParameters = <String, String>{
+      if (status.isNotEmpty) 'status': status,
+      'limit': '$limit',
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    };
+    final url = baseUri.replace(queryParameters: queryParameters);
+    final headers = {
+      "Authorization": "Bearer $token",
+    };
+
+    _logRequest(
+      tag: 'MyTeamInvitations Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+
+    final response = await _sharedClient.get(url, headers: headers);
+
+    debugPrint("[MyTeamInvitations] status=${response.statusCode}");
+    _debugPrintChunked("MyTeamInvitations body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load invitations',
+    );
+  }
+
+  Future<Map<String, dynamic>> declineTeamInvitation(
+    int invitationId,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+
+    final url =
+        Uri.parse(baseUrl + myTeamInvitationDeclineEndpoint(invitationId));
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+
+    _logRequest(
+      tag: 'DeclineTeamInvitation Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+
+    final response =
+        await _sharedClient.post(url, headers: headers, body: jsonEncode({}));
+
+    debugPrint("[DeclineTeamInvitation] status=${response.statusCode}");
+    _debugPrintChunked("DeclineTeamInvitation body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to decline this invitation',
+    );
+  }
+
+  // Owner or super-admin only. Sends a salon invitation instead of adding a
+  // team member directly (the legacy branches/:id/add-user path).
+  Future<Map<String, dynamic>> sendTeamInvitation({
+    required int salonId,
+    required String firstName,
+    required String lastName,
+    required String nationalNumber,
+    required String email,
+    String countryIsoCode = 'IN',
+    String countryCode = '+91',
+    String? message,
+  }) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+
+    final url = Uri.parse(baseUrl + salonTeamInvitationsEndpoint(salonId));
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+    final body = jsonEncode({
+      'firstName': firstName,
+      'lastName': lastName,
+      'countryIsoCode': countryIsoCode,
+      'countryCode': countryCode,
+      'nationalNumber': nationalNumber,
+      'email': email,
+      if (message != null && message.trim().isNotEmpty)
+        'message': message.trim(),
+    });
+
+    _logRequest(
+      tag: 'SendTeamInvitation Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
+
+    final response =
+        await _sharedClient.post(url, headers: headers, body: body);
+
+    debugPrint("[SendTeamInvitation] status=${response.statusCode}");
+    _debugPrintChunked("SendTeamInvitation body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to send this invitation',
+    );
+  }
+
+  // Owner or super-admin only. Pending/history invitations for a salon
+  // (shown alongside active team members — see invitation_plan.md §8).
+  Future<Map<String, dynamic>> getSalonTeamInvitations(
+    int salonId, {
+    String status = 'PENDING',
+    int limit = 20,
+    String? cursor,
+  }) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+
+    final baseUri = Uri.parse(baseUrl + salonTeamInvitationsEndpoint(salonId));
+    final queryParameters = <String, String>{
+      if (status.isNotEmpty) 'status': status,
+      'limit': '$limit',
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    };
+    final url = baseUri.replace(queryParameters: queryParameters);
+    final headers = {
+      "Authorization": "Bearer $token",
+    };
+
+    _logRequest(
+      tag: 'SalonTeamInvitations Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+
+    final response = await _sharedClient.get(url, headers: headers);
+
+    debugPrint("[SalonTeamInvitations] status=${response.statusCode}");
+    _debugPrintChunked("SalonTeamInvitations body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load invitations',
+    );
+  }
+
+  // ---- salon_team_part_1_updated_3.md — new Team read endpoints ----
+
+  Future<Map<String, dynamic>> getTeamSummaryV2(
+    int salonId, {
+    int? branchId,
+  }) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final baseUri = Uri.parse(baseUrl + salonTeamSummaryEndpoint(salonId));
+    final url = baseUri.replace(
+      queryParameters: {
+        if (branchId != null) 'branchId': '$branchId',
+      },
+    );
+    final headers = {"Authorization": "Bearer $token"};
+    _logRequest(
+      tag: 'TeamSummary Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+    final response = await _sharedClient.get(url, headers: headers);
+    debugPrint("[TeamSummary] status=${response.statusCode}");
+    _debugPrintChunked("TeamSummary body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load team summary',
+    );
+  }
+
+  // status is required by the backend contract — 'active' or
+  // 'setup_required'. There is no combined "all members" value.
+  Future<Map<String, dynamic>> getTeamMembersV2(
+    int salonId, {
+    required String status,
+    int? branchId,
+    String? search,
+    String sort = 'name_asc',
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final baseUri = Uri.parse(baseUrl + salonTeamMembersEndpoint(salonId));
+    final url = baseUri.replace(
+      queryParameters: {
+        'status': status,
+        if (branchId != null) 'branchId': '$branchId',
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        'sort': sort,
+        'page': '$page',
+        'pageSize': '$pageSize',
+      },
+    );
+    final headers = {"Authorization": "Bearer $token"};
+    _logRequest(
+      tag: 'TeamMembersV2 Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+    final response = await _sharedClient.get(url, headers: headers);
+    debugPrint("[TeamMembersV2] status=${response.statusCode}");
+    _debugPrintChunked("TeamMembersV2 body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load team members',
+    );
+  }
+
+  Future<Map<String, dynamic>> getTeamInvitationsV2(
+    int salonId, {
+    String status = 'all',
+    String? search,
+    String sort = 'name_asc',
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final baseUri =
+        Uri.parse(baseUrl + salonTeamInvitationsV2Endpoint(salonId));
+    final url = baseUri.replace(
+      queryParameters: {
+        'status': status,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        'sort': sort,
+        'page': '$page',
+        'pageSize': '$pageSize',
+      },
+    );
+    final headers = {"Authorization": "Bearer $token"};
+    _logRequest(
+      tag: 'TeamInvitationsV2 Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+    final response = await _sharedClient.get(url, headers: headers);
+    debugPrint("[TeamInvitationsV2] status=${response.statusCode}");
+    _debugPrintChunked("TeamInvitationsV2 body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load invitations',
+    );
+  }
+
+  Future<Map<String, dynamic>> getTeamMemberDetailV2(
+    int salonId,
+    int userId,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final url =
+        Uri.parse(baseUrl + salonTeamMemberDetailEndpoint(salonId, userId));
+    final headers = {"Authorization": "Bearer $token"};
+    _logRequest(
+      tag: 'TeamMemberDetailV2 Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+    final response = await _sharedClient.get(url, headers: headers);
+    debugPrint("[TeamMemberDetailV2] status=${response.statusCode}");
+    _debugPrintChunked("TeamMemberDetailV2 body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load team member',
+    );
+  }
+
+  // ---- salon_team_part_2.md — fill-missing profile-completion writes ----
+  //
+  // Omit a key entirely for "no change". A populated field supplied with a
+  // different value is rejected server-side (409) — this method does not
+  // pre-filter; the caller (the Complete Profile screen) only ever sends
+  // fields it rendered as editable (i.e. currently missing).
+  Future<Map<String, dynamic>> patchTeamMemberProfile(
+    int salonId,
+    int userId,
+    Map<String, dynamic> fields,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final url =
+        Uri.parse(baseUrl + salonTeamMemberProfileEndpoint(salonId, userId));
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+    final body = jsonEncode(fields);
+    _logRequest(
+      tag: 'TeamMemberProfilePatch Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
+    final response =
+        await _sharedClient.patch(url, headers: headers, body: body);
+    debugPrint("[TeamMemberProfilePatch] status=${response.statusCode}");
+    _debugPrintChunked("TeamMemberProfilePatch body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to update profile',
+    );
+  }
+
+  Future<Map<String, dynamic>> patchTeamMemberAvatar(
+    int salonId,
+    int userId,
+    String profilePictureUrl,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final url =
+        Uri.parse(baseUrl + salonTeamMemberAvatarEndpoint(salonId, userId));
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+    final body = jsonEncode({'profilePictureUrl': profilePictureUrl});
+    _logRequest(
+      tag: 'TeamMemberAvatarPatch Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
+    final response =
+        await _sharedClient.patch(url, headers: headers, body: body);
+    debugPrint("[TeamMemberAvatarPatch] status=${response.statusCode}");
+    _debugPrintChunked("TeamMemberAvatarPatch body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to update avatar',
+    );
+  }
+
+  // ---- salon_user_compensation.md — employment type + salary history ----
+  //
+  // Compensation belongs to the salon membership (user_salon), not the
+  // global profile — deliberately separate from getTeamMemberDetailV2 /
+  // patchTeamMemberProfile above (the spec explicitly forbids adding
+  // compensation to Team list/detail responses).
+  Future<Map<String, dynamic>> getTeamMemberCompensation(
+    int salonId,
+    int userId,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final url = Uri.parse(
+      baseUrl + salonTeamMemberCompensationEndpoint(salonId, userId),
+    );
+    final headers = {"Authorization": "Bearer $token"};
+    _logRequest(
+      tag: 'TeamMemberCompensation Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+    final response = await _sharedClient.get(url, headers: headers);
+    debugPrint("[TeamMemberCompensation] status=${response.statusCode}");
+    _debugPrintChunked("TeamMemberCompensation body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load compensation',
+    );
+  }
+
+  Future<Map<String, dynamic>> patchTeamMemberEmploymentType(
+    int salonId,
+    int userId,
+    String employmentType,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final url = Uri.parse(
+      baseUrl + salonTeamMemberEmploymentTypeEndpoint(salonId, userId),
+    );
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+    final body = jsonEncode({'employmentType': employmentType});
+    _logRequest(
+      tag: 'EmploymentTypePatch Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
+    final response =
+        await _sharedClient.patch(url, headers: headers, body: body);
+    debugPrint("[EmploymentTypePatch] status=${response.statusCode}");
+    _debugPrintChunked("EmploymentTypePatch body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to update employment type',
+    );
+  }
+
+  Future<Map<String, dynamic>> createTeamMemberCompensation(
+    int salonId,
+    int userId,
+    Map<String, dynamic> fields,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final url = Uri.parse(
+      baseUrl + salonTeamMemberCompensationEndpoint(salonId, userId),
+    );
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+    final body = jsonEncode(fields);
+    _logRequest(
+      tag: 'CompensationCreate Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
+    final response =
+        await _sharedClient.post(url, headers: headers, body: body);
+    debugPrint("[CompensationCreate] status=${response.statusCode}");
+    _debugPrintChunked("CompensationCreate body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to save compensation',
+    );
+  }
+
+  Future<Map<String, dynamic>> patchTeamMemberCompensation(
+    int salonId,
+    int userId,
+    int compensationId,
+    Map<String, dynamic> fields,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final url = Uri.parse(
+      baseUrl +
+          salonTeamMemberCompensationItemEndpoint(
+            salonId,
+            userId,
+            compensationId,
+          ),
+    );
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+    final body = jsonEncode(fields);
+    _logRequest(
+      tag: 'CompensationPatch Request',
+      url: url,
+      headers: headers,
+      body: body,
+    );
+    final response =
+        await _sharedClient.patch(url, headers: headers, body: body);
+    debugPrint("[CompensationPatch] status=${response.statusCode}");
+    _debugPrintChunked("CompensationPatch body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to update compensation',
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteTeamMemberCompensation(
+    int salonId,
+    int userId,
+    int compensationId,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+    final url = Uri.parse(
+      baseUrl +
+          salonTeamMemberCompensationItemEndpoint(
+            salonId,
+            userId,
+            compensationId,
+          ),
+    );
+    final headers = {"Authorization": "Bearer $token"};
+    _logRequest(
+      tag: 'CompensationDelete Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+    final response = await _sharedClient.delete(url, headers: headers);
+    debugPrint("[CompensationDelete] status=${response.statusCode}");
+    _debugPrintChunked("CompensationDelete body", response.body);
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to cancel compensation',
+    );
+  }
+
+  // Owner or super-admin only. Locks the invitation row and transitions
+  // PENDING -> CANCELLED (idempotent if already CANCELLED).
+  Future<Map<String, dynamic>> cancelSalonTeamInvitation(
+    int salonId,
+    int invitationId,
+  ) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+
+    final url = Uri.parse(
+      baseUrl + salonTeamInvitationCancelEndpoint(salonId, invitationId),
+    );
+    final headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+
+    _logRequest(
+      tag: 'CancelTeamInvitation Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+
+    final response =
+        await _sharedClient.post(url, headers: headers, body: jsonEncode({}));
+
+    debugPrint("[CancelTeamInvitation] status=${response.statusCode}");
+    _debugPrintChunked("CancelTeamInvitation body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to cancel this invitation',
+    );
+  }
+
+  // Owner only. Salon-wide team list (active members regardless of branch
+  // assignment) — used to surface accepted invitees who have no branch yet.
+  Future<Map<String, dynamic>> getSalonUsers(int salonId) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No token found',
+        'data': const <String, dynamic>{},
+      };
+    }
+
+    final url = Uri.parse(baseUrl + addSalonTeamMemberEndpoint(salonId));
+    final headers = {
+      "Authorization": "Bearer $token",
+    };
+
+    _logRequest(
+      tag: 'SalonUsers Request',
+      url: url,
+      headers: headers,
+      body: '',
+    );
+
+    final response = await _sharedClient.get(url, headers: headers);
+
+    debugPrint("[SalonUsers] status=${response.statusCode}");
+    _debugPrintChunked("SalonUsers body", response.body);
+
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Unable to load salon team',
+    );
+  }
+
   // Future<Map<String, dynamic>> registerCustomer({
   //   required String phoneNumber,
   //   required String firstName,
@@ -1453,66 +2363,6 @@ class ApiService {
   }
 
   // Resend OTP
-  Future<Map<String, dynamic>> resendOtp(String phoneNumber) async {
-    final resendPayload = {
-      "phoneNumber": phoneNumber,
-      "platform": AppEnvironment.platform,
-    };
-    final url = Uri.parse(baseUrl + resendOtpEndpoint);
-    final headers = {"Content-Type": "application/json"};
-    final body = json.encode(resendPayload);
-
-    _logRequest(
-      tag: 'ResendOTP Request',
-      url: url,
-      headers: headers,
-      body: body,
-    );
-
-    print("========== RESEND OTP START ==========");
-    print("Request URL: $url");
-    print("Request Headers: $headers");
-    print("Request Body: $body");
-
-    try {
-      final stopwatch = Stopwatch()..start();
-
-      final response = await _sharedClient.post(
-        url,
-        headers: headers,
-        body: body,
-      );
-
-      stopwatch.stop();
-
-      print("---------- RESPONSE ----------");
-      print("Status Code: ${response.statusCode}");
-      print("Response Body: ${response.body}");
-      print("Request Duration: ${stopwatch.elapsedMilliseconds} ms");
-      print("------------------------------");
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final decodedResponse = json.decode(response.body);
-        print("Decoded JSON Response: $decodedResponse");
-        print("========== RESEND OTP SUCCESS ==========");
-        return decodedResponse;
-      } else {
-        print("========== RESEND OTP FAILED ==========");
-        print("Error Response Body: ${response.body}");
-        throw Exception(
-          _apiErrorMessage(response.body, fallback: 'Failed resend OTP'),
-        );
-      }
-    } catch (e, stackTrace) {
-      print("========== RESEND OTP ERROR ==========");
-      print("Exception: $e");
-      print("StackTrace: $stackTrace");
-      rethrow;
-    } finally {
-      print("========== RESEND OTP END ==========\n");
-    }
-  }
-
   // Update profile
   Future<Map<String, dynamic>> updateUserProfileDetails(
     String firstName,
@@ -1555,8 +2405,7 @@ class ApiService {
           response.body,
           fallback: 'Unexpected response from server',
         );
-        responseLog =
-            'Non-JSON response (${response.statusCode}): '
+        responseLog = 'Non-JSON response (${response.statusCode}): '
             '$responseMessage';
       }
       print("Response Body (Update Profile): $responseLog");
@@ -1753,8 +2602,7 @@ class ApiService {
         response.body,
         fallback: 'Unexpected response from server',
       );
-      responseLog =
-          'Non-JSON response (${response.statusCode}): '
+      responseLog = 'Non-JSON response (${response.statusCode}): '
           '$responseMessage';
     }
     _debugPrintChunked('Salon List Response', responseLog, chunkSize: 1000);
@@ -2888,7 +3736,8 @@ class ApiService {
 
         // Check if the success flag is true
         if (data['success'] == true) {
-          return data['data']; // Return the service data (categories, subcategories, etc.)
+          return data[
+              'data']; // Return the service data (categories, subcategories, etc.)
         } else {
           throw Exception('Failed to fetch services: Success flag is false');
         }
@@ -2951,80 +3800,6 @@ class ApiService {
       // Log the error
       print('Error fetching roles and specializations: $e');
       throw Exception('Error fetching roles and specializations: $e');
-    }
-  }
-
-  // Endpoint to check user existence and send OTP
-  static Future<Map<String, dynamic>> checkUserAndSendOtp(
-    String phoneNumber,
-  ) async {
-    final url = Uri.parse('$baseUrl$checkSendOtpEndpoint');
-    print('Sending request to: $url');
-
-    final headers = {'Content-Type': 'application/json'};
-
-    final apiService = ApiService();
-    final token = await apiService.getAuthToken();
-    if (token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
-
-    print('Headers: { "Authorization": "Bearer $token" }');
-
-    final body = json.encode({
-      'phoneNumber': phoneNumber,
-      'platform': AppEnvironment.platform,
-    });
-
-    _logRequest(
-      tag: 'CheckUserAndSendOTP Request',
-      url: url,
-      headers: headers,
-      body: body,
-    );
-
-    try {
-      final response = await _sharedClient.post(
-        url,
-        headers: headers,
-        body: body,
-      );
-
-      print('Response Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
-      // Treat 200/201 as success and return parsed JSON.
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Ensure it’s a JSON object
-        final parsed = json.decode(response.body);
-        if (parsed is Map<String, dynamic>) return parsed;
-        return {'success': true, 'data': parsed};
-      }
-
-      // ----- Non-2xx: extract server error cleanly -----
-      String message = 'Verification failed. Please try again.';
-      try {
-        final parsed = json.decode(response.body);
-        final msg = (parsed is Map<String, dynamic>) ? parsed['message'] : null;
-        if (msg is List) {
-          message = msg.join('\n');
-        } else if (msg is String) {
-          message = msg;
-        }
-      } catch (_) {
-        // response body not JSON – keep default message
-      }
-
-      // Return a consistent shape the UI can read.
-      return {
-        'success': false,
-        'statusCode': response.statusCode,
-        'message': message,
-      };
-    } catch (e) {
-      // Transport / parsing errors
-      print('Error: $e');
-      return {'success': false, 'message': 'Network error: $e'};
     }
   }
 
@@ -3143,61 +3918,6 @@ class ApiService {
     }
   }
 
-  // ---------------------- ADD SALON TEAM MEMBER ----------------------
-  Future<Map<String, dynamic>> addSalonTeamMember(
-    int salonId,
-    Map<String, dynamic> teamMemberData,
-  ) async {
-    // Generate the full URL using static method
-    final url = Uri.parse('$baseUrl${addSalonTeamMemberEndpoint(salonId)}');
-
-    // Get the auth token first
-    String token = await getAuthToken();
-
-    // Log the URL and the body being sent
-    print('API URL: $url');
-    print('Request Body: $teamMemberData');
-
-    // Prepare headers, including the Authorization token
-    final headers = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token', // Use the actual token here
-    };
-
-    final body = json.encode(teamMemberData); // Encode the data as JSON
-
-    try {
-      // Log the HTTP request being made
-      print('Making POST request to: $url');
-
-      final response = await _sharedClient.post(
-        url,
-        headers: headers,
-        body: body,
-      );
-
-      // Log the status code of the response
-      print('Response Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
-      if (response.statusCode == 201) {
-        // If successful, parse the response JSON
-        return json.decode(response.body);
-      } else {
-        throw Exception(
-          extractErrorMessage(
-            response.body,
-            fallback: 'Failed to add salon user',
-          ),
-        );
-      }
-    } catch (e) {
-      // Handle errors (e.g., network issues)
-      print('Error: $e');
-      return {'success': false, 'message': 'Error: $e'};
-    }
-  }
-
   // ---------------------- GET TEAM MEMBERS ----------------------
   static Future<Map<String, dynamic>> getTeamMembers(
     int branchId, {
@@ -3213,8 +3933,8 @@ class ApiService {
       ApiService apiService = ApiService();
 
       // Fetch the token dynamically from SharedPreferences
-      final String token = await apiService
-          .getAuthToken(); // Call it on the instance
+      final String token =
+          await apiService.getAuthToken(); // Call it on the instance
 
       if (token.isEmpty) {
         throw Exception('No token found');
@@ -3476,15 +4196,13 @@ class ApiService {
     print("DELETE Request: $uri");
 
     try {
-      final resp = await _sharedClient
-          .delete(
-            uri,
-            headers: const {
-              'Accept': 'application/json',
-              // Don't send Content-Type since there is no body
-            },
-          )
-          .timeout(const Duration(seconds: 25));
+      final resp = await _sharedClient.delete(
+        uri,
+        headers: const {
+          'Accept': 'application/json',
+          // Don't send Content-Type since there is no body
+        },
+      ).timeout(const Duration(seconds: 25));
 
       print("Response [${resp.statusCode}]: ${resp.body}");
 
@@ -3717,15 +4435,13 @@ class ApiService {
     try {
       final token = await getAuthToken();
 
-      final resp = await _sharedClient
-          .delete(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 25));
+      final resp = await _sharedClient.delete(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 25));
 
       print("Response [${resp.statusCode}]: ${resp.body}");
 
@@ -3979,8 +4695,7 @@ class ApiService {
       if (responseData is Map<String, dynamic>) {
         return {
           'success': responseData['success'] ?? false,
-          'message':
-              responseData['message']?.toString() ??
+          'message': responseData['message']?.toString() ??
               'Failed to load team appointments',
           'statusCode': response.statusCode,
           'data': _extractMapList(responseData),
@@ -5051,7 +5766,11 @@ class ApiService {
         "Authorization: Bearer ${token.substring(0, 8)}...}",
       );
       print(
-        "➡️ Body: ${jsonEncode({'branchId': branchId, 'appointmentId': appointmentId, 'otp': otp})}",
+        "➡️ Body: ${jsonEncode({
+              'branchId': branchId,
+              'appointmentId': appointmentId,
+              'otp': otp
+            })}",
       );
       print("=========================================");
 
@@ -5170,8 +5889,7 @@ class ApiService {
       final success = resp.statusCode >= 200 && resp.statusCode < 300;
       return {
         'success': body['success'] ?? success,
-        'message':
-            body['message'] ??
+        'message': body['message'] ??
             (success ? 'Appointment marked no show' : 'Failed to mark no show'),
         'statusCode': resp.statusCode,
         'data': body['data'],
@@ -5208,7 +5926,12 @@ class ApiService {
         "  Headers: { Content-Type: application/json, Authorization: Bearer $token }",
       );
       print(
-        "  Body: ${jsonEncode({"rating": rating, if (comment != null) "comment": comment, if (serviceIds.isNotEmpty) "serviceIds": serviceIds, if (inventoryItems.isNotEmpty) "inventoryItems": inventoryItems})}",
+        "  Body: ${jsonEncode({
+              "rating": rating,
+              if (comment != null) "comment": comment,
+              if (serviceIds.isNotEmpty) "serviceIds": serviceIds,
+              if (inventoryItems.isNotEmpty) "inventoryItems": inventoryItems
+            })}",
       );
       print("  Token: $token");
       final resp = await _sharedClient.post(
@@ -5308,9 +6031,8 @@ class ApiService {
       final merged = {...body, "isActive": true, "sortOrder": 200}
         ..removeWhere((k, v) => v == null);
 
-      final safeToken = token.isNotEmpty
-          ? '${token.substring(0, 8)}…redacted'
-          : '';
+      final safeToken =
+          token.isNotEmpty ? '${token.substring(0, 8)}…redacted' : '';
       print("🔹 [PATCH] Update Category → $url");
       print(
         "Headers: {Authorization: Bearer $safeToken, Content-Type: application/json}",
@@ -5350,9 +6072,8 @@ class ApiService {
       final merged = {...body, "isActive": true, "sortOrder": 200}
         ..removeWhere((k, v) => v == null);
 
-      final safeToken = token.isNotEmpty
-          ? '${token.substring(0, 8)}…redacted'
-          : '';
+      final safeToken =
+          token.isNotEmpty ? '${token.substring(0, 8)}…redacted' : '';
       print("🔹 [PATCH] Update SubCategory → $url");
       print(
         "Headers: {Authorization: Bearer $safeToken, Content-Type: application/json}",
@@ -5541,8 +6262,7 @@ class ApiService {
       if (body is Map<String, dynamic>) {
         return {
           "success": false,
-          "message":
-              body['message']?.toString() ??
+          "message": body['message']?.toString() ??
               'Failed to load salon payout accounts',
           "statusCode": response.statusCode,
         };
@@ -5598,8 +6318,7 @@ class ApiService {
       if (body is Map<String, dynamic>) {
         return {
           "success": false,
-          "message":
-              body['message']?.toString() ??
+          "message": body['message']?.toString() ??
               'Failed to create salon payout account',
           "statusCode": response.statusCode,
         };
@@ -5658,8 +6377,7 @@ class ApiService {
       if (body is Map<String, dynamic>) {
         return {
           "success": false,
-          "message":
-              body['message']?.toString() ??
+          "message": body['message']?.toString() ??
               'Failed to update salon payout account',
           "statusCode": response.statusCode,
         };
@@ -5714,8 +6432,7 @@ class ApiService {
       if (body is Map<String, dynamic>) {
         return {
           "success": false,
-          "message":
-              body['message']?.toString() ??
+          "message": body['message']?.toString() ??
               'Failed to delete salon payout account',
           "statusCode": response.statusCode,
         };
@@ -5794,8 +6511,7 @@ class ApiService {
       if (body is Map<String, dynamic>) {
         return {
           "success": false,
-          "message":
-              body['message']?.toString() ??
+          "message": body['message']?.toString() ??
               'Failed to update salon payout account',
           "statusCode": response.statusCode,
         };
@@ -5935,17 +6651,28 @@ class ApiService {
     String joiningDate,
     List<Map<String, dynamic>> schedules,
     List<int> branchServiceIds,
-    bool allowOnlineBooking,
-  ) async {
+    bool allowOnlineBooking, {
+    List<int> branchRoleIds = const [],
+    List<String> roles = const [],
+    // Narinder, 2026-09-03: 'BRANCH_HOURS' (no `schedules`, branch timings
+    // are copied server-side) or 'CUSTOM' (`schedules` required).
+    String scheduleMode = 'CUSTOM',
+  }) async {
     final token = await getAuthToken();
     final url = Uri.parse('$baseUrl${assignUserToBranchAPI(branchId)}');
 
     final payload = {
       "userId": userId,
       "joiningDate": joiningDate, // e.g. "2025-08-21"
-      "schedules": schedules, // multiple schedules, multiple days allowed
+      "scheduleMode": scheduleMode,
+      if (scheduleMode == 'CUSTOM') "schedules": schedules,
       "branchServiceIds": branchServiceIds,
+      "branchRoleIds": branchRoleIds,
+      "roles": roles,
       "allowOnlineBooking": allowOnlineBooking,
+      // Not sent: backend rejects it with "property experience should not
+      // exist" (strict whitelist validation) — not part of this endpoint's
+      // contract, unlike the other fields above.
     };
 
     print("➡️ Calling Assign User To Branch API");
@@ -6084,8 +6811,7 @@ class ApiService {
 
       return {
         'success': false,
-        'message':
-            body['message']?.toString() ??
+        'message': body['message']?.toString() ??
             (active
                 ? 'Failed to activate team member'
                 : 'Failed to deactivate team member'),
@@ -6201,13 +6927,12 @@ class ApiService {
     required File file,
   }) async {
     final token = await getAuthToken();
-    final request =
-        http.MultipartRequest(
-            'POST',
-            Uri.parse('$baseUrl${importClientsFileAPI(branchId)}'),
-          )
-          ..headers['Authorization'] = 'Bearer $token'
-          ..files.add(await http.MultipartFile.fromPath('file', file.path));
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl${importClientsFileAPI(branchId)}'),
+    )
+      ..headers['Authorization'] = 'Bearer $token'
+      ..files.add(await http.MultipartFile.fromPath('file', file.path));
 
     final response = await _sharedClient.send(request);
     final body = await response.stream.bytesToString();
@@ -6225,9 +6950,8 @@ class ApiService {
     String? date,
   }) async {
     final token = await getAuthToken();
-    final endpoint = branchId == null
-        ? reportsDashboardAPI
-        : salonOwnerDashboardAPI;
+    final endpoint =
+        branchId == null ? reportsDashboardAPI : salonOwnerDashboardAPI;
     final baseUri = Uri.parse('$baseUrl$endpoint');
     final queryParameters = <String, String>{
       if (branchId != null) 'branchId': branchId.toString(),

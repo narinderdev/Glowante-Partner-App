@@ -115,10 +115,26 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
         });
       } else {
         setState(() => isLoading = false);
+        _showLoadServicesError(resp['message']?.toString());
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
+      // e.g. a transient 502 from the backend — previously swallowed
+      // silently here, leaving the empty state indistinguishable from a
+      // branch that genuinely has no services configured.
+      _showLoadServicesError(null);
     }
+  }
+
+  void _showLoadServicesError(String? detail) {
+    Fluttertoast.showToast(
+      msg: (detail != null && detail.trim().isNotEmpty)
+          ? detail
+          : translateText('Failed to load services. Please try again.'),
+      backgroundColor: const Color(0xFF4B4B4B),
+      textColor: Colors.white,
+    );
   }
 
   List<int> get selectedServiceIds =>

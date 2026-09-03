@@ -1,0 +1,4 @@
+# Bundle identifier is set per-lane in the Fastfile (dev/staging/prod each
+# have a different one), so nothing fixed here. team_id/ASC_TEAM_ID is your
+# Apple Developer Team ID (Apple Developer > Membership).
+team_id(ENV["ASC_TEAM_ID"]) if ENV["ASC_TEAM_ID"]

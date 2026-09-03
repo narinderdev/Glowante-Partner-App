@@ -12,3 +12,9 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# fastlane secrets — Play Console service account JSON + env vars.
+fastlane/*.json
+fastlane/.env
+fastlane/.env.*
+fastlane/report.xml

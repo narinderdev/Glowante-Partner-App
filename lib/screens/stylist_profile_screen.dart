@@ -175,9 +175,11 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
               setDialogState(() => isLoggingOut = false);
               Navigator.pop(ctx);
 
-              if (!success) {
-                Fluttertoast.showToast(msg: failureText);
-              }
+              Fluttertoast.showToast(
+                msg: success
+                    ? translateText('Logged out successfully')
+                    : failureText,
+              );
 
               await AuthSessionManager.instance.forceLogout(
                 reason: success ? 'user_logout' : 'user_logout_failed',
@@ -261,6 +263,9 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
 
               if (success) {
                 Navigator.pop(ctx);
+                Fluttertoast.showToast(
+                  msg: translateText('Account deleted successfully'),
+                );
                 await AuthSessionManager.instance.forceLogout(
                   reason: 'user_delete_account',
                 );

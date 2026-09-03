@@ -8,6 +8,7 @@ import 'SalonDeal.dart';
 import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import 'gallery.dart';
+import 'my_team_invitations_screen.dart';
 
 const Color _moreBg = Color(0xFFFBF9F8);
 const Color _moreGold = Color(0xFF8B6500);
@@ -70,6 +71,15 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
         subtitle: context.t('Manage salon photos'),
         permissions: const ['gallery.view'],
         onTap: () => _open(const GalleryScreen()),
+      ),
+      _QuickLinkData(
+        icon: Icons.inbox_rounded,
+        title: context.t('My Invitations'),
+        subtitle: context.t(
+          'Salon invitations sent to your phone number will show up here.',
+        ),
+        permissions: const [],
+        onTap: () => _open(const MyTeamInvitationsScreen()),
       ),
     ];
 

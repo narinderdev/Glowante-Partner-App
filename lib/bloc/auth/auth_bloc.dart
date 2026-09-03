@@ -11,28 +11,38 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLoginEvent>((event, emit) async {
       emit(AuthLoading());
       try {
-        final response = await apiService.loginUser(
-          event.phoneNumber,
+        final response = await apiService.requestOtp(
+          nationalNumber: event.phoneNumber,
+          purpose: event.purpose,
+          contextToken: event.contextToken,
           deviceToken: event.deviceToken,
         );
 
         if (response['success'] == true) {
           final data = response['data'];
-          final dynamic rawPhone =
-              data is Map<String, dynamic> ? data['phoneNumber'] : null;
-          final String phoneNumber =
-              (rawPhone is String && rawPhone.trim().isNotEmpty)
-                  ? rawPhone.trim()
-                  : event.phoneNumber.trim();
-          final dynamic rawRetryAfter =
-              data is Map<String, dynamic> ? data['retryAfterSeconds'] : null;
-          final int? retryAfterSeconds = rawRetryAfter is int
-              ? rawRetryAfter
-              : int.tryParse(rawRetryAfter?.toString() ?? '');
+          final Map<String, dynamic> map =
+              data is Map<String, dynamic> ? data : <String, dynamic>{};
+          final String challengeId = map['challengeId']?.toString() ?? '';
+
+          if (challengeId.isEmpty) {
+            emit(AuthError(
+              'Unable to start OTP verification. Please try again.',
+            ));
+            return;
+          }
+
+          final dynamic rawResendAfter = map['resendAfterSeconds'];
+          final int? resendAfterSeconds = rawResendAfter is int
+              ? rawResendAfter
+              : int.tryParse(rawResendAfter?.toString() ?? '');
 
           emit(AuthLoginSuccess({
-            'phoneNumber': phoneNumber,
-            'retryAfterSeconds': retryAfterSeconds,
+            'challengeId': challengeId,
+            'phoneNumber': event.phoneNumber.trim(),
+            'maskedPhone': map['maskedPhone']?.toString() ?? '',
+            'otpExpiresAt': map['otpExpiresAt']?.toString(),
+            'resendAvailableAt': map['resendAvailableAt']?.toString(),
+            'retryAfterSeconds': resendAfterSeconds,
             'message': extractMessage(
               response,
               fallback: 'OTP sent successfully',
@@ -41,7 +51,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         } else {
           final errorMessage =
               extractMessage(response, fallback: 'Login failed');
-          emit(AuthError(errorMessage));
+          final dynamic rawRetryAfter = response['retryAfterSeconds'];
+          emit(AuthError(
+            errorMessage,
+            code: response['code']?.toString(),
+            retryAfterSeconds: rawRetryAfter is int
+                ? rawRetryAfter
+                : int.tryParse(rawRetryAfter?.toString() ?? ''),
+          ));
         }
       } catch (e, stacktrace) {
         print("Error during login: $e");

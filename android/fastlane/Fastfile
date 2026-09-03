@@ -1,0 +1,77 @@
+FLAVORS = {
+  dev: {
+    package_name: "com.glowante.salon.dev",
+    dart_flavor: "dev",
+  },
+  staging: {
+    package_name: "com.glowante.salon.test",
+    dart_flavor: "test",
+  },
+  prod: {
+    package_name: "com.glowante.salon",
+    dart_flavor: "prod",
+  },
+}
+
+def build_and_upload(flavor, track: "internal", release_status: nil)
+  info = FLAVORS.fetch(flavor)
+  project_root = File.expand_path("../..", __dir__)
+
+  # Uploads to the production track default to "draft" so a release never
+  # goes live to real users without an explicit manual publish (or an
+  # explicit release_status:completed override) in Play Console.
+  release_status ||= track == "production" ? "draft" : "completed"
+
+  Dir.chdir(project_root) do
+    sh(
+      "flutter", "build", "appbundle",
+      "--flavor", flavor.to_s,
+      "--release",
+      "--dart-define=APP_FLAVOR=#{info[:dart_flavor]}"
+    )
+  end
+
+  aab_path = Dir.glob(
+    File.join(project_root, "build/app/outputs/bundle/**/*.aab")
+  ).max_by { |f| File.mtime(f) }
+  UI.user_error!("No .aab found under build/app/outputs/bundle after build") unless aab_path
+
+  upload_to_play_store(
+    package_name: info[:package_name],
+    aab: aab_path,
+    track: track,
+    release_status: release_status,
+    # Internal testing only needs the binary — skip store-listing assets
+    # so this doesn't require metadata/screenshots to exist yet.
+    skip_upload_metadata: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
+  )
+end
+
+platform :android do
+  desc "Build & upload the dev flavor to Play Console internal testing"
+  lane(:dev) { build_and_upload(:dev) }
+
+  desc "Build & upload the staging (test) flavor to Play Console internal testing"
+  lane(:staging) { build_and_upload(:staging) }
+
+  desc "Build & upload the prod flavor to Play Console. Defaults to internal " \
+       "testing; pass track:production to release to production (uploaded " \
+       "as a draft — publish manually in Play Console — unless you also " \
+       "pass release_status:completed)."
+  lane(:prod) do |options|
+    build_and_upload(
+      :prod,
+      track: options[:track] || "internal",
+      release_status: options[:release_status]
+    )
+  end
+
+  desc "Build & upload all three flavors, one after another"
+  lane :all do
+    dev
+    staging
+    prod
+  end
+end

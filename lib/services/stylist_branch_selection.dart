@@ -172,7 +172,7 @@ class StylistBranchSelectionStore {
 
   static Future<void> save({
     required int salonId,
-    required int branchId,
+    required int? branchId,
     required String salonName,
     required String branchName,
   }) async {
@@ -184,7 +184,11 @@ class StylistBranchSelectionStore {
       branchName: branchName,
     );
     await prefs.setInt(_selectedSalonIdKey, salonId);
-    await prefs.setInt(_selectedBranchIdKey, branchId);
+    if (branchId == null) {
+      await prefs.remove(_selectedBranchIdKey);
+    } else {
+      await prefs.setInt(_selectedBranchIdKey, branchId);
+    }
     await prefs.setString(_selectedSalonNameKey, salonName);
     await prefs.setString(_selectedBranchNameKey, branchName);
     if (selectionNotifier.value != selection) {

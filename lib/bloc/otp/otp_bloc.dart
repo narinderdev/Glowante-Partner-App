@@ -17,7 +17,10 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
     emit(OtpLoading());
 
     try {
-      final response = await apiService.verifyOTP(event.phoneNumber, event.otp);
+      final response = await apiService.verifyOtpChallenge(
+        event.challengeId,
+        event.otp,
+      );
 
       print('API Response: $response');
       if (response['success'] == true) {
@@ -56,7 +59,7 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
           response,
           fallback: 'Invalid or expired OTP',
         );
-        emit(OtpVerifyError(errorMessage));
+        emit(OtpVerifyError(errorMessage, code: response['code']?.toString()));
       }
     } catch (e) {
       print("Error during OTP verification: $e");

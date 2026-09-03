@@ -14,13 +14,24 @@ import 'role_selection_screen.dart';
 import '../widgets/app_loader.dart';
 
 class OtpScreen extends StatefulWidget {
+  final String challengeId;
   final String phoneNumber;
+  final String? maskedPhone;
   final int? initialCooldownSeconds;
+  // Present when verifying to accept a salon team invitation — after a
+  // successful OTP verify, this screen calls acceptTeamInvitation before
+  // continuing into the app. See invitation_plan.md.
+  final String? invitationToken;
+  final String? invitationSalonName;
 
   const OtpScreen({
     super.key,
+    required this.challengeId,
     required this.phoneNumber,
+    this.maskedPhone,
     this.initialCooldownSeconds,
+    this.invitationToken,
+    this.invitationSalonName,
   });
 
   @override
@@ -66,6 +77,8 @@ class _OtpScreenState extends State<OtpScreen> {
   static const Color _otpFieldFill = Color(0xFFFBF7F4);
 
   String get _maskedPhone {
+    final backendMasked = widget.maskedPhone?.trim() ?? '';
+    if (backendMasked.isNotEmpty) return backendMasked;
     final digits = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
     if (digits.length <= 4) return widget.phoneNumber;
     return '•••••${digits.substring(digits.length - 4)}';
@@ -213,10 +226,12 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final response = await apiService.verifyOTP(widget.phoneNumber, otp);
+      final response =
+          await apiService.verifyOtpChallenge(widget.challengeId, otp);
 
       if (response['success'] == true) {
         debugPrint("OTP Verified successfully");
+        Fluttertoast.showToast(msg: translateText('OTP verified successfully'));
 
         String? token = response['data']?['token'];
         Map<String, dynamic>? user = response['data']?['user'];
@@ -282,6 +297,12 @@ class _OtpScreenState extends State<OtpScreen> {
           debugPrint(
             '[HomeReach] OTP verified. Resolving role entry for userId=$userId, phone=${widget.phoneNumber}',
           );
+
+          final String invitationToken = (widget.invitationToken ?? '').trim();
+          if (invitationToken.isNotEmpty) {
+            await _acceptTeamInvitation(invitationToken);
+          }
+
           if (!mounted) return;
           await RoleSelectionScreen.continueWithSingleRole(
             context: context,
@@ -321,11 +342,17 @@ class _OtpScreenState extends State<OtpScreen> {
           });
         }
       } else {
+        final code = response['code']?.toString();
+        final message = extractMessage(
+          response,
+          fallback: 'Invalid or expired OTP',
+        );
+        if (_isDeadChallengeCode(code)) {
+          _returnToLoginWithMessage(message);
+          return;
+        }
         setState(() {
-          errorMessage = extractMessage(
-            response,
-            fallback: 'Invalid or expired OTP',
-          );
+          errorMessage = message;
         });
         _clearOtpAndFocus();
       }
@@ -341,6 +368,42 @@ class _OtpScreenState extends State<OtpScreen> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  // Called right after a successful OTP verify when this screen was reached
+  // via a salon invitation. A failure here does not block the login itself
+  // — the person is still a valid logged-in Glowante user — it just means
+  // they didn't join the inviting salon, which we surface as a toast.
+  Future<void> _acceptTeamInvitation(String invitationToken) async {
+    try {
+      final response = await apiService.acceptTeamInvitation(invitationToken);
+      if (response['success'] == true) {
+        final salonName = widget.invitationSalonName?.trim();
+        Fluttertoast.showToast(
+          msg: (salonName == null || salonName.isEmpty)
+              ? translateText('You have joined the salon team.')
+              : translateText(
+                  'You have joined {salon}.',
+                  params: {'salon': salonName},
+                ),
+        );
+        return;
+      }
+
+      Fluttertoast.showToast(
+        msg: extractMessage(
+          response,
+          fallback: 'Unable to accept this invitation right now.',
+        ),
+      );
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: extractErrorMessage(
+          e,
+          fallback: 'Unable to accept this invitation right now.',
+        ),
+      );
     }
   }
 
@@ -395,7 +458,7 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final response = await apiService.resendOtp(widget.phoneNumber);
+      final response = await apiService.resendOtpChallenge(widget.challengeId);
 
       if (response['success'] == true) {
         if (!mounted) return;
@@ -422,11 +485,18 @@ class _OtpScreenState extends State<OtpScreen> {
           _extractRetryAfterSeconds(response) ?? _defaultResendCooldownSeconds,
         );
       } else {
+        final code = response['code']?.toString();
+        final message = extractMessage(
+          response,
+          fallback: 'Failed to resend OTP',
+        );
+        if (_isDeadChallengeCode(code)) {
+          _returnToLoginWithMessage(message);
+          return;
+        }
+
         setState(() {
-          errorMessage = extractMessage(
-            response,
-            fallback: 'Failed to resend OTP',
-          );
+          errorMessage = message;
         });
 
         // The backend rejects an early resend with the ACTUAL remaining
@@ -447,10 +517,31 @@ class _OtpScreenState extends State<OtpScreen> {
         );
       });
     } finally {
-      setState(() {
-        isResendingOtp = false;
-      });
+      if (mounted) {
+        setState(() {
+          isResendingOtp = false;
+        });
+      }
     }
+  }
+
+  // OTP_CHALLENGE_NOT_FOUND / OTP_CHALLENGE_EXPIRED / OTP_CHALLENGE_LOCKED
+  // mean this challenge can never succeed again (wrong id, expired, or
+  // locked after 5 wrong attempts) — the only way forward is a fresh
+  // request from the login screen.
+  bool _isDeadChallengeCode(String? code) {
+    return code == 'OTP_CHALLENGE_NOT_FOUND' ||
+        code == 'OTP_CHALLENGE_EXPIRED' ||
+        code == 'OTP_CHALLENGE_LOCKED';
+  }
+
+  void _returnToLoginWithMessage(String message) {
+    if (!mounted) return;
+    Fluttertoast.showToast(msg: message);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => LoginScreen()),
+    );
   }
 
   // The backend puts retryAfterSeconds in different spots depending on the

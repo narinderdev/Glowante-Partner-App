@@ -125,6 +125,57 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
     return urls;
   }
 
+  static const List<String> _weekDays = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ];
+
+  // All 7 days, one row each, from this branch's own weekly schedule —
+  // distinct from the per-team-member schedule shown on the Schedule
+  // screen; this is always the salon/branch's own operating hours.
+  List<(String day, String timeText)> _scheduleRows(
+    Map<String, dynamic> details,
+  ) {
+    final rawSchedule = details['schedule'];
+    final byDay = <String, dynamic>{};
+    if (rawSchedule is List) {
+      for (final item in rawSchedule.whereType<Map>()) {
+        final day = (item['day'] ?? '').toString().toLowerCase().trim();
+        if (day.isNotEmpty) byDay[day] = item['slots'];
+      }
+    }
+
+    return _weekDays.map((day) {
+      final slots = byDay[day];
+      if (slots is! List || slots.isEmpty) {
+        return (day, context.t('Closed'));
+      }
+      final timings = slots
+          .whereType<Map>()
+          .map((slot) {
+            final start = _formatWorkingHours(
+                (slot['start'] ?? slot['startTime'] ?? '').toString());
+            final end = _formatWorkingHours(
+                (slot['end'] ?? slot['endTime'] ?? '').toString());
+            if (start.isEmpty || end.isEmpty) return '';
+            return '$start - $end';
+          })
+          .where((value) => value.isNotEmpty)
+          .toList();
+      return (day, timings.isEmpty ? context.t('Closed') : timings.join(', '));
+    }).toList();
+  }
+
+  String _formatDay(String rawDay) {
+    if (rawDay.isEmpty) return context.t('Day');
+    return context.t(rawDay[0].toUpperCase() + rawDay.substring(1));
+  }
+
   String _formatWorkingHours(String rawTime) {
     final value = rawTime.trim();
     if (value.isEmpty || value.toLowerCase() == 'null') return '';
@@ -197,8 +248,7 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
     final name = (details['name'] ?? _selection.label).toString().trim();
     final description = (details['description'] ?? '').toString().trim();
     final phone = (details['phone'] ?? '').toString().trim();
-    final startTime = (details['startTime'] ?? '').toString().trim();
-    final endTime = (details['endTime'] ?? '').toString().trim();
+    final scheduleRows = _scheduleRows(details);
     final address = _readAddress(details);
     final photos = _photoUrls(details);
     // Once details have loaded once, a pull-to-refresh re-triggers _loading
@@ -272,16 +322,68 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _infoTile(
-                    icon: Icons.access_time_outlined,
-                    title: context.t('Working Hours'),
-                    value: (startTime.isNotEmpty || endTime.isNotEmpty)
-                        ? [
-                            _formatWorkingHours(startTime),
-                            _formatWorkingHours(endTime),
-                          ].where((value) => value.isNotEmpty).join(' - ')
-                        : '',
-                  ),
+                  if (hasDetails) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.access_time_outlined,
+                                    color: AppColors.starColor),
+                                const SizedBox(width: 12),
+                                Text(
+                                  context.t('Working Hours'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ...List.generate(scheduleRows.length, (index) {
+                            final (day, timeText) = scheduleRows[index];
+                            return Column(
+                              children: [
+                                if (index > 0) const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _formatDay(day),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        timeText,
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
                   _infoTile(
                     icon: Icons.call_outlined,
                     title: context.t('Phone'),

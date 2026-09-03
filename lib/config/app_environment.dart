@@ -26,7 +26,7 @@ class AppEnvironment {
   static String get baseUrl {
     switch (flavor) {
       case AppFlavor.dev:
-        return 'https://dev-api.glowante.com/';
+        return 'https://dev2-api.glowante.com/';
       case AppFlavor.test:
         return 'https://test-api.glowante.com/';
       case AppFlavor.prod:

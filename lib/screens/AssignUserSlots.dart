@@ -1413,6 +1413,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
             assignBranchServiceIds: widget.selectedServiceIds,
             assignSchedules: schedules,
             initialJoiningDate: _selectedJoiningDate,
+            assignScheduleSameAsBranch: _sameAsBranchTimings,
           ),
         ),
       );
@@ -1855,6 +1856,13 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
         ),
         body: SafeArea(
           child: Stack(
+            // Without this, the Stack shrink-wraps to the scrollable
+            // content's height (StackFit.loose default) whenever that
+            // content is shorter than the screen, so _operatingScheduleLoader
+            // ()'s Positioned.fill below only covered down to the end of the
+            // content instead of the actual bottom of the screen — same bug
+            // as team_online_availability_screen.dart had.
+            fit: StackFit.expand,
             children: [
               SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
@@ -1917,28 +1925,30 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                               Flexible(
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
-                                  // children: [
-                                  //   Checkbox(
-                                  //     value: _sameAsBranchTimings,
-                                  //     onChanged: (value) {
-                                  //       _applySameAsBranchTimings(value ?? false);
-                                  //     },
-                                  //     visualDensity: VisualDensity.compact,
-                                  //     materialTapTargetSize:
-                                  //         MaterialTapTargetSize.shrinkWrap,
-                                  //   ),
-                                  //   Flexible(
-                                  //     child: Text(
-                                  //       translateText('Same as branch timings'),
-                                  //       overflow: TextOverflow.ellipsis,
-                                  //       style: const TextStyle(
-                                  //         color: Color(0xFF374151),
-                                  //         fontSize: 11,
-                                  //         fontWeight: FontWeight.w500,
-                                  //       ),
-                                  //     ),
-                                  //   ),
-                                  // ],
+                                  children: [
+                                    Checkbox(
+                                      value: _sameAsBranchTimings,
+                                      activeColor: AppColors.starColor,
+                                      onChanged: (value) {
+                                        _applySameAsBranchTimings(
+                                            value ?? false);
+                                      },
+                                      visualDensity: VisualDensity.compact,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    Flexible(
+                                      child: Text(
+                                        translateText('Same as branch timings'),
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF374151),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -1995,7 +2005,6 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 84),
                   ],
                 ),
               ),

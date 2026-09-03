@@ -5,9 +5,20 @@ import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/language_listener.dart';
 import '../services/user_role_session.dart';
+import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../widgets/app_loader.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+
+const List<String> _kWeekDays = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
 
 class StylistScheduleScreen extends StatefulWidget {
   const StylistScheduleScreen({super.key});
@@ -20,10 +31,25 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
   List<Map<String, dynamic>> _branches = const [];
   bool _isLoading = true;
 
+  // Keyed by branchId — the branch's own weekly operating hours, used as a
+  // fallback for any branch where this stylist has no per-day override of
+  // their own (i.e. was assigned with scheduleMode "BRANCH_HOURS", so
+  // entry['schedules'] is empty even though the branch itself has hours
+  // for every day).
+  final Map<int, List<dynamic>> _branchOwnSchedules = {};
+
   @override
   void initState() {
     super.initState();
     _loadSchedules();
+  }
+
+  int? _branchId(Map<String, dynamic> entry) {
+    final rawBranch = entry['branch'];
+    if (rawBranch is! Map) return null;
+    final id = rawBranch['id'];
+    if (id is int) return id;
+    return int.tryParse('$id');
   }
 
   Future<void> _loadSchedules() async {
@@ -31,6 +57,29 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
       setState(() => _isLoading = true);
     }
     final userBranches = await UserRoleSession.instance.loadUserBranches();
+    if (!mounted) return;
+
+    _branchOwnSchedules.clear();
+    final branchIdsNeedingFallback = <int>{};
+    for (final entry in userBranches) {
+      if (_scheduleItems(entry).isNotEmpty) continue;
+      final branchId = _branchId(entry);
+      if (branchId != null) branchIdsNeedingFallback.add(branchId);
+    }
+
+    await Future.wait(branchIdsNeedingFallback.map((branchId) async {
+      try {
+        final response = await ApiService().getBranchDetail(branchId);
+        final data = response['data'];
+        if (data is Map) {
+          final schedule = data['schedule'];
+          if (schedule is List) _branchOwnSchedules[branchId] = schedule;
+        }
+      } catch (e) {
+        debugPrint('[StylistSchedule] Failed to load branch $branchId hours: $e');
+      }
+    }));
+
     if (!mounted) return;
     setState(() {
       _branches = userBranches;
@@ -99,6 +148,59 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
         .toList();
   }
 
+  // Always all 7 days, one row each — using this stylist's own per-day
+  // schedule for this branch when they have one, falling back to the
+  // branch's own operating hours (fetched in _loadSchedules) otherwise.
+  List<(String day, String timeText)> _dayRows(Map<String, dynamic> entry) {
+    final ownSchedule = _scheduleItems(entry);
+    if (ownSchedule.isNotEmpty) {
+      final byDay = <String, Map<String, dynamic>>{};
+      for (final item in ownSchedule) {
+        final day = (item['day'] ?? '').toString().toLowerCase().trim();
+        if (day.isNotEmpty) byDay[day] = item;
+      }
+      return _kWeekDays.map((day) {
+        final item = byDay[day];
+        if (item == null) {
+          return (day, context.t('Closed'));
+        }
+        final start = _formatTime((item['startTime'] ?? '').toString());
+        final end = _formatTime((item['endTime'] ?? '').toString());
+        return (day, '$start - $end');
+      }).toList();
+    }
+
+    final branchId = _branchId(entry);
+    final branchSchedule =
+        branchId == null ? null : _branchOwnSchedules[branchId];
+    final byDay = <String, dynamic>{};
+    if (branchSchedule != null) {
+      for (final item in branchSchedule.whereType<Map>()) {
+        final day = (item['day'] ?? '').toString().toLowerCase().trim();
+        if (day.isNotEmpty) byDay[day] = item['slots'];
+      }
+    }
+
+    return _kWeekDays.map((day) {
+      final slots = byDay[day];
+      if (slots is! List || slots.isEmpty) {
+        return (day, context.t('Closed'));
+      }
+      final timings = slots
+          .whereType<Map>()
+          .map((slot) {
+            final start =
+                _formatTime((slot['start'] ?? slot['startTime'] ?? '')
+                    .toString());
+            final end =
+                _formatTime((slot['end'] ?? slot['endTime'] ?? '').toString());
+            return '$start - $end';
+          })
+          .toList();
+      return (day, timings.isEmpty ? context.t('Closed') : timings.join(', '));
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
@@ -119,7 +221,7 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
                   _ScheduleEmptyState(message: context.t('No schedules found'))
                 else
                   ..._branches.map((entry) {
-                    final schedules = _scheduleItems(entry);
+                    final dayRows = _dayRows(entry);
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
@@ -146,57 +248,40 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
                               ),
                             ),
                           ),
-                          if (schedules.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                              child: Text(
-                                context.t('No schedules found'),
-                                style: const TextStyle(color: Colors.black54),
-                              ),
-                            )
-                          else
-                            ...List.generate(schedules.length, (index) {
-                              final schedule = schedules[index];
-                              final day = _formatDay(
-                                  (schedule['day'] ?? '').toString());
-                              final startTime = _formatTime(
-                                (schedule['startTime'] ?? '').toString(),
-                              );
-                              final endTime = _formatTime(
-                                (schedule['endTime'] ?? '').toString(),
-                              );
+                          ...List.generate(dayRows.length, (index) {
+                            final (day, timeText) = dayRows[index];
 
-                              return Column(
-                                children: [
-                                  if (index > 0) const Divider(height: 1),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
-                                      vertical: 14,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            day,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        Text(
-                                          '$startTime - $endTime',
-                                          style: const TextStyle(
-                                            color: Colors.black87,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                            return Column(
+                              children: [
+                                if (index > 0) const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 14,
                                   ),
-                                ],
-                              );
-                            }),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _formatDay(day),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        timeText,
+                                        style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
                         ],
                       ),
                     );

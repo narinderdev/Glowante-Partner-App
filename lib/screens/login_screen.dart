@@ -19,7 +19,17 @@ const _loginInk = Color(0xFF4B4038);
 const _loginBorder = Color(0xFFE8D9BC);
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    super.key,
+    this.invitationToken,
+    this.invitationSalonName,
+  });
+
+  // Present when reached from a salon team invitation (see
+  // invitation_plan.md) — threaded through to the OTP request/verify calls
+  // as `purpose: SALON_INVITATION_ACCEPTANCE` + `contextToken`.
+  final String? invitationToken;
+  final String? invitationSalonName;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -116,9 +126,16 @@ class _LoginScreenState extends State<LoginScreen> {
           AuthLoginEvent(
             phoneNumber: phoneNumber,
             deviceToken: deviceToken,
+            purpose: _isInvitationFlow
+                ? 'SALON_INVITATION_ACCEPTANCE'
+                : 'LOGIN_OR_REGISTER',
+            contextToken: widget.invitationToken,
           ),
         );
   }
+
+  bool get _isInvitationFlow =>
+      (widget.invitationToken ?? '').trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -240,16 +257,35 @@ class _LoginScreenState extends State<LoginScreen> {
       final String phoneNumber = (rawPhone is String && rawPhone.isNotEmpty)
           ? rawPhone
           : phoneController.text.trim();
+      final String challengeId =
+          state.response['challengeId']?.toString() ?? '';
+      final String maskedPhone =
+          state.response['maskedPhone']?.toString() ?? '';
       final dynamic rawRetryAfter = state.response['retryAfterSeconds'];
       final int? retryAfterSeconds =
           rawRetryAfter is int ? rawRetryAfter : null;
       setState(() => _isLoading = false);
+
+      if (challengeId.isEmpty) {
+        Fluttertoast.showToast(
+          msg: translateText(
+              'Unable to start OTP verification. Please try again.'),
+        );
+        return;
+      }
+
+      Fluttertoast.showToast(msg: translateText('OTP sent successfully'));
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => OtpScreen(
+            challengeId: challengeId,
             phoneNumber: phoneNumber,
+            maskedPhone: maskedPhone,
             initialCooldownSeconds: retryAfterSeconds,
+            invitationToken: widget.invitationToken,
+            invitationSalonName: widget.invitationSalonName,
           ),
         ),
       );
@@ -319,6 +355,45 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_isInvitationFlow) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3D5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE8C774)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.mail_outline_rounded,
+                  color: _loginDeepGold,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    (widget.invitationSalonName ?? '').trim().isEmpty
+                        ? translateText(
+                            "You've been invited to join a salon. Verify your number to continue.")
+                        : translateText(
+                            "You've been invited to join {salon}. Verify your number to continue.",
+                            params: {'salon': widget.invitationSalonName!},
+                          ),
+                    style: const TextStyle(
+                      color: _loginDeepGold,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: compact ? 12 : 16),
+        ],
         Text(
           translateText('MOBILE NUMBER'),
           style: TextStyle(
@@ -477,29 +552,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   strokeWidth: 3,
                   color: Colors.white,
                 )
-              : Stack(
-                  alignment: Alignment.center,
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Center(
-                      child: Text(
-                        translateText('Login'),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.2,
-                        ),
+                    Text(
+                      translateText('Login'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      child: Transform.translate(
-                        offset: const Offset(50, 0),
-                        child: const Center(
-                          child: Icon(Icons.arrow_forward_rounded, size: 22),
-                        ),
-                      ),
-                    ),
+                    const SizedBox(width: 10),
+                    const Icon(Icons.arrow_forward_rounded, size: 22),
                   ],
                 ),
         ),
@@ -534,20 +599,24 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildFooter({required bool compact}) {
     return SizedBox(
       width: double.infinity,
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            translateText('Professional Access Only  •  © 2024 Glowante'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: const Color(0xFF8B8580),
-              fontSize: compact ? 10.5 : 11.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.1,
+      child: Column(
+        children: [
+          Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                translateText('Professional Access Only  •  © 2024 Glowante'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: const Color(0xFF8B8580),
+                  fontSize: compact ? 10.5 : 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.1,
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

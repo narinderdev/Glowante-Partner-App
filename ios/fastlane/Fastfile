@@ -1,0 +1,68 @@
+FLAVORS = {
+  dev: {
+    bundle_id: "com.glowante.salon.dev",
+    dart_flavor: "dev",
+  },
+  staging: {
+    bundle_id: "com.glowante.salon.test",
+    dart_flavor: "test",
+  },
+  prod: {
+    bundle_id: "com.glowante.salon",
+    dart_flavor: "prod",
+  },
+}
+
+# One App Store Connect API key covers all three apps/bundle IDs on this
+# team — see ios/fastlane/README.md for how to generate it.
+def connect_api_key
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"],
+    issuer_id: ENV["ASC_ISSUER_ID"],
+    key_filepath: ENV["ASC_KEY_FILEPATH"] || "./AuthKey.p8"
+  )
+end
+
+def build_and_upload(flavor)
+  info = FLAVORS.fetch(flavor)
+  project_root = File.expand_path("../..", __dir__)
+
+  Dir.chdir(project_root) do
+    sh(
+      "flutter", "build", "ipa",
+      "--flavor", flavor.to_s,
+      "--release",
+      "--dart-define=APP_FLAVOR=#{info[:dart_flavor]}"
+    )
+  end
+
+  ipa_path = Dir.glob(
+    File.join(project_root, "build/ios/ipa/*.ipa")
+  ).max_by { |f| File.mtime(f) }
+  UI.user_error!("No .ipa found under build/ios/ipa after build") unless ipa_path
+
+  connect_api_key
+  upload_to_testflight(
+    ipa: ipa_path,
+    app_identifier: info[:bundle_id],
+    skip_waiting_for_build_processing: true
+  )
+end
+
+platform :ios do
+  desc "Build & upload the dev flavor to TestFlight"
+  lane(:dev) { build_and_upload(:dev) }
+
+  desc "Build & upload the staging (test) flavor to TestFlight"
+  lane(:staging) { build_and_upload(:staging) }
+
+  desc "Build & upload the prod flavor to TestFlight"
+  lane(:prod) { build_and_upload(:prod) }
+
+  desc "Build & upload all three flavors to TestFlight, one after another"
+  lane :all do
+    dev
+    staging
+    prod
+  end
+end

@@ -27,6 +27,7 @@ import 'services/push_notification_service.dart';
 import 'services/auth_session_manager.dart';
 import 'services/navigation_service.dart';
 import 'services/token_expiration_service.dart';
+import 'services/app_update_gate.dart';
 import 'screens/login_screen.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -106,19 +107,40 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  Timer? _updateCheckTimer;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       TokenExpirationService.instance.start();
     });
+    // Splash only catches a cold start — a user already mid-session (app
+    // open, never backgrounded) would otherwise never see a version gate
+    // bumped in Remote Config until they relaunch. This timer plus the
+    // resume check below cover that; AppUpdateService's own
+    // minimumFetchInterval keeps the actual network calls cheap either way.
+    _updateCheckTimer = Timer.periodic(
+      const Duration(minutes: 20),
+      (_) => unawaited(AppUpdateGate.instance.checkAndShowIfNeeded(appNavigatorKey)),
+    );
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _updateCheckTimer?.cancel();
     TokenExpirationService.instance.stop();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(AppUpdateGate.instance.checkAndShowIfNeeded(appNavigatorKey));
+    }
   }
 
   @override

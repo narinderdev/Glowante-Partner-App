@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
@@ -5,6 +7,9 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../widgets/app_loader.dart';
+import 'team_member_compensation_screen.dart';
+import 'team_member_schedule_screen.dart';
+import 'team_member_services_screen.dart';
 
 const Color _memberDetailBackground = Color(0xFFFBFAF8);
 const Color _memberDetailBorder = Color(0xFFE8DED6);
@@ -12,12 +17,88 @@ const Color _memberDetailText = Color(0xFF2B241D);
 const Color _memberDetailMuted = Color(0xFF8C7A66);
 const Color _memberDetailSurface = Colors.white;
 
+Map<String, dynamic> _detailPayload(dynamic response) {
+  if (response is! Map) return const <String, dynamic>{};
+
+  final root = Map<String, dynamic>.from(response);
+  final data = root['data'];
+  if (data is Map) {
+    return Map<String, dynamic>.from(data);
+  }
+
+  root.removeWhere(
+    (key, _) => key == 'success' || key == 'message' || key == 'error',
+  );
+  return root;
+}
+
+Map<String, dynamic> _memberPayloadFromDetail(dynamic response) {
+  final payload = _detailPayload(response);
+  if (payload.isEmpty) return payload;
+
+  final profile = payload['profile'];
+  final user = payload['user'];
+  final member = profile is Map
+      ? Map<String, dynamic>.from(profile)
+      : user is Map
+          ? Map<String, dynamic>.from(user)
+          : Map<String, dynamic>.from(payload);
+
+  for (final key in const [
+    'roles',
+    'branches',
+    'userBranches',
+    'services',
+    'schedules',
+    'markedOffDays',
+    'branchServiceIds',
+    'userBranchServices',
+    'allowOnlineBooking',
+    'joiningDate',
+    'leavingDate',
+    'experience',
+    'careerStartDate',
+    'careerExperienceYears',
+    'profilePictureUrl',
+    'avatarUrl',
+    'photoUrl',
+  ]) {
+    final value = payload[key];
+    if (value != null) {
+      member[key] = value;
+    }
+  }
+
+  return member;
+}
+
+Map<String, dynamic> _mergeMemberMaps(
+  Map<String, dynamic> base,
+  Map<String, dynamic> overlay,
+) {
+  final merged = Map<String, dynamic>.from(base);
+  overlay.forEach((key, value) {
+    if (value == null) return;
+    if (value is String && value.trim().isEmpty) return;
+    // A narrower source (e.g. the per-branch fallback fetch, which only
+    // ever knows about one branch) must not shrink a list already merged
+    // in from a fuller source (e.g. the salon-level multi-branch call).
+    if (value is List) {
+      final existing = merged[key];
+      if (existing is List && existing.length > value.length) return;
+    }
+    merged[key] = value;
+  });
+  return merged;
+}
+
 class TeamMemberDetails extends StatefulWidget {
   final Map<String, dynamic> member;
   final List<Map<String, dynamic>>? salons;
   final double professionalRating;
   final int professionalReviewCount;
   final int? branchId;
+  final int? salonId;
   const TeamMemberDetails({
     super.key,
     required this.member,
@@ -25,6 +106,7 @@ class TeamMemberDetails extends StatefulWidget {
     this.professionalRating = 0,
     this.professionalReviewCount = 0,
     this.branchId,
+    this.salonId,
   });
 
   @override
@@ -40,25 +122,37 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
   int get professionalReviewCount => widget.professionalReviewCount;
 
   Future<void> _refresh() async {
-    final userId = _toInt(member['id']);
-    final branchId =
-        widget.branchId ?? _toInt(_primaryAssignment()?['branchId']);
-    if (userId == null || branchId == null) return;
+    final userId = _toInt(member['userId']);
+    final salonId = widget.salonId;
+    if (userId == null || salonId == null) return;
 
     setState(() => _isRefreshing = true);
     try {
-      final response = await ApiService.getTeamMemberDetails(
-        branchId,
-        userId,
-      );
-      if (response['success'] == true && response['data'] is Map) {
-        if (!mounted) return;
-        setState(() {
-          member = Map<String, dynamic>.from(
-            response['data'] as Map<dynamic, dynamic>,
-          );
-        });
+      final response =
+          await ApiService().getTeamMemberDetailV2(salonId, userId);
+      Map<String, dynamic> refreshed = Map<String, dynamic>.from(member);
+      if (response['success'] == true) {
+        refreshed = _mergeMemberMaps(
+          refreshed,
+          _memberPayloadFromDetail(response),
+        );
       }
+
+      final branchId =
+          widget.branchId ?? _toInt(_primaryAssignment()?['branchId']);
+      if (branchId != null) {
+        final branchResponse =
+            await ApiService.getTeamMemberDetails(branchId, userId);
+        refreshed = _mergeMemberMaps(
+          refreshed,
+          _memberPayloadFromDetail(branchResponse),
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        member = refreshed;
+      });
     } catch (_) {
       // Keep showing the already-loaded details if the refresh fails.
     } finally {
@@ -72,77 +166,88 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
     return (f + l).toUpperCase();
   }
 
-  bool _isDeletedRecord(dynamic raw) {
-    if (raw is! Map) return false;
-
-    bool readBool(dynamic value) {
-      if (value is bool) return value;
-      final text = value?.toString().trim().toLowerCase() ?? '';
-      return text == 'true' || text == '1' || text == 'yes';
-    }
-
-    if (readBool(raw['isDeleted']) ||
-        readBool(raw['is_deleted']) ||
-        readBool(raw['deleted'])) {
-      return true;
-    }
-
-    final deletedAt =
-        (raw['deletedAt'] ?? raw['deleted_at'])?.toString().trim() ?? '';
-    if (deletedAt.isNotEmpty && deletedAt.toLowerCase() != 'null') {
-      return true;
-    }
-
-    for (final key in const ['status', 'state']) {
-      final status = raw[key]?.toString().trim().toLowerCase() ?? '';
-      if (status.contains('deleted') || status.contains('removed')) {
-        return true;
-      }
-    }
-
-    return false;
+  // Two shapes seen from the backend for a branch assignment entry: the
+  // documented flat one ({branchId, branchName, ...}) and a legacy nested
+  // one ({branch: {id, name, salon: {id, name}}, schedules, joiningDate,
+  // ...} — e.g. GET /salons/{salonId}/team/{userId} returning userBranches
+  // in the old branches/{branchId}/team/{userId} shape). Check both.
+  Map<String, dynamic>? _nestedBranch(Map item) {
+    final nested = item['branch'];
+    return nested is Map ? Map<String, dynamic>.from(nested) : null;
   }
 
   String _branchName(Map branch) {
-    return (branch['name'] ?? branch['branchName'] ?? '').toString().trim();
+    final direct =
+        (branch['branchName'] ?? branch['name'] ?? '').toString().trim();
+    if (direct.isNotEmpty) return direct;
+    final nested = _nestedBranch(branch);
+    if (nested == null) return '';
+    return (nested['name'] ?? nested['branchName'] ?? '').toString().trim();
   }
 
-  String _salonName(Map branch) {
-    final salon = branch['salon'];
-    if (salon is Map && !_isDeletedRecord(salon)) {
-      final name = (salon['name'] ?? salon['salonName']).toString().trim();
-      if (name.isNotEmpty && name.toLowerCase() != 'null') return name;
+  int? _branchIdOf(Map item) {
+    final direct = _toInt(item['branchId']);
+    if (direct != null) return direct;
+    final nested = _nestedBranch(item);
+    return nested == null ? null : _toInt(nested['id'] ?? nested['branchId']);
+  }
+
+  // salon_team_part_1_updated_3.md §6.2: TeamBranchAssignmentSummary is
+  // {branchId, branchName, active, allowOnlineBooking} — no embedded salon
+  // name. Resolve it from widget.salons (the salon/branch hierarchy the
+  // Team screen already loaded separately) by matching branchId.
+  String _salonNameForBranch(int? branchId) {
+    if (branchId == null) return '';
+    for (final rawSalon in (salons ?? const <Map<String, dynamic>>[])) {
+      final salonBranches = rawSalon['branches'];
+      if (salonBranches is! List) continue;
+      final matches = salonBranches.whereType<Map>().any(
+            (b) => _toInt(b['branchId'] ?? b['id']) == branchId,
+          );
+      if (matches) {
+        final name =
+            (rawSalon['salonName'] ?? rawSalon['name'] ?? '').toString().trim();
+        if (name.isNotEmpty) return name;
+      }
     }
-    return (branch['salonName'] ?? '').toString().trim();
+    return '';
+  }
+
+  List<Map<String, dynamic>> _assignmentList(dynamic rawAssignments) {
+    if (rawAssignments is! List) return const [];
+    return rawAssignments.whereType<Map>().map((item) {
+      return Map<String, dynamic>.from(item);
+    }).toList();
   }
 
   List<Map<String, dynamic>> _assignedBranches(dynamic rawBranches) {
-    if (rawBranches is! List) return const [];
+    final assignments = _assignmentList(rawBranches);
+    if (assignments.isEmpty) return const [];
 
     final assigned = <Map<String, dynamic>>[];
     final seenBranchIds = <String>{};
 
-    for (final item in rawBranches) {
-      if (item is! Map) continue;
-      if (_isDeletedRecord(item)) continue;
-
-      final rawBranch = item['branch'];
-      if (rawBranch is! Map) continue;
-      if (_isDeletedRecord(rawBranch) || _isDeletedRecord(rawBranch['salon'])) {
-        continue;
-      }
-
-      final branchName = _branchName(rawBranch);
+    for (final item in assignments) {
+      final branchName = _branchName(item);
       if (branchName.isEmpty) continue;
 
-      final branchId = (rawBranch['id'] ?? item['branchId'] ?? '').toString();
-      if (branchId.isNotEmpty && !seenBranchIds.add(branchId)) continue;
+      final branchId = _branchIdOf(item);
+      final branchIdKey = branchId?.toString() ?? '';
+      if (branchIdKey.isNotEmpty && !seenBranchIds.add(branchIdKey)) continue;
+
+      final nestedSalon = _nestedBranch(item)?['salon'];
+      final nestedSalonName = nestedSalon is Map
+          ? (nestedSalon['name'] ?? '').toString().trim()
+          : '';
 
       assigned.add({
-        'assignment': Map<String, dynamic>.from(item),
-        'branch': Map<String, dynamic>.from(rawBranch),
+        'branchId': branchId,
         'name': branchName,
-        'salonName': _salonName(rawBranch),
+        'salonName': nestedSalonName.isNotEmpty
+            ? nestedSalonName
+            : _salonNameForBranch(branchId),
+        'allowOnlineBooking': item['allowOnlineBooking'] == true,
+        'joiningDate': item['joiningDate'],
       });
     }
 
@@ -206,116 +311,124 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
     return values;
   }
 
-  String _serviceLabel(dynamic raw) {
-    if (raw == null) return '';
-    if (raw is String || raw is num) {
-      final value = raw.toString().trim();
-      final parsedId = _toInt(value);
-      if (parsedId != null) return '${translateText('Service')} #$parsedId';
-      return value;
-    }
-    if (raw is! Map) return '';
-
-    final map = Map<String, dynamic>.from(raw);
-    for (final key in const [
-      'displayName',
-      'serviceName',
-      'name',
-      'title',
-      'label',
-      'code',
-    ]) {
-      final value = (map[key] ?? '').toString().trim();
-      if (value.isNotEmpty && value.toLowerCase() != 'null') return value;
-    }
-
-    for (final key in const [
-      'branchService',
-      'service',
-      'masterService',
-      'assignedService',
-    ]) {
-      final value = _serviceLabel(map[key]);
-      if (value.isNotEmpty) return value;
-    }
-
-    final id = _toInt(
-      map['branchServiceId'] ??
-          map['branch_service_id'] ??
-          map['serviceId'] ??
-          map['service_id'] ??
-          map['masterServiceId'] ??
-          map['master_service_id'] ??
-          map['id'],
-    );
-    return id == null ? '' : '${translateText('Service')} #$id';
-  }
-
-  List<String> _assignedServiceNames() {
-    final values = <String>[];
+  // Backend has returned `services` at least three different ways for
+  // this member: flat top-level (salon_team_part_1_updated_3.md §6.5),
+  // nested under each branches[] entry as `services` (a shape Narinder
+  // proposed but hasn't shipped as of 2026-09-02), and nested under each
+  // userBranches[] entry as `userBranchServices` (the legacy per-branch
+  // shape, e.g. GET /salons/{salonId}/team/{userId} returning userBranches
+  // — see _branchIdOf). Aggregate all three, deduped by
+  // userBranchServiceId/id, backfilling branchId from the owning
+  // assignment when an entry doesn't carry its own.
+  List<Map<String, dynamic>> _rawServices() {
+    final values = <Map<String, dynamic>>[];
     final seen = <String>{};
 
-    void add(dynamic raw) {
-      if (raw == null) return;
-      if (raw is List) {
-        for (final item in raw) {
-          add(item);
+    void collect(List items, {int? fallbackBranchId}) {
+      for (final item in items) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        if (map['branchId'] == null && fallbackBranchId != null) {
+          map['branchId'] = fallbackBranchId;
         }
-        return;
+        final key = (map['userBranchServiceId'] ??
+                map['branchServiceId'] ??
+                map['id'] ??
+                '${map['branchId']}-${map['displayName']}')
+            .toString();
+        if (seen.add(key)) values.add(map);
       }
-
-      final label = _serviceLabel(raw).trim();
-      if (label.isEmpty || label.toLowerCase() == 'null') return;
-      if (seen.add(label.toLowerCase())) values.add(label);
     }
 
-    for (final source in [
-      member['userBranchServices'],
-      member['services'],
-      member['branchServices'],
-      member['assignedServices'],
-      member['assignedBranchServices'],
-      member['serviceIds'],
-      member['branchServiceIds'],
-      member['assignedServiceIds'],
-      member['assignedBranchServiceIds'],
-    ]) {
-      add(source);
-    }
+    final topLevel = member['services'];
+    if (topLevel is List) collect(topLevel);
 
-    final selectedBranchId =
-        widget.branchId ?? _toInt(_primaryAssignment()?['branchId']);
-    final branches = member['userBranches'];
-    if (branches is List) {
-      for (final rawBranch in branches) {
-        if (rawBranch is! Map) continue;
-        final assignment = Map<String, dynamic>.from(rawBranch);
-        final branch = assignment['branch'];
-        final branchId = branch is Map
-            ? _toInt(branch['id'])
-            : _toInt(assignment['branchId'] ?? assignment['branch_id']);
-        if (selectedBranchId != null &&
-            branchId != null &&
-            branchId != selectedBranchId) {
-          continue;
-        }
-        for (final source in [
-          assignment['userBranchServices'],
-          assignment['services'],
-          assignment['branchServices'],
-          assignment['assignedServices'],
-          assignment['assignedBranchServices'],
-          assignment['serviceIds'],
-          assignment['branchServiceIds'],
-          assignment['assignedServiceIds'],
-          assignment['assignedBranchServiceIds'],
-        ]) {
-          add(source);
-        }
+    for (final branch in _rawAssignments()) {
+      final branchId = _branchIdOf(branch);
+      final rawServices = branch['services'];
+      if (rawServices is List) collect(rawServices, fallbackBranchId: branchId);
+      final rawBranchServices = branch['userBranchServices'];
+      if (rawBranchServices is List) {
+        collect(rawBranchServices, fallbackBranchId: branchId);
       }
     }
 
     return values;
+  }
+
+  List<dynamic> _rolesAcrossBranches() {
+    final combined = <dynamic>[];
+    for (final branch in _rawAssignments()) {
+      final rawRoles = branch['roles'];
+      if (rawRoles is List) combined.addAll(rawRoles);
+    }
+    if (combined.isEmpty) {
+      final topLevel = member['roles'];
+      if (topLevel is List) combined.addAll(topLevel);
+    }
+    return combined;
+  }
+
+  String _avatarUrl() {
+    return _cleanText(
+      member['profilePictureUrl'] ??
+          member['avatarUrl'] ??
+          member['photoUrl'] ??
+          member['imageUrl'],
+    );
+  }
+
+  String _cleanText(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.toLowerCase() == 'null' ? '' : text;
+  }
+
+  String _displayValue(dynamic value) {
+    final text = _cleanText(value);
+    return text.isEmpty ? translateText('N/A') : text;
+  }
+
+  String _genderLabel(dynamic value) {
+    final text = _cleanText(value);
+    if (text.isEmpty) return translateText('N/A');
+    return text[0].toUpperCase() + text.substring(1).toLowerCase();
+  }
+
+  String _phoneLabel() {
+    // The legacy per-branch shape sends a ready-made `fullPhoneNumber`
+    // instead of separate countryCode/phoneNumber fields — prefer it when
+    // present since it's already correctly combined.
+    final full = _cleanText(member['fullPhoneNumber']);
+    if (full.isNotEmpty) return full;
+    final countryCode = _cleanText(member['countryCode']);
+    final phoneNumber = _cleanText(member['phoneNumber']);
+    if (countryCode.isEmpty && phoneNumber.isEmpty) return translateText('N/A');
+    return '$countryCode $phoneNumber'.trim();
+  }
+
+  String _verificationLabel(dynamic value) {
+    return value == true
+        ? translateText('Verified')
+        : translateText('Unverified');
+  }
+
+  String _addressLabel() {
+    final raw = member['address'];
+    if (raw is! Map) return translateText('N/A');
+    final address = Map<String, dynamic>.from(raw);
+    final formatted = _cleanText(address['formattedAddress']);
+    if (formatted.isNotEmpty) return formatted;
+    final joined = [
+      address['line1'],
+      address['line2'],
+      address['city'],
+      address['village'],
+      address['district'],
+      address['state'],
+      address['country'],
+      address['postalCode'],
+    ].map(_cleanText).where((part) => part.isNotEmpty).join(', ');
+    return joined.isEmpty ? translateText('N/A') : joined;
   }
 
   int? _toInt(dynamic value) {
@@ -324,289 +437,30 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
     return int.tryParse(value?.toString() ?? '');
   }
 
-  String _dayKey(String rawDay) {
-    switch (rawDay.trim().toLowerCase()) {
-      case 'monday':
-        return 'monday';
-      case 'tuesday':
-        return 'tuesday';
-      case 'wednesday':
-        return 'wednesday';
-      case 'thursday':
-        return 'thursday';
-      case 'friday':
-        return 'friday';
-      case 'saturday':
-        return 'saturday';
-      case 'sunday':
-        return 'sunday';
-      default:
-        return '';
-    }
-  }
-
-  String _formatClock(String rawTime) {
-    final value = rawTime.trim();
-    if (value.isEmpty || value == '--') return '--';
-
-    final parts = value.split(':');
-    if (parts.length < 2) return value;
-
-    final hour = int.tryParse(parts[0]) ?? 0;
-    final minute = int.tryParse(parts[1]) ?? 0;
-    final isPm = hour >= 12;
-    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final minuteText = minute.toString().padLeft(2, '0');
-    final suffix = isPm ? 'PM' : 'AM';
-    return '$displayHour:$minuteText $suffix';
-  }
-
-  String _formatRange(String start, String end) {
-    final from = _formatClock(start);
-    final to = _formatClock(end);
-    if (from == '--' && to == '--') return '';
-    return '$from - $to';
-  }
-
-  String _scheduleText(Map<String, dynamic> item, List<String> keys) {
-    for (final key in keys) {
-      final value = item[key]?.toString().trim() ?? '';
-      if (value.isNotEmpty && value.toLowerCase() != 'null') {
-        return value;
-      }
-    }
-    return '';
-  }
-
-  String _textValue(Map<String, dynamic> item, List<String> keys) {
-    for (final key in keys) {
-      final value = (item[key] ?? '').toString().trim();
-      if (value.isNotEmpty && value.toLowerCase() != 'null') {
-        return value;
-      }
-    }
-    return '';
-  }
-
   Map<String, dynamic>? _primaryAssignment() {
-    final rawBranches = member['userBranches'];
-    if (rawBranches is! List) return null;
-
-    for (final item in rawBranches) {
-      if (item is! Map) continue;
-      final assignment = Map<String, dynamic>.from(item);
-      if (assignment.isEmpty) continue;
-      return assignment;
+    final assignments = _rawAssignments();
+    if (assignments.isEmpty) return null;
+    for (final assignment in assignments) {
+      if (assignment.isNotEmpty) return assignment;
     }
-
     return null;
   }
 
-  Map<String, List<String>> _scheduleMapFromRaw(dynamic raw) {
-    final out = <String, List<String>>{};
-
-    void addRange(String day, String start, String end) {
-      final dayKey = _dayKey(day);
-      final range = _formatRange(start, end);
-      if (dayKey.isEmpty || range.isEmpty) return;
-      out.putIfAbsent(dayKey, () => <String>[]).add(range);
-    }
-
-    void mergeFromList(List items) {
-      for (final item in items) {
-        if (item is! Map) continue;
-        final map = Map<String, dynamic>.from(item);
-        final day = _scheduleText(
-          map,
-          const ['day', 'dayName', 'weekDay', 'weekday'],
-        );
-        final slots = map['slots'];
-        if (slots is List && slots.isNotEmpty) {
-          for (final slot in slots) {
-            if (slot is! Map) continue;
-            final slotMap = Map<String, dynamic>.from(slot);
-            addRange(
-              day,
-              _scheduleText(slotMap, const ['startTime', 'start', 'from']),
-              _scheduleText(slotMap, const ['endTime', 'end', 'to']),
-            );
-          }
-        } else {
-          addRange(
-            day,
-            _scheduleText(map, const ['startTime', 'start', 'from']),
-            _scheduleText(map, const ['endTime', 'end', 'to']),
-          );
-        }
-      }
-    }
-
-    void mergeFromMap(Map<String, dynamic> map) {
-      for (final entry in map.entries) {
-        final day = _dayKey(entry.key.toString());
-        final value = entry.value;
-        if (value is List) {
-          for (final slot in value) {
-            if (slot is! Map) continue;
-            final slotMap = Map<String, dynamic>.from(slot);
-            addRange(
-              day,
-              _scheduleText(slotMap, const ['startTime', 'start', 'from']),
-              _scheduleText(slotMap, const ['endTime', 'end', 'to']),
-            );
-          }
-        } else if (value is Map) {
-          final slotMap = Map<String, dynamic>.from(value);
-          addRange(
-            day,
-            _scheduleText(slotMap, const ['startTime', 'start', 'from']),
-            _scheduleText(slotMap, const ['endTime', 'end', 'to']),
-          );
-        }
-      }
-    }
-
-    if (raw is List) {
-      mergeFromList(raw);
-    } else if (raw is Map) {
-      final map = Map<String, dynamic>.from(raw);
-      final directDays = const [
-        'monday',
-        'tuesday',
-        'wednesday',
-        'thursday',
-        'friday',
-        'saturday',
-        'sunday',
-      ].any(map.containsKey);
-
-      if (directDays) {
-        mergeFromMap(map);
-      } else {
-        for (final key in const ['schedule', 'schedules', 'workingHours']) {
-          final nested = map[key];
-          if (nested != null) {
-            final nestedMap = _scheduleMapFromRaw(nested);
-            nestedMap.forEach((day, ranges) {
-              out.putIfAbsent(day, () => <String>[]).addAll(ranges);
-            });
-          }
-        }
-      }
-    }
-
-    return out;
+  List<Map<String, dynamic>> _rawAssignments() {
+    final userBranches = member['userBranches'];
+    final branches = member['branches'];
+    final raw = userBranches is List && userBranches.isNotEmpty
+        ? userBranches
+        : branches;
+    return _assignmentList(raw);
   }
 
-  Map<String, List<String>> _memberScheduleMap() {
-    final out = <String, List<String>>{};
-
-    void merge(Map<String, List<String>> source) {
-      source.forEach((day, ranges) {
-        out.putIfAbsent(day, () => <String>[]).addAll(ranges);
-      });
-    }
-
-    merge(_scheduleMapFromRaw(member['schedules']));
-
-    final assignment = _primaryAssignment();
-    if (assignment != null) {
-      merge(
-        _scheduleMapFromRaw(
-          assignment['schedules'] ??
-              assignment['schedule'] ??
-              assignment['workingHours'],
-        ),
-      );
-    }
-
-    return out;
-  }
-
-  dynamic _scheduleSourceForBranch(int branchId) {
-    final salonList = salons ?? const <Map<String, dynamic>>[];
-    for (final rawSalon in salonList.whereType<Map>()) {
-      final salon = Map<String, dynamic>.from(rawSalon);
-      final branches = salon['branches'];
-      if (branches is List) {
-        for (final rawBranch in branches.whereType<Map>()) {
-          final branch = Map<String, dynamic>.from(rawBranch);
-          if (_toInt(branch['id']) != branchId) continue;
-          for (final key in const ['schedule', 'schedules', 'workingHours']) {
-            final value = branch[key];
-            if (value != null) return value;
-          }
-          for (final key in const ['schedule', 'schedules', 'workingHours']) {
-            final value = salon[key];
-            if (value != null) return value;
-          }
-        }
-      }
-    }
-
-    final assignment = _primaryAssignment();
-    final branch = assignment?['branch'];
-    if (branch is Map && _toInt(branch['id']) == branchId) {
-      final branchMap = Map<String, dynamic>.from(branch);
-      for (final key in const ['schedule', 'schedules', 'workingHours']) {
-        final value = branchMap[key];
-        if (value != null) return value;
-      }
-    }
-
-    return null;
-  }
-
-  Map<String, List<String>>? _branchOpenScheduleMap() {
-    final assignment = _primaryAssignment();
-    int? branchId;
-    if (assignment != null) {
-      final branch = assignment['branch'];
-      if (branch is Map) {
-        branchId = _toInt(branch['id']);
-      }
-      branchId ??= _toInt(assignment['branchId']);
-    }
+  Map<String, dynamic>? _rawAssignmentForBranch(int? branchId) {
     if (branchId == null) return null;
-
-    final source = _scheduleSourceForBranch(branchId);
-    if (source == null) return null;
-    final map = _scheduleMapFromRaw(source);
-    return map.isEmpty ? null : map;
-  }
-
-  List<_WeeklyScheduleEntry> _weeklyScheduleEntries() {
-    final memberSchedule = _memberScheduleMap();
-    final branchSchedule = _branchOpenScheduleMap();
-
-    const days = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ];
-
-    return days.map((day) {
-      final memberRanges = List<String>.from(memberSchedule[day] ?? const []);
-      final branchRanges = branchSchedule == null
-          ? const <String>[]
-          : List<String>.from(branchSchedule[day] ?? const []);
-      final salonClosed = branchSchedule != null &&
-          branchSchedule.isNotEmpty &&
-          branchRanges.isEmpty;
-
-      return _WeeklyScheduleEntry(
-        day: day,
-        statusLabel: salonClosed
-            ? 'Salon closed'
-            : (memberRanges.isEmpty ? 'Not working' : 'Working'),
-        timeRanges: memberRanges,
-        isSalonClosed: salonClosed,
-      );
-    }).toList();
+    for (final assignment in _rawAssignments()) {
+      if (_branchIdOf(assignment) == branchId) return assignment;
+    }
+    return null;
   }
 
   @override
@@ -614,55 +468,47 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
     final String firstName = (member['firstName'] ?? '').toString();
     final String lastName = (member['lastName'] ?? '').toString();
     final String name = '$firstName $lastName'.trim();
-    final roles = _labelList(member['roles'], const ['label', 'name', 'code']);
+    final roles =
+        _labelList(_rolesAcrossBranches(), const ['label', 'name', 'code']);
     final String role = roles.isNotEmpty ? roles.join(', ') : 'Staff';
-    final specializations = _labelList(
+    final specialities = _labelList(
       member['specialities'] ??
           member['specializations'] ??
           member['speciality'] ??
           member['specialization'],
       const ['name', 'label', 'code', 'title', 'value'],
     );
-    final assignedServices = _assignedServiceNames();
+    final imageUrl = _avatarUrl();
 
     debugPrint('Member: $member');
 
     debugPrint(member.keys.toList().toString());
     debugPrint('Specialities: ${member['specialities']}');
     debugPrint('Specializations: ${member['specializations']}');
-    final about = _textValue(
-      member,
-      const [
-        'info',
-        'brief',
-        'description',
-        'about',
-        'bio',
-        'aboutMe',
-        'profileSummary',
-        'professionalSummary',
-        'professionalBio',
-      ],
-    );
     final String rating = professionalRating.toStringAsFixed(1);
-    final branches = member['userBranches'];
 
-    final String experience =
-        branches is List && branches.isNotEmpty && branches.first is Map
-            ? '${branches.first['experience'] ?? 0} year'
-            : '${member['experience'] ?? 0} year';
+    // `careerStartDate`/`careerExperienceYears` (part_2 §3) are a
+    // career-wide figure on the profile. `joiningDate` is per-branch —
+    // see branches[].joiningDate in _AssignedBranchRow instead of here.
+    final careerExperienceYears = member['careerExperienceYears'];
+    final String experience = careerExperienceYears == null
+        ? translateText('N/A')
+        : '$careerExperienceYears ${translateText('year')}';
+    final String careerStart = (member['careerStartDate'] ?? '').toString();
 
-    final assignedBranches = _assignedBranches(member['userBranches']);
-    final List userBranches = (member['userBranches'] ?? []) as List;
-    final String joinedAt = userBranches.isNotEmpty
-        ? (userBranches[0]['joiningDate'] ?? 'N/A').toString()
-        : 'N/A';
-    final weeklySchedule = _weeklyScheduleEntries();
+    final assignedBranches = _assignedBranches(_rawAssignments());
+    final rawServices = _rawServices();
     final displayName = name.isEmpty ? translateText('Team Member') : name;
     final initials = _initials(firstName, lastName).isEmpty
         ? 'TM'
         : _initials(firstName, lastName);
-    final isActive = _isActiveEntity(member);
+    // isProfileComplete (part_1 §5.4) is the authoritative "Active" vs
+    // "Setup Required" signal — the same boolean the list screen's
+    // teamDisplayStatus is derived from. There is no separate account-
+    // active/deactivated flag on this API.
+    final isActive = member.containsKey('isProfileComplete')
+        ? member['isProfileComplete'] == true
+        : _isActiveEntity(member);
 
     return Scaffold(
       backgroundColor: _memberDetailBackground,
@@ -700,6 +546,7 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                 const SizedBox(height: 18),
                 _MemberSummaryCard(
                   initials: initials,
+                  imageUrl: imageUrl,
                   name: displayName,
                   role: role,
                   rating: rating,
@@ -711,7 +558,12 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                   facts: [
                     _DetailFactData(label: 'Role', value: role),
                     _DetailFactData(label: 'Experience', value: experience),
-                    _DetailFactData(label: 'Joined At', value: joinedAt),
+                    _DetailFactData(
+                      label: 'Career Start',
+                      value: careerStart.isEmpty
+                          ? translateText('N/A')
+                          : careerStart,
+                    ),
                     _DetailFactData(
                       label: 'Assigned Branches',
                       value: assignedBranches.length.toString(),
@@ -720,75 +572,199 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                 ),
                 const SizedBox(height: 14),
                 _DetailSectionCard(
-                  icon: Icons.info_outline_rounded,
-                  title: 'About',
-                  child: about.isEmpty
-                      ? const _EmptyDetailText(
-                          text: 'No about information added')
-                      : Text(
-                          about,
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 12,
-                            height: 1.55,
-                            fontWeight: FontWeight.w600,
-                            color: _memberDetailText,
+                  icon: Icons.badge_outlined,
+                  title: 'Profile',
+                  child: _ProfileDetailList(
+                    rows: [
+                      _ProfileDetailRowData(
+                        label: 'Phone',
+                        value: _phoneLabel(),
+                        trailing: _verificationLabel(member['phoneVerified']),
+                      ),
+                      _ProfileDetailRowData(
+                        label: 'Email',
+                        value: _displayValue(member['email']),
+                        trailing: _verificationLabel(member['emailVerified']),
+                      ),
+                      _ProfileDetailRowData(
+                        label: 'Gender',
+                        value: _genderLabel(member['gender']),
+                      ),
+                      _ProfileDetailRowData(
+                        label: 'Bio',
+                        // Legacy per-branch shape calls this field `info`.
+                        value: _displayValue(member['bio'] ?? member['info']),
+                      ),
+                      _ProfileDetailRowData(
+                        label: 'Address',
+                        value: _addressLabel(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _DetailSectionCard(
+                  icon: Icons.payments_outlined,
+                  title: 'Employment & Compensation',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        translateText(
+                          'Record employment type and monthly base pay for this member.',
+                        ),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 12,
+                          color: _memberDetailMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            final salonId = widget.salonId;
+                            final userId = _toInt(member['userId']);
+                            if (salonId == null || userId == null) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TeamMemberCompensationScreen(
+                                  salonId: salonId,
+                                  userId: userId,
+                                  memberName: displayName,
+                                ),
+                              ),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.starColor),
+                            foregroundColor: AppColors.starColor,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
+                          icon:
+                              const Icon(Icons.arrow_forward_rounded, size: 16),
+                          label: Text(
+                            translateText('Manage Employment & Compensation'),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _DetailSectionCard(
+                  icon: Icons.emoji_objects_outlined,
+                  title: 'Specialities',
+                  child: specialities.isEmpty
+                      ? const _EmptyDetailText(text: 'No specialities added')
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final speciality in specialities)
+                              _DetailChip(label: speciality),
+                          ],
                         ),
                 ),
                 const SizedBox(height: 14),
-                _DetailSectionCard(
-                  icon: Icons.schedule_outlined,
-                  title: 'Weekly Schedule',
-                  child: weeklySchedule.isEmpty
-                      ? const _EmptyDetailText(text: 'No weekly schedule found')
-                      : _WeeklyScheduleSection(entries: weeklySchedule),
-                ),
-                const SizedBox(height: 14),
-                _DetailSectionCard(
-                  icon: Icons.design_services_outlined,
-                  title: 'Assigned Services',
-                  child: assignedServices.isEmpty
-                      ? const _EmptyDetailText(
-                          text: 'No services assigned',
-                        )
-                      : _AssignedServicesSection(services: assignedServices),
-                ),
-                const SizedBox(height: 14),
-                // _DetailSectionCard(
-                //   icon: Icons.emoji_objects_outlined,
-                //   title: 'Specializations',
-                //   child: specializations.isEmpty
-                //       ? const _EmptyDetailText(text: 'No specializations added')
-                //       : Wrap(
-                //           spacing: 8,
-                //           runSpacing: 8,
-                //           children: [
-                //             for (final specialization in specializations)
-                //               _DetailChip(label: specialization),
-                //           ],
-                //         ),
-                // ),
-                // const SizedBox(height: 14),
                 _DetailSectionCard(
                   icon: Icons.apartment_outlined,
                   title: 'Assigned Branches',
-                  child: assignedBranches.isEmpty
-                      ? const _EmptyDetailText(text: 'No branches assigned')
-                      : Column(
-                          children: [
-                            for (var i = 0;
-                                i < assignedBranches.length;
-                                i++) ...[
-                              _AssignedBranchRow(branch: assignedBranches[i]),
-                              if (i != assignedBranches.length - 1)
-                                const Divider(
-                                  height: 1,
-                                  color: _memberDetailBorder,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              rawServices.isEmpty
+                                  ? translateText('No services assigned')
+                                  : translateText(
+                                      '{n} services assigned',
+                                      params: {'n': '${rawServices.length}'},
+                                    ),
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 12,
+                                color: _memberDetailMuted,
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: rawServices.isEmpty
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            TeamMemberServicesScreen(
+                                          memberName: displayName,
+                                          services: rawServices,
+                                          branches: assignedBranches,
+                                        ),
+                                      ),
+                                    ),
+                            icon: const Icon(
+                              Icons.design_services_outlined,
+                              size: 15,
+                            ),
+                            label: Text(
+                              translateText('View Services'),
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.starColor,
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Divider(height: 1, color: _memberDetailBorder),
+                      const SizedBox(height: 4),
+                      if (assignedBranches.isEmpty)
+                        const _EmptyDetailText(text: 'No branches assigned')
+                      else
+                        for (var i = 0; i < assignedBranches.length; i++) ...[
+                          _AssignedBranchRow(
+                            branch: assignedBranches[i],
+                            onViewSchedule: () {
+                              final branchId =
+                                  _toInt(assignedBranches[i]['branchId']);
+                              final assignment =
+                                  _rawAssignmentForBranch(branchId) ??
+                                      const <String, dynamic>{};
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TeamMemberScheduleScreen(
+                                    memberName: displayName,
+                                    branchName:
+                                        (assignedBranches[i]['name'] ?? '')
+                                            .toString(),
+                                    branchAssignment: assignment,
+                                    salons: salons,
+                                  ),
                                 ),
-                            ],
-                          ],
-                        ),
+                              );
+                            },
+                          ),
+                          if (i != assignedBranches.length - 1)
+                            const Divider(
+                              height: 1,
+                              color: _memberDetailBorder,
+                            ),
+                        ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -808,238 +784,10 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
   }
 }
 
-class _WeeklyScheduleEntry {
-  const _WeeklyScheduleEntry({
-    required this.day,
-    required this.statusLabel,
-    required this.timeRanges,
-    required this.isSalonClosed,
-  });
-
-  final String day;
-  final String statusLabel;
-  final List<String> timeRanges;
-  final bool isSalonClosed;
-}
-
-class _WeeklyScheduleSection extends StatefulWidget {
-  const _WeeklyScheduleSection({required this.entries});
-
-  final List<_WeeklyScheduleEntry> entries;
-
-  @override
-  State<_WeeklyScheduleSection> createState() => _WeeklyScheduleSectionState();
-}
-
-class _WeeklyScheduleSectionState extends State<_WeeklyScheduleSection> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleEntries =
-        _expanded ? widget.entries : widget.entries.take(3).toList();
-    final hasOverflow = widget.entries.length > 3;
-
-    return Column(
-      children: [
-        for (var i = 0; i < visibleEntries.length; i++) ...[
-          _WeeklyScheduleRow(entry: visibleEntries[i]),
-          if (i != visibleEntries.length - 1)
-            const Divider(height: 1, color: _memberDetailBorder),
-        ],
-        if (hasOverflow) ...[
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => setState(() => _expanded = !_expanded),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.starColor,
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                translateText(_expanded ? 'See less' : 'See more'),
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _AssignedServicesSection extends StatefulWidget {
-  const _AssignedServicesSection({required this.services});
-
-  final List<String> services;
-
-  @override
-  State<_AssignedServicesSection> createState() =>
-      _AssignedServicesSectionState();
-}
-
-class _AssignedServicesSectionState extends State<_AssignedServicesSection> {
-  static const int _collapsedCount = 6;
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasOverflow = widget.services.length > _collapsedCount;
-    final visibleServices = _expanded || !hasOverflow
-        ? widget.services
-        : widget.services.take(_collapsedCount).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            const spacing = 8.0;
-            final itemWidth = (constraints.maxWidth - spacing * 2) / 3;
-            return Wrap(
-              spacing: spacing,
-              runSpacing: 8,
-              children: [
-                for (final service in visibleServices)
-                  SizedBox(
-                    width: itemWidth.clamp(72.0, double.infinity),
-                    child: _AssignedServiceChip(label: service),
-                  ),
-              ],
-            );
-          },
-        ),
-        if (hasOverflow) ...[
-          const SizedBox(height: 10),
-          TextButton(
-            onPressed: () => setState(() => _expanded = !_expanded),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.starColor,
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              translateText(_expanded ? 'See less' : 'See more'),
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _AssignedServiceChip extends StatelessWidget {
-  const _AssignedServiceChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFAF1),
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: const Color(0xFFE8C774)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: _memberDetailText,
-        ),
-      ),
-    );
-  }
-}
-
-class _WeeklyScheduleRow extends StatelessWidget {
-  const _WeeklyScheduleRow({required this.entry});
-
-  final _WeeklyScheduleEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final dayLabel = entry.day.isEmpty
-        ? 'Day'
-        : entry.day[0].toUpperCase() + entry.day.substring(1).toLowerCase();
-    final isWorking = entry.timeRanges.isNotEmpty;
-    final statusColor = entry.isSalonClosed
-        ? const Color(0xFFC44545)
-        : isWorking
-            ? const Color(0xFF2F8A4C)
-            : _memberDetailMuted;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  translateText(dayLabel),
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: _memberDetailText,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _DetailStatusPill(
-                  label: translateText(entry.statusLabel),
-                  color: statusColor,
-                ),
-                if (isWorking) ...[
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    alignment: WrapAlignment.end,
-                    children: [
-                      for (final range in entry.timeRanges)
-                        _SlotPill(label: range),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MemberSummaryCard extends StatelessWidget {
   const _MemberSummaryCard({
     required this.initials,
+    required this.imageUrl,
     required this.name,
     required this.role,
     required this.rating,
@@ -1048,6 +796,7 @@ class _MemberSummaryCard extends StatelessWidget {
   });
 
   final String initials;
+  final String imageUrl;
   final String name;
   final String role;
   final String rating;
@@ -1061,24 +810,10 @@ class _MemberSummaryCard extends StatelessWidget {
       decoration: _memberCardDecoration(),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF3D5),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE8C774)),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.starColor,
-                fontWeight: FontWeight.w900,
-                fontSize: 18,
-              ),
-            ),
+          _MemberAvatar(
+            imageUrl: imageUrl,
+            initials: initials,
+            size: 46,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1113,10 +848,10 @@ class _MemberSummaryCard extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     _DetailStatusPill(
-                      label: isActive ? 'Active' : 'Inactive',
+                      label: isActive ? 'Active' : 'Setup Required',
                       color: isActive
                           ? const Color(0xFF2F8A4C)
-                          : _memberDetailMuted,
+                          : const Color(0xFFB45309),
                     ),
                     _DetailStatusPill(
                       label: reviewCount > 0
@@ -1130,6 +865,67 @@ class _MemberSummaryCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MemberAvatar extends StatelessWidget {
+  const _MemberAvatar({
+    required this.imageUrl,
+    required this.initials,
+    this.size = 46,
+  });
+
+  final String imageUrl;
+  final String initials;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          imageUrl,
+          height: size,
+          width: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              _MemberInitialsAvatar(initials: initials, size: size),
+        ),
+      );
+    }
+    return _MemberInitialsAvatar(initials: initials, size: size);
+  }
+}
+
+class _MemberInitialsAvatar extends StatelessWidget {
+  const _MemberInitialsAvatar({
+    required this.initials,
+    this.size = 46,
+  });
+
+  final String initials;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: size,
+      width: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFFFFF3D5),
+        border: Border.all(color: const Color(0xFFE8C774)),
+      ),
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: AppColors.starColor,
+          fontWeight: FontWeight.w900,
+          fontSize: size * 0.34,
+        ),
       ),
     );
   }
@@ -1265,6 +1061,89 @@ class _DetailSectionCard extends StatelessWidget {
   }
 }
 
+class _ProfileDetailRowData {
+  const _ProfileDetailRowData({
+    required this.label,
+    required this.value,
+    this.trailing,
+  });
+
+  final String label;
+  final String value;
+  final String? trailing;
+}
+
+class _ProfileDetailList extends StatelessWidget {
+  const _ProfileDetailList({required this.rows});
+
+  final List<_ProfileDetailRowData> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          _ProfileDetailRow(row: rows[i]),
+          if (i != rows.length - 1)
+            const Divider(height: 1, color: _memberDetailBorder),
+        ],
+      ],
+    );
+  }
+}
+
+class _ProfileDetailRow extends StatelessWidget {
+  const _ProfileDetailRow({required this.row});
+
+  final _ProfileDetailRowData row;
+
+  @override
+  Widget build(BuildContext context) {
+    final trailing = row.trailing;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 82,
+            child: Text(
+              translateText(row.label),
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: AppColors.starColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              row.value,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: _memberDetailText,
+              ),
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            _DetailStatusPill(
+              label: trailing,
+              color: trailing == translateText('Verified')
+                  ? const Color(0xFF2F8A4C)
+                  : _memberDetailMuted,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailStatusPill extends StatelessWidget {
   const _DetailStatusPill({required this.label, required this.color});
 
@@ -1287,33 +1166,6 @@ class _DetailStatusPill extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w900,
           color: color,
-        ),
-      ),
-    );
-  }
-}
-
-class _SlotPill extends StatelessWidget {
-  const _SlotPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F2EA),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _memberDetailBorder),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: _memberDetailText,
         ),
       ),
     );
@@ -1348,13 +1200,20 @@ class _DetailChip extends StatelessWidget {
 }
 
 class _AssignedBranchRow extends StatelessWidget {
-  const _AssignedBranchRow({required this.branch});
+  const _AssignedBranchRow({required this.branch, this.onViewSchedule});
 
   final Map<String, dynamic> branch;
+  final VoidCallback? onViewSchedule;
 
   @override
   Widget build(BuildContext context) {
     final salonName = branch['salonName'].toString().trim();
+    final joiningDate = branch['joiningDate']?.toString().trim() ?? '';
+    final subtitleParts = [
+      if (salonName.isNotEmpty) salonName,
+      if (joiningDate.isNotEmpty && joiningDate.toLowerCase() != 'null')
+        '${translateText('Joined')} $joiningDate',
+    ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -1388,10 +1247,10 @@ class _AssignedBranchRow extends StatelessWidget {
                     color: _memberDetailText,
                   ),
                 ),
-                if (salonName.isNotEmpty) ...[
+                if (subtitleParts.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(
-                    salonName,
+                    subtitleParts.join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1404,6 +1263,26 @@ class _AssignedBranchRow extends StatelessWidget {
               ],
             ),
           ),
+          if (onViewSchedule != null) ...[
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: onViewSchedule,
+              icon: const Icon(Icons.schedule_outlined, size: 14),
+              label: Text(
+                translateText('View Schedule'),
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.starColor,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
         ],
       ),
     );

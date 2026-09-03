@@ -13,57 +13,24 @@ Map<String, dynamic>? _primaryBranchAssignment(Map<String, dynamic> member) {
   return null;
 }
 
-List<String> _roleTexts(Map<String, dynamic> member) {
-  final labels = <String>[];
-  final assignment = _primaryBranchAssignment(member);
-
-  void addLabel(dynamic raw) {
-    if (raw is List) {
-      for (final item in raw) {
-        addLabel(item);
-      }
-      return;
-    }
-    if (raw is! Map) {
-      final label = raw?.toString().trim() ?? '';
-      if (label.isEmpty || label.toLowerCase() == 'null') return;
-      final normalized = label.toLowerCase();
-      if (!labels.contains(normalized)) {
-        labels.add(normalized);
-      }
-      return;
-    }
-    final label =
-        (raw['label'] ?? raw['name'] ?? raw['code'] ?? '').toString().trim();
-    if (label.isEmpty || label.toLowerCase() == 'null') return;
-    final normalized = label.toLowerCase();
-    if (!labels.contains(normalized)) {
-      labels.add(normalized);
-    }
-  }
-
-  addLabel(member['roles']);
-  addLabel(member['roleCodes']);
-  addLabel(member['roleIds']);
-  addLabel(member['role']);
-  if (assignment != null) {
-    addLabel(assignment['roles']);
-    addLabel(assignment['roleCodes']);
-    addLabel(assignment['roleIds']);
-    addLabel(assignment['role']);
-    addLabel(assignment['professionalStatus']);
-  }
-  return labels;
-}
-
-/// Every field AddTeam.dart's own validators treat as compulsory
-/// (`_vPhone`, `_vFirstName`/`_vLastName`, `_vEmail`, `_vAddress`,
-/// `_vGender`, `_vRoles`, `_vSpecs`, `_vJoiningDate`, `_vBrief`,
-/// `_vExperience`) — checked here regardless of role, since these are
-/// required for any team member, not just stylists. Shared between the
-/// team list card and the Assign User flow so both apply the same rule.
-List<String> computeTeamMemberMissingFields(Map<String, dynamic> member) {
-  final missing = <String>[];
+/// The team list card no longer shows a "Setup incomplete" nudge — the old
+/// direct "Add Team Member" flow (AddTeam.dart) collected gender, an
+/// about/bio blurb, address, specializations, role, experience, joining
+/// date and services up front, so flagging any of those as missing meant
+/// something the owner could actually go fix. That flow is gone: invite
+/// only collects name/phone/email, and the rest is optional going forward,
+/// so there's nothing left worth nagging about post-assignment.
+///
+/// This still gates *starting* the assign-to-branch flow, checking only
+/// what the invite step (InviteTeamMemberScreen) collects up front —
+/// role, experience, joining date and services are collected *during*
+/// that same flow (later screens in the AssignUser.dart → ... →
+/// TeamOnlineAvailabilityScreen chain), so checking for them before the
+/// flow even starts would always fail and block every first-time
+/// assignment.
+List<String> computeTeamMemberPreAssignMissingFields(
+  Map<String, dynamic> member,
+) {
   final firstName = _cleanText(member['firstName']);
   final lastName = _cleanText(member['lastName']);
   final email = _cleanText(member['email']);
@@ -74,41 +41,8 @@ List<String> computeTeamMemberMissingFields(Map<String, dynamic> member) {
         member['phoneNumber'] ??
         member['phone'],
   );
-  final gender = _cleanText(
-    assignment?['gender'] ??
-        assignment?['sex'] ??
-        member['gender'] ??
-        member['sex'],
-  );
-  final info = _cleanText(
-    assignment?['info'] ??
-        assignment?['brief'] ??
-        member['info'] ??
-        member['brief'] ??
-        member['bio'] ??
-        member['about'],
-  );
-  final experience =
-      _cleanText(assignment?['experience'] ?? member['experience']);
-  final joiningDate = _cleanText(
-    assignment?['joiningDate'] ?? member['joiningDate'],
-  );
-  final branchServices = assignment?['userBranchServices'] ??
-      assignment?['branchServiceIds'] ??
-      member['userBranchServices'] ??
-      member['branchServiceIds'] ??
-      member['services'];
-  final specialities = assignment?['specialities'] ??
-      assignment?['specializations'] ??
-      assignment?['specialties'] ??
-      member['specialities'] ??
-      member['specializations'] ??
-      member['specialties'] ??
-      member['specialitiesList'] ??
-      member['specializationsList'] ??
-      member['specialtiesList'];
-  final address = _cleanText(assignment?['address'] ?? member['address']);
 
+  final missing = <String>[];
   if (firstName.isEmpty || lastName.isEmpty) {
     missing.add('name');
   }
@@ -118,33 +52,8 @@ List<String> computeTeamMemberMissingFields(Map<String, dynamic> member) {
   if (email.isEmpty) {
     missing.add('email');
   }
-  if (gender.isEmpty) {
-    missing.add('gender');
-  }
-  if (_roleTexts(member).isEmpty) {
-    missing.add('role');
-  }
-  if (experience.isEmpty) {
-    missing.add('experience');
-  }
-  if (joiningDate.isEmpty) {
-    missing.add('joining date');
-  }
-  if (info.isEmpty) {
-    missing.add('about');
-  }
-  if (address.isEmpty) {
-    missing.add('address');
-  }
-  if (branchServices is! List || branchServices.isEmpty) {
-    missing.add('services');
-  }
-  if (specialities is! List || specialities.isEmpty) {
-    missing.add('specializations');
-  }
-
   return missing;
 }
 
-bool teamMemberNeedsSetupCompletion(Map<String, dynamic> member) =>
-    computeTeamMemberMissingFields(member).isNotEmpty;
+bool teamMemberNeedsPreAssignCompletion(Map<String, dynamic> member) =>
+    computeTeamMemberPreAssignMissingFields(member).isNotEmpty;

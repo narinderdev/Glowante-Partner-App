@@ -711,7 +711,7 @@ class _ProfileSettingsTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -727,13 +727,13 @@ class _ProfileSettingsTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 50,
-                height: 50,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF7F4F1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: AppColors.starColor, size: 26),
+                child: Icon(icon, color: AppColors.starColor, size: 22),
               ),
               const SizedBox(width: 18),
               Expanded(

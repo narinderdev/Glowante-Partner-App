@@ -32,3 +32,12 @@ Runner/GeneratedPluginRegistrant.*
 !default.mode2v3
 !default.pbxuser
 !default.perspectivev3
+
+# fastlane secrets — App Store Connect API key + env vars, never committed.
+fastlane/AuthKey*.p8
+fastlane/.env
+fastlane/.env.*
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output

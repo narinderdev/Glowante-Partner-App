@@ -3,7 +3,6 @@ import 'select_services_AssignUser.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
-import '../utils/team_member_completeness.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -98,7 +97,13 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
 
   Set<int> _assignedBranchIds() {
     final assignedBranchIds = <int>{};
-    final rawAssignments = widget.member['userBranches'];
+    // salon_team_part_1_updated_3.md §6.2: MemberTeamListItem.branches is a
+    // flat TeamBranchAssignmentSummary[] ({branchId, branchName, active,
+    // allowOnlineBooking}) — no nested `branch` object like the old
+    // userBranches shape. Fall back to userBranches for safety in case an
+    // older-shaped member map ever reaches this screen.
+    final rawAssignments =
+        widget.member['branches'] ?? widget.member['userBranches'];
     if (rawAssignments is! List) {
       return assignedBranchIds;
     }
@@ -207,24 +212,8 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
     required String joinedAt,
     required List<Branch> availableBranches,
   }) async {
-    if (teamMemberNeedsSetupCompletion(widget.member)) {
-      Fluttertoast.showToast(
-        msg: translateText('Complete profile setup first.'),
-        toastLength: Toast.LENGTH_LONG,
-      );
-      return;
-    }
-
     final branch =
         availableBranches.firstWhere((b) => b.id == selectedBranchId);
-
-    if (!_memberBelongsToSalon(branch.salonId)) {
-      Fluttertoast.showToast(
-        msg: translateText('This member isn\'t part of this salon.'),
-        toastLength: Toast.LENGTH_LONG,
-      );
-      return;
-    }
 
     final navigator = Navigator.of(context);
     final rememberedSelectedServiceIds =
@@ -236,7 +225,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
         builder: (_) => SelectServicesAssignUser(
           salonId: branch.salonId,
           branchId: branch.id,
-          userId: widget.member['id'],
+          userId: _toInt(widget.member['userId'] ?? widget.member['id']) ?? 0,
           joinedAt: rememberedJoiningDate ?? joinedAt,
           member: widget.member,
           salons: widget.salons,

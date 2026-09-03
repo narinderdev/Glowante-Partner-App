@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/screens/onboarding_screen.dart';
 import 'package:bloc_onboarding/screens/bottom_nav.dart';
 import 'package:bloc_onboarding/screens/stylist_bottom_nav.dart';
 import 'package:bloc_onboarding/screens/UpdateProfileScreen.dart';
+import '../services/app_update_gate.dart';
 import '../services/auth_session_manager.dart';
+import '../services/navigation_service.dart';
 import '../services/stylist_branch_selection.dart';
 import '../services/token_expiration_service.dart';
 import '../services/user_role_session.dart';
@@ -37,7 +41,14 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 1000));
     if (!mounted) return;
-    _checkLoginStatus(); // 👈 check token after animation
+
+    await _checkLoginStatus(); // 👈 check token after animation, always routes onward
+
+    // Gate on the minimum supported version (Firebase Remote Config) only
+    // *after* routing to login/home/onboarding, as an overlay on top of
+    // that screen — never blocks or interrupts the splash sequence itself.
+    // Same shared gate the mid-session (any-screen) checks in MyApp use.
+    unawaited(AppUpdateGate.instance.checkAndShowIfNeeded(appNavigatorKey));
   }
 
   Future<void> startSplashAnimation() async {

@@ -348,9 +348,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               setSheetState(() => isLoggingOut = false);
               Navigator.pop(ctx);
 
-              if (!success) {
-                Fluttertoast.showToast(msg: failureText);
-              }
+              Fluttertoast.showToast(
+                msg: success
+                    ? translateText('Logged out successfully')
+                    : failureText,
+              );
 
               await AuthSessionManager.instance.forceLogout(
                 reason: success ? 'user_logout' : 'user_logout_failed',
@@ -440,6 +442,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               if (success) {
                 Navigator.pop(ctx);
+                Fluttertoast.showToast(
+                  msg: translateText('Account deleted successfully'),
+                );
                 salonListCubit.clear();
                 categoryCubit.clear();
                 navigator.pushAndRemoveUntil(

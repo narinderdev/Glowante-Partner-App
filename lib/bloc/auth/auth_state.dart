@@ -11,5 +11,8 @@ class AuthLoginSuccess extends AuthState {
 
 class AuthError extends AuthState {
   final String message;
-  AuthError(this.message);
+  final String? code;
+  final int? retryAfterSeconds;
+
+  AuthError(this.message, {this.code, this.retryAfterSeconds});
 }

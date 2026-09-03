@@ -33,7 +33,6 @@ class AppTranslations {
       'Add Customer': 'Add Customer',
       'Add Deal': 'Add Deal',
       'Add Location': 'Add Location',
-      'Add Member': 'Add Member',
       'Add Package': 'Add Package',
       'Add Packages': 'Add Packages',
       'Add Salon': 'Add Salon',
@@ -948,7 +947,7 @@ class AppTranslations {
       'Add Deal': 'डील जोड़ें',
       'Package': 'पैकेज',
       'Add Location': 'स्थान जोड़ें',
-      'Add Member': 'सदस्य जोड़ें',
+      'Invite Member': 'सदस्य को आमंत्रित करें',
       'Add Package': 'पैकेज जोड़ें',
       'Add Packages': 'पैकेज जोड़ें',
       'Add Salon': 'सैलून जोड़ें',
@@ -1190,6 +1189,16 @@ class AppTranslations {
       'Offer deleted successfully': 'ऑफ़र सफलतापूर्वक हटाया गया',
       'Offer updated successfully': 'ऑफ़र सफलतापूर्वक अपडेट किया गया',
       'Active': 'सक्रिय',
+      'All Members': 'सभी सदस्य',
+      'Setup Required': 'सेटअप आवश्यक',
+      'Complete setup': 'सेटअप पूरा करें',
+      'Sort by': 'इसके अनुसार क्रमबद्ध करें',
+      'Name A-Z': 'नाम A-Z',
+      'Name Z-A': 'नाम Z-A',
+      'ON': 'चालू',
+      'OFF': 'बंद',
+      'Showing {start} to {end} of {total} members':
+          '{total} में से {start} से {end} सदस्य दिखाए जा रहे हैं',
       'Other': 'अन्य',
       'Photos': 'फोटो',
       'View Photos': 'फोटो देखें',
@@ -1426,6 +1435,8 @@ class AppTranslations {
       'Search salons or branches': 'सैलून या शाखाएँ खोजें',
       'Select': 'चुनें',
       'Select Branch': 'शाखा चुनें',
+      'Filter by Branch': 'शाखा के अनुसार फ़िल्टर करें',
+      'Filter by Salon': 'सैलून के अनुसार फ़िल्टर करें',
       'branches': 'शाखाओं',
       'Select All Services': 'सभी सेवाएँ चुनें',
       'Select Category': 'श्रेणी चुनें',
@@ -1621,6 +1632,8 @@ class AppTranslations {
       'Enter otp': 'ओटीपी दर्ज करें',
       'Roles': 'भूमिकाएँ',
       'Select Roles': 'भूमिकाएँ चुनें',
+      'No options available': 'कोई विकल्प उपलब्ध नहीं है',
+      'Experience (years)': 'अनुभव (वर्ष)',
       'Specializations': 'विशेषज्ञताएँ',
       'Select Specializations': 'विशेषज्ञताएँ चुनें',
       'Joining Date': 'जॉइनिंग तिथि',
@@ -1950,9 +1963,11 @@ class AppTranslations {
       'Assign Permissions': 'अनुमतियाँ निर्दिष्ट करें',
       'Assign services and roles to help your team members shine in their expertise.':
           'अपनी टीम के सदस्यों को उनकी विशेषज्ञता में चमक लाने में मदद करने के लिए सेवाएँ और भूमिकाएँ सौंपें।',
+      'Assign to a branch first': 'पहले किसी शाखा में नियुक्त करें',
       'Assign to branch': 'शाखा को सौंपें',
       'Assigned Artisan': 'नियुक्त कारीगर',
       'Assigned branches': 'सौंपी गई शाखाएँ',
+      'No branch assigned': 'कोई शाखा नहीं सौंपी गई',
       'At least one day must be working.':
           'कम से कम एक दिन तो काम करना ही चाहिए.',
       'Attendance': 'उपस्थिति',
@@ -2054,7 +2069,6 @@ class AppTranslations {
       'Commission type': 'कमीशन का प्रकार',
       'Complete Purchase': 'पूर्ण खरीद',
       'Complete profile setup first.': 'पहले प्रोफ़ाइल सेटअप पूरा करें.',
-      'Complete setup': 'पूरा सेटअप',
       'Completed and in-progress actions will appear here once available.':
           'पूर्ण और प्रगतिरत कार्रवाइयां उपलब्ध होते ही यहां दिखाई देंगी।',
       'Concludes': 'समाप्ति समय',
@@ -2357,6 +2371,7 @@ class AppTranslations {
       'No working hours were provided for this day. Please choose another date to view or add bookings.':
           'इस दिन के लिए कोई कार्य समय प्रदान नहीं किया गया था। कृपया बुकिंग देखने या जोड़ने के लिए कोई अन्य तिथि चुनें।',
       'Not Assigned': 'सौंपा नहीं गया है',
+      'Not assigned': 'सौंपा नहीं गया',
       'Not available': 'उपलब्ध नहीं है',
       'Notes': 'टिप्पणियाँ',
       'Notifications': 'सूचनाएं',
@@ -2364,6 +2379,8 @@ class AppTranslations {
       'Online booking': 'ऑनलाइन बुकिंग',
       'Only letters and spaces are allowed.':
           'केवल अक्षर और रिक्त स्थान की अनुमति है.',
+      'Only letters, numbers and spaces are allowed.':
+          'केवल अक्षर, संख्याएँ और रिक्त स्थान की अनुमति है.',
       'Only letters, numbers, and spaces are allowed':
           'केवल अक्षर, संख्या और रिक्त स्थान की अनुमति है',
       'Only letters, numbers, spaces, and & are allowed':
@@ -2597,7 +2614,6 @@ class AppTranslations {
       'Set as default': 'डिफाल्ट के रूप में सेट',
       'Set up salary and commission for your team':
           'अपनी टीम के लिए वेतन और कमीशन निर्धारित करें',
-      'Setup incomplete': 'सेटअप अधूरा',
       'Should this team member be available for online booking?':
           'क्या यह टीम सदस्य ऑनलाइन बुकिंग के लिए उपलब्ध होना चाहिए?',
       'Show less': 'कम दिखाओ',
@@ -3516,6 +3532,60 @@ class AppTranslations {
       'Google Pay': 'गूगल पे',
       'PhonePe': 'फ़ोनपे',
       'Paytm': 'पेटीएम',
+      'Unable to start OTP verification. Please try again.':
+          'OTP सत्यापन शुरू नहीं हो सका। कृपया फिर से प्रयास करें।',
+      'You have joined the salon team.': 'आप सैलून टीम में शामिल हो गए हैं।',
+      'You have joined {salon}.': 'आप {salon} में शामिल हो गए हैं।',
+      "You've been invited to join a salon. Verify your number to continue.":
+          'आपको एक सैलून में शामिल होने के लिए आमंत्रित किया गया है। जारी रखने के लिए अपना नंबर सत्यापित करें।',
+      "You've been invited to join {salon}. Verify your number to continue.":
+          'आपको {salon} में शामिल होने के लिए आमंत्रित किया गया है। जारी रखने के लिए अपना नंबर सत्यापित करें।',
+      'Unable to accept this invitation right now.':
+          'अभी इस आमंत्रण को स्वीकार नहीं किया जा सका।',
+      'Invite Team Member': 'टीम सदस्य को आमंत्रित करें',
+      "We'll email them a link to join your salon on Glowante.":
+          'हम उन्हें Glowante पर आपके सैलून में शामिल होने के लिए एक लिंक ईमेल करेंगे।',
+      'Message (optional)': 'संदेश (वैकल्पिक)',
+      'Join our team at {salon}.': '{salon} में हमारी टीम से जुड़ें।',
+      'Send Invitation': 'आमंत्रण भेजें',
+      'Unable to send this invitation': 'यह आमंत्रण भेजा नहीं जा सका',
+      'Invitation sent': 'आमंत्रण भेजा गया',
+      'Pending Invitations': 'लंबित आमंत्रण',
+      'Cancel invitation': 'आमंत्रण रद्द करें',
+      'Cancel the invitation sent to {name}?':
+          '{name} को भेजा गया आमंत्रण रद्द करें?',
+      'Invitation cancelled': 'आमंत्रण रद्द कर दिया गया',
+      'Unable to cancel this invitation': 'यह आमंत्रण रद्द नहीं किया जा सका',
+      'this invitee': 'इस आमंत्रित व्यक्ति',
+      'Awaiting Branch Assignment': 'शाखा असाइनमेंट की प्रतीक्षा में',
+      'Joined the salon — no branch yet':
+          'सैलून में शामिल हुए — अभी तक कोई शाखा नहीं',
+      'Assign to Branch': 'शाखा में असाइन करें',
+      'Invited': 'आमंत्रित',
+      'Invited member': 'आमंत्रित सदस्य',
+      'Sent just now': 'अभी भेजा गया',
+      'Sent {n}m ago': '{n} मिनट पहले भेजा गया',
+      'Sent {n}h ago': '{n} घंटे पहले भेजा गया',
+      'Sent {n}d ago': '{n} दिन पहले भेजा गया',
+      'Expires in {n}d': '{n} दिन में समाप्त',
+      'Expires in {n}h': '{n} घंटे में समाप्त',
+      'Expires in {n}m': '{n} मिनट में समाप्त',
+      'My Invitations': 'मेरे आमंत्रण',
+      'No pending invitations': 'कोई लंबित आमंत्रण नहीं',
+      'Salon invitations sent to your phone number will show up here.':
+          'आपके फ़ोन नंबर पर भेजे गए सैलून आमंत्रण यहाँ दिखाई देंगे।',
+      'You have been invited': 'आपको आमंत्रित किया गया है',
+      'Open the invitation email to accept':
+          'स्वीकार करने के लिए आमंत्रण ईमेल खोलें',
+      'Decline invitation': 'आमंत्रण अस्वीकार करें',
+      'Decline this salon invitation?': 'इस सैलून आमंत्रण को अस्वीकार करें?',
+      'Decline the invitation to join {salon}?':
+          '{salon} में शामिल होने के आमंत्रण को अस्वीकार करें?',
+      'Yes, decline': 'हां, अस्वीकार करें',
+      'Invitation declined': 'आमंत्रण अस्वीकार कर दिया गया',
+      'Unable to decline this invitation':
+          'यह आमंत्रण अस्वीकार नहीं किया जा सका',
+      'Decline': 'अस्वीकार करें',
     },
   };
 

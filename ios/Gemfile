@@ -1,0 +1,8 @@
+source "https://rubygems.org"
+
+gem "fastlane"
+# Keeps CocoaPods on the same Ruby/bundle as fastlane — otherwise
+# `flutter build ipa` (run inside `bundle exec fastlane`) shells out to
+# whatever `pod` is on PATH outside the bundle, which can be a mismatched
+# Ruby version and gets reported as "CocoaPods is installed but broken".
+gem "cocoapods"

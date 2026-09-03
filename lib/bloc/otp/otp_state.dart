@@ -12,6 +12,7 @@ class OtpVerifySuccess extends OtpState {
 
 class OtpVerifyError extends OtpState {
   final String message;
+  final String? code;
 
-  OtpVerifyError(this.message);
+  OtpVerifyError(this.message, {this.code});
 }
