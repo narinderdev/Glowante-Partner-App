@@ -328,11 +328,21 @@ class _StylistMarkAttendanceScreenState
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(context.t('Reset Face Setup')),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            context.t('Reset Face Setup'),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.starColor,
+            ),
+          ),
           content: Text(
             context.t(
               'This will remove local face setup images and attendance scans on this device.',
             ),
+            style: const TextStyle(fontSize: 15),
           ),
           actions: [
             TextButton(
@@ -341,6 +351,13 @@ class _StylistMarkAttendanceScreenState
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               child: Text(context.t('Reset')),
             ),
           ],
@@ -449,6 +466,15 @@ class _StylistMarkAttendanceScreenState
         backgroundColor: const Color(0xFFFBF9F8),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: Color(0xFFE8DED6),
+          ),
+        ),
         centerTitle: true,
         title: Text(
           context.t('Mark Attendance'),
@@ -570,8 +596,8 @@ class _AttendanceHeroCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF1E7DD)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -715,7 +741,7 @@ class _AttendanceEnrollmentSection extends StatelessWidget {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
             child: Text(
@@ -790,7 +816,7 @@ class _AttendanceReadySection extends StatelessWidget {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: Row(
@@ -828,7 +854,7 @@ class _AttendanceReadySection extends StatelessWidget {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: Row(
@@ -945,7 +971,7 @@ class _AttendanceDayCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE7E5E4)),
       ),
       child: Column(
@@ -1050,7 +1076,7 @@ class _ProgressBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF7ED),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1139,7 +1165,7 @@ class _AttendanceEmptyState extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE7E5E4)),
       ),
       child: Column(

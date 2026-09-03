@@ -44,10 +44,20 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
     _loadSchedules();
   }
 
+  // Two shapes seen from the backend for a branch assignment entry: the
+  // documented flat one ({branchId, branchName, ...}, from
+  // getTeamMemberDetailV2) and a legacy nested one ({branch: {id, name,
+  // salon: {...}}, ...}, from the cached login-time userBranches). Check
+  // both — same dual-shape handling as the owner-side Team Member Details
+  // screen.
   int? _branchId(Map<String, dynamic> entry) {
     final rawBranch = entry['branch'];
-    if (rawBranch is! Map) return null;
-    final id = rawBranch['id'];
+    if (rawBranch is Map) {
+      final id = rawBranch['id'];
+      if (id is int) return id;
+      return int.tryParse('$id');
+    }
+    final id = entry['branchId'];
     if (id is int) return id;
     return int.tryParse('$id');
   }
@@ -56,7 +66,13 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
     if (mounted) {
       setState(() => _isLoading = true);
     }
-    final userBranches = await UserRoleSession.instance.loadUserBranches();
+    final freshBranches = await UserRoleSession.instance.fetchFreshUserBranches();
+    // Fall back to the cached login data only if the live fetch produced
+    // nothing at all (e.g. offline, or no salons resolved) — never
+    // silently prefer stale data over a successful live result.
+    final userBranches = freshBranches.isNotEmpty
+        ? freshBranches
+        : await UserRoleSession.instance.loadUserBranches();
     if (!mounted) return;
 
     _branchOwnSchedules.clear();
@@ -90,7 +106,10 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
   String _branchLabel(Map<String, dynamic> entry) {
     final rawBranch = entry['branch'];
     if (rawBranch is! Map) {
-      return context.t('Schedule');
+      // Flat shape (getTeamMemberDetailV2) — no nested salon name at this
+      // level, just the branch's own name.
+      final branchName = (entry['branchName'] ?? '').toString().trim();
+      return branchName.isNotEmpty ? branchName : context.t('Schedule');
     }
 
     final branch = Map<String, dynamic>.from(rawBranch);
@@ -226,7 +245,7 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
                       margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(10),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x12000000),
@@ -315,7 +334,7 @@ class _ScheduleEmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         children: [

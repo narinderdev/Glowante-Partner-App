@@ -126,9 +126,19 @@ class RoleSelectionScreen extends StatelessWidget {
   static List<_SelectableRole> _visibleRoles(dynamic rawRoles) {
     if (rawRoles is! List) return const <_SelectableRole>[];
 
+    // Two shapes seen from the backend: role objects ({id, code, label})
+    // and, more recently, a flat list of role-code strings — normalize
+    // both to a map before handing off to _SelectableRole.fromMap.
     final roles = rawRoles
-        .whereType<Map>()
-        .map((role) => _SelectableRole.fromMap(Map<String, dynamic>.from(role)))
+        .map((role) {
+          if (role is Map) return Map<String, dynamic>.from(role);
+          if (role is String && role.trim().isNotEmpty) {
+            return <String, dynamic>{'code': role.trim()};
+          }
+          return null;
+        })
+        .whereType<Map<String, dynamic>>()
+        .map(_SelectableRole.fromMap)
         .where((role) => role.label.isNotEmpty)
         .toList();
 
@@ -161,8 +171,11 @@ class RoleSelectionScreen extends StatelessWidget {
   static _SelectableRole? _primaryRole(List<_SelectableRole> roles) {
     if (roles.isEmpty) return null;
     for (final role in roles) {
-      if (role.id == UserRoleSession.ownerRoleId ||
-          role.code == UserRoleSession.ownerRoleCode) {
+      // Match on code only, never id — role ids are not stable/global,
+      // and the generic "app_user" role has been observed with id 2, the
+      // same as the hardcoded ownerRoleId constant, which would
+      // misidentify a plain app_user as the owner.
+      if (role.code == UserRoleSession.ownerRoleCode) {
         return role;
       }
     }
@@ -315,17 +328,18 @@ class _SelectableRole {
   final String label;
   final _RoleDestination destination;
 
+  // Code only, never id — same reasoning as _primaryRole/fromMap.isStaff
+  // above: role ids are not stable/global, so an id check here never
+  // actually matches real data and risks colliding with some other
+  // role's real id (e.g. app_user has been observed with id 2, the same
+  // as the hardcoded ownerRoleId constant).
   int get priorityWeight {
-    if (code == UserRoleSession.ownerRoleCode ||
-        id == UserRoleSession.ownerRoleId) {
+    if (code == UserRoleSession.ownerRoleCode) {
       return 0;
     }
     if (code == UserRoleSession.stylistRoleCode ||
-        id == UserRoleSession.stylistRoleId ||
         code == UserRoleSession.staffRoleCode ||
-        id == UserRoleSession.staffRoleId ||
-        code == UserRoleSession.receptionistRoleCode ||
-        id == UserRoleSession.receptionistRoleId) {
+        code == UserRoleSession.receptionistRoleCode) {
       return 1;
     }
     return 2;
@@ -337,10 +351,11 @@ class _SelectableRole {
     final code = (map['code'] ?? '').toString().trim().toLowerCase();
     final label = (map['label'] ?? '').toString().trim();
 
-    final isStaff = id == UserRoleSession.stylistRoleId ||
-        id == UserRoleSession.staffRoleId ||
-        id == UserRoleSession.receptionistRoleId ||
-        code == UserRoleSession.stylistRoleCode ||
+    // Code only, never id — salon-scoped roles like salon_stylist get
+    // their own per-salon id (observed as 10, not the hardcoded 5), so an
+    // id check here never actually matches real data and risks colliding
+    // with some other role's real id instead.
+    final isStaff = code == UserRoleSession.stylistRoleCode ||
         code == UserRoleSession.staffRoleCode ||
         code == UserRoleSession.receptionistRoleCode;
 

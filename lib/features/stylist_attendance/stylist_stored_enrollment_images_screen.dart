@@ -20,6 +20,15 @@ class StylistStoredEnrollmentImagesScreen extends StatelessWidget {
         backgroundColor: const Color(0xFFFBF9F8),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: Color(0xFFE8DED6),
+          ),
+        ),
         centerTitle: true,
         title: Text(
           context.t('Your Stored Images'),
@@ -45,7 +54,7 @@ class StylistStoredEnrollmentImagesScreen extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFE7E5E4)),
             ),
             child: Column(
@@ -53,7 +62,7 @@ class StylistStoredEnrollmentImagesScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(6),
                     child: imagePath == null || imagePath.isEmpty
                         ? Container(
                             color: const Color(0xFFF5F5F4),

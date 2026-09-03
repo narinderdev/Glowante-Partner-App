@@ -1,6 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
+import '../utils/api_service.dart';
+
 class UserRoleSession {
   UserRoleSession._();
 
@@ -30,30 +32,31 @@ class UserRoleSession {
     final roles = user?['roles'];
     if (roles is! List) return false;
 
-    final ids = <int>{};
     final codes = <String>{};
 
     for (final role in roles) {
-      if (role is! Map) continue;
-      final map = Map<String, dynamic>.from(role);
-      final id = _asInt(map['id']);
-      final code = map['code']?.toString().trim().toLowerCase();
-      if (id != null) {
-        ids.add(id);
-      }
-      if (code != null && code.isNotEmpty) {
-        codes.add(code);
+      // Two shapes seen from the backend: role objects ({id, code, label})
+      // and, more recently, a flat list of role-code strings. Match on
+      // `code` only, never `id` — role ids are not stable/global (e.g. a
+      // salon-scoped role like salon_stylist gets its own per-salon id),
+      // and the generic "app_user" role has been observed with id 2, the
+      // same as the hardcoded ownerRoleId constant — matching by id alone
+      // would misidentify a plain app_user as the owner.
+      if (role is Map) {
+        final code =
+            Map<String, dynamic>.from(role)['code']?.toString().trim().toLowerCase();
+        if (code != null && code.isNotEmpty) codes.add(code);
+      } else if (role is String) {
+        final code = role.trim().toLowerCase();
+        if (code.isNotEmpty) codes.add(code);
       }
     }
 
-    if (ids.contains(ownerRoleId) || codes.contains(ownerRoleCode)) {
+    if (codes.contains(ownerRoleCode)) {
       return false;
     }
 
-    return ids.contains(stylistRoleId) ||
-        ids.contains(staffRoleId) ||
-        ids.contains(receptionistRoleId) ||
-        codes.contains(stylistRoleCode) ||
+    return codes.contains(stylistRoleCode) ||
         codes.contains(staffRoleCode) ||
         codes.contains(receptionistRoleCode);
   }
@@ -76,25 +79,44 @@ class UserRoleSession {
     final roleLabels = <String>[];
 
     for (final role in roles) {
-      if (role is! Map) continue;
-      final map = Map<String, dynamic>.from(role);
-      final id = _asInt(map['id']);
-      final code = map['code']?.toString().trim();
-      final label = map['label']?.toString().trim();
+      // Two shapes seen from the backend: role objects ({id, code, label})
+      // and, more recently, a flat list of role-code strings — the latter
+      // has no id/label, just the code.
+      if (role is Map) {
+        final map = Map<String, dynamic>.from(role);
+        final id = _asInt(map['id']);
+        final code = map['code']?.toString().trim();
+        final label = map['label']?.toString().trim();
 
-      if (id != null) {
-        roleIds.add(id.toString());
-      }
-      if (code != null && code.isNotEmpty) {
-        roleCodes.add(code);
-      }
-      if (label != null && label.isNotEmpty) {
-        roleLabels.add(label);
+        if (id != null) {
+          roleIds.add(id.toString());
+        }
+        if (code != null && code.isNotEmpty) {
+          roleCodes.add(code);
+        }
+        if (label != null && label.isNotEmpty) {
+          roleLabels.add(label);
+        }
+      } else if (role is String) {
+        final code = role.trim();
+        if (code.isNotEmpty) roleCodes.add(code);
       }
     }
 
-    final primaryRoleId = _resolvePrimaryRoleId(roleIds);
-    final primaryRoleCode = _resolvePrimaryRoleCode(roleCodes, primaryRoleId);
+    // Resolve the primary role from codes alone, not ids — role ids are
+    // not stable/global (a salon-scoped role like salon_stylist gets its
+    // own per-salon id), and the generic "app_user" role has been
+    // observed with id 2, the same as the hardcoded ownerRoleId constant.
+    // Deriving primaryRoleCode from primaryRoleId (as this used to) let
+    // that collision misidentify a plain app_user as the owner.
+    final primaryRoleCode = _resolvePrimaryRoleCode(roleCodes);
+    // Derived from the already-resolved code, not independently guessed
+    // from hardcoded ids (loadPrimaryRoleLabel below looks up a label by
+    // matching this id's position in roleIds/roleLabels — if this were
+    // resolved from ids alone it could point at a different role
+    // entirely, e.g. app_user's id 2 instead of salon_stylist's).
+    final primaryRoleId =
+        _resolvePrimaryRoleId(roleIds, roleCodes, primaryRoleCode);
 
     await prefs.setStringList(_roleIdsKey, roleIds);
     await prefs.setStringList(_roleCodesKey, roleCodes);
@@ -325,37 +347,86 @@ class UserRoleSession {
     }
   }
 
+  /// Fetches this user's current branch assignments (roles, services,
+  /// schedule) live, per salon they belong to — via the same
+  /// getTeamMemberDetailV2 endpoint the owner-side Team Member Details
+  /// screen uses to refresh a member's data — instead of [loadUserBranches]
+  /// below, which is only ever as fresh as the last login.
+  ///
+  /// Returns entries in the flat shape ({branchId, branchName, schedules,
+  /// services, ...}); an empty list on any failure (offline, no salons
+  /// resolved, etc.) — callers should fall back to [loadUserBranches] then.
+  Future<List<Map<String, dynamic>>> fetchFreshUserBranches() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id');
+    if (userId == null) return const [];
+
+    final salons = await loadUserSalons();
+    final salonIds = <int>{};
+    for (final salon in salons) {
+      final id = salon['id'];
+      final parsed = id is int ? id : int.tryParse('$id');
+      if (parsed != null) salonIds.add(parsed);
+    }
+
+    final freshBranches = <Map<String, dynamic>>[];
+    await Future.wait(salonIds.map((salonId) async {
+      try {
+        final response =
+            await ApiService().getTeamMemberDetailV2(salonId, userId);
+        if (response['success'] != true) return;
+        final data = response['data'];
+        if (data is! Map) return;
+        final payload = Map<String, dynamic>.from(data);
+
+        // branches/userBranches are siblings of `profile` at the top level
+        // of `data` — not nested inside it.
+        final userBranches = payload['userBranches'];
+        final branches = payload['branches'];
+        final raw = (userBranches is List && userBranches.isNotEmpty)
+            ? userBranches
+            : branches;
+        if (raw is List) {
+          freshBranches.addAll(
+            raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)),
+          );
+        }
+      } catch (_) {
+        // Leave this salon's branches out — callers fall back to cached
+        // data when the overall result ends up empty.
+      }
+    }));
+
+    return freshBranches;
+  }
+
   Future<bool> usesStylistShell() async {
     final prefs = await SharedPreferences.getInstance();
-    final roleIds = prefs.getStringList(_roleIdsKey) ?? const <String>[];
     final roleCodes = prefs.getStringList(_roleCodesKey) ?? const <String>[];
-    final primaryRoleId = prefs.getInt(_primaryRoleIdKey);
     final primaryRoleCode =
         prefs.getString(_primaryRoleCodeKey)?.trim().toLowerCase();
 
-    if (primaryRoleId != null) {
-      return primaryRoleId == stylistRoleId ||
-          primaryRoleId == staffRoleId ||
-          primaryRoleId == receptionistRoleId;
-    }
+    // Decided from codes only, never from the persisted numeric role ids
+    // — those are not stable/global (a salon-scoped role like
+    // salon_stylist gets its own per-salon id), and the generic
+    // "app_user" role has been observed with id 2, the same as the
+    // hardcoded ownerRoleId constant. Trusting primaryRoleId here used to
+    // let that collision misidentify a plain app_user as the owner on
+    // every app restart (persistUserRoles/_resolvePrimaryRoleCode are
+    // already code-only; this just matches that here too).
     if (primaryRoleCode != null && primaryRoleCode.isNotEmpty) {
+      if (primaryRoleCode == ownerRoleCode) return false;
       return primaryRoleCode == stylistRoleCode ||
           primaryRoleCode == staffRoleCode ||
           primaryRoleCode == receptionistRoleCode;
     }
 
-    return roleIds.contains('$stylistRoleId') ||
-        roleIds.contains('$staffRoleId') ||
-        roleIds.contains('$receptionistRoleId') ||
-        roleCodes
-            .map((code) => code.trim().toLowerCase())
-            .contains(stylistRoleCode) ||
-        roleCodes
-            .map((code) => code.trim().toLowerCase())
-            .contains(staffRoleCode) ||
-        roleCodes
-            .map((code) => code.trim().toLowerCase())
-            .contains(receptionistRoleCode);
+    final normalizedCodes =
+        roleCodes.map((code) => code.trim().toLowerCase()).toSet();
+    if (normalizedCodes.contains(ownerRoleCode)) return false;
+    return normalizedCodes.contains(stylistRoleCode) ||
+        normalizedCodes.contains(staffRoleCode) ||
+        normalizedCodes.contains(receptionistRoleCode);
   }
 
   Future<void> persistPrimaryRole({
@@ -405,22 +476,43 @@ class UserRoleSession {
         .toSet();
   }
 
-  static int? _resolvePrimaryRoleId(List<String> roleIds) {
-    if (roleIds.contains('$ownerRoleId')) return ownerRoleId;
-    if (roleIds.contains('$stylistRoleId')) return stylistRoleId;
-    if (roleIds.contains('$staffRoleId')) return staffRoleId;
-    if (roleIds.contains('$receptionistRoleId')) return receptionistRoleId;
+  // Looks up the id paired (by array position) with whichever role entry's
+  // code matches primaryRoleCode — never independently matched against
+  // the hardcoded owner/stylist/staff/receptionist id constants, since
+  // those aren't stable/global (e.g. salon_stylist observed with id 10,
+  // not the hardcoded 5) and can collide with an unrelated role's real id
+  // (app_user observed with id 2, same as the hardcoded ownerRoleId).
+  static int? _resolvePrimaryRoleId(
+    List<String> roleIds,
+    List<String> roleCodes,
+    String? primaryRoleCode,
+  ) {
+    if (primaryRoleCode != null) {
+      for (var i = 0; i < roleCodes.length && i < roleIds.length; i++) {
+        if (roleCodes[i].trim().toLowerCase() == primaryRoleCode) {
+          return int.tryParse(roleIds[i]);
+        }
+      }
+      return null;
+    }
     return roleIds.isEmpty ? null : int.tryParse(roleIds.first);
   }
 
-  static String? _resolvePrimaryRoleCode(
-    List<String> roleCodes,
-    int? primaryRoleId,
-  ) {
-    if (primaryRoleId == stylistRoleId) return stylistRoleCode;
-    if (primaryRoleId == staffRoleId) return staffRoleCode;
-    if (primaryRoleId == receptionistRoleId) return receptionistRoleCode;
-    if (primaryRoleId == ownerRoleId) return ownerRoleCode;
-    return roleCodes.isEmpty ? null : roleCodes.first.trim().toLowerCase();
+  static String? _resolvePrimaryRoleCode(List<String> roleCodes) {
+    // Resolved from codes alone, never from a numeric role id — role ids
+    // are not stable/global (a salon-scoped role like salon_stylist gets
+    // its own per-salon id, e.g. observed as 10 instead of the hardcoded
+    // 5), and the generic "app_user" role has been observed with id 2,
+    // the same as the hardcoded ownerRoleId constant. Prefer any specific
+    // role over the generic "app_user" placeholder, rather than just
+    // taking whichever code happened to be listed first.
+    final normalized =
+        roleCodes.map((code) => code.trim().toLowerCase()).toList();
+    if (normalized.contains(ownerRoleCode)) return ownerRoleCode;
+    if (normalized.contains(stylistRoleCode)) return stylistRoleCode;
+    if (normalized.contains(staffRoleCode)) return staffRoleCode;
+    if (normalized.contains(receptionistRoleCode)) return receptionistRoleCode;
+
+    return normalized.isEmpty ? null : normalized.first;
   }
 }

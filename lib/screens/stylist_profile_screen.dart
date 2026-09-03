@@ -19,6 +19,7 @@ import '../services/user_role_session.dart';
 import 'stylist_about_salon_screen.dart';
 import 'stylist_reviews_screen.dart';
 import 'stylist_schedule_screen.dart';
+import 'stylist_services_screen.dart';
 import 'stylist_web_doc_screen.dart';
 
 class StylistProfileScreen extends StatefulWidget {
@@ -115,6 +116,15 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => const StylistScheduleScreen(),
+      ),
+    );
+  }
+
+  void _openServices() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const StylistServicesScreen(),
       ),
     );
   }
@@ -551,6 +561,12 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
           icon: Icons.schedule_outlined,
           label: context.t('Schedule'),
           onTap: _openSchedule,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.content_cut_rounded,
+          label: context.t('Services'),
+          onTap: _openServices,
           showLeftAccent: true,
         ),
         ProfileMenuItemData(

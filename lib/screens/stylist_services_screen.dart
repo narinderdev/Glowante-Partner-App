@@ -53,21 +53,6 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
     return null;
   }
 
-  double? _asDouble(dynamic value) {
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
-    return null;
-  }
-
-  String _commissionMaxValueLabel(dynamic value) {
-    final amount = minorAmountToRupees(value);
-    if (amount == null) return '';
-    final fixed = amount.toStringAsFixed(2);
-    return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
-  }
-
   String _readText(Map<String, dynamic> map, List<String> keys) {
     for (final key in keys) {
       final value = map[key]?.toString().trim();
@@ -76,49 +61,6 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
       }
     }
     return '';
-  }
-
-  String _commissionTypeLabel(Map<String, dynamic> service) {
-    if (service['commissionEnabled'] != true) {
-      return context.t('Commission off');
-    }
-
-    final type = _readText(service, const ['commissionType']).toLowerCase();
-    if (type == 'fixed') return context.t('Fixed commission');
-    if (type == 'percentage') return context.t('Percentage commission');
-    return context.t('Commission enabled');
-  }
-
-  String _commissionValueLabel(Map<String, dynamic> service) {
-    if (service['commissionEnabled'] != true) return context.t('No commission');
-
-    final type = _readText(service, const ['commissionType']).toLowerCase();
-    if (type == 'fixed') {
-      final amount = _asInt(service['commissionFixedAmountMinor']);
-      return amount != null
-          ? formatMinorAmount(amount, trimZeroDecimals: true)
-          : context.t('Fixed');
-    }
-
-    if (type == 'percentage') {
-      final percent = _asDouble(service['commissionPercentage']);
-      final maxAmount = _asInt(service['commissionMaxAmountMinor']);
-      final percentLabel = percent == null
-          ? context.t('Percentage')
-          : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
-      return maxAmount != null
-          ? '$percentLabel • max ${_commissionMaxValueLabel(maxAmount)}'
-          : percentLabel;
-    }
-
-    return context.t('Enabled');
-  }
-
-  String _passiveWaitLabel(Map<String, dynamic> service) {
-    if (service['passiveWaitEnabled'] != true) return '';
-    final waitMinutes = _asInt(service['passiveWaitMinutes']);
-    if (waitMinutes == null || waitMinutes <= 0) return '';
-    return '${context.t('Wait')}: $waitMinutes ${context.t('min')}';
   }
 
   ({
@@ -181,6 +123,33 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
     );
   }
 
+  // Flat-shape services (from UserRoleSession.fetchFreshUserBranches — the
+  // live getTeamMemberDetailV2 endpoint) for the given branchId, if that
+  // branch is present in the fresh fetch and has a non-empty services list.
+  // Same flat/nested branch-id matching as stylist_schedule_screen.dart.
+  List<Map<String, dynamic>>? _freshServicesForBranch(
+    List<Map<String, dynamic>> freshBranches,
+    int branchId,
+  ) {
+    for (final entry in freshBranches) {
+      final rawBranch = entry['branch'];
+      final entryBranchId = rawBranch is Map
+          ? _asInt(rawBranch['id'])
+          : _asInt(entry['branchId']);
+      if (entryBranchId != branchId) continue;
+
+      final services = entry['services'];
+      if (services is List && services.isNotEmpty) {
+        return services
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      }
+      return null;
+    }
+    return null;
+  }
+
   Future<void> _loadData() async {
     final selection = await StylistBranchSelectionStore.load();
     debugPrint(
@@ -200,6 +169,22 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
         _services = const [];
         _isLoading = false;
       });
+      return;
+    }
+
+    final freshBranches = await UserRoleSession.instance.fetchFreshUserBranches();
+    final freshServices =
+        _freshServicesForBranch(freshBranches, selection.branchId!);
+    if (freshServices != null) {
+      if (!mounted) return;
+      setState(() {
+        _services = freshServices;
+        _errorMessage = null;
+        _isLoading = false;
+      });
+      debugPrint(
+        '[StylistServices] using live services for branchId=${selection.branchId}, count=${_services.length}',
+      );
       return;
     }
 
@@ -278,13 +263,6 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                _SelectionHeader(
-                  title: context.t('Current Salon'),
-                  value: _selection.label.isEmpty
-                      ? context.t('Select a salon in Bookings first')
-                      : _selection.label,
-                ),
-                const SizedBox(height: 12),
                 if (_selection.branchId == null)
                   _EmptyState(
                     message: context.t('Select a salon in Bookings first'),
@@ -296,90 +274,68 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                     message: context.t('No services found for this branch'),
                   )
                 else
-                  ..._services.map((service) {
-                    final name = _readText(
-                        service, const ['displayName', 'name', 'title']);
-                    final category = _readText(service, const ['categoryName']);
-                    final subcategory =
-                        _readText(service, const ['subCategoryName']);
-                    final duration = _asInt(
-                      service['durationMin'] ?? service['defaultDurationMin'],
-                    );
-                    final price = _asInt(
-                      service['priceMinor'] ?? service['defaultPriceMinor'],
-                    );
-                    final priceType =
-                        _readText(service, const ['priceType']).toLowerCase();
-                    final bool isActive = service['isActive'] != false;
-                    final commissionType = _commissionTypeLabel(service);
-                    final commissionValue = _commissionValueLabel(service);
-                    final waitLabel = _passiveWaitLabel(service);
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _services.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 1.4,
+                    ),
+                    itemBuilder: (context, index) {
+                      final service = _services[index];
+                      final name = _readText(
+                          service, const ['displayName', 'name', 'title']);
+                      final price = _asInt(
+                        service['priceMinor'] ?? service['defaultPriceMinor'],
+                      );
+                      final bool isActive =
+                          service['isActive'] != false &&
+                              service['branchServiceActive'] != false;
 
-                    final details = <String>[
-                      if (category.isNotEmpty) category,
-                      if (subcategory.isNotEmpty) subcategory,
-                      if (duration != null && duration > 0)
-                        '$duration ${context.t('min')}',
-                      if (waitLabel.isNotEmpty) waitLabel,
-                    ].join(' • ');
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
                         ),
-                        title: Text(
-                          name.isEmpty ? context.t('Services') : name,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFECECEE)),
                         ),
-                        subtitle: Column(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (details.isNotEmpty) Text(details),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                _InfoPill(
-                                  text: commissionType,
-                                  backgroundColor: const Color(0xFFF6EFE3),
-                                  textColor: AppColors.starColor,
-                                ),
-                                _InfoPill(
-                                  text: commissionValue,
-                                  backgroundColor: const Color(0xFFF3F4F6),
-                                  textColor: Colors.black54,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (price != null)
-                              Text(
-                                priceType.isNotEmpty
-                                    ? '${formatMinorAmount(price, trimZeroDecimals: true)} ($priceType)'
-                                    : formatMinorAmount(
-                                        price,
-                                        trimZeroDecimals: true,
-                                      ),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
+                            Text(
+                              name.isEmpty ? context.t('Service') : name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
                               ),
-                            const SizedBox(height: 6),
+                            ),
+                            const SizedBox(height: 4),
+                            if (price != null) ...[
+                              Text(
+                                formatMinorAmount(price,
+                                    trimZeroDecimals: true),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                            ],
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
+                                horizontal: 8,
+                                vertical: 3,
                               ),
                               decoration: BoxDecoration(
                                 color: isActive
@@ -390,7 +346,7 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                               child: Text(
                                 context.t(isActive ? 'Active' : 'Inactive'),
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   color:
                                       isActive ? Colors.green : Colors.black54,
                                   fontWeight: FontWeight.w600,
@@ -399,9 +355,9 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    },
+                  ),
               ],
             ),
           ),
@@ -414,82 +370,6 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoPill extends StatelessWidget {
-  const _InfoPill({
-    required this.text,
-    required this.backgroundColor,
-    required this.textColor,
-  });
-
-  final String text;
-  final Color backgroundColor;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectionHeader extends StatelessWidget {
-  const _SelectionHeader({
-    required this.title,
-    required this.value,
-  });
-
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 16,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(color: Colors.black54),
-          ),
         ],
       ),
     );
