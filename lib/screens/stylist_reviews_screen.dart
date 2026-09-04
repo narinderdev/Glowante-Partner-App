@@ -103,19 +103,6 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
     }
   }
 
-  Widget _stars(double rating) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (index) {
-        return Icon(
-          index < rating.round() ? Icons.star : Icons.star_border,
-          color: AppColors.starColor,
-          size: 18,
-        );
-      }),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
@@ -130,7 +117,7 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
             color: AppColors.starColor,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
               children: [
                 if (_selection.branchId == null)
                   _EmptyState(
@@ -139,42 +126,12 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
                 else if (_error != null)
                   _EmptyState(message: _error!)
                 else ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          _selection.label.isEmpty
-                              ? context.t('Reviews')
-                              : _selection.label,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _overallRating.toStringAsFixed(2),
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.starColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _stars(_overallRating),
-                        const SizedBox(height: 8),
-                        Text(
-                          '($_totalReviews ${context.t('Reviews')})',
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      ],
-                    ),
+                  _ReviewSummaryCard(
+                    branchName: _selection.label.isEmpty
+                        ? context.t('Reviews')
+                        : _selection.label,
+                    rating: _overallRating,
+                    totalReviews: _totalReviews,
                   ),
                   const SizedBox(height: 16),
                   if (_reviews.isEmpty)
@@ -195,58 +152,19 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
                       final rating =
                           (review['rating'] as num?)?.toDouble() ?? 0.0;
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              reviewerName.isNotEmpty
-                                  ? reviewerName
-                                  : context.t('Customer'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
-                            ),
-                            if (createdAt != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                _dateFormat.format(createdAt),
-                                style: const TextStyle(color: Colors.black54),
-                              ),
-                            ],
-                            const SizedBox(height: 12),
-                            _stars(rating),
-                            if (comment.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                comment,
-                                style: const TextStyle(color: Colors.black87),
-                              ),
-                            ],
-                            const SizedBox(height: 10),
-                            Text(
-                              '${context.t('Appointment')}: ${review['appointmentId'] ?? '--'}',
-                              style: const TextStyle(
-                                color: Colors.black54,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              '${context.t('Item')}: ${review['appointmentItemId'] ?? '--'}',
-                              style: const TextStyle(
-                                color: Colors.black54,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
+                      return _ReviewCard(
+                        reviewerName: reviewerName.isNotEmpty
+                            ? reviewerName
+                            : context.t('Customer'),
+                        createdAtText: createdAt == null
+                            ? ''
+                            : _dateFormat.format(createdAt),
+                        comment: comment,
+                        rating: rating,
+                        appointmentId:
+                            review['appointmentId']?.toString() ?? '',
+                        appointmentItemId:
+                            review['appointmentItemId']?.toString() ?? '',
                       );
                     }),
                 ],
@@ -268,6 +186,239 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
   }
 }
 
+class _ReviewSummaryCard extends StatelessWidget {
+  const _ReviewSummaryCard({
+    required this.branchName,
+    required this.rating,
+    required this.totalReviews,
+  });
+
+  final String branchName;
+  final double rating;
+  final int totalReviews;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Text(
+                rating.toStringAsFixed(1),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.starColor,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  branchName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1C1917),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _ReviewStars(rating: rating),
+                const SizedBox(height: 6),
+                Text(
+                  '$totalReviews ${context.t(totalReviews == 1 ? 'Review' : 'Reviews')}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF78716C),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({
+    required this.reviewerName,
+    required this.createdAtText,
+    required this.comment,
+    required this.rating,
+    required this.appointmentId,
+    required this.appointmentItemId,
+  });
+
+  final String reviewerName;
+  final String createdAtText;
+  final String comment;
+  final double rating;
+  final String appointmentId;
+  final String appointmentItemId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.person_outline,
+                  color: AppColors.starColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reviewerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: Color(0xFF1C1917),
+                      ),
+                    ),
+                    if (createdAtText.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        createdAtText,
+                        style: const TextStyle(
+                          color: Color(0xFF78716C),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _ReviewStars(rating: rating),
+            ],
+          ),
+          if (comment.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              comment,
+              style: const TextStyle(
+                color: Color(0xFF44403C),
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          if (appointmentId.isNotEmpty || appointmentItemId.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (appointmentId.isNotEmpty)
+                  _ReviewMetaChip(
+                    label: '${context.t('Appointment')} $appointmentId',
+                  ),
+                if (appointmentItemId.isNotEmpty)
+                  _ReviewMetaChip(
+                      label: '${context.t('Item')} $appointmentItemId'),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewStars extends StatelessWidget {
+  const _ReviewStars({required this.rating});
+
+  final double rating;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        return Icon(
+          index < rating.round()
+              ? Icons.star_rounded
+              : Icons.star_border_rounded,
+          color: AppColors.starColor,
+          size: 18,
+        );
+      }),
+    );
+  }
+}
+
+class _ReviewMetaChip extends StatelessWidget {
+  const _ReviewMetaChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F4),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          color: Color(0xFF57534E),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.message});
 
@@ -280,6 +431,7 @@ class _EmptyState extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Column(
         children: [

@@ -66,7 +66,8 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
     if (mounted) {
       setState(() => _isLoading = true);
     }
-    final freshBranches = await UserRoleSession.instance.fetchFreshUserBranches();
+    final freshBranches =
+        await UserRoleSession.instance.fetchFreshUserBranches();
     // Fall back to the cached login data only if the live fetch produced
     // nothing at all (e.g. offline, or no salons resolved) — never
     // silently prefer stale data over a successful live result.
@@ -92,7 +93,8 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
           if (schedule is List) _branchOwnSchedules[branchId] = schedule;
         }
       } catch (e) {
-        debugPrint('[StylistSchedule] Failed to load branch $branchId hours: $e');
+        debugPrint(
+            '[StylistSchedule] Failed to load branch $branchId hours: $e');
       }
     }));
 
@@ -205,19 +207,22 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
       if (slots is! List || slots.isEmpty) {
         return (day, context.t('Closed'));
       }
-      final timings = slots
-          .whereType<Map>()
-          .map((slot) {
-            final start =
-                _formatTime((slot['start'] ?? slot['startTime'] ?? '')
-                    .toString());
-            final end =
-                _formatTime((slot['end'] ?? slot['endTime'] ?? '').toString());
-            return '$start - $end';
-          })
-          .toList();
+      final timings = slots.whereType<Map>().map((slot) {
+        final start =
+            _formatTime((slot['start'] ?? slot['startTime'] ?? '').toString());
+        final end =
+            _formatTime((slot['end'] ?? slot['endTime'] ?? '').toString());
+        return '$start - $end';
+      }).toList();
       return (day, timings.isEmpty ? context.t('Closed') : timings.join(', '));
     }).toList();
+  }
+
+  int _openDayCount(List<(String day, String timeText)> rows) {
+    return rows
+        .where(
+            (row) => row.$2.toLowerCase() != context.t('Closed').toLowerCase())
+        .length;
   }
 
   @override
@@ -234,49 +239,95 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
             color: AppColors.starColor,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
               children: [
                 if (_branches.isEmpty && !_isLoading)
                   _ScheduleEmptyState(message: context.t('No schedules found'))
-                else
+                else ...[
+                  _ScheduleSummaryCard(
+                    branchCount: _branches.length,
+                    title: _branches.length == 1
+                        ? _branchLabel(_branches.first)
+                        : context.t('Schedule'),
+                  ),
+                  const SizedBox(height: 14),
                   ..._branches.map((entry) {
                     final dayRows = _dayRows(entry);
+                    final openDays = _openDayCount(dayRows);
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x12000000),
-                            blurRadius: 18,
-                            offset: Offset(0, 10),
-                          ),
-                        ],
+                        border: Border.all(color: const Color(0xFFE8DED6)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
-                            child: Text(
-                              _branchLabel(entry),
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF7ED),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.calendar_today_outlined,
+                                    size: 20,
+                                    color: AppColors.starColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _branchLabel(entry),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF1C1917),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '$openDays / 7 ${context.t('Open days')}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF78716C),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           ...List.generate(dayRows.length, (index) {
                             final (day, timeText) = dayRows[index];
+                            final isClosed = timeText.toLowerCase() ==
+                                context.t('Closed').toLowerCase();
 
                             return Column(
                               children: [
-                                if (index > 0) const Divider(height: 1),
+                                if (index > 0)
+                                  const Divider(
+                                    height: 1,
+                                    color: Color(0xFFF1EBE6),
+                                  ),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 14,
+                                    horizontal: 16,
+                                    vertical: 13,
                                   ),
                                   child: Row(
                                     children: [
@@ -284,15 +335,36 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
                                         child: Text(
                                           _formatDay(day),
                                           style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1C1917),
                                           ),
                                         ),
                                       ),
-                                      Text(
-                                        timeText,
-                                        style: const TextStyle(
-                                          color: Colors.black87,
-                                          fontWeight: FontWeight.w500,
+                                      Container(
+                                        constraints:
+                                            const BoxConstraints(maxWidth: 190),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isClosed
+                                              ? const Color(0xFFF5F5F4)
+                                              : const Color(0xFFECFDF3),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          timeText,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: isClosed
+                                                ? const Color(0xFF78716C)
+                                                : const Color(0xFF166534),
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -305,6 +377,7 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
                       ),
                     );
                   }),
+                ],
               ],
             ),
           ),
@@ -323,6 +396,71 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
   }
 }
 
+class _ScheduleSummaryCard extends StatelessWidget {
+  const _ScheduleSummaryCard({
+    required this.branchCount,
+    required this.title,
+  });
+
+  final int branchCount;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.starColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.schedule_outlined,
+              color: AppColors.starColor,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1C1917),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '$branchCount ${context.t(branchCount == 1 ? 'Branch' : 'Branches')}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF78716C),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ScheduleEmptyState extends StatelessWidget {
   const _ScheduleEmptyState({required this.message});
 
@@ -335,6 +473,7 @@ class _ScheduleEmptyState extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Column(
         children: [

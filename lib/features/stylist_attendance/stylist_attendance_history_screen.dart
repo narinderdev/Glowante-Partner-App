@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../widgets/app_loader.dart';
+import '../profile/widgets/profile_subpage_app_bar.dart';
 
 class StylistAttendanceHistoryScreen extends StatefulWidget {
   const StylistAttendanceHistoryScreen({
@@ -140,27 +141,8 @@ class _StylistAttendanceHistoryScreenState
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFFBF9F8),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            thickness: 1,
-            color: Color(0xFFE8DED6),
-          ),
-        ),
-        centerTitle: true,
-        title: Text(
-          context.t('Attendance History'),
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Color(0xFFB45309),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: context.t('Attendance History'),
       ),
       body: RefreshIndicator(
         onRefresh: () => RefreshFeedback.playAndDetach(_loadHistory),
@@ -236,59 +218,138 @@ class _HistoryHeroCard extends StatelessWidget {
     final monthLabel = DateFormat('MMMM yyyy').format(
       DateTime(selectedYear, selectedMonth),
     );
+    final initial = displayName.trim().isEmpty
+        ? 'S'
+        : displayName.trim().characters.first.toUpperCase();
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFFFCF8),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            displayName,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1917),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            branchName,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF78716C),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.calendar_month_outlined,
-                  color: Color(0xFFB45309),
-                  size: 20,
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1917),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '$monthLabel • ${context.t('Present')} $presentDays',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF9A3412),
-                    ),
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ],
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1C1917),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      branchName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF78716C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _HistoryMetricPill(
+                  label: monthLabel,
+                  value: context.t('Month'),
+                  color: const Color(0xFF9A3412),
+                  background: const Color(0xFFFFF7ED),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _HistoryMetricPill(
+                  label: presentDays.toString(),
+                  value: context.t('Present'),
+                  color: const Color(0xFF166534),
+                  background: const Color(0xFFECFDF3),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryMetricPill extends StatelessWidget {
+  const _HistoryMetricPill({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.background,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color.withOpacity(0.72),
             ),
           ),
         ],
@@ -405,9 +466,9 @@ class _AttendanceMonthGrid extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE7E5E4)),
+        border: Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

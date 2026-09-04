@@ -6,6 +6,7 @@ import 'package:bloc_onboarding/features/stylist_attendance/stylist_attendance_h
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_live_face_scan_screen.dart';
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_stored_enrollment_images_screen.dart';
 import 'package:bloc_onboarding/services/stylist_branch_selection.dart';
+import 'package:bloc_onboarding/utils/api_service.dart';
 import 'package:bloc_onboarding/utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
@@ -15,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 import '../../widgets/app_loader.dart';
+import '../profile/widgets/profile_subpage_app_bar.dart';
 
 class StylistMarkAttendanceScreen extends StatefulWidget {
   const StylistMarkAttendanceScreen({super.key});
@@ -76,6 +78,15 @@ class _StylistMarkAttendanceScreenState
           userKey: userKey,
           branchId: branchSelection.branchId!,
         );
+
+        if (userId != null) {
+          records = await _mergeInServerRecordsToday(
+            branchId: branchSelection.branchId!,
+            userId: userId,
+            userKey: userKey,
+            localRecords: records,
+          );
+        }
       }
 
       if (!mounted) {
@@ -100,6 +111,104 @@ class _StylistMarkAttendanceScreenState
       });
       _showToast(_friendlyErrorMessage(error));
     }
+  }
+
+  // Local storage (loadRecords above) can go stale — "Reset Face Setup"
+  // explicitly wipes it, and so does a reinstall or a different device —
+  // even though the server still has today's real check-in/out. This
+  // fetches today's server truth and synthesizes matching
+  // StylistAttendanceRecord entries for whichever of check-in/check-out
+  // the LOCAL list doesn't already have for today, so every part of this
+  // screen (status pills, Latest Attendance, Recent Attendance) shows the
+  // real time regardless of local state. Best-effort: any failure (e.g.
+  // offline) just returns the local list unchanged.
+  Future<List<StylistAttendanceRecord>> _mergeInServerRecordsToday({
+    required int branchId,
+    required int userId,
+    required String userKey,
+    required List<StylistAttendanceRecord> localRecords,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final response = await ApiService().getTeamAttendanceHistory(
+        branchId: branchId,
+        userId: userId,
+        month: now.month,
+        year: now.year,
+      );
+      if (response['success'] != true) return localRecords;
+      final data = response['data'];
+      final rawRecords = data is Map ? data['records'] : null;
+      if (rawRecords is! List) return localRecords;
+
+      final localHasCheckInToday = localRecords.any(
+        (r) =>
+            r.attendanceType == StylistAttendanceAction.checkIn.id &&
+            _isTodayRecord(r),
+      );
+      final localHasCheckOutToday = localRecords.any(
+        (r) =>
+            r.attendanceType == StylistAttendanceAction.checkOut.id &&
+            _isTodayRecord(r),
+      );
+
+      String? checkInIso;
+      String? checkOutIso;
+      for (final raw in rawRecords) {
+        if (raw is! Map) continue;
+        final checkedInAtIso = (raw['checkedInAt'] ?? '').toString();
+        final checkedOutAtIso = (raw['checkedOutAt'] ?? '').toString();
+        final checkedInAt = DateTime.tryParse(checkedInAtIso)?.toLocal();
+        final checkedOutAt = DateTime.tryParse(checkedOutAtIso)?.toLocal();
+        if (checkInIso == null &&
+            checkedInAt != null &&
+            _isSameLocalDay(checkedInAt, now)) {
+          checkInIso = checkedInAtIso;
+        }
+        if (checkOutIso == null &&
+            checkedOutAt != null &&
+            _isSameLocalDay(checkedOutAt, now)) {
+          checkOutIso = checkedOutAtIso;
+        }
+      }
+
+      final merged = List<StylistAttendanceRecord>.from(localRecords);
+      if (!localHasCheckInToday && checkInIso != null) {
+        merged.add(StylistAttendanceRecord(
+          id: 'server-checkin-${now.year}${now.month}${now.day}',
+          branchId: branchId,
+          userKey: userKey,
+          scanImagePath: '',
+          markedAtIso: checkInIso,
+          status: 'success',
+          attendanceType: StylistAttendanceAction.checkIn.id,
+        ));
+      }
+      if (!localHasCheckOutToday && checkOutIso != null) {
+        merged.add(StylistAttendanceRecord(
+          id: 'server-checkout-${now.year}${now.month}${now.day}',
+          branchId: branchId,
+          userKey: userKey,
+          scanImagePath: '',
+          markedAtIso: checkOutIso,
+          status: 'success',
+          attendanceType: StylistAttendanceAction.checkOut.id,
+        ));
+      }
+      merged.sort((a, b) {
+        final aTime = a.markedAt;
+        final bTime = b.markedAt;
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
+      return merged;
+    } catch (_) {
+      return localRecords;
+    }
+  }
+
+  bool _isSameLocalDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   String _resolveUserKey(SharedPreferences prefs) {
@@ -133,6 +242,9 @@ class _StylistMarkAttendanceScreenState
     return displayName.isEmpty ? translateText('Stylist') : displayName;
   }
 
+  // _records is now already merged with today's server truth (see
+  // _mergeInServerRecordsToday in _loadAttendanceState), so these can
+  // stay simple local-list checks.
   bool get _hasAnyAttendanceToday => _records.any(_isTodayRecord);
 
   bool get _hasCheckedInToday => _records.any(
@@ -146,6 +258,21 @@ class _StylistMarkAttendanceScreenState
             record.attendanceType == StylistAttendanceAction.checkOut.id &&
             _isTodayRecord(record),
       );
+
+  StylistAttendanceRecord? _todayRecord(String actionId) {
+    for (final record in _records) {
+      if (record.attendanceType == actionId && _isTodayRecord(record)) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  String _formatRecordTime(StylistAttendanceRecord? record) {
+    final markedAt = record?.markedAt;
+    if (markedAt == null) return '';
+    return DateFormat('hh:mm a').format(markedAt);
+  }
 
   bool _isTodayRecord(StylistAttendanceRecord record) {
     final markedAt = record.markedAt;
@@ -459,38 +586,18 @@ class _StylistMarkAttendanceScreenState
   @override
   Widget build(BuildContext context) {
     final branchName = _branchSelection.label.trim();
+    final todayCheckIn = _todayRecord(StylistAttendanceAction.checkIn.id);
+    final todayCheckOut = _todayRecord(StylistAttendanceAction.checkOut.id);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFFBF9F8),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            thickness: 1,
-            color: Color(0xFFE8DED6),
-          ),
-        ),
-        centerTitle: true,
-        title: Text(
-          context.t('Mark Attendance'),
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Color(0xFFB45309),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: context.t('Mark Attendance'),
         actions: [
           IconButton(
             tooltip: context.t('Attendance History'),
             onPressed: _openAttendanceHistory,
-            icon: const Icon(
-              Icons.calendar_month_outlined,
-              color: Color(0xFFB45309),
-            ),
+            icon: const Icon(Icons.calendar_month_outlined),
           ),
         ],
       ),
@@ -530,6 +637,8 @@ class _StylistMarkAttendanceScreenState
                             hasAttendanceToday: _hasAnyAttendanceToday,
                             hasCheckedInToday: _hasCheckedInToday,
                             hasCheckedOutToday: _hasCheckedOutToday,
+                            checkInTimeText: _formatRecordTime(todayCheckIn),
+                            checkOutTimeText: _formatRecordTime(todayCheckOut),
                           ),
                           const SizedBox(height: 16),
                           if (_enrollment?.isComplete == true)
@@ -555,6 +664,11 @@ class _StylistMarkAttendanceScreenState
                               enrollment: _enrollment,
                               onStartCapture: _startEnrollmentSequence,
                             ),
+                          if (_enrollment?.isComplete != true &&
+                              _records.isNotEmpty) ...[
+                            const SizedBox(height: 18),
+                            _AttendanceRecordsSection(records: _records),
+                          ],
                         ],
                       ),
                     ),
@@ -581,6 +695,8 @@ class _AttendanceHeroCard extends StatelessWidget {
     required this.hasAttendanceToday,
     required this.hasCheckedInToday,
     required this.hasCheckedOutToday,
+    required this.checkInTimeText,
+    required this.checkOutTimeText,
   });
 
   final String displayName;
@@ -589,98 +705,219 @@ class _AttendanceHeroCard extends StatelessWidget {
   final bool hasAttendanceToday;
   final bool hasCheckedInToday;
   final bool hasCheckedOutToday;
+  final String checkInTimeText;
+  final String checkOutTimeText;
 
   @override
   Widget build(BuildContext context) {
+    final initial = displayName.trim().isEmpty
+        ? 'S'
+        : displayName.trim().characters.first.toUpperCase();
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFFFCF8),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1917),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1C1917),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      branchName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF78716C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _CompactStatusPill(
+                  label: isEnrolled
+                      ? context.t('Face Setup Ready')
+                      : context.t('Face Setup Pending'),
+                  color: isEnrolled
+                      ? const Color(0xFF0F766E)
+                      : const Color(0xFFB45309),
+                  background: isEnrolled
+                      ? const Color(0xFFE6FFFB)
+                      : const Color(0xFFFFF3E8),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CompactStatusPill(
+                  label: hasAttendanceToday
+                      ? context.t('Marked Today')
+                      : context.t('Not Marked Yet'),
+                  color: hasAttendanceToday
+                      ? const Color(0xFF166534)
+                      : const Color(0xFF475569),
+                  background: hasAttendanceToday
+                      ? const Color(0xFFECFDF3)
+                      : const Color(0xFFF1F5F9),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _TodayTimeTile(
+                  label: context.t('Check In'),
+                  timeText: checkInTimeText,
+                  done: hasCheckedInToday,
+                  color: const Color(0xFF1D4ED8),
+                  background: const Color(0xFFEFF6FF),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _TodayTimeTile(
+                  label: context.t('Check Out'),
+                  timeText: checkOutTimeText,
+                  done: hasCheckedOutToday,
+                  color: const Color(0xFF7C3AED),
+                  background: const Color(0xFFF5F3FF),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactStatusPill extends StatelessWidget {
+  const _CompactStatusPill({
+    required this.label,
+    required this.color,
+    required this.background,
+  });
+
+  final String label;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayTimeTile extends StatelessWidget {
+  const _TodayTimeTile({
+    required this.label,
+    required this.timeText,
+    required this.done,
+    required this.color,
+    required this.background,
+  });
+
+  final String label;
+  final String timeText;
+  final bool done;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            displayName,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1917),
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            branchName,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF78716C),
+            done && timeText.isNotEmpty ? timeText : context.t('Pending'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: done ? const Color(0xFF1C1917) : const Color(0xFF78716C),
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
             ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _StatusChip(
-                icon: isEnrolled
-                    ? Icons.verified_user_outlined
-                    : Icons.face_6_outlined,
-                label: isEnrolled
-                    ? context.t('Face Setup Ready')
-                    : context.t('Face Setup Pending'),
-                color: isEnrolled
-                    ? const Color(0xFF0F766E)
-                    : const Color(0xFFB45309),
-                background: isEnrolled
-                    ? const Color(0xFFE6FFFB)
-                    : const Color(0xFFFFF3E8),
-              ),
-              _StatusChip(
-                icon: hasAttendanceToday
-                    ? Icons.check_circle_outline
-                    : Icons.timer_outlined,
-                label: hasAttendanceToday
-                    ? context.t('Attendance Marked Today')
-                    : context.t('Attendance Not Marked Yet'),
-                color: hasAttendanceToday
-                    ? const Color(0xFF166534)
-                    : const Color(0xFF475569),
-                background: hasAttendanceToday
-                    ? const Color(0xFFECFDF3)
-                    : const Color(0xFFF1F5F9),
-              ),
-              _StatusChip(
-                icon: hasCheckedInToday
-                    ? Icons.login_rounded
-                    : Icons.login_outlined,
-                label: hasCheckedInToday
-                    ? context.t('Check-in Done')
-                    : context.t('Check-in Pending'),
-                color: hasCheckedInToday
-                    ? const Color(0xFF1D4ED8)
-                    : const Color(0xFF64748B),
-                background: hasCheckedInToday
-                    ? const Color(0xFFEFF6FF)
-                    : const Color(0xFFF8FAFC),
-              ),
-              _StatusChip(
-                icon: hasCheckedOutToday
-                    ? Icons.logout_rounded
-                    : Icons.logout_outlined,
-                label: hasCheckedOutToday
-                    ? context.t('Check-out Done')
-                    : context.t('Check-out Pending'),
-                color: hasCheckedOutToday
-                    ? const Color(0xFF7C3AED)
-                    : const Color(0xFF64748B),
-                background: hasCheckedOutToday
-                    ? const Color(0xFFF5F3FF)
-                    : const Color(0xFFF8FAFC),
-              ),
-            ],
           ),
         ],
       ),
@@ -705,54 +942,88 @@ class _AttendanceEnrollmentSection extends StatelessWidget {
     final hasStoredImages =
         enrollment != null && enrollment!.imagePaths.isNotEmpty;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.t('Face Setup'),
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1C1917),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.face_retouching_natural_outlined,
+                  color: Color(0xFFB45309),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.t('Face Setup'),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1C1917),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          context.t(
-            'Capture 5 face angles in one guided flow to prepare local attendance matching on this device.',
+          const SizedBox(height: 12),
+          Text(
+            context.t(
+              'Capture 5 face angles in one guided flow to prepare local attendance matching on this device.',
+            ),
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.45,
+              color: Color(0xFF57534E),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFF57534E),
+          const SizedBox(height: 14),
+          _ProgressBanner(
+            title: context.t('Progress'),
+            value:
+                '$completedCount / ${kStylistAttendanceRequiredPoses.length}',
           ),
-        ),
-        const SizedBox(height: 14),
-        _ProgressBanner(
-          title: context.t('Progress'),
-          value: '$completedCount / ${kStylistAttendanceRequiredPoses.length}',
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: isBusy ? null : onStartCapture,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isBusy ? null : onStartCapture,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                context.t(
+                  hasStoredImages ? 'Retake All Images' : 'Capture Your Images',
+                ),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
               ),
             ),
-            child: Text(
-              context.t(
-                hasStoredImages ? 'Retake All Images' : 'Capture Your Images',
-              ),
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -788,6 +1059,172 @@ class _AttendanceReadySection extends StatelessWidget {
         isBusy && activeActionId == StylistAttendanceAction.checkIn.id;
     final isCheckOutLoading =
         isBusy && activeActionId == StylistAttendanceAction.checkOut.id;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: isBusy || hasCheckedInToday ? null : onCheckIn,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    disabledBackgroundColor: const Color(0xFFE7E5E4),
+                    disabledForegroundColor: const Color(0xFF9CA3AF),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isCheckInLoading) ...[
+                        AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 10),
+                      ] else ...[
+                        const Icon(Icons.login_rounded),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            isCheckInLoading
+                                ? context.t('Checking In...')
+                                : context.t('Check In'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: isBusy || !hasCheckedInToday || hasCheckedOutToday
+                      ? null
+                      : onCheckOut,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1F2937),
+                    disabledBackgroundColor: const Color(0xFFE7E5E4),
+                    disabledForegroundColor: const Color(0xFF9CA3AF),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isCheckOutLoading) ...[
+                        AppLoader.inline(
+                          size: 18,
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 10),
+                      ] else ...[
+                        const Icon(Icons.logout_rounded),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            isCheckOutLoading
+                                ? context.t('Checking Out...')
+                                : context.t('Check Out'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: isBusy ? null : onReset,
+                  icon: const Icon(Icons.refresh_outlined),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(context.t('Reset Setup')),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF6D5A8D),
+                    side: const BorderSide(color: Color(0xFFD8CFE5)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed:
+                      isBusy || enrollment == null ? null : onViewStoredImages,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(context.t('Stored Images')),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF6D5A8D),
+                    side: const BorderSide(color: Color(0xFFD8CFE5)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _AttendanceRecordsSection(records: records),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceRecordsSection extends StatelessWidget {
+  const _AttendanceRecordsSection({required this.records});
+
+  final List<StylistAttendanceRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
     final latestRecord = records.isNotEmpty ? records.first : null;
     final groupedRecords = <String, List<StylistAttendanceRecord>>{};
     for (final record in records) {
@@ -806,120 +1243,35 @@ class _AttendanceReadySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: isBusy || hasCheckedInToday ? null : onCheckIn,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isCheckInLoading) ...[
-                      AppLoader.inline(
-                        size: 18,
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 10),
-                    ] else ...[
-                      const Icon(Icons.login_rounded),
-                      const SizedBox(width: 8),
-                    ],
-                    Text(
-                      isCheckInLoading
-                          ? context.t('Checking In...')
-                          : context.t('Check In'),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: isBusy || !hasCheckedInToday || hasCheckedOutToday
-                    ? null
-                    : onCheckOut,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1F2937),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isCheckOutLoading) ...[
-                      AppLoader.inline(
-                        size: 18,
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 10),
-                    ] else ...[
-                      const Icon(Icons.logout_rounded),
-                      const SizedBox(width: 8),
-                    ],
-                    Text(
-                      isCheckOutLoading
-                          ? context.t('Checking Out...')
-                          : context.t('Check Out'),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: isBusy ? null : onReset,
-                icon: const Icon(Icons.refresh_outlined),
-                label: Text(context.t('Reset Face Setup')),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed:
-                    isBusy || enrollment == null ? null : onViewStoredImages,
-                icon: const Icon(Icons.photo_library_outlined),
-                label: Text(context.t('Your Stored Images')),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
         _ProgressBanner(
           title: context.t('Latest Attendance'),
-          value: latestRecord == null
+          value: latestRecord == null || latestRecord.markedAt == null
               ? context.t('Not marked yet')
               : '${translateText(latestRecord.action.label)} • '
-                  '${DateFormat('dd MMM yyyy, hh:mm a').format(latestRecord.markedAt!)}',
+                  '${DateFormat('dd MMM, hh:mm a').format(latestRecord.markedAt!)}',
         ),
         const SizedBox(height: 16),
-        Text(
-          context.t('Recent Attendance'),
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1C1917),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.t('Recent Attendance'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1C1917),
+                ),
+              ),
+            ),
+            if (records.isNotEmpty)
+              Text(
+                records.length.toString(),
+                style: const TextStyle(
+                  color: Color(0xFFB45309),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 10),
         if (records.isEmpty)
@@ -1101,46 +1453,6 @@ class _ProgressBanner extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF9A3412),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.background,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: color,
             ),
           ),
         ],

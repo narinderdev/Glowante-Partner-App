@@ -100,31 +100,6 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
     return parts.join(', ');
   }
 
-  List<String> _photoUrls(Map<String, dynamic> details) {
-    final urls = <String>[];
-    final seen = <String>{};
-
-    final imageUrl = details['imageUrl'];
-    if (imageUrl is String &&
-        imageUrl.trim().isNotEmpty &&
-        seen.add(imageUrl.trim())) {
-      urls.add(imageUrl.trim());
-    }
-
-    final imageUrls = details['imageUrls'];
-    if (imageUrls is List) {
-      for (final entry in imageUrls) {
-        if (entry is String &&
-            entry.trim().isNotEmpty &&
-            seen.add(entry.trim())) {
-          urls.add(entry.trim());
-        }
-      }
-    }
-
-    return urls;
-  }
-
   static const List<String> _weekDays = [
     'monday',
     'tuesday',
@@ -211,11 +186,20 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.starColor),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: AppColors.starColor, size: 20),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -224,13 +208,17 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1C1917),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(color: Colors.black54),
+                  style: const TextStyle(
+                    color: Color(0xFF57534E),
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -250,7 +238,6 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
     final phone = (details['phone'] ?? '').toString().trim();
     final scheduleRows = _scheduleRows(details);
     final address = _readAddress(details);
-    final photos = _photoUrls(details);
     // Once details have loaded once, a pull-to-refresh re-triggers _loading
     // (and possibly _error), but the already-visible content below stays on
     // screen — the big AppLoader.page() overlay below is layered on top of
@@ -268,7 +255,7 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
             color: AppColors.starColor,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
               children: [
                 if (_loading && !hasDetails)
                   // Wrapped in a bounded SizedBox so Center inside AppLoader.page()
@@ -285,41 +272,10 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                 else if (_error != null && !hasDetails)
                   _EmptyState(message: _error!)
                 else ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name.isEmpty ? context.t('About Salon') : name,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if (_selection.label.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            _selection.label,
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                        ],
-                        if (description.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          Text(
-                            description,
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                  _SalonOverviewCard(
+                    name: name.isEmpty ? context.t('About Salon') : name,
+                    branchLabel: _selection.label,
+                    description: description,
                   ),
                   const SizedBox(height: 16),
                   if (hasDetails) ...[
@@ -328,6 +284,7 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE8DED6)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,13 +293,25 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                             child: Row(
                               children: [
-                                const Icon(Icons.access_time_outlined,
-                                    color: AppColors.starColor),
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF7ED),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.access_time_outlined,
+                                    color: AppColors.starColor,
+                                    size: 20,
+                                  ),
+                                ),
                                 const SizedBox(width: 12),
                                 Text(
                                   context.t('Working Hours'),
                                   style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF1C1917),
                                   ),
                                 ),
                               ],
@@ -350,9 +319,15 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                           ),
                           ...List.generate(scheduleRows.length, (index) {
                             final (day, timeText) = scheduleRows[index];
+                            final isClosed = timeText.toLowerCase() ==
+                                context.t('Closed').toLowerCase();
                             return Column(
                               children: [
-                                if (index > 0) const Divider(height: 1),
+                                if (index > 0)
+                                  const Divider(
+                                    height: 1,
+                                    color: Color(0xFFF1EBE6),
+                                  ),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
@@ -365,13 +340,31 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                                           _formatDay(day),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w600,
+                                            color: Color(0xFF1C1917),
                                           ),
                                         ),
                                       ),
-                                      Text(
-                                        timeText,
-                                        style: const TextStyle(
-                                          color: Colors.black54,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isClosed
+                                              ? const Color(0xFFF5F5F4)
+                                              : const Color(0xFFECFDF3),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          timeText,
+                                          style: TextStyle(
+                                            color: isClosed
+                                                ? const Color(0xFF78716C)
+                                                : const Color(0xFF166534),
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -394,43 +387,6 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                     title: context.t('Address'),
                     value: address,
                   ),
-                  if (photos.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      context.t('Photos'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 108,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: photos.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemBuilder: (_, index) {
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              photos[index],
-                              width: 140,
-                              height: 108,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 140,
-                                height: 108,
-                                color: Colors.white,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.broken_image_outlined),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
                 ],
               ],
             ),
@@ -450,6 +406,86 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
   }
 }
 
+class _SalonOverviewCard extends StatelessWidget {
+  const _SalonOverviewCard({
+    required this.name,
+    required this.branchLabel,
+    required this.description,
+  });
+
+  final String name;
+  final String branchLabel;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1C1917),
+                  ),
+                ),
+                if (branchLabel.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 16,
+                        color: AppColors.starColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          branchLabel.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF78716C),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: Color(0xFF57534E),
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.message});
 
@@ -462,6 +498,7 @@ class _EmptyState extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
       ),
       child: Column(
         children: [
