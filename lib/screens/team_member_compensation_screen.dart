@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -142,32 +143,80 @@ class _TeamMemberCompensationScreenState
   Future<void> _pickEmploymentType() async {
     if (!widget.canUpdate || _isBusy) return;
     final current = (_data['employmentType'] ?? '').toString();
-    final selected = await showModalBottomSheet<String>(
+    final selected = await showDialog<String>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Text(
-              translateText('Employment type'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-            ),
-            const SizedBox(height: 8),
-            ..._employmentTypes.map(
-              (type) => ListTile(
-                title: Text(_employmentTypeLabel(type)),
-                trailing: type == current
-                    ? const Icon(Icons.check_rounded, color: _tcAccent)
-                    : null,
-                onTap: () => Navigator.pop(ctx, type),
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                translateText('Employment type'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: Color(0xFF1C1917),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 12),
+              ..._employmentTypes.map((type) {
+                final isSelected = type == current;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => Navigator.pop(ctx, type),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected ? _tcAccentLight : Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color:
+                              isSelected ? _tcAccent : const Color(0xFFE7E5E4),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _employmentTypeLabel(type),
+                              style: TextStyle(
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: const Color(0xFF1C1917),
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_rounded,
+                                color: _tcAccent, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(translateText('Cancel')),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -343,7 +392,36 @@ class _TeamMemberCompensationScreenState
                     ),
                   ),
                   if (widget.canUpdate)
-                    const Icon(Icons.edit_outlined, size: 16, color: _tcMuted),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _tcAccentLight,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _tcAccent),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.edit_outlined,
+                            size: 14,
+                            color: _tcAccent,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            translateText('Edit'),
+                            style: const TextStyle(
+                              color: _tcAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -366,25 +444,51 @@ class _TeamMemberCompensationScreenState
                   ? Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: ElevatedButton.icon(
                             onPressed: _isBusy
                                 ? null
                                 : () =>
                                     _openCompensationForm(editing: upcoming),
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: const Color(0xFFF3E8FF),
+                              foregroundColor: const Color(0xFF6D28D9),
+                              disabledBackgroundColor: const Color(0xFFF5F5F4),
+                              disabledForegroundColor: _tcMuted,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
                             icon: const Icon(Icons.edit_outlined, size: 15),
-                            label: Text(translateText('Edit')),
+                            label: Text(
+                              translateText('Edit'),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w900),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: ElevatedButton.icon(
                             onPressed: _isBusy ? null : _cancelUpcoming,
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.red),
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: const Color(0xFFFFF1F2),
                               foregroundColor: AppColors.red,
+                              disabledBackgroundColor: const Color(0xFFF5F5F4),
+                              disabledForegroundColor: _tcMuted,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             icon: const Icon(Icons.close_rounded, size: 15),
-                            label: Text(translateText('Cancel')),
+                            label: Text(
+                              translateText('Cancel'),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w900),
+                            ),
                           ),
                         ),
                       ],
@@ -402,6 +506,9 @@ class _TeamMemberCompensationScreenState
                   side: const BorderSide(color: _tcAccent),
                   foregroundColor: _tcAccent,
                   padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: Text(
@@ -621,8 +728,9 @@ class _CompensationFormScreenState extends State<_CompensationFormScreen> {
   late final _amountCtrl = TextEditingController(
     text: widget.existing == null
         ? ''
-        : (((widget.existing!['salaryAmountMinor'] as num?) ?? 0) / 100)
-            .toStringAsFixed(2),
+        : ((((widget.existing!['salaryAmountMinor'] as num?) ?? 0) / 100)
+                .round())
+            .toString(),
   );
   late final _currencyCtrl = TextEditingController(
     text: (widget.existing?['currency'] ?? 'INR').toString(),
@@ -798,6 +906,7 @@ class _CompensationFormScreenState extends State<_CompensationFormScreen> {
             _SectionLabel(text: translateText('Monthly Base Amount')),
             const SizedBox(height: 8),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
                   width: 90,
@@ -805,7 +914,14 @@ class _CompensationFormScreenState extends State<_CompensationFormScreen> {
                     controller: _currencyCtrl,
                     maxLength: 3,
                     textCapitalization: TextCapitalization.characters,
-                    decoration: _decoration('INR').copyWith(counterText: ''),
+                    decoration: _decoration('INR').copyWith(
+                      counterText: ' ',
+                      counterStyle: const TextStyle(
+                        color: Colors.transparent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     validator: (value) {
                       final v = (value ?? '').trim().toUpperCase();
                       return RegExp(r'^[A-Z]{3}$').hasMatch(v)
@@ -818,12 +934,23 @@ class _CompensationFormScreenState extends State<_CompensationFormScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _amountCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: _decoration(translateText('Amount')),
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    decoration: _decoration(translateText('Amount')).copyWith(
+                      counterStyle: const TextStyle(
+                        color: _tcMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     validator: (value) {
-                      final parsed = double.tryParse((value ?? '').trim());
-                      return (parsed == null || parsed < 0)
+                      final text = (value ?? '').trim();
+                      final parsed = int.tryParse(text);
+                      return (text.isEmpty || parsed == null || parsed < 0)
                           ? translateText('Enter a valid amount')
                           : null;
                     },

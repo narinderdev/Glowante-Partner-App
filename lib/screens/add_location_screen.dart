@@ -70,6 +70,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   bool _isSelectingPlace = false;
 
   String _baseCompleteAddress = '';
+  AddressComponentsModel? _selectedAddressComponents;
   List<String> _lastSyncedManualAddressParts = const [];
 
   final TextEditingController completeAddressController =
@@ -161,6 +162,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     setState(() {
       completeAddressController.clear();
       _baseCompleteAddress = '';
+      _selectedAddressComponents = null;
       _lastSyncedManualAddressParts = const [];
       latitude = null;
       longitude = null;
@@ -403,6 +405,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
         _lastSyncedManualAddressParts = _manualAddressParts();
+        _selectedAddressComponents = null;
 
         // Keep search location empty when using current location
         searchLocationController.clear();
@@ -597,6 +600,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
       final placeAddress = (place?.address ?? '').trim();
       final placeName = (place?.name ?? '').trim();
+      final addressComponents = AddressComponentsModel.fromGoogleComponents(
+        place?.addressComponents ?? const <AddressComponent>[],
+      );
 
       // Google's formatted address for a locality (e.g. "Kanpur, Uttar
       // Pradesh, India") already starts with the place name, so prefixing
@@ -667,6 +673,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
         _lastSyncedManualAddressParts = _manualAddressParts();
+        _selectedAddressComponents = addressComponents;
         latitude = lat;
         longitude = lng;
         predictions = [];
@@ -727,6 +734,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
         _lastSyncedManualAddressParts = _manualAddressParts();
+        _selectedAddressComponents = null;
         latitude = lat;
         longitude = lng;
         predictions = [];
@@ -945,6 +953,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
     latitude = null;
     longitude = null;
+    _selectedAddressComponents = null;
 
     _baseCompleteAddress = _addressWithoutManualParts(
       _cleanAddressText(completeAddressController.text),
@@ -956,6 +965,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
     latitude = null;
     longitude = null;
+    _selectedAddressComponents = null;
   }
 
   @override
@@ -1445,6 +1455,11 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       ),
       'scoFlatHouse': scoFlatHouseController.text.trim(),
       'streetSectorArea': streetSectorAreaController.text.trim(),
+      'city': _selectedAddressComponents?.city.trim() ?? '',
+      'district': _selectedAddressComponents?.district.trim() ?? '',
+      'state': _selectedAddressComponents?.state.trim() ?? '',
+      'country': _selectedAddressComponents?.country.trim() ?? '',
+      'postalCode': _selectedAddressComponents?.postalCode.trim() ?? '',
       'latitude': finalLatitude,
       'longitude': finalLongitude,
     });
@@ -1699,6 +1714,7 @@ class _SectionLabel extends StatelessWidget {
 class AddressComponentsModel {
   String name;
   String city;
+  String district;
   String state;
   String country;
   String postalCode;
@@ -1709,6 +1725,7 @@ class AddressComponentsModel {
   AddressComponentsModel({
     required this.name,
     required this.city,
+    required this.district,
     required this.state,
     required this.country,
     required this.postalCode,
@@ -1732,7 +1749,10 @@ class AddressComponentsModel {
       buildingOrFlat: getType('street_address').isNotEmpty
           ? getType('street_address')
           : getType('route'),
-      city: getType('locality'),
+      city: getType('locality').isNotEmpty
+          ? getType('locality')
+          : getType('administrative_area_level_3'),
+      district: getType('administrative_area_level_2'),
       state: getType('administrative_area_level_1'),
       country: getType('country'),
       postalCode: getType('postal_code'),

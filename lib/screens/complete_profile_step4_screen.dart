@@ -84,11 +84,19 @@ class _CompleteProfileStep4ScreenState
         (result['baseCompleteAddress'] as String?)?.trim() ?? '';
     final latitude = (result['latitude'] as num?)?.toDouble();
     final longitude = (result['longitude'] as num?)?.toDouble();
+    String resultText(String key) => (result[key] as String?)?.trim() ?? '';
 
     setState(() {
       _line1Ctrl.text = baseCompleteAddress.isNotEmpty
           ? baseCompleteAddress
           : completeAddress;
+      _line2Ctrl.clear();
+      _cityCtrl.text = resultText('city');
+      _villageCtrl.clear();
+      _districtCtrl.text = resultText('district');
+      _stateCtrl.text = resultText('state');
+      _countryCtrl.text = resultText('country');
+      _postalCodeCtrl.text = resultText('postalCode');
       widget.draft.latitude = latitude;
       widget.draft.longitude = longitude;
     });
@@ -99,21 +107,22 @@ class _CompleteProfileStep4ScreenState
         if (!mounted || placemarks.isEmpty) return;
         final place = placemarks.first;
         setState(() {
-          if (_cityCtrl.text.trim().isEmpty) {
-            _cityCtrl.text = (place.locality ?? '').trim();
-          }
-          if (_districtCtrl.text.trim().isEmpty) {
-            _districtCtrl.text = (place.subAdministrativeArea ?? '').trim();
-          }
-          if (_stateCtrl.text.trim().isEmpty) {
-            _stateCtrl.text = (place.administrativeArea ?? '').trim();
-          }
-          if (_countryCtrl.text.trim().isEmpty) {
-            _countryCtrl.text = (place.country ?? '').trim();
-          }
-          if (_postalCodeCtrl.text.trim().isEmpty) {
-            _postalCodeCtrl.text = (place.postalCode ?? '').trim();
-          }
+          _cityCtrl.text = (place.locality ?? '').trim().isNotEmpty
+              ? (place.locality ?? '').trim()
+              : _cityCtrl.text;
+          _districtCtrl.text =
+              (place.subAdministrativeArea ?? '').trim().isNotEmpty
+                  ? (place.subAdministrativeArea ?? '').trim()
+                  : _districtCtrl.text;
+          _stateCtrl.text = (place.administrativeArea ?? '').trim().isNotEmpty
+              ? (place.administrativeArea ?? '').trim()
+              : _stateCtrl.text;
+          _countryCtrl.text = (place.country ?? '').trim().isNotEmpty
+              ? (place.country ?? '').trim()
+              : _countryCtrl.text;
+          _postalCodeCtrl.text = (place.postalCode ?? '').trim().isNotEmpty
+              ? (place.postalCode ?? '').trim()
+              : _postalCodeCtrl.text;
         });
       } catch (e) {
         debugPrint('Reverse geocoding failed: $e');
