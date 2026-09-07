@@ -2389,40 +2389,103 @@ class _PredefinedServicesHintIconState
   final GlobalKey _iconKey = GlobalKey();
   OverlayEntry? _overlayEntry;
   Timer? _autoDismissTimer;
+  Timer? _measureRetryTimer;
 
   // Called by the parent CategoryScreenState every time this tab becomes
   // the visible one — shows again on every visit (not just once-ever), for
-  // 3s or until dismissed via the callout's own close cross.
+  // 3s or until dismissed via the callout's own close cross. Rendered via
+  // Overlay (not a local Stack) since the AppBar clips its own overflowing
+  // content — a local Stack sibling of the icon gets its lower portion cut
+  // off the moment it extends past the AppBar's height.
   void maybeShow() {
     if (!mounted || _overlayEntry != null) return;
-    // Wait for things to actually settle before measuring the icon's
-    // position: this AppBar's height is conditional (branch selector row
-    // toggling it between 58 and kToolbarHeight — see the `toolbarHeight:`
-    // above), and this tab can also become active mid push-route-transition
-    // (landing here straight after Add Salon). Measuring on the very next
-    // frame risked grabbing a pre-settle position, anchoring the arrow well
-    // below the real icon.
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _showHint());
+    _measureUntilStable(attempt: 0, lastPosition: null);
+  }
+
+  // This AppBar's height is conditional (branch selector row toggling it —
+  // see the `toolbarHeight:` above) and this tab can become active mid
+  // push-route-transition (landing here straight after Add Salon), so the
+  // icon's position isn't reliably settled on the very next frame. Poll a
+  // few frames apart until two consecutive reads agree, instead of
+  // guessing a fixed delay.
+  void _measureUntilStable({required int attempt, Offset? lastPosition}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _overlayEntry != null) return;
+      final renderBox =
+          _iconKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox == null || !renderBox.attached) {
+        if (attempt < 20) _retryMeasurement(attempt, lastPosition);
+        return;
+      }
+
+      final position = renderBox.localToGlobal(Offset.zero);
+      final stable =
+          lastPosition != null && (position - lastPosition).distance < 0.5;
+      if (stable || attempt >= 20) {
+        _showHint(renderBox);
+        return;
+      }
+      _retryMeasurement(attempt, position);
     });
   }
 
-  void _showHint() {
-    if (!mounted || _overlayEntry != null) return;
-    final renderBox =
-        _iconKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.attached) return;
+  void _retryMeasurement(int attempt, Offset? position) {
+    _measureRetryTimer = Timer(const Duration(milliseconds: 60), () {
+      _measureUntilStable(attempt: attempt + 1, lastPosition: position);
+    });
+  }
 
+  void _showHint(RenderBox renderBox) {
+    if (!mounted || _overlayEntry != null) return;
     final iconTopLeft = renderBox.localToGlobal(Offset.zero);
     final iconSize = renderBox.size;
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final iconCenter =
+        iconTopLeft + Offset(iconSize.width / 2, iconSize.height / 2);
+    final bubbleWidth = _PredefinedServicesCallout.bubbleWidth;
+    final bubbleTop = iconTopLeft.dy + iconSize.height + 48;
+    final bubbleLeft = (iconCenter.dx - bubbleWidth * 0.58)
+        .clamp(12.0, screenWidth - bubbleWidth - 12.0);
+    final bubbleAnchor = Offset(
+      (bubbleLeft + bubbleWidth * 0.62)
+          .clamp(bubbleLeft + 24, bubbleLeft + bubbleWidth - 24),
+      bubbleTop + 2,
+    );
+    debugPrint(
+      '[PredefinedHint] iconTopLeft=$iconTopLeft iconSize=$iconSize '
+      'screenSize=$screenSize bubbleTop=$bubbleTop bubbleLeft=$bubbleLeft',
+    );
 
-    final overlay = Overlay.of(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
+    debugPrint('[PredefinedHint] overlay=$overlay context=$context');
     _overlayEntry = OverlayEntry(
-      builder: (_) => _PredefinedServicesCallout(
-        anchorTop: iconTopLeft.dy + iconSize.height,
-        anchorCenterX: iconTopLeft.dx + iconSize.width / 2,
-        onDismiss: _dismiss,
+      builder: (_) => Stack(
+        children: [
+          // A light scrim dims the rest of the screen while the callout is
+          // visible, to draw the eye to it — purely visual, doesn't block
+          // interaction with whatever's underneath.
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: ColoredBox(color: Color(0x40D9D9D9)),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _CalloutArrowPainter(
+                  start: bubbleAnchor,
+                  end: iconCenter,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: bubbleTop,
+            left: bubbleLeft,
+            child: _PredefinedServicesCallout(onDismiss: _dismiss),
+          ),
+        ],
       ),
     );
     overlay.insert(_overlayEntry!);
@@ -2430,6 +2493,8 @@ class _PredefinedServicesHintIconState
   }
 
   void _dismiss() {
+    _measureRetryTimer?.cancel();
+    _measureRetryTimer = null;
     _autoDismissTimer?.cancel();
     _autoDismissTimer = null;
     _overlayEntry?.remove();
@@ -2438,6 +2503,7 @@ class _PredefinedServicesHintIconState
 
   @override
   void dispose() {
+    _measureRetryTimer?.cancel();
     _autoDismissTimer?.cancel();
     _overlayEntry?.remove();
     super.dispose();
@@ -2467,113 +2533,85 @@ class _PredefinedServicesHintIconState
 }
 
 class _PredefinedServicesCallout extends StatelessWidget {
-  const _PredefinedServicesCallout({
-    required this.anchorTop,
-    required this.anchorCenterX,
-    required this.onDismiss,
-  });
+  const _PredefinedServicesCallout({required this.onDismiss});
 
-  final double anchorTop;
-  final double anchorCenterX;
   final VoidCallback onDismiss;
 
-  static const double _bubbleWidth = 200;
-  static const double _arrowBoxWidth = 78;
-  static const double _arrowBoxHeight = 48;
+  static const double bubbleWidth = 220;
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bubbleLeft = (anchorCenterX - _bubbleWidth * 0.32)
-        .clamp(12.0, screenWidth - _bubbleWidth - 12.0);
-    final arrowLeft = anchorCenterX - _arrowBoxWidth;
-    final arrowTop = anchorTop + 2;
-
-    return Positioned.fill(
-      child: Stack(
-        children: [
-          Positioned(
-            top: arrowTop,
-            left: arrowLeft,
-            width: _arrowBoxWidth,
-            height: _arrowBoxHeight,
-            child: const IgnorePointer(
-              child: CustomPaint(painter: _HookArrowPainter()),
-            ),
+    return SizedBox(
+      width: bubbleWidth,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _catalogGold, width: 1.4),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A000000),
+                blurRadius: 14,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
-          Positioned(
-            top: arrowTop + _arrowBoxHeight - 8,
-            left: bubbleLeft,
-            width: _bubbleWidth,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _catalogGold, width: 1.4),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x1A000000),
-                      blurRadius: 14,
-                      offset: Offset(0, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.3,
+                      color: Color(0xFF1C1917),
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.3,
-                            color: Color(0xFF1C1917),
-                            fontWeight: FontWeight.w600,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: translateText('Predefined services'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: _catalogGold,
-                              ),
-                            ),
-                          ],
+                    children: [
+                      TextSpan(
+                        text: translateText('Predefined services'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _catalogGold,
                         ),
                       ),
-                    ),
-                    GestureDetector(
-                      onTap: onDismiss,
-                      behavior: HitTestBehavior.opaque,
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: 6, top: 1),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: Color(0xFF9A9089),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+              GestureDetector(
+                onTap: onDismiss,
+                behavior: HitTestBehavior.opaque,
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 6, top: 2),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CustomPaint(painter: _BoldCrossPainter()),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// A hand-drawn-style curved arrow (hook shape + arrowhead), sweeping up from
-// bottom-left (near the callout bubble) to top-right (the hinted icon) —
-// matches the reference callout's arrow, recolored to the app's gold theme.
-class _HookArrowPainter extends CustomPainter {
-  const _HookArrowPainter();
+class _CalloutArrowPainter extends CustomPainter {
+  const _CalloutArrowPainter({
+    required this.start,
+    required this.end,
+  });
+
+  final Offset start;
+  final Offset end;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2583,10 +2621,9 @@ class _HookArrowPainter extends CustomPainter {
       ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round;
 
-    final start = Offset(size.width * 0.10, size.height * 0.94);
-    final end = Offset(size.width * 0.92, size.height * 0.08);
-    final control1 = Offset(size.width * -0.15, size.height * 0.5);
-    final control2 = Offset(size.width * 0.5, size.height * 0.72);
+    final delta = end - start;
+    final control1 = start + Offset(delta.dx * -0.36, delta.dy * 0.38);
+    final control2 = start + Offset(delta.dx * 0.54, delta.dy * 0.82);
 
     final path = Path()
       ..moveTo(start.dx, start.dy)
@@ -2607,15 +2644,15 @@ class _HookArrowPainter extends CustomPainter {
 
     final left = end -
         Offset(
-          math.cos(angle - headAngle),
-          math.sin(angle - headAngle),
-        ) *
+              math.cos(angle - headAngle),
+              math.sin(angle - headAngle),
+            ) *
             headLength;
     final right = end -
         Offset(
-          math.cos(angle + headAngle),
-          math.sin(angle + headAngle),
-        ) *
+              math.cos(angle + headAngle),
+              math.sin(angle + headAngle),
+            ) *
             headLength;
 
     canvas.drawLine(end, left, paint);
@@ -2623,7 +2660,39 @@ class _HookArrowPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _HookArrowPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CalloutArrowPainter oldDelegate) {
+    return oldDelegate.start != start || oldDelegate.end != end;
+  }
+}
+
+// A deliberately bold "X" (thick strokes, round caps) for the callout's
+// close button — Icons.close_rounded reads too thin/light at small sizes.
+class _BoldCrossPainter extends CustomPainter {
+  const _BoldCrossPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF6C625A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+
+    const inset = 1.5;
+    canvas.drawLine(
+      Offset(inset, inset),
+      Offset(size.width - inset, size.height - inset),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width - inset, inset),
+      Offset(inset, size.height - inset),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BoldCrossPainter oldDelegate) => false;
 }
 
 class _CatalogBranchSelector extends StatelessWidget {
