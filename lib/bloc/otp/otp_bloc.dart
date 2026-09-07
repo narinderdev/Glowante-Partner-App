@@ -27,10 +27,6 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
 
       print('API Response: $response');
       if (response['success'] == true) {
-        unawaited(
-          PushNotificationService.instance.requestPermissionAndRegisterToken(),
-        );
-
         final data = response['data'];
         final Map<String, dynamic>? user = data is Map
             ? data['user'] is Map
@@ -63,6 +59,11 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
           await UserRoleSession.instance.persistUserSalons(user);
           await UserRoleSession.instance.persistUserBranches(user);
           await UserRoleSession.instance.persistUserPermissions(user);
+
+          unawaited(
+            PushNotificationService.instance
+                .requestPermissionAndRegisterToken(),
+          );
         }
 
         print("Emitting OtpVerifySuccess: $response");

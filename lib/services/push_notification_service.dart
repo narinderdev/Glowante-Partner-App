@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/api_service.dart';
 import 'notification_store.dart';
 
 const _androidChannelId = 'glowante_default_channel';
@@ -189,10 +190,16 @@ class PushNotificationService {
   // start for an already-logged-in user: once the OS has recorded a
   // decision, requestPermission() just returns it without prompting again.
   Future<void> requestPermissionAndRegisterToken() async {
-    if (!_supportsPush) return;
+    print('[PushNotif] requestPermissionAndRegisterToken() called, '
+        'platform=$defaultTargetPlatform supportsPush=$_supportsPush '
+        'initialised=$_initialised');
+    if (!_supportsPush) {
+      print('[PushNotif] platform does not support push, skipping.');
+      return;
+    }
     if (!_initialised) {
       print(
-        'requestPermissionAndRegisterToken called before initialize(); skipping.',
+        '[PushNotif] called before initialize(); skipping.',
       );
       return;
     }
@@ -202,16 +209,18 @@ class PushNotificationService {
     final hasApnsToken = await _waitForApnsToken();
     if (!hasApnsToken) {
       print(
-          'APNS token not available; skipping FCM token registration for now.');
+          '[PushNotif] APNS token not available; skipping FCM token registration for now.');
       return;
     }
 
     try {
+      print('[PushNotif] calling _messaging.getToken()...');
       final token = await _messaging.getToken();
+      print('[PushNotif] getToken() returned: $token');
       await _persistToken(token);
-      print('FCM tokens: $token');
+      print('[PushNotif] requestPermissionAndRegisterToken() done.');
     } catch (error) {
-      debugPrint('FCM token registration failed: $error');
+      print('[PushNotif] FCM token registration failed: $error');
     }
   }
 
@@ -296,29 +305,38 @@ class PushNotificationService {
   }
 
   Future<void> _requestPermissions() async {
+    print('[PushNotif] requesting OS notification permission...');
     final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
       provisional: false,
     );
-    print('Notification permissions: ${settings.authorizationStatus}');
+    print(
+      '[PushNotif] requestPermission() returned '
+      'authorizationStatus=${settings.authorizationStatus} '
+      'alert=${settings.alert} badge=${settings.badge} sound=${settings.sound}',
+    );
   }
 
   Future<bool> _waitForApnsToken() async {
-    if (defaultTargetPlatform != TargetPlatform.iOS) return true;
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      print('[PushNotif] not iOS, skipping APNS token wait.');
+      return true;
+    }
 
     const maxAttempts = 10;
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       final apnsToken = await _messaging.getAPNSToken();
       if (apnsToken?.isNotEmpty == true) {
-        print('APNS token is available');
+        print('[PushNotif] APNS token is available (attempt $attempt)');
         return true;
       }
+      print('[PushNotif] APNS token not yet available (attempt $attempt)');
       await Future.delayed(Duration(milliseconds: 300 * (attempt + 1)));
     }
 
-    print('APNS token was not available after waiting');
+    print('[PushNotif] APNS token was not available after waiting');
     return false;
   }
 
@@ -355,9 +373,33 @@ class PushNotificationService {
   }
 
   Future<void> _persistToken(String? token) async {
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) {
+      print('[PushNotif] _persistToken called with empty token, ignoring.');
+      return;
+    }
+    print('[PushNotif] persisting token locally: $token');
     _cachedToken = token;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenStorageKey, token);
+
+    // Only push to the backend once there's a session to associate the
+    // token with — this can also run pre-login (login_screen.dart's own
+    // getToken() call), where there's nothing to register against yet.
+    final userToken = prefs.getString('user_token');
+    if (userToken == null || userToken.isEmpty) {
+      print('[PushNotif] no user_token yet, skipping backend sync.');
+      return;
+    }
+    try {
+      print('[PushNotif] syncing device token to backend...');
+      final response = await ApiService().updateDeviceToken(token);
+      print('[PushNotif] updateDeviceToken response: $response');
+      if (response['success'] != true) {
+        debugPrint(
+            '[PushNotificationService] updateDeviceToken failed: $response');
+      }
+    } catch (error) {
+      debugPrint('[PushNotificationService] updateDeviceToken error: $error');
+    }
   }
 }

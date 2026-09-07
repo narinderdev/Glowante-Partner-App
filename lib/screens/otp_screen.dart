@@ -234,13 +234,6 @@ class _OtpScreenState extends State<OtpScreen> {
         debugPrint("OTP Verified successfully");
         Fluttertoast.showToast(msg: translateText('OTP verified successfully'));
 
-        // Ask for the notification permission now (with login context)
-        // instead of at raw app start. Fire-and-forget — the permission
-        // prompt shouldn't block navigation into the app.
-        unawaited(
-          PushNotificationService.instance.requestPermissionAndRegisterToken(),
-        );
-
         String? token = response['data']?['accessToken'];
         String? refreshToken = response['data']?['refreshToken'];
         Map<String, dynamic>? user = response['data']?['user'];
@@ -262,6 +255,16 @@ class _OtpScreenState extends State<OtpScreen> {
             await prefs.setString('refresh_token', refreshToken);
           }
           await prefs.setString('phone_number', widget.phoneNumber);
+
+          // Ask for the notification permission now (with login context)
+          // instead of at raw app start, and register the FCM token against
+          // this session. Fire-and-forget, and only after user_token is
+          // actually persisted above — requestPermissionAndRegisterToken's
+          // backend sync needs a session to associate the token with.
+          unawaited(
+            PushNotificationService.instance
+                .requestPermissionAndRegisterToken(),
+          );
           if (userId != null) {
             await prefs.setInt('user_id', userId);
           } else {

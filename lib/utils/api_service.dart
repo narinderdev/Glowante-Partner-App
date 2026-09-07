@@ -246,6 +246,7 @@ class ApiService {
   static const String getSalonList = "salons/my";
   static const String logoutUser = "auth/v2/logout";
   static const String refreshTokenEndpoint = "auth/v2/token/refresh";
+  static const String deviceTokenEndpoint = "notifications/device-token";
   static const String deleteUser = "users/delete";
   static const String deleteAccount = "users/delete-account";
   static const String serviceCatalog = "service-catalog";
@@ -1142,6 +1143,19 @@ class ApiService {
     }
   }
 
+  // Registers/refreshes this device's FCM token with the backend so push
+  // notifications keep targeting the right device — called whenever the
+  // token is first obtained (post-login) or rotated (onTokenRefresh), not
+  // just sent once as part of the OTP-request payload at login time.
+  Future<Map<String, dynamic>> updateDeviceToken(String deviceToken) {
+    return _authorizedJsonRequest(
+      method: 'PUT',
+      endpoint: deviceTokenEndpoint,
+      debugTag: 'UpdateDeviceToken',
+      body: {'deviceToken': deviceToken},
+    );
+  }
+
   Future<Map<String, dynamic>> _authorizedJsonRequest({
     required String method,
     required String endpoint,
@@ -1183,6 +1197,13 @@ class ApiService {
           break;
         case 'PATCH':
           response = await _sharedClient.patch(
+            url,
+            headers: headers,
+            body: jsonEncode(body ?? const <String, dynamic>{}),
+          );
+          break;
+        case 'PUT':
+          response = await _sharedClient.put(
             url,
             headers: headers,
             body: jsonEncode(body ?? const <String, dynamic>{}),
