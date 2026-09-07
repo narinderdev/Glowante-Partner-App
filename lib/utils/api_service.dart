@@ -66,6 +66,44 @@ Map<String, dynamic> _parseEnvelopeResponse(
   };
 }
 
+Map<String, dynamic> _parseOtpChallengeResponse(
+  http.Response response, {
+  required String fallback,
+}) {
+  final parsed = _parseEnvelopeResponse(response, fallback: fallback);
+  if (parsed['success'] == true) {
+    return parsed;
+  }
+
+  final code = parsed['code']?.toString();
+  final message = parsed['message']?.toString() ?? '';
+  if (_isOtpChallengeUnavailable(code) ||
+      _isOtpChallengeUnavailableMessage(message)) {
+    return {
+      ...parsed,
+      'message': 'Something went wrong',
+    };
+  }
+
+  return parsed;
+}
+
+bool _isOtpChallengeUnavailable(String? code) {
+  return code == 'OTP_CHALLENGE_NOT_FOUND' ||
+      code == 'OTP_CHALLENGE_EXPIRED' ||
+      code == 'OTP_CHALLENGE_LOCKED';
+}
+
+bool _isOtpChallengeUnavailableMessage(String message) {
+  final normalized = message.toLowerCase();
+  return normalized.contains('otp challenge not found') ||
+      normalized.contains('otp challenge expired') ||
+      normalized.contains('otp challenge locked') ||
+      normalized.contains('challenge not found') ||
+      normalized.contains('challenge expired') ||
+      normalized.contains('challenge locked');
+}
+
 class _AuthHttpClient extends http.BaseClient {
   _AuthHttpClient();
 
@@ -1490,12 +1528,12 @@ class ApiService {
         await _sharedClient.post(url, headers: headers, body: body);
 
     debugPrint("[OtpVerify] status=${response.statusCode}");
-    _debugPrintChunked("OtpVerify body", response.body);
-
-    return _parseEnvelopeResponse(
+    final parsed = _parseOtpChallengeResponse(
       response,
       fallback: 'OTP verification failed',
     );
+    _debugPrintChunked("OtpVerify response", parsed);
+    return parsed;
   }
 
   // Resend an OTP challenge (auth/otp/resend) — replaces the old
@@ -1513,12 +1551,12 @@ class ApiService {
         await _sharedClient.post(url, headers: headers, body: body);
 
     debugPrint("[OtpResend] status=${response.statusCode}");
-    _debugPrintChunked("OtpResend body", response.body);
-
-    return _parseEnvelopeResponse(
+    final parsed = _parseOtpChallengeResponse(
       response,
       fallback: 'Failed to resend OTP',
     );
+    _debugPrintChunked("OtpResend response", parsed);
+    return parsed;
   }
 
   // ---------------------- SALON TEAM INVITATIONS ----------------------
@@ -2740,7 +2778,7 @@ class ApiService {
     final token = await getAuthToken();
     final refreshToken = prefs.getString('refresh_token');
 
-    if (token == null || token.isEmpty) return false;
+    if (token.isEmpty) return false;
 
     final url = Uri.parse(baseUrl + (allDevices ? logoutAllUser : logoutUser));
 

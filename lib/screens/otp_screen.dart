@@ -355,8 +355,8 @@ class _OtpScreenState extends State<OtpScreen> {
           response,
           fallback: 'Invalid or expired OTP',
         );
-        if (_isDeadChallengeCode(code)) {
-          _returnToLoginWithMessage(message);
+        if (_isDeadChallengeResponse(code, message)) {
+          _returnToLoginWithMessage(_otpChallengeUnavailableMessage());
           return;
         }
         setState(() {
@@ -365,17 +365,25 @@ class _OtpScreenState extends State<OtpScreen> {
         _clearOtpAndFocus();
       }
     } catch (e) {
+      final message = extractErrorMessage(
+        e,
+        fallback: 'Invalid or expired OTP',
+      );
+      if (_isDeadChallengeMessage(message)) {
+        _returnToLoginWithMessage(_otpChallengeUnavailableMessage());
+        return;
+      }
+
       setState(() {
-        errorMessage = extractErrorMessage(
-          e,
-          fallback: 'Invalid or expired OTP',
-        );
+        errorMessage = message;
       });
       _clearOtpAndFocus();
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -498,8 +506,8 @@ class _OtpScreenState extends State<OtpScreen> {
           response,
           fallback: 'Failed to resend OTP',
         );
-        if (_isDeadChallengeCode(code)) {
-          _returnToLoginWithMessage(message);
+        if (_isDeadChallengeResponse(code, message)) {
+          _returnToLoginWithMessage(_otpChallengeUnavailableMessage());
           return;
         }
 
@@ -518,11 +526,17 @@ class _OtpScreenState extends State<OtpScreen> {
         }
       }
     } catch (e) {
+      final message = extractErrorMessage(
+        e,
+        fallback: 'Failed to resend OTP',
+      );
+      if (_isDeadChallengeMessage(message)) {
+        _returnToLoginWithMessage(_otpChallengeUnavailableMessage());
+        return;
+      }
+
       setState(() {
-        errorMessage = extractErrorMessage(
-          e,
-          fallback: 'Failed to resend OTP',
-        );
+        errorMessage = message;
       });
     } finally {
       if (mounted) {
@@ -541,6 +555,24 @@ class _OtpScreenState extends State<OtpScreen> {
     return code == 'OTP_CHALLENGE_NOT_FOUND' ||
         code == 'OTP_CHALLENGE_EXPIRED' ||
         code == 'OTP_CHALLENGE_LOCKED';
+  }
+
+  bool _isDeadChallengeResponse(String? code, String message) {
+    return _isDeadChallengeCode(code) || _isDeadChallengeMessage(message);
+  }
+
+  bool _isDeadChallengeMessage(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('otp challenge not found') ||
+        normalized.contains('otp challenge expired') ||
+        normalized.contains('otp challenge locked') ||
+        normalized.contains('challenge not found') ||
+        normalized.contains('challenge expired') ||
+        normalized.contains('challenge locked');
+  }
+
+  String _otpChallengeUnavailableMessage() {
+    return translateText('Something went wrong');
   }
 
   void _returnToLoginWithMessage(String message) {
