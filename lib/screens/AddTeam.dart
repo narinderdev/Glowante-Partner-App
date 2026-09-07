@@ -521,10 +521,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       }
     }
 
-    if (rawAssignments.isNotEmpty && rawAssignments.first is Map) {
-      return Map<String, dynamic>.from(rawAssignments.first as Map);
-    }
-
     return null;
   }
 
@@ -599,6 +595,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       }
     }
 
+    final services = assignment?['services'];
+    if (services is List) {
+      for (final item in services) {
+        if (item is! Map) continue;
+        addId(item['branchServiceId']);
+        final branchService = item['branchService'];
+        if (branchService is Map) {
+          addId(branchService['id']);
+        }
+      }
+    }
+
     return ids.toList();
   }
 
@@ -628,12 +636,31 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       for (final item in userBranchRoles) {
         if (item is! Map) continue;
 
+        final branchRole = item['branchRole'];
+        if (branchRole is Map &&
+            _isOwnerRoleText(
+              (branchRole['code'] ?? branchRole['label'] ?? '').toString(),
+            )) {
+          continue;
+        }
+
         addId(item['branchRoleId']);
 
-        final branchRole = item['branchRole'];
         if (branchRole is Map) {
           addId(branchRole['id']);
         }
+      }
+    }
+
+    final roles = assignment?['roles'];
+    if (roles is List) {
+      for (final item in roles) {
+        if (item is! Map) continue;
+        if (_isOwnerRoleText(
+            (item['code'] ?? item['label'] ?? '').toString())) {
+          continue;
+        }
+        addId(item['id']);
       }
     }
 

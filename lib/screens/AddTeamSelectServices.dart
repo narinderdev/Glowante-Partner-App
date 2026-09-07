@@ -362,6 +362,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       'info': base['info'] ?? base['brief'],
       'roles': roles,
       'specialities': specs,
+      if (base['scheduleMode'] != null) 'scheduleMode': base['scheduleMode'],
       'schedules': schedules,
       'branchServiceIds': branchServiceIds,
       'profilePictureUrl': base['profilePictureUrl'],

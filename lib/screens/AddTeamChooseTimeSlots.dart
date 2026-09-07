@@ -54,6 +54,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
   bool _isSubmitting = false;
   bool _useSalonHours = false;
+  bool _hasPrefilledMemberSchedules = false;
   bool _copyMondayToAllChecked = false;
   bool _isLoadingOperatingSchedule = false;
   bool _isApplyingMondayCopy = false;
@@ -108,7 +109,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     mondaySchedule = {};
 
-    _prefillSchedules();
+    _hasPrefilledMemberSchedules = _prefillSchedules();
 
     _useSalonHours = false;
 
@@ -295,6 +296,18 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       if (_useSalonHours) {
         _clearWeeklySchedule();
         _fillEmptyDaysFromOperatingSlots(operatingSlots);
+        return;
+      }
+
+      if (_hasPrefilledMemberSchedules) {
+        for (final day in _weekDays) {
+          if ((weeklySchedule[day] ?? const []).isNotEmpty) {
+            weeklySchedule[day] = weeklySchedule[day]!
+                .map((slot) => _normalizeSlotWithinDay(day, slot))
+                .toList();
+          }
+        }
+        _sortWeeklyScheduleInPlace();
         return;
       }
 
@@ -943,6 +956,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       }
 
       if (foundAny) {
+        for (final day in _weekDays) {
+          if ((weeklySchedule[day] ?? const []).isEmpty) {
+            _memberOffDays.add(_dayKey(day));
+          }
+        }
         _sortWeeklyScheduleInPlace();
         debugPrint('[TeamSchedule] Member schedule prefill applied.');
         for (final d in _weekDays) {
@@ -1473,6 +1491,66 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         )
         .toList(growable: true);
   }
+
+  List<_OperatingSlot> _sortedOperatingSlots(List<_OperatingSlot> slots) {
+    return List<_OperatingSlot>.from(slots)
+      ..sort((a, b) {
+        final startCompare = a.startMinutes.compareTo(b.startMinutes);
+        if (startCompare != 0) return startCompare;
+        return a.endMinutes.compareTo(b.endMinutes);
+      });
+  }
+
+  List<_OperatingSlot> _enteredSlotsForDay(String day) {
+    final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+    return slots
+        .map((slot) => _slotFromMap(slot))
+        .whereType<_OperatingSlot>()
+        .toList()
+      ..sort((a, b) {
+        final startCompare = a.startMinutes.compareTo(b.startMinutes);
+        if (startCompare != 0) return startCompare;
+        return a.endMinutes.compareTo(b.endMinutes);
+      });
+  }
+
+  bool _sameOperatingSlots(
+    List<_OperatingSlot> left,
+    List<_OperatingSlot> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index].startMinutes != right[index].startMinutes ||
+          left[index].endMinutes != right[index].endMinutes) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool get _scheduleMatchesBranchHours {
+    if (_operatingSlotsByDay.isEmpty) return false;
+
+    for (final day in _weekDays) {
+      final branchSlots = _sortedOperatingSlots(
+        _operatingSlotsByDay[_dayKey(day)] ?? const <_OperatingSlot>[],
+      );
+      final enteredSlots = _enteredSlotsForDay(day);
+
+      if (branchSlots.isEmpty || _isClosedDay(day)) {
+        if (enteredSlots.isNotEmpty && !_isMemberOffDay(day)) return false;
+        continue;
+      }
+
+      if (_isMemberOffDay(day)) return false;
+      if (!_sameOperatingSlots(enteredSlots, branchSlots)) return false;
+    }
+
+    return true;
+  }
+
+  String get _currentScheduleMode =>
+      _scheduleMatchesBranchHours ? 'BRANCH_HOURS' : 'CUSTOM';
 
   bool _isMemberOffDay(String day) => _memberOffDays.contains(_dayKey(day));
 
@@ -2127,8 +2205,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "info": widget.formData['brief'],
         "roles": List<String>.from(rawRoles.map((e) => e.toString())),
         "specialities": List<String>.from(rawSpecs.map((e) => e.toString())),
+        "scheduleMode": _currentScheduleMode,
         "schedules": scheduleData,
-        "useSalonHours": _useSalonHours,
+        "useSalonHours": _currentScheduleMode == 'BRANCH_HOURS',
         "experience": int.tryParse(
               widget.formData['experience']?.toString() ?? '',
             ) ??
@@ -2209,6 +2288,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
       final branchServiceIds = rememberedServiceIds.toList();
       widget.formData['branchServiceIds'] = branchServiceIds;
+      final scheduleMode = _currentScheduleMode;
+      widget.formData['scheduleMode'] = scheduleMode;
+      widget.formData['useSalonHours'] = scheduleMode == 'BRANCH_HOURS';
 
       final Map<String, dynamic> teamMemberData = {
         "isEdit": widget.formData['isEdit'] == true,
@@ -2222,8 +2304,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "info": widget.formData['brief'],
         "roles": List<String>.from(rawRoles.map((e) => e.toString())),
         "specialities": List<String>.from(rawSpecs.map((e) => e.toString())),
+        "scheduleMode": scheduleMode,
         "schedules": scheduleData,
-        "useSalonHours": _useSalonHours,
+        "useSalonHours": scheduleMode == 'BRANCH_HOURS',
         "otp": widget.formData['otp']?.toString(),
         "allowOnlineBooking": widget.formData['allowOnlineBooking'] ?? true,
         "branchServiceIds": branchServiceIds,
@@ -2278,6 +2361,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
             {
               'completed': true,
               'selectedServiceIds': cachedIds.toList(),
+              'scheduleMode': scheduleMode,
               'schedules': scheduleData,
             },
           );
@@ -2295,6 +2379,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
           {
             'completed': true,
             'selectedServiceIds': branchServiceIds,
+            'scheduleMode': scheduleMode,
             'schedules': scheduleData,
           },
         );
@@ -2326,6 +2411,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     return {
       'completed': completed,
       'selectedServiceIds': branchServiceIds,
+      'scheduleMode': _currentScheduleMode,
       'schedules': _buildScheduleData(),
       'markedOffDays': _memberOffDays.toList(),
     };

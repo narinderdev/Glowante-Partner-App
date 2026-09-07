@@ -757,6 +757,66 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     );
   }
 
+  List<_OperatingSlot> _sortedOperatingSlots(List<_OperatingSlot> slots) {
+    return List<_OperatingSlot>.from(slots)
+      ..sort((a, b) {
+        final startCompare = a.startMinutes.compareTo(b.startMinutes);
+        if (startCompare != 0) return startCompare;
+        return a.endMinutes.compareTo(b.endMinutes);
+      });
+  }
+
+  List<_OperatingSlot> _enteredSlotsForDay(String day) {
+    final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+    return slots
+        .map((slot) => _slotFromMap(slot))
+        .whereType<_OperatingSlot>()
+        .toList()
+      ..sort((a, b) {
+        final startCompare = a.startMinutes.compareTo(b.startMinutes);
+        if (startCompare != 0) return startCompare;
+        return a.endMinutes.compareTo(b.endMinutes);
+      });
+  }
+
+  bool _sameOperatingSlots(
+    List<_OperatingSlot> left,
+    List<_OperatingSlot> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index].startMinutes != right[index].startMinutes ||
+          left[index].endMinutes != right[index].endMinutes) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool get _scheduleMatchesBranchTimings {
+    if (_operatingSlotsByDay.isEmpty) return false;
+
+    for (final day in _weekDays) {
+      final branchSlots = _sortedOperatingSlots(
+        _operatingSlotsByDay[_dayKey(day)] ?? const <_OperatingSlot>[],
+      );
+      final enteredSlots = _enteredSlotsForDay(day);
+
+      if (branchSlots.isEmpty || _isClosedDay(day)) {
+        if (enteredSlots.isNotEmpty && !_isMarkedOff(day)) return false;
+        continue;
+      }
+
+      if (_isMarkedOff(day)) return false;
+      if (!_sameOperatingSlots(enteredSlots, branchSlots)) return false;
+    }
+
+    return true;
+  }
+
+  bool get _shouldUseBranchHoursScheduleMode =>
+      _sameAsBranchTimings || _scheduleMatchesBranchTimings;
+
   void _applyDefaultBranchSlotsToEmptyDays() {
     if (!mounted) return;
 
@@ -1372,6 +1432,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     return {
       'completed': completed,
       'selectedServiceIds': widget.selectedServiceIds,
+      'scheduleMode':
+          _shouldUseBranchHoursScheduleMode ? 'BRANCH_HOURS' : 'CUSTOM',
       'schedules': _buildSchedulePayload(),
       'markedOffDays': _markedOffDays.toList(),
       if (_selectedJoiningDate != null) 'joiningDate': _selectedJoiningDate,
@@ -1390,8 +1452,9 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     }
 
     final schedules = _buildSchedulePayload();
+    final useBranchHoursScheduleMode = _shouldUseBranchHoursScheduleMode;
 
-    if (!_sameAsBranchTimings && schedules.isEmpty) {
+    if (!useBranchHoursScheduleMode && schedules.isEmpty) {
       Fluttertoast.showToast(
         msg: translateText('At least one day must be working.'),
       );
@@ -1413,7 +1476,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
             assignBranchServiceIds: widget.selectedServiceIds,
             assignSchedules: schedules,
             initialJoiningDate: _selectedJoiningDate,
-            assignScheduleSameAsBranch: _sameAsBranchTimings,
+            assignScheduleSameAsBranch: useBranchHoursScheduleMode,
           ),
         ),
       );
