@@ -1081,10 +1081,18 @@ class ApiService {
     }
 
     if (TokenExpirationService.isTokenExpired(token)) {
+      print(
+        '[TokenRefresh] access token expired, refreshing before proceeding...',
+      );
       final refreshed = await _refreshAccessToken(prefs);
       if (refreshed != null && refreshed.isNotEmpty) {
+        print('[TokenRefresh] refresh succeeded, new access token in use.');
         return refreshed;
       }
+      print(
+        '[TokenRefresh] refresh failed (no/invalid refresh token, or '
+        'request failed) — forcing logout.',
+      );
       await AuthSessionManager.instance.forceLogout(reason: 'session_expired');
       return '';
     }
@@ -1100,6 +1108,12 @@ class ApiService {
   static Future<String>? _refreshInFlight;
 
   Future<String?> _refreshAccessToken(SharedPreferences prefs) {
+    if (_refreshInFlight != null) {
+      print(
+        '[TokenRefresh] a refresh is already in flight, waiting on it '
+        'instead of starting a second one.',
+      );
+    }
     return _refreshInFlight ??= _performRefresh(prefs).whenComplete(() {
       _refreshInFlight = null;
     });
@@ -1108,37 +1122,53 @@ class ApiService {
   Future<String> _performRefresh(SharedPreferences prefs) async {
     final refreshToken = prefs.getString('refresh_token');
     if (refreshToken == null || refreshToken.isEmpty) {
+      print('[TokenRefresh] no refresh_token stored, cannot refresh.');
       return '';
     }
 
     try {
       final url = Uri.parse(baseUrl + refreshTokenEndpoint);
+      print('[TokenRefresh] POST $url');
       final response = await _sharedClient.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: json.encode({"refreshToken": refreshToken}),
       );
+      print('[TokenRefresh] status=${response.statusCode}');
 
       final parsed = _parseEnvelopeResponse(
         response,
         fallback: 'Failed to refresh session',
       );
-      if (parsed['success'] != true) return '';
+      if (parsed['success'] != true) {
+        print('[TokenRefresh] server rejected refresh: $parsed');
+        return '';
+      }
 
       final data = parsed['data'];
-      if (data is! Map) return '';
+      if (data is! Map) {
+        print('[TokenRefresh] unexpected response shape: $parsed');
+        return '';
+      }
 
       final newAccessToken = data['accessToken']?.toString();
       final newRefreshToken = data['refreshToken']?.toString();
-      if (newAccessToken == null || newAccessToken.isEmpty) return '';
+      if (newAccessToken == null || newAccessToken.isEmpty) {
+        print('[TokenRefresh] response had no accessToken: $data');
+        return '';
+      }
 
       await prefs.setString('user_token', newAccessToken);
       if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
         await prefs.setString('refresh_token', newRefreshToken);
       }
+      print(
+        '[TokenRefresh] stored new access token '
+        '(refresh token ${newRefreshToken == refreshToken ? 'unchanged' : 'rotated'}).',
+      );
       return newAccessToken;
     } catch (error) {
-      debugPrint('[TokenRefresh] error=$error');
+      print('[TokenRefresh] error=$error');
       return '';
     }
   }
@@ -3794,11 +3824,15 @@ class ApiService {
     try {
       // Construct the full URL by concatenating strings using '+'
       final url = Uri.parse(baseUrl + 'branches/$branchId/services');
+      final token = await getAuthToken();
 
       print('Making GET request to: $url'); // Log the request URL
 
       // Make the GET request
-      final response = await _sharedClient.get(url);
+      final response = await _sharedClient.get(
+        url,
+        headers: {"Authorization": "Bearer $token"},
+      );
 
       // Log the response status and body
       print('Response Status: ${response.statusCode}');

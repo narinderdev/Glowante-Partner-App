@@ -39,6 +39,10 @@ class TokenExpirationService {
       }
 
       if (isTokenExpired(token)) {
+        print(
+          '[TokenRefresh] background poller (60s tick) found the access '
+          'token expired, triggering getAuthToken()...',
+        );
         // getAuthToken() already attempts a refresh-token exchange before
         // falling back to forceLogout — calling forceLogout directly here
         // (as this used to) skipped that and force-logged-out on every
