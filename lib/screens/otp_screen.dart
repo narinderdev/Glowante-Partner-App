@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../services/push_notification_service.dart';
 import '../services/user_role_session.dart';
 import 'role_selection_screen.dart';
 import '../widgets/app_loader.dart';
@@ -233,7 +234,15 @@ class _OtpScreenState extends State<OtpScreen> {
         debugPrint("OTP Verified successfully");
         Fluttertoast.showToast(msg: translateText('OTP verified successfully'));
 
-        String? token = response['data']?['token'];
+        // Ask for the notification permission now (with login context)
+        // instead of at raw app start. Fire-and-forget — the permission
+        // prompt shouldn't block navigation into the app.
+        unawaited(
+          PushNotificationService.instance.requestPermissionAndRegisterToken(),
+        );
+
+        String? token = response['data']?['accessToken'];
+        String? refreshToken = response['data']?['refreshToken'];
         Map<String, dynamic>? user = response['data']?['user'];
 
         if (token != null && user != null) {
@@ -249,6 +258,9 @@ class _OtpScreenState extends State<OtpScreen> {
 
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_token', token);
+          if (refreshToken != null && refreshToken.isNotEmpty) {
+            await prefs.setString('refresh_token', refreshToken);
+          }
           await prefs.setString('phone_number', widget.phoneNumber);
           if (userId != null) {
             await prefs.setInt('user_id', userId);
@@ -304,38 +316,30 @@ class _OtpScreenState extends State<OtpScreen> {
           }
 
           if (!mounted) return;
-          await RoleSelectionScreen.continueWithSingleRole(
-            context: context,
-            token: token,
-            user: user,
-            profileComplete: hasFullName,
+          final selectableRoleCount = RoleSelectionScreen.selectableRoleCount(
+            user,
+          );
+          if (selectableRoleCount <= 1) {
+            await RoleSelectionScreen.continueWithSingleRole(
+              context: context,
+              token: token,
+              user: user,
+              profileComplete: hasFullName,
+            );
+            return;
+          }
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RoleSelectionScreen(
+                token: token,
+                user: user,
+                profileComplete: hasFullName,
+              ),
+            ),
           );
           return;
-
-          // Role selection is intentionally skipped after login.
-          // final selectableRoleCount = RoleSelectionScreen.selectableRoleCount(
-          //   user,
-          // );
-          // if (selectableRoleCount <= 1) {
-          //   await RoleSelectionScreen.continueWithSingleRole(
-          //     context: context,
-          //     token: token,
-          //     user: user,
-          //     profileComplete: hasFullName,
-          //   );
-          //   return;
-          // }
-          //
-          // Navigator.pushReplacement(
-          //   context,
-          //   MaterialPageRoute(
-          //     builder: (_) => RoleSelectionScreen(
-          //       token: token,
-          //       user: user,
-          //       profileComplete: hasFullName,
-          //     ),
-          //   ),
-          // );
         } else {
           setState(() {
             errorMessage = translateText('User data or token is missing');

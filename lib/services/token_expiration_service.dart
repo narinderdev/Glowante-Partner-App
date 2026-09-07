@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'auth_session_manager.dart';
+import '../utils/api_service.dart';
 
 /// Polls the stored auth token and enforces logout when the token is no longer
 /// valid. This acts as a safety net in addition to per-request checks.
@@ -39,8 +39,12 @@ class TokenExpirationService {
       }
 
       if (isTokenExpired(token)) {
-        await AuthSessionManager.instance
-            .forceLogout(reason: 'session_expired');
+        // getAuthToken() already attempts a refresh-token exchange before
+        // falling back to forceLogout — calling forceLogout directly here
+        // (as this used to) skipped that and force-logged-out on every
+        // access-token expiry, which happens every 15 minutes now that the
+        // backend issues short-lived access tokens.
+        await ApiService().getAuthToken();
       }
     } catch (error, stackTrace) {
       debugPrint('TokenExpirationService check failed: $error');

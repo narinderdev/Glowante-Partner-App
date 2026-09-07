@@ -51,6 +51,15 @@ class _BottomNavState extends State<BottomNav> {
     debugPrint(
         '[HomeReach] Owner home shell initialized with tabIndex=$_currentIndex');
 
+    if (_currentIndex == 3) {
+      // Landed directly on Catalog (e.g. straight after adding a salon),
+      // not via a later tab tap — still counts as the tab being visible.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _categoryScreenKey.currentState
+            ?.refreshFromCurrentSelection(tabBecameActive: true);
+      });
+    }
+
     final pendingNotification =
         PushNotificationService.instance.pendingNavigationEvent;
     if (pendingNotification != null && pendingNotification.wasTapped) {
@@ -101,7 +110,8 @@ class _BottomNavState extends State<BottomNav> {
       if (index == 2) {
         _salonsScreenKey.currentState?.collapseQuickActions();
       } else if (index == 3) {
-        _categoryScreenKey.currentState?.refreshFromCurrentSelection();
+        _categoryScreenKey.currentState
+            ?.refreshFromCurrentSelection(tabBecameActive: true);
       }
       return;
     }
@@ -119,7 +129,8 @@ class _BottomNavState extends State<BottomNav> {
     }
     if (index == 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _categoryScreenKey.currentState?.refreshFromCurrentSelection();
+        _categoryScreenKey.currentState
+            ?.refreshFromCurrentSelection(tabBecameActive: true);
       });
     }
     debugPrint('[HomeReach] Owner home shell active tab=$_currentIndex');

@@ -136,7 +136,6 @@ class PushNotificationService {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     await _initialiseLocalNotifications();
-    await _requestPermissions();
 
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
@@ -145,21 +144,13 @@ class PushNotificationService {
       sound: true,
     );
 
-    final hasApnsToken = await _waitForApnsToken();
-    if (!hasApnsToken) {
-      print(
-          'APNS token not available; skipping FCM token registration for now.');
-    } else {
-      try {
-        final token = await _messaging.getToken();
-        await _persistToken(token);
-        print('FCM tokens: $token');
-      } catch (error) {
-        debugPrint(
-          'FCM token initialization failed on startup: $error',
-        );
-      }
-    }
+    // Deliberately not requesting the OS notification permission (or
+    // fetching/persisting the FCM token) here — that used to happen on
+    // every cold start, before the user had even logged in. It's now
+    // triggered explicitly via requestPermissionAndRegisterToken() right
+    // after OTP verify succeeds (and again on a returning already-logged-in
+    // user's splash check, which re-requests silently since the OS only
+    // prompts once per install).
 
     _messaging.onTokenRefresh.listen((newToken) async {
       print('FCM token refreshed: $newToken');
@@ -189,6 +180,38 @@ class PushNotificationService {
       print('Initial push data: ${initialMessage.data}');
       await NotificationStore.saveRemoteMessage(initialMessage);
       _emitBookingEvent(initialMessage, wasTapped: true);
+    }
+  }
+
+  // Shows the OS notification-permission prompt and registers the FCM
+  // token — call this right after login (OTP verify) succeeds, not at raw
+  // app start, so the ask has context. Safe to call again on every app
+  // start for an already-logged-in user: once the OS has recorded a
+  // decision, requestPermission() just returns it without prompting again.
+  Future<void> requestPermissionAndRegisterToken() async {
+    if (!_supportsPush) return;
+    if (!_initialised) {
+      print(
+        'requestPermissionAndRegisterToken called before initialize(); skipping.',
+      );
+      return;
+    }
+
+    await _requestPermissions();
+
+    final hasApnsToken = await _waitForApnsToken();
+    if (!hasApnsToken) {
+      print(
+          'APNS token not available; skipping FCM token registration for now.');
+      return;
+    }
+
+    try {
+      final token = await _messaging.getToken();
+      await _persistToken(token);
+      print('FCM tokens: $token');
+    } catch (error) {
+      debugPrint('FCM token registration failed: $error');
     }
   }
 

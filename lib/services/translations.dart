@@ -72,8 +72,21 @@ class AppTranslations {
       'Branch Images(Optional)': 'Branch Images(Optional)',
       'Branch added successfully': 'Branch added successfully',
       'Choose Branch': 'Choose Branch',
+      'Choose your workspace': 'Choose your workspace',
       "Choose branch where you'd like to assign that team member":
           "Choose branch where you'd like to assign that team member",
+      'Switch between the tools you need for this session.':
+          'Switch between the tools you need for this session.',
+      'Owner workspace': 'Owner workspace',
+      'Team workspace': 'Team workspace',
+      'Bookings, schedule, attendance, profile':
+          'Bookings, schedule, attendance, profile',
+      'Salons, branches, catalog, reports':
+          'Salons, branches, catalog, reports',
+      'Work with assigned bookings, team schedule, attendance, and profile details.':
+          'Work with assigned bookings, team schedule, attendance, and profile details.',
+      'Manage salons, branches, team, services, reports, and business settings.':
+          'Manage salons, branches, team, services, reports, and business settings.',
       'Brief About Member': 'Brief About Member',
       'Cancel': 'Cancel',
       'Catalog': 'Catalog',
@@ -986,8 +999,20 @@ class AppTranslations {
       'Branch Images(Optional)': 'शाखा की तस्वीरें (वैकल्पिक)',
       'Branch added successfully': 'शाखा सफलतापूर्वक जोड़ी गई',
       'Choose Branch': 'शाखा चुनें',
+      'Choose your workspace': 'अपना कार्यक्षेत्र चुनें',
       "Choose branch where you'd like to assign that team member":
           'वह शाखा चुनें जहां आप इस टीम सदस्य को असाइन करना चाहते हैं',
+      'Switch between the tools you need for this session.':
+          'इस सत्र के लिए आवश्यक टूल्स के बीच स्विच करें।',
+      'Owner workspace': 'मालिक कार्यक्षेत्र',
+      'Team workspace': 'टीम कार्यक्षेत्र',
+      'Bookings, schedule, attendance, profile':
+          'बुकिंग, शेड्यूल, उपस्थिति, प्रोफ़ाइल',
+      'Salons, branches, catalog, reports': 'सैलून, शाखाएँ, कैटलॉग, रिपोर्ट',
+      'Work with assigned bookings, team schedule, attendance, and profile details.':
+          'असाइन की गई बुकिंग, टीम शेड्यूल, उपस्थिति और प्रोफ़ाइल विवरण देखें।',
+      'Manage salons, branches, team, services, reports, and business settings.':
+          'सैलून, शाखाएँ, टीम, सेवाएँ, रिपोर्ट और बिज़नेस सेटिंग्स संभालें।',
       'Changing language...': 'भाषा बदली जा रही है...',
       'Brief About Member': 'सदस्य के बारे में संक्षेप',
       'Cancel': 'रद्द करें',

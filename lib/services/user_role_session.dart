@@ -305,6 +305,92 @@ class UserRoleSession {
     return permissionCodes.any(permissions.contains);
   }
 
+  // Best-effort reconstruction of the login-time `user['roles']` list from
+  // what persistUserRoles cached, for screens (e.g. the "Change Workspace"
+  // switcher) that need a role list but shouldn't re-hit the login API.
+  // roleIds/roleLabels/roleCodes are appended together per role during
+  // persistUserRoles, so they stay index-aligned for the common
+  // {id, code, label} shape; the flat-string-code shape only ever
+  // populates roleCodes, so pair by index only up to the shorter lists.
+  Future<List<Map<String, dynamic>>> loadCachedRoleEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final roleCodes = prefs.getStringList(_roleCodesKey) ?? const <String>[];
+    final roleLabels = prefs.getStringList(_roleLabelsKey) ?? const <String>[];
+    final roleIds = prefs.getStringList(_roleIdsKey) ?? const <String>[];
+
+    return List.generate(roleCodes.length, (index) {
+      final code = roleCodes[index];
+      final label = index < roleLabels.length ? roleLabels[index] : '';
+      final id = index < roleIds.length ? int.tryParse(roleIds[index]) : null;
+      return <String, dynamic>{
+        'id': id,
+        'code': code,
+        'label': label,
+      };
+    });
+  }
+
+  // Re-syncs the cached roles (user_role_codes/labels/ids, used by the
+  // "Change Workspace" switcher) from the server. persistUserRoles only
+  // ever runs at login, so a branch assignment made mid-session (e.g. an
+  // owner assigning themselves as a stylist) never reaches the cache on
+  // its own — this lets the Profile tab pick it up without a full logout.
+  // Looks up the signed-in user's own entry in one of their salons' team
+  // list, which already returns that member's full cross-salon roles.
+  Future<bool> refreshCachedRolesFromServer() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id');
+    if (userId == null) {
+      print('[RoleRefresh] no cached user_id, aborting');
+      return false;
+    }
+
+    final salons = await loadUserSalons();
+    print('[RoleRefresh] userId=$userId cachedSalons=${salons.map((s) => s['id']).toList()}');
+    for (final salon in salons) {
+      final salonId = _asInt(salon['id']);
+      if (salonId == null) continue;
+
+      try {
+        final response = await ApiService().getTeamMembersV2(
+          salonId,
+          status: 'active',
+          pageSize: 100,
+        );
+        if (response['success'] != true) {
+          print('[RoleRefresh] salon=$salonId request failed: $response');
+          continue;
+        }
+
+        final data = response['data'];
+        if (data is! Map) continue;
+        final items = data['items'];
+        if (items is! List) continue;
+
+        final match = items.cast<dynamic>().firstWhere(
+              (item) => item is Map && _asInt(item['userId']) == userId,
+              orElse: () => null,
+            );
+        if (match is! Map) {
+          print('[RoleRefresh] salon=$salonId no item with userId=$userId in ${items.length} items');
+          continue;
+        }
+
+        final roles = match['roles'];
+        if (roles is! List) continue;
+
+        print('[RoleRefresh] salon=$salonId matched roles=$roles');
+        await persistUserRoles({'roles': roles});
+        return true;
+      } catch (error) {
+        print('[RoleRefresh] salon=$salonId error=$error');
+        continue;
+      }
+    }
+    print('[RoleRefresh] no salon produced a match, cache unchanged');
+    return false;
+  }
+
   Future<List<Map<String, dynamic>>> loadUserSalons() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_stylistSalonsJsonKey);

@@ -410,7 +410,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: _errorMessage == null
                   ? _loginBorder
@@ -514,7 +514,7 @@ class _LoginScreenState extends State<LoginScreen> {
       height: compact ? 60 : 64,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(10),
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -636,7 +636,7 @@ class _LoginFeatureCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: _loginBorder, width: 1.3),
         boxShadow: const [
           BoxShadow(

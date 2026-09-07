@@ -1,5 +1,6 @@
 // lib/screens/category_screen.dart
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // needed for TextInputFormatter
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -300,6 +301,7 @@ class CategoryScreenState extends State<CategoryScreen> {
   bool _syncingBookingsSelection = false;
   bool _isOpeningPredefinedServices = false;
   bool _isOpeningAddService = false;
+  final GlobalKey<_PredefinedServicesHintIconState> _hintIconKey = GlobalKey();
 
   int? _asInt(dynamic value) {
     if (value == null) return null;
@@ -400,7 +402,16 @@ class CategoryScreenState extends State<CategoryScreen> {
     }
   }
 
-  Future<void> refreshFromCurrentSelection() async {
+  // tabBecameActive: true only when the user just switched onto this tab
+  // (see bottom_nav.dart) — the coach-mark hint should only ever appear
+  // while this screen is actually the one on screen, not at initState time
+  // when it's still an inactive IndexedStack sibling.
+  Future<void> refreshFromCurrentSelection({
+    bool tabBecameActive = false,
+  }) async {
+    if (tabBecameActive) {
+      _hintIconKey.currentState?.maybeShow();
+    }
     final salonCubit = context.read<SalonListCubit>();
     if (salonCubit.state.salons.isEmpty) {
       await salonCubit.loadSalons();
@@ -1474,6 +1485,7 @@ class CategoryScreenState extends State<CategoryScreen> {
             color: _catalogGold,
           ),
           _PredefinedServicesHintIcon(
+            key: _hintIconKey,
             enabled: _selectedSalon != null && !_isOpeningPredefinedServices,
             isLoading: _isOpeningPredefinedServices,
             onPressed: _showPredefinedServicesModal,
@@ -2350,12 +2362,14 @@ class CategoryScreenState extends State<CategoryScreen> {
   }
 }
 
-// A one-time-per-install attention pulse around the "predefined services"
-// AppBar icon — it's easy to miss among the other icons, so a soft ring
-// pulses outward every 5s until the user notices/taps it (or forever, if
-// they never do, but at most once per install after that).
+// A one-time-per-install callout pointing at the "predefined services"
+// AppBar icon — it's easy to miss among the other icons. Shown for 3s (or
+// until the user taps the icon or its own close cross), then dismissed for
+// good. No looping/attention-seeking animation — it just appears once and
+// goes away.
 class _PredefinedServicesHintIcon extends StatefulWidget {
   const _PredefinedServicesHintIcon({
+    super.key,
     required this.enabled,
     required this.isLoading,
     required this.onPressed,
@@ -2371,107 +2385,245 @@ class _PredefinedServicesHintIcon extends StatefulWidget {
 }
 
 class _PredefinedServicesHintIconState
-    extends State<_PredefinedServicesHintIcon>
-    with SingleTickerProviderStateMixin {
-  static const _prefsKey = 'seen_predefined_services_hint';
+    extends State<_PredefinedServicesHintIcon> {
+  final GlobalKey _iconKey = GlobalKey();
+  OverlayEntry? _overlayEntry;
+  Timer? _autoDismissTimer;
 
-  late final AnimationController _pulseController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  );
-  bool _dismissed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _init();
-  }
-
-  Future<void> _init() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    if (prefs.getBool(_prefsKey) == true) {
-      setState(() => _dismissed = true);
-      return;
-    }
-    _scheduleNextPulse();
-  }
-
-  void _scheduleNextPulse() {
-    Future.delayed(const Duration(seconds: 5), () async {
-      if (!mounted || _dismissed) return;
-      await _pulseController.forward(from: 0);
-      if (!mounted || _dismissed) return;
-      await _pulseController.reverse();
-      _scheduleNextPulse();
+  // Called by the parent CategoryScreenState every time this tab becomes
+  // the visible one — shows again on every visit (not just once-ever), for
+  // 3s or until dismissed via the callout's own close cross.
+  void maybeShow() {
+    if (!mounted || _overlayEntry != null) return;
+    // Wait for things to actually settle before measuring the icon's
+    // position: this AppBar's height is conditional (branch selector row
+    // toggling it between 58 and kToolbarHeight — see the `toolbarHeight:`
+    // above), and this tab can also become active mid push-route-transition
+    // (landing here straight after Add Salon). Measuring on the very next
+    // frame risked grabbing a pre-settle position, anchoring the arrow well
+    // below the real icon.
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showHint());
     });
   }
 
-  Future<void> _dismiss() async {
-    if (_dismissed) return;
-    setState(() => _dismissed = true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefsKey, true);
+  void _showHint() {
+    if (!mounted || _overlayEntry != null) return;
+    final renderBox =
+        _iconKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.attached) return;
+
+    final iconTopLeft = renderBox.localToGlobal(Offset.zero);
+    final iconSize = renderBox.size;
+
+    final overlay = Overlay.of(context);
+    _overlayEntry = OverlayEntry(
+      builder: (_) => _PredefinedServicesCallout(
+        anchorTop: iconTopLeft.dy + iconSize.height,
+        anchorCenterX: iconTopLeft.dx + iconSize.width / 2,
+        onDismiss: _dismiss,
+      ),
+    );
+    overlay.insert(_overlayEntry!);
+    _autoDismissTimer = Timer(const Duration(seconds: 3), _dismiss);
+  }
+
+  void _dismiss() {
+    _autoDismissTimer?.cancel();
+    _autoDismissTimer = null;
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _autoDismissTimer?.cancel();
+    _overlayEntry?.remove();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 44,
+    return IconButton(
+      key: _iconKey,
+      tooltip: translateText('Add predefined services'),
+      onPressed: widget.enabled
+          ? () {
+              _dismiss();
+              unawaited(widget.onPressed());
+            }
+          : null,
+      icon: widget.isLoading
+          ? AppLoader.inline(
+              size: 18,
+              strokeWidth: 2,
+              color: _catalogGold,
+            )
+          : const Icon(Icons.playlist_add_check_rounded),
+      color: _catalogGold,
+    );
+  }
+}
+
+class _PredefinedServicesCallout extends StatelessWidget {
+  const _PredefinedServicesCallout({
+    required this.anchorTop,
+    required this.anchorCenterX,
+    required this.onDismiss,
+  });
+
+  final double anchorTop;
+  final double anchorCenterX;
+  final VoidCallback onDismiss;
+
+  static const double _bubbleWidth = 200;
+  static const double _arrowBoxWidth = 78;
+  static const double _arrowBoxHeight = 48;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bubbleLeft = (anchorCenterX - _bubbleWidth * 0.32)
+        .clamp(12.0, screenWidth - _bubbleWidth - 12.0);
+    final arrowLeft = anchorCenterX - _arrowBoxWidth;
+    final arrowTop = anchorTop + 2;
+
+    return Positioned.fill(
       child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
         children: [
-          if (!_dismissed)
-            AnimatedBuilder(
-              animation: _pulseController,
-              builder: (context, child) {
-                final t = _pulseController.value;
-                return IgnorePointer(
-                  child: Transform.scale(
-                    scale: 1 + (t * 0.8),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _catalogGold.withValues(
-                          alpha: (1 - t) * 0.5,
+          Positioned(
+            top: arrowTop,
+            left: arrowLeft,
+            width: _arrowBoxWidth,
+            height: _arrowBoxHeight,
+            child: const IgnorePointer(
+              child: CustomPaint(painter: _HookArrowPainter()),
+            ),
+          ),
+          Positioned(
+            top: arrowTop + _arrowBoxHeight - 8,
+            left: bubbleLeft,
+            width: _bubbleWidth,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _catalogGold, width: 1.4),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x1A000000),
+                      blurRadius: 14,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.3,
+                            color: Color(0xFF1C1917),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: translateText('Predefined services'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: _catalogGold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                    GestureDetector(
+                      onTap: onDismiss,
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 6, top: 1),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: Color(0xFF9A9089),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          IconButton(
-            tooltip: translateText('Add predefined services'),
-            onPressed: widget.enabled
-                ? () {
-                    unawaited(_dismiss());
-                    unawaited(widget.onPressed());
-                  }
-                : null,
-            icon: widget.isLoading
-                ? AppLoader.inline(
-                    size: 18,
-                    strokeWidth: 2,
-                    color: _catalogGold,
-                  )
-                : const Icon(Icons.playlist_add_check_rounded),
-            color: _catalogGold,
           ),
         ],
       ),
     );
   }
+}
+
+// A hand-drawn-style curved arrow (hook shape + arrowhead), sweeping up from
+// bottom-left (near the callout bubble) to top-right (the hinted icon) —
+// matches the reference callout's arrow, recolored to the app's gold theme.
+class _HookArrowPainter extends CustomPainter {
+  const _HookArrowPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _catalogGold
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+
+    final start = Offset(size.width * 0.10, size.height * 0.94);
+    final end = Offset(size.width * 0.92, size.height * 0.08);
+    final control1 = Offset(size.width * -0.15, size.height * 0.5);
+    final control2 = Offset(size.width * 0.5, size.height * 0.72);
+
+    final path = Path()
+      ..moveTo(start.dx, start.dy)
+      ..cubicTo(
+        control1.dx,
+        control1.dy,
+        control2.dx,
+        control2.dy,
+        end.dx,
+        end.dy,
+      );
+    canvas.drawPath(path, paint);
+
+    final tangent = end - control2;
+    final angle = math.atan2(tangent.dy, tangent.dx);
+    const headLength = 9.0;
+    const headAngle = 0.55;
+
+    final left = end -
+        Offset(
+          math.cos(angle - headAngle),
+          math.sin(angle - headAngle),
+        ) *
+            headLength;
+    final right = end -
+        Offset(
+          math.cos(angle + headAngle),
+          math.sin(angle + headAngle),
+        ) *
+            headLength;
+
+    canvas.drawLine(end, left, paint);
+    canvas.drawLine(end, right, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HookArrowPainter oldDelegate) => false;
 }
 
 class _CatalogBranchSelector extends StatelessWidget {

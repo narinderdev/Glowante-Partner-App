@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
+import '../services/user_role_session.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../widgets/app_loader.dart';
@@ -9,6 +10,7 @@ import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import 'gallery.dart';
 import 'my_team_invitations_screen.dart';
+import 'role_selection_screen.dart';
 
 const Color _moreBg = Color(0xFFFBF9F8);
 const Color _moreGold = Color(0xFF8B6500);
@@ -27,23 +29,49 @@ class OwnerMoreScreen extends StatefulWidget {
 
 class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
   bool _isRefreshing = false;
+  int _workspaceCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkspaceCount();
+  }
+
+  Future<void> _loadWorkspaceCount() async {
+    await UserRoleSession.instance.refreshCachedRolesFromServer();
+    final count = await RoleSelectionScreen.cachedWorkspaceCount();
+    if (mounted) {
+      setState(() => _workspaceCount = count);
+    }
+  }
 
   void _open(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
-  // This screen is a static menu — there's nothing to actually re-fetch —
+  // This screen is otherwise a static menu — nothing else to re-fetch —
   // but pull-to-refresh should still look and feel the same as every other
   // screen in the app, so show the shared loader for a moment too.
   Future<void> _refresh() async {
     if (mounted) setState(() => _isRefreshing = true);
-    await RefreshFeedback.ensureMinDuration(DateTime.now());
+    await Future.wait([
+      _loadWorkspaceCount(),
+      RefreshFeedback.ensureMinDuration(DateTime.now()),
+    ]);
     if (mounted) setState(() => _isRefreshing = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final items = <_QuickLinkData>[
+      if (_workspaceCount > 1)
+        _QuickLinkData(
+          icon: Icons.swap_horiz_rounded,
+          title: context.t('Change Workspace'),
+          subtitle: context.t('Switch between Owner and Stylist'),
+          permissions: const [],
+          onTap: () => RoleSelectionScreen.openWorkspaceSwitcher(context),
+        ),
       _QuickLinkData(
         icon: Icons.groups_2_rounded,
         title: context.t('Team members'),
@@ -181,7 +209,7 @@ class _MoreHeaderCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: _moreBorder),
         boxShadow: const [
           BoxShadow(
@@ -325,7 +353,7 @@ class _QuickLinksCard extends StatelessWidget {
 BoxDecoration _quickLinkCardDecoration() {
   return BoxDecoration(
     color: Colors.white,
-    borderRadius: BorderRadius.circular(18),
+    borderRadius: BorderRadius.circular(10),
     border: Border.all(color: _moreBorder),
     boxShadow: const [
       BoxShadow(

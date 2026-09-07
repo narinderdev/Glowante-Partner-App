@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
+import '../services/user_role_session.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/api_service.dart';
@@ -17,6 +18,7 @@ import '../utils/colors.dart';
 import '../utils/refresh_feedback.dart';
 import 'add_bank_detail.dart';
 import 'login_screen.dart';
+import 'role_selection_screen.dart';
 import 'web_doc_screen.dart';
 import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -38,6 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? profilePictureUrl;
   bool _isUploadingProfilePicture = false;
   bool _isRefreshingProfile = false;
+  int _workspaceCount = 1;
 
   void _logProfile(String event, {Object? details}) {
     debugPrint(
@@ -49,6 +52,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+    _loadWorkspaceCount();
+  }
+
+  Future<void> _loadWorkspaceCount() async {
+    await UserRoleSession.instance.refreshCachedRolesFromServer();
+    final count = await RoleSelectionScreen.cachedWorkspaceCount();
+    if (mounted) {
+      setState(() => _workspaceCount = count);
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -507,6 +519,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final langListener = Provider.of<LanguageListener>(context);
     final menuItems = <ProfileMenuItemData>[
+      if (_workspaceCount > 1)
+        ProfileMenuItemData(
+          icon: Icons.swap_horiz_rounded,
+          label: context.t('Change Workspace'),
+          subtitle: context.t('Switch between Owner and Stylist'),
+          onTap: () {
+            _logProfile('open_change_workspace');
+            RoleSelectionScreen.openWorkspaceSwitcher(context);
+          },
+        ),
       ProfileMenuItemData(
         icon: Icons.shield_outlined,
         label: context.t('Account Security'),
@@ -573,7 +595,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       email: email ?? '',
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
-      onRefresh: _loadUserData,
+      onRefresh: () async {
+        await _loadUserData();
+        await _loadWorkspaceCount();
+      },
       roleLabel: context.t('Salon Owner'),
       profileImageUrl: profilePictureUrl,
       onEditProfilePicture:

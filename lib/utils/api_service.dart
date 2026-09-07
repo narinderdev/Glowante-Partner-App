@@ -188,7 +188,7 @@ class ApiService {
 
   static const String otpRequestEndpoint = "auth/otp/request";
   static const String otpResendEndpoint = "auth/otp/resend";
-  static const String otpVerifyChallengeEndpoint = "auth/otp/verify";
+  static const String otpVerifyChallengeEndpoint = "auth/v2/otp/verify";
   // Salon team invitation endpoints (see invitation_plan.md).
   static const String teamInvitationResolveEndpoint =
       "public/team-invitations/resolve";
@@ -244,7 +244,8 @@ class ApiService {
   static const String updateUserProfile = "users/update";
   static const String createSalonEndpoint = "salons/create";
   static const String getSalonList = "salons/my";
-  static const String logoutUser = "auth/logout";
+  static const String logoutUser = "auth/v2/logout";
+  static const String refreshTokenEndpoint = "auth/v2/token/refresh";
   static const String deleteUser = "users/delete";
   static const String deleteAccount = "users/delete-account";
   static const String serviceCatalog = "service-catalog";
@@ -1079,11 +1080,66 @@ class ApiService {
     }
 
     if (TokenExpirationService.isTokenExpired(token)) {
+      final refreshed = await _refreshAccessToken(prefs);
+      if (refreshed != null && refreshed.isNotEmpty) {
+        return refreshed;
+      }
       await AuthSessionManager.instance.forceLogout(reason: 'session_expired');
       return '';
     }
 
     return token;
+  }
+
+  // The access token is short-lived (15 min per auth/v2/otp/verify's
+  // `expiresIn`), so this is hit routinely, not just near session end.
+  // Serializes concurrent callers behind one in-flight refresh so a burst
+  // of simultaneous requests hitting expiry together doesn't each spend
+  // their own refresh token / race to store the new session.
+  static Future<String>? _refreshInFlight;
+
+  Future<String?> _refreshAccessToken(SharedPreferences prefs) {
+    return _refreshInFlight ??= _performRefresh(prefs).whenComplete(() {
+      _refreshInFlight = null;
+    });
+  }
+
+  Future<String> _performRefresh(SharedPreferences prefs) async {
+    final refreshToken = prefs.getString('refresh_token');
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return '';
+    }
+
+    try {
+      final url = Uri.parse(baseUrl + refreshTokenEndpoint);
+      final response = await _sharedClient.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"refreshToken": refreshToken}),
+      );
+
+      final parsed = _parseEnvelopeResponse(
+        response,
+        fallback: 'Failed to refresh session',
+      );
+      if (parsed['success'] != true) return '';
+
+      final data = parsed['data'];
+      if (data is! Map) return '';
+
+      final newAccessToken = data['accessToken']?.toString();
+      final newRefreshToken = data['refreshToken']?.toString();
+      if (newAccessToken == null || newAccessToken.isEmpty) return '';
+
+      await prefs.setString('user_token', newAccessToken);
+      if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+        await prefs.setString('refresh_token', newRefreshToken);
+      }
+      return newAccessToken;
+    } catch (error) {
+      debugPrint('[TokenRefresh] error=$error');
+      return '';
+    }
   }
 
   Future<Map<String, dynamic>> _authorizedJsonRequest({
@@ -2622,6 +2678,7 @@ class ApiService {
   Future<bool> logoutUserAPI() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('user_token');
+    final refreshToken = prefs.getString('refresh_token');
 
     if (token == null || token.isEmpty) return false;
 
@@ -2634,7 +2691,7 @@ class ApiService {
           "Content-Type": "application/json",
           "Authorization": "Bearer $token",
         },
-        body: jsonEncode({}),
+        body: jsonEncode({"refreshToken": refreshToken ?? ''}),
       );
 
       print("Logout Response: ${response.statusCode} ${response.body}");

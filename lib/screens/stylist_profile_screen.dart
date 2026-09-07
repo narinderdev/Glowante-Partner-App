@@ -17,6 +17,7 @@ import '../utils/refresh_feedback.dart';
 import '../widgets/app_loader.dart';
 import '../services/user_role_session.dart';
 import 'stylist_about_salon_screen.dart';
+import 'role_selection_screen.dart';
 import 'stylist_reviews_screen.dart';
 import 'stylist_schedule_screen.dart';
 import 'stylist_services_screen.dart';
@@ -39,11 +40,21 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   String? _profilePictureUrl;
   bool _isUploadingProfilePicture = false;
   bool _isRefreshingProfile = false;
+  int _workspaceCount = 1;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadWorkspaceCount();
+  }
+
+  Future<void> _loadWorkspaceCount() async {
+    await UserRoleSession.instance.refreshCachedRolesFromServer();
+    final count = await RoleSelectionScreen.cachedWorkspaceCount();
+    if (mounted) {
+      setState(() => _workspaceCount = count);
+    }
   }
 
   Future<void> _loadData() async {
@@ -544,13 +555,24 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       phoneNumber: _phoneNumber,
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
-      onRefresh: _loadData,
+      onRefresh: () async {
+        await _loadData();
+        await _loadWorkspaceCount();
+      },
       roleLabel:
           _roleLabel.isNotEmpty ? _roleLabel : translateText('Salon Stylist'),
       profileImageUrl: _profilePictureUrl,
       onEditProfilePicture:
           _isUploadingProfilePicture ? null : _showProfilePhotoSourceModal,
       menuItems: [
+        if (_workspaceCount > 1)
+          ProfileMenuItemData(
+            icon: Icons.swap_horiz_rounded,
+            label: context.t('Change Workspace'),
+            subtitle: context.t('Switch between Owner and Stylist'),
+            onTap: () => RoleSelectionScreen.openWorkspaceSwitcher(context),
+            showLeftAccent: true,
+          ),
         ProfileMenuItemData(
           icon: Icons.face_retouching_natural_outlined,
           label: context.t('Mark Attendance'),
