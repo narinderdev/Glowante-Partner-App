@@ -315,6 +315,37 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       };
     }).toList();
 
+    if (base['isEdit'] == true) {
+      final scheduleMode = (base['scheduleMode'] ??
+              (base['useSalonHours'] == true ? 'BRANCH_HOURS' : 'CUSTOM'))
+          .toString()
+          .toUpperCase();
+
+      final branchRoleIds = (base['branchRoleIds'] as List? ?? const [])
+          .map((value) {
+            if (value is int) return value;
+            if (value is num) return value.toInt();
+            return int.tryParse(value.toString());
+          })
+          .whereType<int>()
+          .toList();
+
+      final result = <String, dynamic>{
+        'scheduleMode': scheduleMode,
+        'schedules': schedules,
+        'roles': roles,
+        if (branchRoleIds.isNotEmpty) 'branchRoleIds': branchRoleIds,
+        if (base['branchNamesById'] != null)
+          'branchNamesById': base['branchNamesById'],
+        'joiningDate': base['joiningDate'],
+        'branchServiceIds': branchServiceIds,
+        'allowOnlineBooking': base['allowOnlineBooking'] ?? false,
+      };
+
+      debugPrint('FINAL BRANCH EDIT PAYLOAD TO AVAILABILITY SCREEN: $result');
+      return _cleanBody(result);
+    }
+
     final countryCode = (base['countryCode'] ?? '+91').toString();
 
     final result = <String, dynamic>{
@@ -729,6 +760,17 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         ),
       );
       if (!mounted) return;
+      if (response is Map && response['editSchedule'] == true) {
+        Navigator.pop(
+          context,
+          {
+            'completed': false,
+            'editSchedule': true,
+            'selectedServiceIds': _selectedServiceIds,
+          },
+        );
+        return;
+      }
       if (response == true) {
         Navigator.pop(
           context,

@@ -602,6 +602,69 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return ids.toList();
   }
 
+  List<int> _branchRoleIdsFromAssignment(Map<String, dynamic>? assignment) {
+    final ids = <int>{};
+
+    void addId(dynamic value) {
+      if (value is int) {
+        ids.add(value);
+      } else if (value is num) {
+        ids.add(value.toInt());
+      } else if (value != null) {
+        final parsed = int.tryParse(value.toString());
+        if (parsed != null) ids.add(parsed);
+      }
+    }
+
+    final directIds = assignment?['branchRoleIds'];
+    if (directIds is List) {
+      for (final id in directIds) {
+        addId(id);
+      }
+    }
+
+    final userBranchRoles = assignment?['userBranchRoles'];
+    if (userBranchRoles is List) {
+      for (final item in userBranchRoles) {
+        if (item is! Map) continue;
+
+        addId(item['branchRoleId']);
+
+        final branchRole = item['branchRole'];
+        if (branchRole is Map) {
+          addId(branchRole['id']);
+        }
+      }
+    }
+
+    return ids.toList();
+  }
+
+  Map<String, String> _branchNamesById(Map<String, dynamic>? member) {
+    if (member == null) return const {};
+    final rawAssignments = member['branches'] is List
+        ? member['branches']
+        : member['userBranches'];
+    if (rawAssignments is! List) return const {};
+
+    final names = <String, String>{};
+    for (final raw in rawAssignments) {
+      if (raw is! Map) continue;
+      final assignment = Map<String, dynamic>.from(raw);
+      final branch = assignment['branch'];
+      final branchId = branch is Map ? branch['id'] : assignment['branchId'];
+      final branchName = branch is Map
+          ? (branch['name'] ?? branch['branchName'])
+          : assignment['branchName'];
+      final idText = branchId?.toString().trim() ?? '';
+      final nameText = branchName?.toString().trim() ?? '';
+      if (idText.isNotEmpty && nameText.isNotEmpty) {
+        names[idText] = nameText;
+      }
+    }
+    return names;
+  }
+
   List<String> _extractLabels(dynamic raw) {
     if (raw is! List) return const [];
 
@@ -1618,6 +1681,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
               '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
         'info': capitalizeFirst(_briefCtrl.text.trim()),
         'roles': _resolveCodes(_selectedRoles, _allRoles),
+        'branchRoleIds': _branchRoleIdsFromAssignment(branchAssignment),
         'specialities': _resolveCodes(_selectedSpecs, _allSpecs),
         'profilePictureUrl': imageUrl ?? _existingImageUrl,
         'schedules': branchAssignment?['schedules'] ??
@@ -1699,6 +1763,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       'brief': capitalizeFirst(_briefCtrl.text.trim()),
       'info': capitalizeFirst(_briefCtrl.text.trim()),
       'roles': _resolveCodes(_selectedRoles, _allRoles),
+      'branchRoleIds': _branchRoleIdsFromAssignment(branchAssignment),
+      'branchNamesById': _branchNamesById(widget.initialMember),
       'specializations': _resolveCodes(_selectedSpecs, _allSpecs),
       'specialities': _resolveCodes(_selectedSpecs, _allSpecs),
       // Roles/Joining Date/Experience no longer have UI on this screen

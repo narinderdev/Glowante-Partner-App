@@ -185,6 +185,14 @@ class _AuthHttpClient extends http.BaseClient {
     if (token == null || token.isEmpty) {
       return;
     }
+    final refreshToken = prefs.getString('refresh_token');
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      print(
+        '[TokenRefresh] 401 received while refresh_token exists; '
+        'leaving session active for request-level refresh handling.',
+      );
+      return;
+    }
     await AuthSessionManager.instance.forceLogout(reason: 'session_expired');
   }
 }
@@ -1204,6 +1212,60 @@ class ApiService {
     });
   }
 
+  Future<String> _refreshAccessTokenForRetry(
+    String currentToken, {
+    required String debugTag,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedToken = prefs.getString('user_token') ?? '';
+    if (storedToken.isNotEmpty && storedToken != currentToken) {
+      print('[$debugTag] using access token refreshed by another request.');
+      return storedToken;
+    }
+
+    print('[$debugTag] access token rejected by server, refreshing...');
+    final refreshed = await _refreshAccessToken(prefs);
+    final refreshedToken = refreshed.accessToken;
+    if (refreshedToken != null && refreshedToken.isNotEmpty) {
+      print('[$debugTag] retrying with refreshed access token.');
+      return refreshedToken;
+    }
+
+    if (refreshed.shouldLogout) {
+      print('[$debugTag] refresh failed permanently: ${refreshed.reason}.');
+      await AuthSessionManager.instance.forceLogout(reason: 'session_expired');
+    } else {
+      print('[$debugTag] refresh unavailable: ${refreshed.reason}.');
+    }
+    return '';
+  }
+
+  bool _isAccessTokenExpiredResponse(http.Response response) {
+    if (response.statusCode != 401) return false;
+
+    dynamic decoded;
+    try {
+      decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+    } catch (_) {
+      decoded = null;
+    }
+
+    if (decoded is Map) {
+      final error = decoded['error'];
+      final code = (error is Map ? error['code'] : decoded['code'])
+          ?.toString()
+          .toUpperCase();
+      final message = (error is Map ? error['message'] : decoded['message'])
+              ?.toString()
+              .toLowerCase() ??
+          '';
+      return code == 'TOKEN_EXPIRED' ||
+          message.contains('access token expired');
+    }
+
+    return response.body.toLowerCase().contains('access token expired');
+  }
+
   Future<_TokenRefreshResult> _performRefresh(SharedPreferences prefs) async {
     final refreshToken = prefs.getString('refresh_token');
     if (refreshToken == null || refreshToken.isEmpty) {
@@ -1313,42 +1375,51 @@ class ApiService {
         _debugPrintChunked('$debugTag payload', body);
       }
 
-      final headers = <String, String>{'Authorization': 'Bearer $token'};
-      if (body != null && method.toUpperCase() != 'GET') {
-        headers['Content-Type'] = 'application/json';
+      Future<http.Response> sendWithToken(String authToken) {
+        final headers = <String, String>{
+          'Authorization': 'Bearer $authToken',
+        };
+        if (body != null && method.toUpperCase() != 'GET') {
+          headers['Content-Type'] = 'application/json';
+        }
+
+        switch (method.toUpperCase()) {
+          case 'GET':
+            return _sharedClient.get(url, headers: headers);
+          case 'POST':
+            return _sharedClient.post(
+              url,
+              headers: headers,
+              body: jsonEncode(body ?? const <String, dynamic>{}),
+            );
+          case 'PATCH':
+            return _sharedClient.patch(
+              url,
+              headers: headers,
+              body: jsonEncode(body ?? const <String, dynamic>{}),
+            );
+          case 'PUT':
+            return _sharedClient.put(
+              url,
+              headers: headers,
+              body: jsonEncode(body ?? const <String, dynamic>{}),
+            );
+          case 'DELETE':
+            return _sharedClient.delete(url, headers: headers);
+          default:
+            throw UnsupportedError('Unsupported HTTP method: $method');
+        }
       }
 
-      late http.Response response;
-      switch (method.toUpperCase()) {
-        case 'GET':
-          response = await _sharedClient.get(url, headers: headers);
-          break;
-        case 'POST':
-          response = await _sharedClient.post(
-            url,
-            headers: headers,
-            body: jsonEncode(body ?? const <String, dynamic>{}),
-          );
-          break;
-        case 'PATCH':
-          response = await _sharedClient.patch(
-            url,
-            headers: headers,
-            body: jsonEncode(body ?? const <String, dynamic>{}),
-          );
-          break;
-        case 'PUT':
-          response = await _sharedClient.put(
-            url,
-            headers: headers,
-            body: jsonEncode(body ?? const <String, dynamic>{}),
-          );
-          break;
-        case 'DELETE':
-          response = await _sharedClient.delete(url, headers: headers);
-          break;
-        default:
-          throw UnsupportedError('Unsupported HTTP method: $method');
+      var response = await sendWithToken(token);
+      if (_isAccessTokenExpiredResponse(response)) {
+        final refreshedToken = await _refreshAccessTokenForRetry(
+          token,
+          debugTag: debugTag,
+        );
+        if (refreshedToken.isNotEmpty) {
+          response = await sendWithToken(refreshedToken);
+        }
       }
 
       debugPrint('[$debugTag] status=${response.statusCode}');
@@ -6930,18 +7001,11 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(response.body) as Map<String, dynamic>;
       } else {
-        String message = 'Failed to assign user';
-        try {
-          final decoded = json.decode(response.body);
-          if (decoded is Map && decoded['message'] != null) {
-            message = decoded['message'].toString();
-          }
-        } catch (_) {
-          if (response.body.trim().isNotEmpty) {
-            message = response.body;
-          }
-        }
-        throw Exception(message);
+        throw Exception(
+          response.body.trim().isEmpty
+              ? 'Failed to assign user'
+              : response.body,
+        );
       }
     } catch (e) {
       print("❌ Error assigning user: $e");
@@ -6955,26 +7019,49 @@ class ApiService {
     required Map<String, dynamic> payload,
   }) async {
     final token = await getAuthToken();
+    if (token.isEmpty) {
+      return {
+        'success': false,
+        'message': 'Authentication is required.',
+      };
+    }
     final url = Uri.parse(
       '$baseUrl${updateTeamMemberEndpoint(branchId, userId)}',
     );
-    final response = await _sharedClient.patch(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode(payload),
-    );
+    debugPrint('[TeamMemberUpdate] PATCH $url');
+    debugPrint('[TeamMemberUpdate payload] ${jsonEncode(payload)}');
+    Future<http.Response> sendWithToken(String authToken) {
+      return _sharedClient.patch(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $authToken",
+        },
+        body: jsonEncode(payload),
+      );
+    }
+
+    var response = await sendWithToken(token);
+    if (_isAccessTokenExpiredResponse(response)) {
+      final refreshedToken = await _refreshAccessTokenForRetry(
+        token,
+        debugTag: 'TeamMemberUpdate',
+      );
+      if (refreshedToken.isNotEmpty) {
+        response = await sendWithToken(refreshedToken);
+      }
+    }
+
+    debugPrint('[TeamMemberUpdate] status=${response.statusCode}');
+    debugPrint('[TeamMemberUpdate body] ${response.body}');
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;
     }
     throw Exception(
-      extractErrorMessage(
-        response.body,
-        fallback: 'Failed to update team member',
-      ),
+      response.body.trim().isEmpty
+          ? 'Failed to update team member'
+          : response.body,
     );
   }
 

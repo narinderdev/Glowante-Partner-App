@@ -12,6 +12,7 @@ import '../widgets/app_loader.dart';
 import 'TeamMemberDetails.dart';
 import 'complete_profile_flow_constants.dart';
 import 'complete_team_member_profile_screen.dart';
+import 'AddTeam.dart';
 import 'AssignUser.dart';
 import 'assign_user_flow_constants.dart';
 import 'invite_team_member_screen.dart';
@@ -1775,10 +1776,13 @@ class _TeamScreenState extends State<TeamScreen> {
     return labels;
   }
 
-  // salon_team_part_2.md: profile completion is a dedicated fill-missing-
-  // only flow against the new PATCH endpoints, not AddTeamScreen's edit
-  // mode (which only ever wrote branch-scoped assignment fields anyway).
   Future<void> _openEditMember(Map<String, dynamic> member) async {
+    await _openCompleteMemberProfile(member);
+  }
+
+  // salon_team_part_2.md: profile completion is a dedicated fill-missing-
+  // only flow against the profile PATCH endpoints.
+  Future<void> _openCompleteMemberProfile(Map<String, dynamic> member) async {
     final salonId = _currentSalonId ?? _asInt(member['salonId']);
     final userId = _teamAsInt(member['userId']);
     if (salonId == null || userId == null) return;
@@ -1800,6 +1804,81 @@ class _TeamScreenState extends State<TeamScreen> {
     // its own. Unfocus again now that we're actually back.
     FocusManager.instance.primaryFocus?.unfocus();
     await _refreshCurrentTeamTab();
+  }
+
+  Future<void> _openEditAssignedBranch(
+    Map<String, dynamic> member, {
+    int? branchIdOverride,
+  }) async {
+    final userId = _teamAsInt(member['userId']) ?? _teamAsInt(member['id']);
+    if (userId == null) return;
+
+    final salonId = _currentSalonId ?? _asInt(member['salonId']);
+    if (salonId == null) return;
+
+    final branchId = branchIdOverride ??
+        selectedBranchId ??
+        _asInt(_teamFirstAssignmentBranchId(member['userBranches'])) ??
+        _asInt(_teamFirstAssignmentBranchId(member['branches']));
+    if (branchId == null) {
+      Fluttertoast.showToast(
+        msg: translateText('Please select a branch first'),
+      );
+      return;
+    }
+
+    Map<String, dynamic> detailMember = Map<String, dynamic>.from(member);
+
+    try {
+      final response =
+          await ApiService().getTeamMemberDetailV2(salonId, userId);
+      if (response['success'] == true && response['data'] is Map) {
+        detailMember = _teamMergeMemberMaps(
+          detailMember,
+          _teamMemberPayloadFromDetail(response),
+        );
+      }
+    } catch (error) {
+      debugPrint('Failed to load team member detail for edit: $error');
+    }
+
+    try {
+      final branchResponse = await ApiService.getTeamMemberDetails(
+        branchId,
+        userId,
+      );
+      detailMember = _teamMergeMemberMaps(
+        detailMember,
+        _teamMemberPayloadFromDetail(branchResponse),
+      );
+    } catch (error) {
+      debugPrint('Failed to load branch team member edit detail: $error');
+    }
+
+    detailMember['id'] = userId;
+    detailMember['userId'] = userId;
+    detailMember['salonId'] = salonId;
+
+    if (!mounted) return;
+
+    FocusScope.of(context).unfocus();
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddTeamScreen(
+          branchId: branchId,
+          salonId: salonId,
+          salonName: selectedBranch?['salonName']?.toString() ?? '',
+          isEdit: true,
+          initialMember: detailMember,
+        ),
+      ),
+    );
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (updated == true) {
+      await _refreshCurrentTeamTab();
+    }
   }
 
   Future<void> _openAssignMember(Map<String, dynamic> member) async {
@@ -2319,6 +2398,13 @@ class _TeamScreenState extends State<TeamScreen> {
                               openingViewMemberId: _openingViewMemberId,
                               professionalRatings: _professionalRatings,
                               onEditMember: _openEditMember,
+                              onCompleteProfileMember:
+                                  _openCompleteMemberProfile,
+                              onEditAssignedBranch: (member, branchId) =>
+                                  _openEditAssignedBranch(
+                                member,
+                                branchIdOverride: branchId,
+                              ),
                               onDeleteMember: _deleteMember,
                               onToggleMemberActive: _toggleMemberActive,
                               onViewMember: _openViewMember,
@@ -2403,6 +2489,8 @@ class _TeamMembersTable extends StatelessWidget {
     required this.deletingMemberIds,
     required this.openingViewMemberId,
     required this.onEditMember,
+    required this.onCompleteProfileMember,
+    required this.onEditAssignedBranch,
     required this.onDeleteMember,
     required this.onToggleMemberActive,
     required this.onViewMember,
@@ -2422,6 +2510,10 @@ class _TeamMembersTable extends StatelessWidget {
   final Set<int> deletingMemberIds;
   final int? openingViewMemberId;
   final Future<void> Function(Map<String, dynamic> member) onEditMember;
+  final Future<void> Function(Map<String, dynamic> member)
+      onCompleteProfileMember;
+  final Future<void> Function(Map<String, dynamic> member, int branchId)
+      onEditAssignedBranch;
   final Future<void> Function(int userId) onDeleteMember;
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
   final Future<void> Function(Map<String, dynamic> member) onViewMember;
@@ -2530,7 +2622,9 @@ class _TeamMembersTable extends StatelessWidget {
                                 : () {
                                     FocusManager.instance.primaryFocus
                                         ?.unfocus();
-                                    unawaited(onEditMember(member));
+                                    unawaited(
+                                      onCompleteProfileMember(member),
+                                    );
                                   },
                           )
                         : GestureDetector(
@@ -2839,6 +2933,63 @@ class _TeamTableOnlineBooking extends StatelessWidget {
   }
 }
 
+class _AssignedBranchChip extends StatelessWidget {
+  const _AssignedBranchChip({
+    required this.name,
+    required this.onEdit,
+  });
+
+  final String name;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 30),
+      padding: const EdgeInsets.only(left: 9, right: 3),
+      decoration: BoxDecoration(
+        color: _teamGoldLight,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _teamBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _teamGold,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
+          IconButton(
+            tooltip: translateText('Edit branch assignment'),
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: 26,
+              minHeight: 26,
+            ),
+            onPressed: onEdit,
+            icon: Icon(
+              Icons.edit_outlined,
+              size: 14,
+              color: onEdit == null ? _teamMuted : _teamGold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TeamMembersGrid extends StatelessWidget {
   const _TeamMembersGrid({
     required this.members,
@@ -2850,6 +3001,8 @@ class _TeamMembersGrid extends StatelessWidget {
     required this.openingViewMemberId,
     required this.professionalRatings,
     required this.onEditMember,
+    required this.onCompleteProfileMember,
+    required this.onEditAssignedBranch,
     required this.onDeleteMember,
     required this.onToggleMemberActive,
     required this.onViewMember,
@@ -2869,6 +3022,10 @@ class _TeamMembersGrid extends StatelessWidget {
   final int? openingViewMemberId;
   final Map<int, _TeamRatingSummary> professionalRatings;
   final Future<void> Function(Map<String, dynamic> member) onEditMember;
+  final Future<void> Function(Map<String, dynamic> member)
+      onCompleteProfileMember;
+  final Future<void> Function(Map<String, dynamic> member, int branchId)
+      onEditAssignedBranch;
   final Future<void> Function(int userId) onDeleteMember;
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
   final Future<void> Function(Map<String, dynamic> member) onViewMember;
@@ -2959,6 +3116,9 @@ class _TeamMembersGrid extends StatelessWidget {
                 canAssign: selectedBranch != null && salons.isNotEmpty,
                 assignButtonChild: assignButtonBuilder(member),
                 onEdit: () => onEditMember(member),
+                onCompleteProfile: () => onCompleteProfileMember(member),
+                onEditAssignedBranch: (branchId) =>
+                    onEditAssignedBranch(member, branchId),
                 onDelete: () => onDeleteMember(userId),
                 onToggleActive: () =>
                     onToggleMemberActive(userId, !isBranchActive),
@@ -3906,6 +4066,8 @@ class _TeamMemberCard extends StatelessWidget {
     required this.canAssign,
     required this.assignButtonChild,
     required this.onEdit,
+    required this.onCompleteProfile,
+    required this.onEditAssignedBranch,
     required this.onDelete,
     required this.onToggleActive,
     required this.onView,
@@ -3928,6 +4090,8 @@ class _TeamMemberCard extends StatelessWidget {
   final bool canAssign;
   final Widget assignButtonChild;
   final VoidCallback onEdit;
+  final VoidCallback onCompleteProfile;
+  final void Function(int branchId) onEditAssignedBranch;
   final VoidCallback onDelete;
   final VoidCallback onToggleActive;
   final VoidCallback onView;
@@ -3939,22 +4103,32 @@ class _TeamMemberCard extends StatelessWidget {
     return (value?.toString() ?? '').trim();
   }
 
-  List<String> get _assignedBranchesList {
-    final rawAssignments = member['branches'];
-    if (rawAssignments is! List || rawAssignments.isEmpty) {
-      return const [];
-    }
+  List<Map<String, dynamic>> get _assignedBranches {
+    final rawAssignments = member['branches'] is List
+        ? member['branches']
+        : member['userBranches'];
+    if (rawAssignments is! List || rawAssignments.isEmpty) return const [];
 
-    final labels = <String>[];
+    final branches = <Map<String, dynamic>>[];
+    final seen = <String>{};
     for (final assignment in rawAssignments) {
       if (assignment is! Map) continue;
-      final text = _cleanText(assignment['branchName']);
-      if (text.isNotEmpty && !labels.contains(text)) {
-        labels.add(text);
+      final branch = assignment['branch'];
+      final branchId = _teamAsInt(assignment['branchId']) ??
+          (branch is Map ? _teamAsInt(branch['id']) : null);
+      final text = _cleanText(
+        branch is Map
+            ? (branch['branchName'] ?? branch['name'])
+            : assignment['branchName'],
+      );
+      if (text.isEmpty) continue;
+      final key = '${branchId ?? text}';
+      if (seen.add(key)) {
+        branches.add({'id': branchId, 'name': text});
       }
     }
 
-    return labels;
+    return branches;
   }
 
   // Green when active, orange when this member still needs role/
@@ -3980,7 +4154,7 @@ class _TeamMemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = _teamProfileImageUrlFrom(member);
-    final branches = _assignedBranchesList;
+    final branches = _assignedBranches;
     final accent = _accentColor;
 
     return Container(
@@ -4103,8 +4277,12 @@ class _TeamMemberCard extends StatelessWidget {
                     Expanded(
                       child: _TeamCompactActionButton(
                         icon: Icons.edit_outlined,
-                        label: translateText('Edit'),
-                        onPressed: _isBusy ? null : onEdit,
+                        label: translateText(
+                          needsSetup ? 'Complete setup' : 'Edit',
+                        ),
+                        onPressed: _isBusy
+                            ? null
+                            : (needsSetup ? onCompleteProfile : onEdit),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -4167,28 +4345,15 @@ class _TeamMemberCard extends StatelessWidget {
                     : Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: branches
-                            .map(
-                              (branchName) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _teamGoldLight,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  branchName,
-                                  style: const TextStyle(
-                                    color: _teamGold,
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
+                        children: branches.map((branch) {
+                          final branchId = _teamAsInt(branch['id']);
+                          return _AssignedBranchChip(
+                            name: branch['name']?.toString() ?? '',
+                            onEdit: branchId == null || _isBusy
+                                ? null
+                                : () => onEditAssignedBranch(branchId),
+                          );
+                        }).toList(),
                       ),
                 const SizedBox(height: 10),
                 Row(
@@ -4271,18 +4436,108 @@ class _TeamAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (imageUrl.isNotEmpty) {
-      return ClipOval(
-        child: Image.network(
-          imageUrl,
-          height: size,
-          width: size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _InitialsAvatar(initials: initials, size: size),
+      return GestureDetector(
+        onTap: () => _openTeamMemberPhotoPreview(context, imageUrl: imageUrl),
+        child: ClipOval(
+          child: Image.network(
+            imageUrl,
+            height: size,
+            width: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                _InitialsAvatar(initials: initials, size: size),
+          ),
         ),
       );
     }
     return _InitialsAvatar(initials: initials, size: size);
+  }
+}
+
+// Nothing to zoom into for an initials placeholder, so only a real photo
+// (imageUrl non-empty) opens this — the tap target is omitted otherwise.
+void _openTeamMemberPhotoPreview(BuildContext context,
+    {required String imageUrl}) {
+  showDialog(
+    context: context,
+    barrierColor: Colors.black54,
+    builder: (_) => _TeamMemberPhotoPreview(imageUrl: imageUrl),
+  );
+}
+
+// A small centered popup, not a full-screen route — just the photo and a
+// close (X) to dismiss.
+class _TeamMemberPhotoPreview extends StatelessWidget {
+  const _TeamMemberPhotoPreview({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final boxWidth = screenSize.width * 0.8;
+    final boxHeight = screenSize.height * 0.8;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(24),
+      // The close icon adds height on top of the 80%-of-screen image, which
+      // can exceed the dialog's available space by a few pixels —
+      // scrollable so that overflows rather than overflow-erroring.
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Align(
+              alignment: Alignment.center,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white24,
+                  shape: const CircleBorder(),
+                  padding: const EdgeInsets.all(6),
+                ),
+                icon: const Icon(Icons.close, color: Colors.white, size: 20),
+              ),
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                imageUrl,
+                width: boxWidth,
+                height: boxHeight,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return SizedBox(
+                    width: boxWidth,
+                    height: boxHeight,
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white70,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (_, __, ___) => SizedBox(
+                  width: boxWidth,
+                  height: boxHeight,
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white38,
+                    size: 64,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -106,6 +106,74 @@ class _TeamOnlineAvailabilityScreenState
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
+  List<int> _intList(dynamic raw) {
+    if (raw is! List) return const [];
+    final ids = <int>{};
+    for (final value in raw) {
+      final id = _asInt(value);
+      if (id != null) ids.add(id);
+    }
+    return ids.toList();
+  }
+
+  List<Map<String, dynamic>> _schedulePayload(dynamic rawSchedules) {
+    if (rawSchedules is! List) return const [];
+    final schedules = <Map<String, dynamic>>[];
+    for (final raw in rawSchedules) {
+      if (raw is! Map) continue;
+      final slot = Map<String, dynamic>.from(raw);
+      final day = (slot['day'] ?? '').toString().trim().toLowerCase();
+      final startTime =
+          (slot['startTime'] ?? slot['start'] ?? '').toString().trim();
+      final endTime = (slot['endTime'] ?? slot['end'] ?? '').toString().trim();
+      if (day.isEmpty || startTime.isEmpty || endTime.isEmpty) continue;
+      schedules.add({
+        'day': day,
+        'startTime': _to24h(startTime),
+        'endTime': _to24h(endTime),
+      });
+    }
+    return schedules;
+  }
+
+  String _scheduleModeFromPayload(Map<String, dynamic> payload) {
+    final explicit = payload['scheduleMode']?.toString().trim().toUpperCase();
+    if (explicit == 'BRANCH_HOURS' || explicit == 'CUSTOM') {
+      return explicit!;
+    }
+    return payload['useSalonHours'] == true ? 'BRANCH_HOURS' : 'CUSTOM';
+  }
+
+  Map<String, dynamic> _branchEditPayload(Map<String, dynamic> base) {
+    final branchRoleIds = _selectedBranchRoleIds;
+    return <String, dynamic>{
+      'scheduleMode': _scheduleModeFromPayload(base),
+      'schedules': _schedulePayload(base['schedules']),
+      'roles': _selectedRoleCodes.toList(),
+      'branchRoleIds': branchRoleIds.isEmpty
+          ? _intList(base['branchRoleIds'])
+          : branchRoleIds,
+      'joiningDate': _selectedJoiningDate,
+      'branchServiceIds': _intList(base['branchServiceIds']),
+      'allowOnlineBooking': _allowOnlineBooking,
+    }..removeWhere((key, value) => value == null);
+  }
+
+  Map<String, String> _branchNamesFromPayload() {
+    final raw = widget.payload?['branchNamesById'];
+    if (raw is! Map) return const {};
+
+    final names = <String, String>{};
+    raw.forEach((key, value) {
+      final idText = key.toString().trim();
+      final nameText = value?.toString().trim() ?? '';
+      if (idText.isNotEmpty && nameText.isNotEmpty) {
+        names[idText] = nameText;
+      }
+    });
+    return names;
+  }
+
   dynamic _previousResult() {
     if (widget.mode != TeamAvailabilityMode.assignUser) return false;
     return {
@@ -114,6 +182,16 @@ class _TeamOnlineAvailabilityScreenState
       'selectedServiceIds': widget.assignBranchServiceIds ?? const <int>[],
       'schedules': widget.assignSchedules ?? const <Map<String, dynamic>>[],
     };
+  }
+
+  dynamic _editScheduleResult() {
+    if (widget.mode == TeamAvailabilityMode.assignUser) {
+      return {
+        ...Map<String, dynamic>.from(_previousResult() as Map),
+        'editSchedule': true,
+      };
+    }
+    return {'editSchedule': true};
   }
 
   @override
@@ -180,6 +258,7 @@ class _TeamOnlineAvailabilityScreenState
             .where((role) => role['branchId'] != null)
             .where((role) => !_isOwnerRoleOption(role))
             .toList();
+        _selectedRoleCodes = _normalizeRoleSelection(_selectedRoleCodes);
       });
     } catch (e) {
       debugPrint('[TeamOnlineAvailability] Failed to load role options: $e');
@@ -188,6 +267,45 @@ class _TeamOnlineAvailabilityScreenState
         setState(() => _isLoadingRoleOptions = false);
       }
     }
+  }
+
+  Set<String> _normalizeRoleSelection(Set<String> selected) {
+    if (selected.isEmpty || _allRoles.isEmpty) return selected;
+    final normalized = <String>{};
+    for (final value in selected) {
+      final match = _allRoles.cast<Map<String, dynamic>?>().firstWhere(
+            (option) => option != null && _roleMatchesValue(option, value),
+            orElse: () => null,
+          );
+      normalized.add(match == null ? value : _roleCodeOf(match));
+    }
+    return normalized;
+  }
+
+  bool _roleMatchesValue(Map<String, dynamic> option, String value) {
+    final target = _normalizedRoleText(value);
+    if (target.isEmpty) return false;
+    for (final raw in [
+      option['code'],
+      option['label'],
+      option['name'],
+      option['displayName'],
+      option['id'],
+    ]) {
+      if (_normalizedRoleText(raw?.toString() ?? '') == target) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String _normalizedRoleText(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
   }
 
   bool _isOwnerRoleOption(Map<String, dynamic> option) {
@@ -454,6 +572,354 @@ class _TeamOnlineAvailabilityScreenState
         .replaceFirst(RegExp(r'^Failed to assign user:\s*'), '')
         .trim();
     return text.isEmpty ? translateText('Something went wrong') : text;
+  }
+
+  Map<String, dynamic>? _decodedErrorBody(Object error) {
+    final text = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+    final jsonStart = text.indexOf('{');
+    final jsonEnd = text.lastIndexOf('}');
+    if (jsonStart == -1 || jsonEnd <= jsonStart) return null;
+
+    try {
+      final decoded = jsonDecode(text.substring(jsonStart, jsonEnd + 1));
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+
+    return null;
+  }
+
+  List<Map<String, dynamic>> _scheduleConflictsFrom(
+    Map<String, dynamic>? body,
+  ) {
+    if (body == null) return const [];
+    final error = body['error'];
+    final errorMap = error is Map ? Map<String, dynamic>.from(error) : null;
+    final code = (errorMap?['code'] ?? body['code'] ?? '').toString();
+    if (code != 'MEMBER_SCHEDULE_CONFLICT') return const [];
+
+    final details = errorMap?['details'] ?? body['details'];
+    if (details is! Map) return const [];
+    final conflicts = details['conflicts'];
+    if (conflicts is! List) return const [];
+
+    return conflicts
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
+  }
+
+  String _backendMessageFrom(Map<String, dynamic>? body) {
+    if (body == null) return '';
+    final error = body['error'];
+    final errorMap = error is Map ? Map<String, dynamic>.from(error) : null;
+    final message = body['message'] ?? errorMap?['message'];
+    if (message is List) return message.join('\n').trim();
+    return message?.toString().trim() ?? '';
+  }
+
+  String _displayDay(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return translateText('Selected day');
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
+  String _displayTime(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    final parts = text.split(':');
+    if (parts.length < 2) return text;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return text;
+    final suffix = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '$displayHour:${minute.toString().padLeft(2, '0')} $suffix';
+  }
+
+  Future<Map<String, String>> _resolveConflictBranchNames(
+    List<Map<String, dynamic>> conflicts,
+  ) async {
+    final names = Map<String, String>.from(_branchNamesFromPayload());
+    final missingIds = <int>{};
+
+    for (final conflict in conflicts) {
+      final branchId = _asInt(conflict['branchId']);
+      if (branchId != null && !names.containsKey(branchId.toString())) {
+        missingIds.add(branchId);
+      }
+    }
+
+    for (final branchId in missingIds) {
+      try {
+        final response = await ApiService().getBranchDetail(branchId);
+        final data = response['data'];
+        final branch = data is Map ? data : response;
+        final name = branch['name'] ?? branch['branchName'];
+        final text = name?.toString().trim() ?? '';
+        if (text.isNotEmpty) names[branchId.toString()] = text;
+      } catch (error) {
+        debugPrint(
+          '[TeamOnlineAvailability] Failed to resolve branch $branchId: $error',
+        );
+      }
+    }
+
+    return names;
+  }
+
+  Widget _scheduleConflictItem(
+    Map<String, dynamic> conflict,
+    Map<String, String> branchNames,
+    int index,
+  ) {
+    final name = [
+      conflict['firstName']?.toString().trim(),
+      conflict['lastName']?.toString().trim(),
+    ].where((part) => part != null && part.isNotEmpty).join(' ');
+    final branchId = conflict['branchId'];
+    final branchName = branchNames[branchId?.toString() ?? ''] ??
+        (branchId == null ? '' : 'Branch $branchId');
+
+    return Padding(
+      padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFBF8F4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE8DED6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_displayDay(conflict['day'])}, '
+              '${_displayTime(conflict['startTime'])} - '
+              '${_displayTime(conflict['endTime'])}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF2D2926),
+              ),
+            ),
+            const SizedBox(height: 4),
+            if (name.isNotEmpty) ...[
+              _conflictDetailText(
+                label: translateText('Team member'),
+                value: name,
+              ),
+              const SizedBox(height: 2),
+            ],
+            if (branchName.isNotEmpty)
+              _conflictDetailText(
+                label: translateText('Conflicting branch'),
+                value: branchName,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _conflictDetailText({required String label, required String value}) {
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF756A61),
+        ),
+        children: [
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF5F554D),
+            ),
+          ),
+          TextSpan(text: value),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _showScheduleConflictDialogIfNeeded(Object error) async {
+    final body = _decodedErrorBody(error);
+    final conflicts = _scheduleConflictsFrom(body);
+    if (conflicts.isEmpty) return false;
+
+    final backendMessage = _backendMessageFrom(body);
+    final branchNames = await _resolveConflictBranchNames(conflicts);
+    if (!mounted) return true;
+
+    final shouldEditSchedule = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final screenWidth = MediaQuery.sizeOf(dialogContext).width;
+        final screenHeight = MediaQuery.sizeOf(dialogContext).height;
+        final dialogWidth = (screenWidth - 32).clamp(320.0, 560.0).toDouble();
+        final maxDialogHeight = screenHeight * 0.80;
+        final uniqueConflictDays = conflicts
+            .map((conflict) => conflict['day']?.toString().trim())
+            .where((day) => day != null && day.isNotEmpty)
+            .toSet()
+            .length;
+        final hasMultipleDays = uniqueConflictDays > 1;
+        final calculatedListHeight = conflicts.length * 86.0;
+        final availableListHeight = (maxDialogHeight - 125).clamp(
+          120.0,
+          maxDialogHeight,
+        );
+        final dataBasedListCap = hasMultipleDays ? availableListHeight : 180.0;
+        final maxListHeight =
+            calculatedListHeight.clamp(86.0, dataBasedListCap).toDouble();
+        final canScroll = calculatedListHeight > maxListHeight;
+
+        return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 24,
+          ),
+          constraints: BoxConstraints(
+            minWidth: dialogWidth,
+            maxWidth: dialogWidth,
+          ),
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: const Color(0x33000000),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(22, 22, 22, 8),
+          contentPadding: const EdgeInsets.fromLTRB(22, 8, 22, 6),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          title: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3D5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.event_busy_outlined,
+                  color: Color(0xFFB45309),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  translateText('Schedule conflict'),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF2D2926),
+                  ),
+                ),
+              ),
+              Tooltip(
+                message: translateText('Close'),
+                child: InkWell(
+                  onTap: () => Navigator.of(dialogContext).pop(false),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFBF8F4),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE8DED6)),
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF756A61),
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxDialogHeight),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    backendMessage.isNotEmpty
+                        ? backendMessage
+                        : translateText(
+                            'This team member is already assigned to another active branch at these times.',
+                          ),
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.35,
+                      color: Color(0xFF756A61),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    translateText(
+                      'Edit the selected schedule to avoid overlap.',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      color: Color(0xFF756A61),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _ScrollableConflictList(
+                    maxHeight: maxListHeight,
+                    showScrollbar: canScroll,
+                    children: List.generate(
+                      conflicts.length,
+                      (index) => _scheduleConflictItem(
+                        conflicts[index],
+                        branchNames,
+                        index,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size.fromHeight(46),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(translateText('Edit schedule')),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldEditSchedule == true && mounted) {
+      Navigator.pop(context, _editScheduleResult());
+    }
+
+    return true;
   }
 
   void _showWrappedToast(String message) {
@@ -902,15 +1368,9 @@ class _TeamOnlineAvailabilityScreenState
       }
 
       if (widget.mode == TeamAvailabilityMode.editMember) {
-        final payload = Map<String, dynamic>.from(widget.payload ?? {});
-        payload['allowOnlineBooking'] = _allowOnlineBooking;
-        // Joining Date/Roles are collected on this same "Complete" step
-        // now (see initState/build) rather than on AddTeam.dart, so
-        // overwrite whatever stale values were forwarded in `payload`
-        // with what was picked here.
-        payload['joiningDate'] =
-            '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}';
-        payload['roles'] = _selectedRoleCodes.toList();
+        final payload = _branchEditPayload(
+          Map<String, dynamic>.from(widget.payload ?? {}),
+        );
         debugPrint(
           '[TeamOnlineAvailability] Calling updateTeamMember '
           'branchId=${widget.branchId} userId=${widget.userId} '
@@ -929,8 +1389,7 @@ class _TeamOnlineAvailabilityScreenState
         if (!mounted) return;
 
         if (response['success'] == true) {
-          _showWrappedToast(
-              translateText('Team member updated successfully'));
+          _showWrappedToast(translateText('Team member updated successfully'));
 
           await Future.delayed(const Duration(milliseconds: 700));
 
@@ -1018,12 +1477,61 @@ class _TeamOnlineAvailabilityScreenState
     } catch (error) {
       debugPrint('[TeamOnlineAvailability] Save failed: $error');
       if (!mounted) return;
+      if (await _showScheduleConflictDialogIfNeeded(error)) return;
       _showWrappedToast(_friendlyErrorMessage(error));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+}
+
+class _ScrollableConflictList extends StatefulWidget {
+  const _ScrollableConflictList({
+    required this.maxHeight,
+    required this.showScrollbar,
+    required this.children,
+  });
+
+  final double maxHeight;
+  final bool showScrollbar;
+  final List<Widget> children;
+
+  @override
+  State<_ScrollableConflictList> createState() =>
+      _ScrollableConflictListState();
+}
+
+class _ScrollableConflictListState extends State<_ScrollableConflictList> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: widget.maxHeight),
+      child: Scrollbar(
+        controller: _controller,
+        thumbVisibility: widget.showScrollbar,
+        trackVisibility: widget.showScrollbar,
+        thickness: widget.showScrollbar ? 5 : 0,
+        radius: const Radius.circular(10),
+        child: SingleChildScrollView(
+          controller: _controller,
+          padding: EdgeInsets.only(right: widget.showScrollbar ? 12 : 0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: widget.children,
+          ),
+        ),
+      ),
+    );
   }
 }
 
