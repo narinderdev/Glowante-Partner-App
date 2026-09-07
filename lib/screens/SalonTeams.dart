@@ -53,6 +53,38 @@ String _teamFirstText(Map<dynamic, dynamic> map, List<String> keys) {
   return '';
 }
 
+String _teamProfileImageUrlFrom(Map<dynamic, dynamic> map) {
+  final direct = _teamFirstText(map, const [
+    'profilePictureUrl',
+    'avatarUrl',
+    'photoUrl',
+    'imageUrl',
+    'profileImageUrl',
+    'profileImage',
+    'profile_picture_url',
+  ]);
+  if (direct.isNotEmpty) return direct;
+
+  for (final key in const ['profile', 'user', 'member', 'professional']) {
+    final nested = map[key];
+    if (nested is Map) {
+      final nestedUrl = _teamProfileImageUrlFrom(nested);
+      if (nestedUrl.isNotEmpty) return nestedUrl;
+    }
+  }
+
+  return '';
+}
+
+Map<String, dynamic> _teamNormalizeMemberAvatar(Map<String, dynamic> member) {
+  final normalized = Map<String, dynamic>.from(member);
+  final imageUrl = _teamProfileImageUrlFrom(normalized);
+  if (imageUrl.isNotEmpty) {
+    normalized['profilePictureUrl'] = imageUrl;
+  }
+  return normalized;
+}
+
 bool _teamIsActiveEntity(Map<String, dynamic> map) {
   for (final key in const ['active', 'isActive', 'enabled']) {
     final parsed = _teamReadBool(map[key]);
@@ -215,7 +247,7 @@ Map<String, dynamic> _teamMemberPayloadFromDetail(dynamic response) {
     }
   }
 
-  return member;
+  return _teamNormalizeMemberAvatar(member);
 }
 
 Map<String, dynamic> _teamMergeMemberMaps(
@@ -679,6 +711,7 @@ class _TeamScreenState extends State<TeamScreen> {
           _tabMembers = (rawItems is List ? rawItems : const [])
               .whereType<Map>()
               .map((item) => Map<String, dynamic>.from(item))
+              .map(_teamNormalizeMemberAvatar)
               .toList();
           _tabMembersTotal = _asInt(pagination['total']) ?? _tabMembers.length;
           _tabMembersTotalPages = _asInt(pagination['totalPages']) ?? 1;
@@ -1750,7 +1783,7 @@ class _TeamScreenState extends State<TeamScreen> {
     final userId = _teamAsInt(member['userId']);
     if (salonId == null || userId == null) return;
     FocusScope.of(context).unfocus();
-    final refresh = await Navigator.push<bool>(
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         settings: const RouteSettings(name: kCompleteProfileRootRouteName),
@@ -1766,9 +1799,7 @@ class _TeamScreenState extends State<TeamScreen> {
     // the push — the search field, in which case the keyboard reopens on
     // its own. Unfocus again now that we're actually back.
     FocusManager.instance.primaryFocus?.unfocus();
-    if (refresh == true) {
-      await _refreshCurrentTeamTab();
-    }
+    await _refreshCurrentTeamTab();
   }
 
   Future<void> _openAssignMember(Map<String, dynamic> member) async {
@@ -2641,7 +2672,7 @@ class _TeamTableMemberCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = (member['profilePictureUrl'] ?? '').toString().trim();
+    final imageUrl = _teamProfileImageUrlFrom(member);
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 180),
       child: Row(
@@ -3948,7 +3979,7 @@ class _TeamMemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = (member['profilePictureUrl'] ?? '').toString().trim();
+    final imageUrl = _teamProfileImageUrlFrom(member);
     final branches = _assignedBranchesList;
     final accent = _accentColor;
 

@@ -104,6 +104,40 @@ bool _isOtpChallengeUnavailableMessage(String message) {
       normalized.contains('challenge locked');
 }
 
+class _TokenRefreshResult {
+  const _TokenRefreshResult._({
+    this.accessToken,
+    required this.shouldLogout,
+    required this.reason,
+  });
+
+  final String? accessToken;
+  final bool shouldLogout;
+  final String reason;
+
+  static _TokenRefreshResult success(String accessToken) {
+    return _TokenRefreshResult._(
+      accessToken: accessToken,
+      shouldLogout: false,
+      reason: 'success',
+    );
+  }
+
+  static _TokenRefreshResult rejected(String reason) {
+    return _TokenRefreshResult._(
+      shouldLogout: true,
+      reason: reason,
+    );
+  }
+
+  static _TokenRefreshResult unavailable(String reason) {
+    return _TokenRefreshResult._(
+      shouldLogout: false,
+      reason: reason,
+    );
+  }
+}
+
 class _AuthHttpClient extends http.BaseClient {
   _AuthHttpClient();
 
@@ -1129,15 +1163,22 @@ class ApiService {
         '[TokenRefresh] access token expired, refreshing before proceeding...',
       );
       final refreshed = await _refreshAccessToken(prefs);
-      if (refreshed != null && refreshed.isNotEmpty) {
+      final refreshedToken = refreshed.accessToken;
+      if (refreshedToken != null && refreshedToken.isNotEmpty) {
         print('[TokenRefresh] refresh succeeded, new access token in use.');
-        return refreshed;
+        return refreshedToken;
       }
-      print(
-        '[TokenRefresh] refresh failed (no/invalid refresh token, or '
-        'request failed) — forcing logout.',
-      );
-      await AuthSessionManager.instance.forceLogout(reason: 'session_expired');
+      if (refreshed.shouldLogout) {
+        print('[TokenRefresh] refresh token rejected: ${refreshed.reason}.');
+        await AuthSessionManager.instance.forceLogout(
+          reason: 'session_expired',
+        );
+      } else {
+        print(
+          '[TokenRefresh] refresh unavailable (${refreshed.reason}); '
+          'keeping local session.',
+        );
+      }
       return '';
     }
 
@@ -1149,9 +1190,9 @@ class ApiService {
   // Serializes concurrent callers behind one in-flight refresh so a burst
   // of simultaneous requests hitting expiry together doesn't each spend
   // their own refresh token / race to store the new session.
-  static Future<String>? _refreshInFlight;
+  static Future<_TokenRefreshResult>? _refreshInFlight;
 
-  Future<String?> _refreshAccessToken(SharedPreferences prefs) {
+  Future<_TokenRefreshResult> _refreshAccessToken(SharedPreferences prefs) {
     if (_refreshInFlight != null) {
       print(
         '[TokenRefresh] a refresh is already in flight, waiting on it '
@@ -1163,11 +1204,11 @@ class ApiService {
     });
   }
 
-  Future<String> _performRefresh(SharedPreferences prefs) async {
+  Future<_TokenRefreshResult> _performRefresh(SharedPreferences prefs) async {
     final refreshToken = prefs.getString('refresh_token');
     if (refreshToken == null || refreshToken.isEmpty) {
       print('[TokenRefresh] no refresh_token stored, cannot refresh.');
-      return '';
+      return _TokenRefreshResult.rejected('missing refresh_token');
     }
 
     try {
@@ -1186,20 +1227,23 @@ class ApiService {
       );
       if (parsed['success'] != true) {
         print('[TokenRefresh] server rejected refresh: $parsed');
-        return '';
+        if (_shouldLogoutAfterRefreshFailure(parsed)) {
+          return _TokenRefreshResult.rejected('server rejected refresh token');
+        }
+        return _TokenRefreshResult.unavailable('refresh request failed');
       }
 
       final data = parsed['data'];
       if (data is! Map) {
         print('[TokenRefresh] unexpected response shape: $parsed');
-        return '';
+        return _TokenRefreshResult.unavailable('unexpected response shape');
       }
 
       final newAccessToken = data['accessToken']?.toString();
       final newRefreshToken = data['refreshToken']?.toString();
       if (newAccessToken == null || newAccessToken.isEmpty) {
         print('[TokenRefresh] response had no accessToken: $data');
-        return '';
+        return _TokenRefreshResult.unavailable('missing accessToken');
       }
 
       await prefs.setString('user_token', newAccessToken);
@@ -1210,11 +1254,28 @@ class ApiService {
         '[TokenRefresh] stored new access token '
         '(refresh token ${newRefreshToken == refreshToken ? 'unchanged' : 'rotated'}).',
       );
-      return newAccessToken;
+      return _TokenRefreshResult.success(newAccessToken);
     } catch (error) {
       print('[TokenRefresh] error=$error');
-      return '';
+      return _TokenRefreshResult.unavailable('network or server error');
     }
+  }
+
+  bool _shouldLogoutAfterRefreshFailure(Map<String, dynamic> parsed) {
+    final statusCode = parsed['statusCode'];
+    if (statusCode == 401 || statusCode == 403) {
+      return true;
+    }
+
+    final code = (parsed['code'] ?? '').toString().toLowerCase();
+    final message = (parsed['message'] ?? '').toString().toLowerCase();
+    final text = '$code $message';
+
+    return statusCode == 400 &&
+        text.contains('refresh') &&
+        (text.contains('invalid') ||
+            text.contains('expired') ||
+            text.contains('revoked'));
   }
 
   // Registers/refreshes this device's FCM token with the backend so push

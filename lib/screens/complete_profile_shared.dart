@@ -50,6 +50,7 @@ class CompleteProfileDraft {
   String postalCode = '';
   double? latitude;
   double? longitude;
+  bool hasSavedChanges = false;
 
   bool get hasFirstName => cpIsFilled(profile['firstName']);
   bool get hasLastName => cpIsFilled(profile['lastName']);

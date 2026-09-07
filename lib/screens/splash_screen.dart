@@ -8,7 +8,6 @@ import 'package:bloc_onboarding/screens/stylist_bottom_nav.dart';
 import 'package:bloc_onboarding/screens/UpdateProfileScreen.dart';
 import 'package:bloc_onboarding/screens/role_selection_screen.dart';
 import '../services/app_update_gate.dart';
-import '../services/auth_session_manager.dart';
 import '../services/navigation_service.dart';
 import '../services/stylist_branch_selection.dart';
 import '../services/token_expiration_service.dart';
@@ -82,10 +81,26 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (token != null && token.isNotEmpty) {
       if (TokenExpirationService.isTokenExpired(token)) {
-        await AuthSessionManager.instance
-            .forceLogout(reason: "session_expired");
-        return;
+        final refreshedToken = await ApiService().getAuthToken();
+        if (!mounted) return;
+
+        if (refreshedToken.isNotEmpty) {
+          token = refreshedToken;
+        } else {
+          final hasStoredSession =
+              (prefs.getString("user_token") ?? '').isNotEmpty &&
+                  (prefs.getString("refresh_token") ?? '').isNotEmpty;
+          if (!hasStoredSession) {
+            return;
+          }
+
+          debugPrint(
+            '[Splash] Access token expired but refresh is unavailable; '
+            'keeping cached session.',
+          );
+        }
       }
+      final sessionToken = token;
 
       final bool storedFlag = prefs.getBool('profile_complete') ?? false;
       final String? storedFirstName =
@@ -121,7 +136,7 @@ class _SplashScreenState extends State<SplashScreen> {
             context,
             MaterialPageRoute(
               builder: (_) => RoleSelectionScreen(
-                token: token,
+                token: sessionToken,
                 user: user,
                 profileComplete: profileComplete,
               ),
@@ -154,7 +169,7 @@ class _SplashScreenState extends State<SplashScreen> {
           context,
           MaterialPageRoute(
             builder: (_) => UpdateUserProfileScreen(
-              token: token,
+              token: sessionToken,
               isStylist: usesStylistShell,
             ),
           ),

@@ -155,6 +155,10 @@ class _CompleteProfileStep4ScreenState
 
     final fields = draft.buildPatchFields();
     if (fields.isEmpty) {
+      if (draft.hasSavedChanges) {
+        _returnToTeamMembersWithRefresh();
+        return;
+      }
       Fluttertoast.showToast(msg: translateText('Nothing new to save'));
       return;
     }
@@ -169,18 +173,7 @@ class _CompleteProfileStep4ScreenState
       if (!mounted) return;
       if (response['success'] == true) {
         Fluttertoast.showToast(msg: translateText('Profile updated'));
-        final navigator = Navigator.of(context);
-        var foundRoot = false;
-        navigator.popUntil((route) {
-          final isRoot = route.settings.name == kCompleteProfileRootRouteName;
-          if (isRoot) foundRoot = true;
-          return isRoot || route.isFirst;
-        });
-        if (foundRoot) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            navigator.pop(true);
-          });
-        }
+        _returnToTeamMembersWithRefresh();
       } else {
         Fluttertoast.showToast(
           msg: extractMessage(response, fallback: 'Unable to update profile'),
@@ -192,6 +185,21 @@ class _CompleteProfileStep4ScreenState
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _returnToTeamMembersWithRefresh() {
+    final navigator = Navigator.of(context);
+    var foundRoot = false;
+    navigator.popUntil((route) {
+      final isRoot = route.settings.name == kCompleteProfileRootRouteName;
+      if (isRoot) foundRoot = true;
+      return isRoot || route.isFirst;
+    });
+    if (foundRoot) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        navigator.pop(true);
+      });
     }
   }
 

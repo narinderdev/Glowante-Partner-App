@@ -251,9 +251,13 @@ class _CompleteTeamMemberProfileScreenState
       );
       if (!mounted) return;
       if (response['success'] == true) {
+        final updatedProfile = _profileMemberFromDetail(response);
+        final updatedUrl =
+            (updatedProfile['profilePictureUrl'] ?? url.trim()).toString();
         Fluttertoast.showToast(msg: translateText('Photo updated'));
         setState(() {
-          draft.profile['profilePictureUrl'] = url.trim();
+          draft.profile['profilePictureUrl'] = updatedUrl.trim();
+          draft.hasSavedChanges = true;
         });
       } else {
         Fluttertoast.showToast(
