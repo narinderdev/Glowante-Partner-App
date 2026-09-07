@@ -214,6 +214,10 @@ class SalonRepository {
     final resolvedImageUrl =
         resolvedImageUrls.isEmpty ? '' : resolvedImageUrls.first;
 
+    final addressPayload = Map<String, dynamic>.from(address)
+      ..['latitude'] = latitude
+      ..['longitude'] = longitude;
+
     final body = <String, dynamic>{
       'name': name,
       'startTime': startTime,
@@ -223,7 +227,7 @@ class SalonRepository {
       'imageUrl': resolvedImageUrl,
       'imageUrls': resolvedImageUrls,
       'schedule': schedule,
-      'address': address,
+      'address': addressPayload,
       'latitude': latitude,
       'longitude': longitude,
       'selectedCategoryCodes': selectedCategoryCodes,
@@ -253,6 +257,12 @@ class SalonRepository {
   }) {
     final resolvedImageUrl = imageUrl ??
         (imageUrls != null && imageUrls.isNotEmpty ? imageUrls.first : null);
+    final addressPayload =
+        address == null || latitude == null || longitude == null
+            ? address
+            : (Map<String, dynamic>.from(address)
+              ..['latitude'] = latitude
+              ..['longitude'] = longitude);
     return _apiService.updateSalon(salonId, {
       'name': name,
       'phone': phone,
@@ -264,7 +274,7 @@ class SalonRepository {
         'selectedCategoryCodes': selectedCategoryCodes,
       if (resolvedImageUrl != null) 'imageUrl': resolvedImageUrl,
       if (imageUrls != null) 'imageUrls': imageUrls,
-      if (address != null) 'address': address,
+      if (addressPayload != null) 'address': addressPayload,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
     });
@@ -288,6 +298,9 @@ class SalonRepository {
   }) {
     final resolvedImageUrl = imageUrl ??
         (imageUrls != null && imageUrls.isNotEmpty ? imageUrls.first : null);
+    final addressPayload = Map<String, dynamic>.from(address)
+      ..['latitude'] = latitude
+      ..['longitude'] = longitude;
     return _apiService.updateBranch(branchId, {
       'name': name,
       'phone': phone,
@@ -300,7 +313,7 @@ class SalonRepository {
       if (sourceBranchId != null) 'sourceBranchId': sourceBranchId,
       if (resolvedImageUrl != null) 'imageUrl': resolvedImageUrl,
       if (imageUrls != null) 'imageUrls': imageUrls,
-      'address': address,
+      'address': addressPayload,
       'latitude': latitude,
       'longitude': longitude,
     });

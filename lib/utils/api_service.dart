@@ -95,7 +95,12 @@ class _AuthHttpClient extends http.BaseClient {
   bool _shouldTriggerLogout(int statusCode, Map<String, String> headers) {
     if (statusCode != 401) return false;
     final authHeader = headers['Authorization'] ?? headers['authorization'];
-    return authHeader != null && authHeader.trim().isNotEmpty;
+    if (authHeader == null || authHeader.trim().isEmpty) return false;
+
+    final token = authHeader
+        .replaceFirst(RegExp(r'^Bearer\s+', caseSensitive: false), '')
+        .trim();
+    return token.isNotEmpty;
   }
 
   void _handleUnauthorized() {
@@ -245,6 +250,7 @@ class ApiService {
   static const String createSalonEndpoint = "salons/create";
   static const String getSalonList = "salons/my";
   static const String logoutUser = "auth/v2/logout";
+  static const String logoutAllUser = "auth/v2/logout-all";
   static const String refreshTokenEndpoint = "auth/v2/token/refresh";
   static const String deviceTokenEndpoint = "notifications/device-token";
   static const String deleteUser = "users/delete";
@@ -2689,6 +2695,9 @@ class ApiService {
 
   Future<Map<String, dynamic>> getSalonListApi() async {
     final token = await getAuthToken();
+    if (token.isEmpty) {
+      throw Exception("Authentication token is missing.");
+    }
 
     final response = await _sharedClient.get(
       Uri.parse(baseUrl + getSalonList),
@@ -2726,33 +2735,40 @@ class ApiService {
 
   // ---------------------- LOGOUT ----------------------
 
-  Future<bool> logoutUserAPI() async {
+  Future<bool> logoutUserAPI({bool allDevices = false}) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('user_token');
+    final token = await getAuthToken();
     final refreshToken = prefs.getString('refresh_token');
 
     if (token == null || token.isEmpty) return false;
 
-    final url = Uri.parse(baseUrl + logoutUser);
+    final url = Uri.parse(baseUrl + (allDevices ? logoutAllUser : logoutUser));
 
     try {
-      final response = await _sharedClient.post(
+      final headers = <String, String>{
+        "Authorization": "Bearer $token",
+      };
+      String? body;
+
+      if (!allDevices) {
+        headers["Content-Type"] = "application/json";
+        body = jsonEncode({
+          if (refreshToken != null && refreshToken.isNotEmpty)
+            "refreshToken": refreshToken,
+        });
+      }
+
+      final response = await http.post(
         url,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
-        body: jsonEncode({"refreshToken": refreshToken ?? ''}),
+        headers: headers,
+        body: body,
       );
 
       print("Logout Response: ${response.statusCode} ${response.body}");
 
-      await prefs.clear();
-
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
       print("Error during logout: $e");
-      await prefs.clear();
       return false;
     }
   }
@@ -4439,29 +4455,36 @@ class ApiService {
     print('Request URL: $url'); // Log the request URL
 
     try {
-      final response = await _sharedClient.get(url);
+      final token = await ApiService().getAuthToken();
+
+      final response = await _sharedClient.get(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
       print(
         'Response Status Code: ${response.statusCode}',
       ); // Log the status code
       print('Response Body: ${response.body}'); // Log the response body
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final Map<String, dynamic> data = json.decode(response.body);
         print('Parsed Data: $data'); // Log the parsed data
 
         return {
-          'success': data['success'],
+          'success': data['success'] ?? true,
           'message': data['message'],
-          'data': data['data'],
+          'data': data['data'] ?? [],
         };
       } else {
         print('Failed to load offers: ${response.body}'); // Log error response
-        return {
-          'success': false,
-          'message': 'Failed to load offers',
-          'data': [],
-        };
+        return _parseEnvelopeResponse(
+          response,
+          fallback: 'Failed to load offers',
+        )..putIfAbsent('data', () => []);
       }
     } catch (e) {
       print('Error: $e'); // Log error

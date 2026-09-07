@@ -15,6 +15,7 @@ import '../utils/error_parser.dart';
 import '../utils/colors.dart';
 import '../utils/refresh_feedback.dart';
 import '../widgets/app_loader.dart';
+import '../widgets/logout_options_dialog.dart';
 import '../services/user_role_session.dart';
 import 'stylist_about_salon_screen.dart';
 import 'role_selection_screen.dart';
@@ -169,31 +170,40 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
 
   void _showLogoutSheet() {
     FocusScope.of(context).unfocus();
-    final logoutTitle = translateText('Logout');
-    final logoutMessage = translateText('Are you sure you want to log out?');
+    final logoutTitle = translateText('Log out');
+    final logoutMessage = translateText('Where would you like to log out?');
     final cancelLabel = translateText('Cancel');
-    final confirmLogoutLabel = translateText('Yes, log out');
+    final logoutThisDeviceLabel = translateText('Log out from this device');
+    final logoutAllDevicesLabel = translateText('Log out from all devices');
     final failureText = translateText('Logout request failed on the server.');
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
         bool isLoggingOut = false;
+        bool? loggingOutAllDevices;
 
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            Future<void> handleLogout() async {
+            Future<void> handleLogout({required bool allDevices}) async {
               if (isLoggingOut) {
                 return;
               }
-              setDialogState(() => isLoggingOut = true);
+              setDialogState(() {
+                isLoggingOut = true;
+                loggingOutAllDevices = allDevices;
+              });
 
-              final success = await apiService.logoutUserAPI();
+              final success =
+                  await apiService.logoutUserAPI(allDevices: allDevices);
               if (!mounted || !ctx.mounted) {
                 return;
               }
 
-              setDialogState(() => isLoggingOut = false);
+              setDialogState(() {
+                isLoggingOut = false;
+                loggingOutAllDevices = null;
+              });
               Navigator.pop(ctx);
 
               Fluttertoast.showToast(
@@ -203,48 +213,23 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
               );
 
               await AuthSessionManager.instance.forceLogout(
-                reason: success ? 'user_logout' : 'user_logout_failed',
+                reason: success
+                    ? (allDevices ? 'user_logout_all_devices' : 'user_logout')
+                    : 'user_logout_failed',
               );
             }
 
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Text(
-                logoutTitle,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.starColor,
-                ),
-              ),
-              content: Text(
-                logoutMessage,
-                style: const TextStyle(fontSize: 15),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isLoggingOut ? null : () => Navigator.pop(ctx),
-                  child: Text(cancelLabel),
-                ),
-                ElevatedButton(
-                  onPressed: isLoggingOut ? null : handleLogout,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: isLoggingOut
-                      ? AppLoader.inline(
-                          size: 18,
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        )
-                      : Text(confirmLogoutLabel),
-                ),
-              ],
+            return LogoutOptionsDialog(
+              title: logoutTitle,
+              message: logoutMessage,
+              currentDeviceLabel: logoutThisDeviceLabel,
+              allDevicesLabel: logoutAllDevicesLabel,
+              cancelLabel: cancelLabel,
+              isLoggingOut: isLoggingOut,
+              loggingOutAllDevices: loggingOutAllDevices,
+              onCurrentDevice: () => handleLogout(allDevices: false),
+              onAllDevices: () => handleLogout(allDevices: true),
+              onCancel: () => Navigator.pop(ctx),
             );
           },
         );

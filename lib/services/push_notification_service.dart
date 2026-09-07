@@ -237,6 +237,20 @@ class PushNotificationService {
       }
     }
 
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final settings = await _messaging.getNotificationSettings();
+      final isAllowed =
+          settings.authorizationStatus == AuthorizationStatus.authorized ||
+              settings.authorizationStatus == AuthorizationStatus.provisional;
+      if (!isAllowed) {
+        print(
+          '[PushNotif] iOS notification permission is not granted yet; '
+          'skipping pre-login FCM token fetch.',
+        );
+        return _cachedToken;
+      }
+    }
+
     final hasApnsToken = await _waitForApnsToken();
     if (!hasApnsToken) {
       print('APNS token not available; returning cached FCM token if any.');
@@ -272,7 +286,11 @@ class PushNotificationService {
 
   Future<void> _initialiseLocalNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosInit = DarwinInitializationSettings();
+    const iosInit = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
     const settings = InitializationSettings(android: androidInit, iOS: iosInit);
 
     await _localNotifications.initialize(

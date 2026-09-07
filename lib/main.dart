@@ -44,7 +44,16 @@ Future<void> main() async {
     await Firebase.initializeApp();
     startupLogger.log('[Startup] Firebase core initialised');
 
-    final crashlyticsConfig = await _configureCrashlytics();
+    // These two don't depend on each other, so run them concurrently
+    // instead of back-to-back — each involves native platform-channel
+    // round-trips (Crashlytics config fetch; local-notifications plugin
+    // init + getInitialMessage() for push), and serializing them just adds
+    // their wall-clock times before the first frame can paint.
+    startupLogger.log('[Startup] Initialising push notification service...');
+    final crashlyticsFuture = _configureCrashlytics();
+    final pushInitFuture = PushNotificationService.instance.initialize();
+
+    final crashlyticsConfig = await crashlyticsFuture;
     startupLogger.attachCrashlytics(crashlyticsConfig.instance);
     final collectionStatus =
         crashlyticsConfig.collectionEnabled ? 'enabled' : 'disabled';
@@ -54,8 +63,7 @@ Future<void> main() async {
     startupLogger.log(
         '[Crashlytics] Crashlytics configured (collection $collectionStatus$overrideSuffix)');
 
-    startupLogger.log('[Startup] Initialising push notification service...');
-    await PushNotificationService.instance.initialize();
+    await pushInitFuture;
     startupLogger.log('[Startup] Push notification service ready');
 
     NetworkManager.initialize();

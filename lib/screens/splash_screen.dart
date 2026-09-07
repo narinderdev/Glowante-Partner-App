@@ -10,7 +10,6 @@ import 'package:bloc_onboarding/screens/role_selection_screen.dart';
 import '../services/app_update_gate.dart';
 import '../services/auth_session_manager.dart';
 import '../services/navigation_service.dart';
-import '../services/push_notification_service.dart';
 import '../services/stylist_branch_selection.dart';
 import '../services/token_expiration_service.dart';
 import '../services/user_role_session.dart';
@@ -87,14 +86,6 @@ class _SplashScreenState extends State<SplashScreen> {
             .forceLogout(reason: "session_expired");
         return;
       }
-
-      // Returning, already-logged-in user — re-request silently. The OS
-      // only prompts once per install, so this is a no-op dialog-wise once
-      // a decision has already been made; it just keeps the FCM token
-      // registered/refreshed across app restarts.
-      unawaited(
-        PushNotificationService.instance.requestPermissionAndRegisterToken(),
-      );
 
       final bool storedFlag = prefs.getBool('profile_complete') ?? false;
       final String? storedFirstName =

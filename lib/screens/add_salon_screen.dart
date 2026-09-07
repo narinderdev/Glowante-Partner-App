@@ -335,6 +335,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       'country': 'India',
       'formattedAddress': formattedAddress.isEmpty ? null : formattedAddress,
       'postalCode': '',
+      'latitude': address.latitude,
+      'longitude': address.longitude,
     };
   }
 

@@ -37,6 +37,8 @@ class BranchAddress {
       'country': 'India',
       'formattedAddress': formattedAddress.isEmpty ? null : formattedAddress,
       'postalCode': '',
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 }
