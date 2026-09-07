@@ -47,7 +47,12 @@ class RoleSelectionScreen extends StatefulWidget {
     };
 
     if (!context.mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
+    // A normal push, not pushAndRemoveUntil — this keeps the Profile/More
+    // screen (and its BottomNav) underneath, so the back button returns to
+    // it if the user backs out without picking anything. Confirming a role
+    // (_continueWithRole) is what clears the stack down to the chosen
+    // workspace, so no stale duplicate BottomNav is left behind either way.
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RoleSelectionScreen(
           token: token,
@@ -55,7 +60,6 @@ class RoleSelectionScreen extends StatefulWidget {
           profileComplete: true,
         ),
       ),
-      (route) => false,
     );
   }
 
@@ -154,38 +158,44 @@ class RoleSelectionScreen extends StatefulWidget {
       roleId: role.id,
       roleCode: role.code,
     );
+    await UserRoleSession.instance.markWorkspaceConfirmed();
 
     if (!context.mounted) return;
 
     final isStylistShell = role.destination == _RoleDestination.staff;
+    // pushAndRemoveUntil, not pushReplacement — this only matters when
+    // reached via "Change Workspace" (a normal push over the old
+    // BottomNav/StylistBottomNav, kept so back-out works); confirming a
+    // role needs to clear that old shell too, not just this screen, or
+    // it's left stacked underneath the newly chosen one.
     if (!profileComplete) {
-      Navigator.pushReplacement(
-        context,
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => UpdateUserProfileScreen(
             token: token,
             isStylist: isStylistShell,
           ),
         ),
+        (route) => false,
       );
       return;
     }
 
     if (isStylistShell) {
-      Navigator.pushReplacement(
-        context,
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => const StylistBottomNav(tabIndex: 0),
         ),
+        (route) => false,
       );
       return;
     }
 
-    Navigator.pushReplacement(
-      context,
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) => const BottomNav(tabIndex: 2),
       ),
+      (route) => false,
     );
   }
 }

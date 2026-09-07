@@ -59,6 +59,7 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
           await UserRoleSession.instance.persistUserSalons(user);
           await UserRoleSession.instance.persistUserBranches(user);
           await UserRoleSession.instance.persistUserPermissions(user);
+          await UserRoleSession.instance.resetWorkspaceConfirmation();
 
           unawaited(
             PushNotificationService.instance

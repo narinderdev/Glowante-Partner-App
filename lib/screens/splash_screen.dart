@@ -6,6 +6,7 @@ import 'package:bloc_onboarding/screens/onboarding_screen.dart';
 import 'package:bloc_onboarding/screens/bottom_nav.dart';
 import 'package:bloc_onboarding/screens/stylist_bottom_nav.dart';
 import 'package:bloc_onboarding/screens/UpdateProfileScreen.dart';
+import 'package:bloc_onboarding/screens/role_selection_screen.dart';
 import '../services/app_update_gate.dart';
 import '../services/auth_session_manager.dart';
 import '../services/navigation_service.dart';
@@ -106,6 +107,38 @@ class _SplashScreenState extends State<SplashScreen> {
       final bool profileComplete = storedFlag || derivedComplete;
       final bool usesStylistShell =
           await UserRoleSession.instance.usesStylistShell();
+
+      // If the app was killed while the user was still sitting on the
+      // Choose Workspace screen (verified OTP, but never actually tapped
+      // Continue), land back on that picker instead of guessing a
+      // workspace for them via usesStylistShell()'s best-guess default.
+      final bool workspaceConfirmed =
+          await UserRoleSession.instance.isWorkspaceConfirmed();
+      if (!workspaceConfirmed) {
+        final workspaceCount = await RoleSelectionScreen.cachedWorkspaceCount();
+        if (workspaceCount > 1) {
+          final roleEntries =
+              await UserRoleSession.instance.loadCachedRoleEntries();
+          final user = <String, dynamic>{
+            'firstName': storedFirstName ?? '',
+            'lastName': storedLastName ?? '',
+            'phoneNumber': prefs.getString('phone_number') ?? '',
+            'roles': roleEntries,
+          };
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RoleSelectionScreen(
+                token: token,
+                user: user,
+                profileComplete: profileComplete,
+              ),
+            ),
+          );
+          return;
+        }
+      }
 
       if (!mounted) return;
       if (profileComplete) {

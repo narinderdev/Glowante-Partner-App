@@ -274,6 +274,7 @@ class _OtpScreenState extends State<OtpScreen> {
           await UserRoleSession.instance.persistUserSalons(user);
           await UserRoleSession.instance.persistUserBranches(user);
           await UserRoleSession.instance.persistUserPermissions(user);
+          await UserRoleSession.instance.resetWorkspaceConfirmation();
           final bool hasFirstName =
               firstName != null && firstName.trim().isNotEmpty;
           final bool hasLastName =

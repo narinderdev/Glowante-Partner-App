@@ -27,6 +27,30 @@ class UserRoleSession {
   static const String _stylistUserBranchesJsonKey =
       'stylist_user_branches_json';
   static const String branchPermissionsJsonKey = 'user_branch_permissions_json';
+  static const String _workspaceConfirmedKey = 'workspace_confirmed';
+
+  // Tracks whether the user has actually confirmed a workspace (tapped
+  // Continue on the Choose Role/Workspace screen, or auto-continued
+  // through it when there was only one option) — distinct from
+  // primaryRoleCode/Id, which persistUserRoles sets to a best-guess default
+  // at login time regardless of whether the user has confirmed anything.
+  // Reset explicitly at fresh login (not inside persistUserRoles itself,
+  // since that's also called by the mid-session role refresh used by
+  // "Change Workspace" visibility, which must not undo a confirmation).
+  Future<void> resetWorkspaceConfirmation() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_workspaceConfirmedKey, false);
+  }
+
+  Future<void> markWorkspaceConfirmed() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_workspaceConfirmedKey, true);
+  }
+
+  Future<bool> isWorkspaceConfirmed() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_workspaceConfirmedKey) ?? false;
+  }
 
   static bool usesStylistShellForUser(Map<String, dynamic>? user) {
     final roles = user?['roles'];
@@ -43,8 +67,10 @@ class UserRoleSession {
       // same as the hardcoded ownerRoleId constant — matching by id alone
       // would misidentify a plain app_user as the owner.
       if (role is Map) {
-        final code =
-            Map<String, dynamic>.from(role)['code']?.toString().trim().toLowerCase();
+        final code = Map<String, dynamic>.from(role)['code']
+            ?.toString()
+            .trim()
+            .toLowerCase();
         if (code != null && code.isNotEmpty) codes.add(code);
       } else if (role is String) {
         final code = role.trim().toLowerCase();
@@ -346,7 +372,8 @@ class UserRoleSession {
     }
 
     final salons = await loadUserSalons();
-    print('[RoleRefresh] userId=$userId cachedSalons=${salons.map((s) => s['id']).toList()}');
+    print(
+        '[RoleRefresh] userId=$userId cachedSalons=${salons.map((s) => s['id']).toList()}');
     for (final salon in salons) {
       final salonId = _asInt(salon['id']);
       if (salonId == null) continue;
@@ -372,7 +399,8 @@ class UserRoleSession {
               orElse: () => null,
             );
         if (match is! Map) {
-          print('[RoleRefresh] salon=$salonId no item with userId=$userId in ${items.length} items');
+          print(
+              '[RoleRefresh] salon=$salonId no item with userId=$userId in ${items.length} items');
           continue;
         }
 
