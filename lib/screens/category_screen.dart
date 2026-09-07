@@ -2541,12 +2541,12 @@ class _PredefinedServicesCallout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: bubbleWidth,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: bubbleWidth),
       child: Material(
         color: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+          padding: const EdgeInsets.fromLTRB(14, 7, 6, 7),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
@@ -2561,9 +2561,9 @@ class _PredefinedServicesCallout extends StatelessWidget {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
+              Flexible(
                 child: Text.rich(
                   TextSpan(
                     style: const TextStyle(
@@ -2584,15 +2584,23 @@ class _PredefinedServicesCallout extends StatelessWidget {
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: onDismiss,
-                behavior: HitTestBehavior.opaque,
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 6, top: 2),
-                  child: SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CustomPaint(painter: _BoldCrossPainter()),
+              const SizedBox(width: 4),
+              Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onDismiss,
+                  child: const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Center(
+                      child: SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CustomPaint(painter: _BoldCrossPainter()),
+                      ),
+                    ),
                   ),
                 ),
               ),
