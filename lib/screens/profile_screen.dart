@@ -43,6 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isUploadingProfilePicture = false;
   bool _isRefreshingProfile = false;
   int _workspaceCount = 1;
+  List<String> _roleLabels = const <String>[];
 
   void _logProfile(String event, {Object? details}) {
     debugPrint(
@@ -72,6 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final prefs = await SharedPreferences.getInstance();
+    final roleLabels = await UserRoleSession.instance.loadDistinctRoleLabels();
 
     if (!mounted) {
       return;
@@ -101,6 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'profile_image',
         'imageUrl',
       ]);
+      _roleLabels = roleLabels;
       _isRefreshingProfile = false;
     });
   }
@@ -595,6 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await _loadWorkspaceCount();
       },
       roleLabel: context.t('Salon Owner'),
+      roleLabels: _roleLabels,
       profileImageUrl: profilePictureUrl,
       onEditProfilePicture:
           _isUploadingProfilePicture ? null : _showProfilePhotoSourceModal,

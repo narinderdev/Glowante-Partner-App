@@ -41,6 +41,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   String _userName = '';
   String _phoneNumber = '';
   String _roleLabel = '';
+  List<String> _roleLabels = const <String>[];
   String? _profilePictureUrl;
   bool _isUploadingProfilePicture = false;
   bool _isRefreshingProfile = false;
@@ -117,6 +118,8 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
     ]);
     final storedRoleLabel =
         await UserRoleSession.instance.loadPrimaryRoleLabel();
+    final storedRoleLabels =
+        await UserRoleSession.instance.loadDistinctRoleLabels();
     if (!mounted) {
       return;
     }
@@ -131,6 +134,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       _phoneNumber = prefs.getString('phone_number') ?? '';
       _profilePictureUrl = storedProfilePicture;
       _roleLabel = storedRoleLabel;
+      _roleLabels = storedRoleLabels;
       _isRefreshingProfile = false;
     });
   }
@@ -586,6 +590,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       },
       roleLabel:
           _roleLabel.isNotEmpty ? _roleLabel : translateText('Salon Stylist'),
+      roleLabels: _roleLabels,
       profileImageUrl: _profilePictureUrl,
       onEditProfilePicture:
           _isUploadingProfilePicture ? null : _showProfilePhotoSourceModal,

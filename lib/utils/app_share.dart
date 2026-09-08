@@ -5,9 +5,9 @@ import 'package:share_plus/share_plus.dart';
 import 'localization_helper.dart';
 
 const String _playStoreUrl =
-    'https://play.google.com/store/apps/details?id=com.glowante.salon&pcampaignid=web_share';
+    'https://play.google.com/store/apps/details?id=com.glowante.client&pcampaignid=web_share';
 const String _appStoreUrl =
-    'https://apps.apple.com/in/app/glowante-partner/id6749371720';
+    'https://apps.apple.com/in/app/glowante/id6749370773';
 
 // Shared by both the owner and stylist Profile/More tabs. Only the current
 // device's own platform link is included — an Android user sharing this

@@ -66,6 +66,7 @@ class SharedProfileScreen extends StatelessWidget {
     required this.onDeleteAccount,
     this.onRefresh,
     this.roleLabel,
+    this.roleLabels = const <String>[],
     this.profileImageUrl,
     this.onEditProfilePicture,
     this.topSections = const <Widget>[],
@@ -82,6 +83,10 @@ class SharedProfileScreen extends StatelessWidget {
   final VoidCallback onDeleteAccount;
   final Future<void> Function()? onRefresh;
   final String? roleLabel;
+  // Every distinct role the user holds (e.g. Salon Owner on one branch,
+  // Salon Stylist on another) — shown as badges below roleLabel. Empty by
+  // default so callers that don't pass it just get no badges, not a crash.
+  final List<String> roleLabels;
   final String? profileImageUrl;
   final VoidCallback? onEditProfilePicture;
   final List<Widget> topSections;
@@ -98,6 +103,7 @@ class SharedProfileScreen extends StatelessWidget {
           phoneNumber: phoneNumber,
           email: email,
           roleLabel: roleLabel,
+          roleLabels: roleLabels,
           profileImageUrl: profileImageUrl,
           onEditProfilePicture: onEditProfilePicture,
         ),
@@ -222,6 +228,7 @@ class _ProfileHero extends StatelessWidget {
     required this.phoneNumber,
     this.email = '',
     this.roleLabel,
+    this.roleLabels = const <String>[],
     this.profileImageUrl,
     this.onEditProfilePicture,
   });
@@ -230,6 +237,7 @@ class _ProfileHero extends StatelessWidget {
   final String phoneNumber;
   final String email;
   final String? roleLabel;
+  final List<String> roleLabels;
   final String? profileImageUrl;
   final VoidCallback? onEditProfilePicture;
 
@@ -290,13 +298,19 @@ class _ProfileHero extends StatelessWidget {
                 color: const Color(0xFF6F665E),
               ),
             ),
+          ],
+          if (roleLabels.isNotEmpty) ...[
             const SizedBox(height: 24),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 10,
               children: [
-                _ProfileBadge(label: 'Premium Plan', filled: false),
-                SizedBox(width: 12),
-                _ProfileBadge(label: 'Verified Manager', filled: true),
+                for (var index = 0; index < roleLabels.length; index++)
+                  _ProfileBadge(
+                    label: roleLabels[index],
+                    filled: index == 0,
+                  ),
               ],
             ),
           ],

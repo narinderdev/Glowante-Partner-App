@@ -1472,10 +1472,10 @@ DateTime? _bookingActionEnd(Map<String, dynamic> booking) {
 }
 
 bool _hasStartJobWindowPassed(Map<String, dynamic> booking) {
-  final status = _normalizeStatus(booking['status']);
-  if (!_showsStartAction(status)) return false;
-
-  return _hasBookingActionWindowPassed(booking);
+  // Staff can always start a job manually, even after the scheduled window
+  // has elapsed (running late, catching up on a missed status change,
+  // etc.) — Start Job is no longer time-gated, for every role.
+  return false;
 }
 
 bool _hasBookingActionWindowPassed(Map<String, dynamic> booking) {
@@ -1484,17 +1484,7 @@ bool _hasBookingActionWindowPassed(Map<String, dynamic> booking) {
 }
 
 bool _canStartJob(Map<String, dynamic> booking) {
-  final status = _normalizeStatus(booking['status']);
-  if (!_showsStartAction(status)) return false;
-
-  final start = _bookingStart(booking);
-  if (start == null) return false;
-
-  if (_hasStartJobWindowPassed(booking)) return false;
-
-  final now = DateTime.now();
-  final allowedAt = start.subtract(const Duration(minutes: 15));
-  return now.isAtSameMomentAs(allowedAt) || now.isAfter(allowedAt);
+  return _showsStartAction(_normalizeStatus(booking['status']));
 }
 
 bool _showsFinishAction(String status) => status == 'IN_PROGRESS';

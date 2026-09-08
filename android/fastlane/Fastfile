@@ -2,14 +2,21 @@ FLAVORS = {
   dev: {
     package_name: "com.glowante.salon.dev",
     dart_flavor: "dev",
+    # Play Store *listing* icon (separate from the app's launcher icon,
+    # and not derived from the AAB) — without this the dev app shows a
+    # blank grey placeholder in Play Console instead of its own icon.
+    metadata_path: "fastlane/metadata_dev/android",
   },
   staging: {
     package_name: "com.glowante.salon.test",
     dart_flavor: "test",
+    metadata_path: "fastlane/metadata_staging/android",
   },
   prod: {
     package_name: "com.glowante.salon",
     dart_flavor: "prod",
+    # No metadata_path here deliberately — prod's Play Store listing
+    # (icon included) was already set up manually in Play Console.
   },
 }
 
@@ -41,10 +48,13 @@ def build_and_upload(flavor, track: "internal", release_status: nil)
     aab: aab_path,
     track: track,
     release_status: release_status,
-    # Internal testing only needs the binary — skip store-listing assets
-    # so this doesn't require metadata/screenshots to exist yet.
+    metadata_path: info[:metadata_path],
+    # Internal testing only needs the binary, so text listing details and
+    # screenshots stay skipped (not ready yet) — but the Play Store listing
+    # icon still uploads for flavors with a metadata_path set above; these
+    # three skip flags are independent in fastlane's supply action.
     skip_upload_metadata: true,
-    skip_upload_images: true,
+    skip_upload_images: info[:metadata_path].nil?,
     skip_upload_screenshots: true
   )
 end

@@ -295,6 +295,34 @@ class UserRoleSession {
     return roleLabels.first.trim();
   }
 
+  // Every distinct role label the user holds across all their salons/
+  // branches (e.g. someone who's Salon Owner on one branch and Salon
+  // Stylist on another gets both, once each) — for showing the full set
+  // of roles on the Profile tab, as opposed to loadPrimaryRoleLabel's
+  // single current-workspace role.
+  Future<List<String>> loadDistinctRoleLabels() async {
+    final prefs = await SharedPreferences.getInstance();
+    final roleLabels = prefs.getStringList(_roleLabelsKey) ?? const <String>[];
+    final primaryLabel = await loadPrimaryRoleLabel();
+
+    final seen = <String>{};
+    final distinct = <String>[];
+
+    void addIfNew(String label) {
+      final trimmed = label.trim();
+      if (trimmed.isEmpty) return;
+      final key = trimmed.toLowerCase();
+      if (seen.add(key)) distinct.add(trimmed);
+    }
+
+    addIfNew(primaryLabel);
+    for (final label in roleLabels) {
+      addIfNew(label);
+    }
+
+    return distinct;
+  }
+
   Future<Set<String>> loadPermissions({int? branchId}) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(branchPermissionsJsonKey);
