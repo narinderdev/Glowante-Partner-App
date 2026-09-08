@@ -52,7 +52,7 @@ android {
             dimension = "env"
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
-            resValue("string", "app_name", "Glowante Dev")
+            resValue("string", "app_name", "Glowante Partner Dev")
         }
         // AGP reserves flavor names starting with "test" for its own
         // androidTest source sets, so this is "staging" here even though
@@ -61,7 +61,7 @@ android {
             dimension = "env"
             applicationIdSuffix = ".test"
             versionNameSuffix = "-test"
-            resValue("string", "app_name", "Glowante Test")
+            resValue("string", "app_name", "Glowante Partner Test")
         }
         create("prod") {
             dimension = "env"

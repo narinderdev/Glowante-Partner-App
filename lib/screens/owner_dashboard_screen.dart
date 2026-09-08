@@ -821,6 +821,8 @@ class OwnerDashboardDrawer extends StatefulWidget {
 
 class _OwnerDashboardDrawerState extends State<OwnerDashboardDrawer> {
   final Set<String> _expandedGroups = <String>{};
+  Set<String> _permissions = const <String>{};
+  bool _hasPermissionPayload = false;
   String? _selectedDrawerItem;
 
   @override
@@ -838,16 +840,31 @@ class _OwnerDashboardDrawerState extends State<OwnerDashboardDrawer> {
   }
 
   Future<void> _loadDrawerPermissions() async {
+    final hasPermissionPayload =
+        await UserRoleSession.instance.hasPersistedPermissions();
+    final permissions = hasPermissionPayload
+        ? await UserRoleSession.instance.loadPermissions(
+            branchId: widget.selectedBranchId,
+          )
+        : <String>{};
     if (!mounted) return;
-    setState(() {});
+    setState(() {
+      _hasPermissionPayload = hasPermissionPayload;
+      _permissions = permissions;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isAllowed(List<String> permissions) {
+      if (permissions.isEmpty || !_hasPermissionPayload) return true;
+      return permissions.any(_permissions.contains);
+    }
+
     List<_DashboardDrawerChildItem> allowedChildren(
       List<_DashboardDrawerChildItem> children,
     ) {
-      return children;
+      return children.where((child) => isAllowed(child.permissions)).toList();
     }
 
     Widget? drawerTile({
@@ -855,6 +872,7 @@ class _OwnerDashboardDrawerState extends State<OwnerDashboardDrawer> {
       required _DashboardDrawerItem item,
       required VoidCallback onTap,
     }) {
+      if (!isAllowed(item.permissions)) return null;
       return _DashboardDrawerTile(
         item: item,
         selected: _selectedDrawerItem == id,

@@ -9,7 +9,9 @@ import '../features/profile/widgets/shared_profile_screen.dart';
 import '../features/stylist_attendance/stylist_mark_attendance_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
+import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
+import '../utils/app_share.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/error_parser.dart';
 import '../utils/colors.dart';
@@ -34,6 +36,7 @@ class StylistProfileScreen extends StatefulWidget {
 class _StylistProfileScreenState extends State<StylistProfileScreen> {
   final ApiService apiService = ApiService();
   final ImagePicker _imagePicker = ImagePicker();
+  late final VoidCallback _branchSelectionListener;
 
   String _userName = '';
   String _phoneNumber = '';
@@ -42,12 +45,27 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   bool _isUploadingProfilePicture = false;
   bool _isRefreshingProfile = false;
   int _workspaceCount = 1;
+  Set<String> _permissions = const <String>{};
+  bool _hasPermissionPayload = false;
 
   @override
   void initState() {
     super.initState();
+    _branchSelectionListener = () {
+      if (mounted) _loadPermissions();
+    };
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
     _loadData();
     _loadWorkspaceCount();
+    _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
+    super.dispose();
   }
 
   Future<void> _loadWorkspaceCount() async {
@@ -56,6 +74,27 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
     if (mounted) {
       setState(() => _workspaceCount = count);
     }
+  }
+
+  Future<void> _loadPermissions() async {
+    final hasPermissionPayload =
+        await UserRoleSession.instance.hasPersistedPermissions();
+    final selection = await StylistBranchSelectionStore.load();
+    final permissions = hasPermissionPayload
+        ? await UserRoleSession.instance.loadPermissions(
+            branchId: selection.branchId,
+          )
+        : <String>{};
+    if (!mounted) return;
+    setState(() {
+      _hasPermissionPayload = hasPermissionPayload;
+      _permissions = permissions;
+    });
+  }
+
+  bool _isAllowed(List<String> permissions) {
+    if (permissions.isEmpty || !_hasPermissionPayload) return true;
+    return permissions.any(_permissions.contains);
   }
 
   Future<void> _loadData() async {
@@ -543,6 +582,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       onRefresh: () async {
         await _loadData();
         await _loadWorkspaceCount();
+        await _loadPermissions();
       },
       roleLabel:
           _roleLabel.isNotEmpty ? _roleLabel : translateText('Salon Stylist'),
@@ -554,7 +594,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
           ProfileMenuItemData(
             icon: Icons.swap_horiz_rounded,
             label: context.t('Change Workspace'),
-            subtitle: context.t('Switch between Owner and Stylist'),
+            subtitle: context.t('Switch between available roles'),
             onTap: () => RoleSelectionScreen.openWorkspaceSwitcher(context),
             showLeftAccent: true,
           ),
@@ -563,31 +603,31 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
           label: context.t('Mark Attendance'),
           onTap: _openMarkAttendance,
           showLeftAccent: true,
-        ),
+        ).allowedBy(this, const ['attendance.view']),
         ProfileMenuItemData(
           icon: Icons.schedule_outlined,
           label: context.t('Schedule'),
           onTap: _openSchedule,
           showLeftAccent: true,
-        ),
+        ).allowedBy(this, const ['bookings.view']),
         ProfileMenuItemData(
           icon: Icons.content_cut_rounded,
           label: context.t('Services'),
           onTap: _openServices,
           showLeftAccent: true,
-        ),
+        ).allowedBy(this, const ['catalog.view']),
         ProfileMenuItemData(
           icon: Icons.rate_review_outlined,
           label: context.t('Reviews'),
           onTap: _openReviews,
           showLeftAccent: true,
-        ),
+        ).allowedBy(this, const ['reviews.view']),
         ProfileMenuItemData(
           icon: Icons.info_outline,
           label: context.t('About Salon'),
           onTap: _openAboutSalon,
           showLeftAccent: true,
-        ),
+        ).allowedBy(this, const ['salons.view']),
         ProfileMenuItemData(
           icon: Icons.privacy_tip_outlined,
           label: context.t('Privacy Policy'),
@@ -606,7 +646,14 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
           ),
           showLeftAccent: true,
         ),
-      ],
+        ProfileMenuItemData(
+          icon: Icons.share_outlined,
+          label: context.t('Share App'),
+          subtitle: context.t('Invite others to Glowante Partner'),
+          onTap: () => shareGlowanteApp(context),
+          showLeftAccent: true,
+        ),
+      ].whereType<ProfileMenuItemData>().toList(),
       onLogout: _showLogoutSheet,
       onDeleteAccount: _showDeleteDialog,
       isRefreshing: _isRefreshingProfile,
@@ -635,6 +682,15 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
         ),
       ],
     );
+  }
+}
+
+extension _StylistProfilePermissionFilter on ProfileMenuItemData {
+  ProfileMenuItemData? allowedBy(
+    _StylistProfileScreenState state,
+    List<String> permissions,
+  ) {
+    return state._isAllowed(permissions) ? this : null;
   }
 }
 

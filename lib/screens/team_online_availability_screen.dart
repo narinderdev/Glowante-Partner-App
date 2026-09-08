@@ -146,9 +146,16 @@ class _TeamOnlineAvailabilityScreenState
 
   Map<String, dynamic> _branchEditPayload(Map<String, dynamic> base) {
     final branchRoleIds = _selectedBranchRoleIds;
+    final scheduleMode = _scheduleModeFromPayload(base);
     return <String, dynamic>{
-      'scheduleMode': _scheduleModeFromPayload(base),
-      'schedules': _schedulePayload(base['schedules']),
+      'scheduleMode': scheduleMode,
+      // The backend rejects the request outright if `schedules` is present
+      // at all when scheduleMode is BRANCH_HOURS ("schedules must be
+      // omitted when scheduleMode is BRANCH_HOURS") — that mode means the
+      // member just follows the branch's own hours, so there's nothing
+      // custom to send.
+      if (scheduleMode != 'BRANCH_HOURS')
+        'schedules': _schedulePayload(base['schedules']),
       'roles': _selectedRoleCodes.toList(),
       'branchRoleIds': branchRoleIds.isEmpty
           ? _intList(base['branchRoleIds'])

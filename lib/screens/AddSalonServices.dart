@@ -103,56 +103,33 @@ class _AddSalonServicesState extends State<AddSalonServices> {
 
   Future<void> fetchServiceCatalog() async {
     try {
-      final token = await ApiService().getAuthToken();
-      final url =
-          Uri.parse('${ApiService.baseUrl}${ApiService.serviceCatalog}');
+      // Goes through ApiService.getServiceCatalog() (not a raw http.get)
+      // so an expired access token gets silently refreshed and retried by
+      // the shared client, instead of surfacing a bare 401 here.
+      final body = await ApiService().getServiceCatalog();
+      final data = (body['data'] as List<dynamic>?) ?? <dynamic>[];
 
-      late http.Response response;
-      try {
-        response = await http.get(
-          url,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
+      final Map<String, ImageProvider> providers = {};
+      for (final service in data) {
+        final imageUrl = (service['image_url'] ?? '') as String;
+        if (imageUrl.isEmpty) continue;
+        providers.putIfAbsent(
+          imageUrl,
+          () => CachedNetworkImageProvider(imageUrl),
         );
-        NetworkManager.reportSuccessfulRequest();
-      } catch (error) {
-        NetworkManager.reportNetworkIssue(error, uri: url);
-        rethrow;
       }
 
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = (body['data'] as List<dynamic>?) ?? <dynamic>[];
+      if (!mounted) return;
+      setState(() {
+        _services = data;
+        _imageProviders.addAll(providers);
+        _isLoading = false;
+      });
 
-        final Map<String, ImageProvider> providers = {};
-        for (final service in data) {
-          final imageUrl = (service['image_url'] ?? '') as String;
-          if (imageUrl.isEmpty) continue;
-          providers.putIfAbsent(
-            imageUrl,
-            () => CachedNetworkImageProvider(imageUrl),
-          );
+      for (final provider in providers.values) {
+        if (mounted) {
+          precacheImage(provider, context);
         }
-
-        if (!mounted) return;
-        setState(() {
-          _services = data;
-          _imageProviders.addAll(providers);
-          _isLoading = false;
-        });
-
-        for (final provider in providers.values) {
-          if (mounted) {
-            precacheImage(provider, context);
-          }
-        }
-      } else {
-        throw Exception(extractErrorMessage(
-          response.body,
-          fallback: 'Failed to fetch service catalog',
-        ));
       }
     } catch (e, stack) {
       debugPrint('Failed to load service catalog: $e');

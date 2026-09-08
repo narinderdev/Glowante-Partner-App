@@ -26,9 +26,9 @@ class RoleSelectionScreen extends StatefulWidget {
     return _visibleRoles(user['roles']).length;
   }
 
-  // How many distinct workspaces (Owner / Stylist) are available to switch
-  // between, from the cached roles persisted at login. Used by the Profile
-  // tab to decide whether to show "Change Workspace".
+  // How many backend roles are available to switch between, from the cached
+  // roles persisted at login. Used by the Profile tab to decide whether to
+  // show "Change Workspace".
   static Future<int> cachedWorkspaceCount() async {
     final roleEntries = await UserRoleSession.instance.loadCachedRoleEntries();
     return _visibleRoles(roleEntries).length;
@@ -91,7 +91,8 @@ class RoleSelectionScreen extends StatefulWidget {
     if (rawRoles is! List) return const <_SelectableRole>[];
 
     // Backend has returned both role objects ({id, code, label}) and flat
-    // role-code strings. Normalize both shapes before choosing workspaces.
+    // role-code strings. Normalize both shapes and keep every distinct role
+    // code, instead of collapsing different roles into Owner/Team buckets.
     final roles = rawRoles
         .map((role) {
           if (role is Map) return Map<String, dynamic>.from(role);
@@ -110,6 +111,12 @@ class RoleSelectionScreen extends StatefulWidget {
       roles.removeWhere((role) => role.code == 'app_user');
     }
 
+    final seenRoleKeys = <String>{};
+    roles.retainWhere((role) {
+      final key = role.dedupeKey;
+      return key.isNotEmpty && seenRoleKeys.add(key);
+    });
+
     roles.sort((first, second) {
       final firstWeight = first.priorityWeight;
       final secondWeight = second.priorityWeight;
@@ -118,10 +125,6 @@ class RoleSelectionScreen extends StatefulWidget {
       }
       return first.label.toLowerCase().compareTo(second.label.toLowerCase());
     });
-
-    // The screen chooses a workspace (Owner vs Team), not a specific salon.
-    final seenDestinations = <_RoleDestination>{};
-    roles.retainWhere((role) => seenDestinations.add(role.destination));
 
     return roles.isEmpty
         ? const [
@@ -812,30 +815,58 @@ class _SelectableRole {
 
   bool get isStaffWorkspace => destination == _RoleDestination.staff;
 
+  String get dedupeKey {
+    if (code.isNotEmpty) return 'code:$code';
+    return 'label:${label.trim().toLowerCase()}';
+  }
+
   String get workspaceTitle {
-    return isStaffWorkspace ? 'Team workspace' : 'Owner workspace';
+    if (isStaffWorkspace) return 'Team workspace';
+    if (code == UserRoleSession.ownerRoleCode) return 'Owner workspace';
+    return 'Business workspace';
   }
 
   String get summary {
-    return isStaffWorkspace
-        ? 'Bookings, schedule, attendance, profile'
-        : 'Salons, branches, catalog, reports';
+    if (isStaffWorkspace) {
+      return 'Bookings, schedule, attendance, profile';
+    }
+    if (code == UserRoleSession.ownerRoleCode) {
+      return 'Salons, branches, catalog, reports';
+    }
+    return 'Tools enabled by your permissions';
   }
 
   String get description {
-    return isStaffWorkspace
-        ? 'Work with assigned bookings, team schedule, attendance, and profile details.'
-        : 'Manage salons, branches, team, services, reports, and business settings.';
+    if (isStaffWorkspace) {
+      return 'Work with assigned bookings, team schedule, attendance, and profile details.';
+    }
+    if (code == UserRoleSession.ownerRoleCode) {
+      return 'Manage salons, branches, team, services, reports, and business settings.';
+    }
+    return 'Continue with this role to see only the actions enabled by backend permissions.';
   }
 
   IconData get icon {
-    return isStaffWorkspace
-        ? Icons.content_cut_rounded
-        : Icons.storefront_rounded;
+    if (code == UserRoleSession.stylistRoleCode) {
+      return Icons.content_cut_rounded;
+    }
+    if (code == UserRoleSession.receptionistRoleCode) {
+      return Icons.support_agent_rounded;
+    }
+    if (code == UserRoleSession.staffRoleCode) {
+      return Icons.badge_rounded;
+    }
+    if (code.contains('manager')) {
+      return Icons.manage_accounts_rounded;
+    }
+    if (code == UserRoleSession.ownerRoleCode) {
+      return Icons.storefront_rounded;
+    }
+    return Icons.admin_panel_settings_rounded;
   }
 
   List<_CapabilityChip> capabilityChips(bool selected) {
-    if (isStaffWorkspace) {
+    if (code == UserRoleSession.stylistRoleCode) {
       return [
         _CapabilityChip(
           icon: Icons.event_available_rounded,
@@ -850,6 +881,66 @@ class _SelectableRole {
         _CapabilityChip(
           icon: Icons.person_rounded,
           label: 'Profile',
+          selected: selected,
+        ),
+      ];
+    }
+
+    if (code == UserRoleSession.receptionistRoleCode) {
+      return [
+        _CapabilityChip(
+          icon: Icons.event_available_rounded,
+          label: 'Bookings',
+          selected: selected,
+        ),
+        _CapabilityChip(
+          icon: Icons.groups_rounded,
+          label: 'Clients',
+          selected: selected,
+        ),
+        _CapabilityChip(
+          icon: Icons.support_agent_rounded,
+          label: 'Front desk',
+          selected: selected,
+        ),
+      ];
+    }
+
+    if (code == UserRoleSession.staffRoleCode) {
+      return [
+        _CapabilityChip(
+          icon: Icons.badge_rounded,
+          label: 'Team',
+          selected: selected,
+        ),
+        _CapabilityChip(
+          icon: Icons.event_note_rounded,
+          label: 'Schedule',
+          selected: selected,
+        ),
+        _CapabilityChip(
+          icon: Icons.person_rounded,
+          label: 'Profile',
+          selected: selected,
+        ),
+      ];
+    }
+
+    if (code.contains('manager')) {
+      return [
+        _CapabilityChip(
+          icon: Icons.dashboard_rounded,
+          label: 'Dashboard',
+          selected: selected,
+        ),
+        _CapabilityChip(
+          icon: Icons.rule_rounded,
+          label: 'Permissions',
+          selected: selected,
+        ),
+        _CapabilityChip(
+          icon: Icons.store_rounded,
+          label: 'Operations',
           selected: selected,
         ),
       ];
@@ -892,7 +983,7 @@ class _SelectableRole {
     final id =
         map['id'] is int ? map['id'] as int : int.tryParse('${map['id']}');
     final code = (map['code'] ?? '').toString().trim().toLowerCase();
-    final label = (map['label'] ?? '').toString().trim();
+    final label = (map['label'] ?? map['name'] ?? '').toString().trim();
 
     final isStaff = code == UserRoleSession.stylistRoleCode ||
         code == UserRoleSession.staffRoleCode ||
@@ -901,8 +992,18 @@ class _SelectableRole {
     return _SelectableRole(
       id: id,
       code: code,
-      label: label.isEmpty ? code : label,
+      label: label.isEmpty ? _labelFromCode(code) : label,
       destination: isStaff ? _RoleDestination.staff : _RoleDestination.owner,
     );
+  }
+
+  static String _labelFromCode(String code) {
+    final normalized = code.trim();
+    if (normalized.isEmpty) return '';
+    return normalized
+        .split(RegExp(r'[_\s-]+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
   }
 }

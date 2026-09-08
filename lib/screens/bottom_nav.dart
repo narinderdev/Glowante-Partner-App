@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 
 import '../services/language_listener.dart';
 import '../services/push_notification_service.dart';
+import '../services/stylist_branch_selection.dart';
+import '../services/user_role_session.dart';
 import '../widgets/shared_bottom_nav_bar.dart';
 import 'Bookings.dart';
 import 'category_screen.dart';
@@ -29,11 +31,22 @@ class BottomNav extends StatefulWidget {
 }
 
 class _BottomNavState extends State<BottomNav> {
+  static const List<List<String>> _tabPermissionRequirements = [
+    <String>[],
+    <String>['bookings.view'],
+    <String>['salons.view'],
+    <String>['catalog.view'],
+    <String>[],
+  ];
+
   late int _currentIndex;
   late final List<Widget> _screens;
   late final GlobalKey<SalonsScreenState> _salonsScreenKey;
   late final GlobalKey<CategoryScreenState> _categoryScreenKey;
+  late final VoidCallback _branchSelectionListener;
   StreamSubscription<BookingNotificationPayload>? _navPushSub;
+  Set<String> _permissions = const <String>{};
+  bool _hasPermissionPayload = false;
 
   @override
   void initState() {
@@ -50,6 +63,12 @@ class _BottomNavState extends State<BottomNav> {
     _currentIndex = widget.tabIndex.clamp(0, _screens.length - 1);
     debugPrint(
         '[HomeReach] Owner home shell initialized with tabIndex=$_currentIndex');
+    _branchSelectionListener = () {
+      if (mounted) unawaited(_loadPermissions());
+    };
+    StylistBranchSelectionStore.selectionNotifier
+        .addListener(_branchSelectionListener);
+    unawaited(_loadPermissions());
 
     if (_currentIndex == 3) {
       // Landed directly on Catalog (e.g. straight after adding a salon),
@@ -88,14 +107,40 @@ class _BottomNavState extends State<BottomNav> {
 
   @override
   void dispose() {
+    StylistBranchSelectionStore.selectionNotifier
+        .removeListener(_branchSelectionListener);
     _navPushSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadPermissions() async {
+    final hasPermissionPayload =
+        await UserRoleSession.instance.hasPersistedPermissions();
+    final selection = await StylistBranchSelectionStore.load();
+    final permissions = hasPermissionPayload
+        ? await UserRoleSession.instance.loadPermissions(
+            branchId: selection.branchId,
+          )
+        : <String>{};
+    if (!mounted) return;
+    setState(() {
+      _hasPermissionPayload = hasPermissionPayload;
+      _permissions = permissions;
+    });
+  }
+
+  bool _isTabAllowed(int index) {
+    if (index < 0 || index >= _tabPermissionRequirements.length) return false;
+    final requiredPermissions = _tabPermissionRequirements[index];
+    if (requiredPermissions.isEmpty || !_hasPermissionPayload) return true;
+    return requiredPermissions.any(_permissions.contains);
   }
 
   Future<void> _handleTabSelect(int index, {bool animate = true}) async {
     if (_shouldRestrictToDashboardAndSalons() && index != 0 && index != 2) {
       return;
     }
+    if (!_isTabAllowed(index)) return;
     _setCurrentIndex(index, animate: animate);
   }
 
@@ -163,6 +208,12 @@ class _BottomNavState extends State<BottomNav> {
         _setCurrentIndex(0, animate: false);
       });
     }
+    if (!_isTabAllowed(_currentIndex)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isTabAllowed(_currentIndex)) return;
+        _setCurrentIndex(0, animate: false);
+      });
+    }
 
     final destinations = [
       SharedBottomNavDestination(
@@ -175,19 +226,19 @@ class _BottomNavState extends State<BottomNav> {
         icon: Icons.calendar_month_outlined,
         activeIcon: Icons.calendar_month_outlined,
         label: context.t('Bookings'),
-        enabled: !restrictToDashboardAndSalons,
+        enabled: !restrictToDashboardAndSalons && _isTabAllowed(1),
       ),
       SharedBottomNavDestination(
         icon: Icons.storefront_outlined,
         activeIcon: Icons.storefront_outlined,
         label: context.t('Salons'),
-        enabled: true,
+        enabled: _isTabAllowed(2),
       ),
       SharedBottomNavDestination(
         icon: Icons.content_cut_rounded,
         activeIcon: Icons.content_cut_rounded,
         label: context.t('Catalog'),
-        enabled: !restrictToDashboardAndSalons,
+        enabled: !restrictToDashboardAndSalons && _isTabAllowed(3),
       ),
       SharedBottomNavDestination(
         icon: Icons.more_horiz_rounded,

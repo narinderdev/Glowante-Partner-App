@@ -196,17 +196,6 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
     return fullName.isEmpty ? translateText('Team Member') : fullName;
   }
 
-  String get _memberInitials {
-    final parts = _memberName
-        .split(RegExp(r'\s+'))
-        .where((part) => part.trim().isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return 'TM';
-    final first = parts.first.substring(0, 1).toUpperCase();
-    final second = parts.length > 1 ? parts.last.substring(0, 1) : '';
-    return '$first$second';
-  }
-
   Future<void> _goNext({
     required int selectedBranchId,
     required String joinedAt,
@@ -368,7 +357,6 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
             ),
             const SizedBox(height: 16),
             _MemberAssignSummary(
-              initials: _memberInitials,
               name: _memberName,
               availableCount: availableBranches.length,
               totalCount: widget.branches.length,
@@ -429,6 +417,19 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
               ),
             ],
             const SizedBox(height: 14),
+            if (widget.branches.isNotEmpty && !noBranchesLeft) ...[
+              Text(
+                translateText('Select a branch').toUpperCase(),
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                  color: _assignUserMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             Expanded(
               child: widget.branches.isEmpty
                   ? const _AssignUserEmptyState(
@@ -585,70 +586,62 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
 
 class _MemberAssignSummary extends StatelessWidget {
   const _MemberAssignSummary({
-    required this.initials,
     required this.name,
     required this.availableCount,
     required this.totalCount,
   });
 
-  final String initials;
   final String name;
   final int availableCount;
   final int totalCount;
 
   @override
   Widget build(BuildContext context) {
+    // Deliberately NOT _assignUserCardDecoration() — that's the same
+    // bordered-white-card look the actual selectable branch options below
+    // use, which is exactly what made this read as "one more item in the
+    // list" instead of context about who you're assigning. A tinted
+    // banner with no border/shadow and a single line of text reads as a
+    // notice, not a list item.
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _assignUserCardDecoration(),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _assignUserSoftGold,
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _assignUserSoftGold,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE8C774)),
-            ),
-            child: Text(
-              initials,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.starColor,
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
+          const Icon(Icons.person_outline,
+              size: 20, color: AppColors.starColor),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    color: _assignUserText,
-                  ),
+            child: RichText(
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              text: TextSpan(
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 13,
+                  color: _assignUserText,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '${translateText('Available branches')}: $availableCount/$totalCount',
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _assignUserMuted,
+                children: [
+                  TextSpan(text: '${translateText("You're adding")} '),
+                  TextSpan(
+                    text: name,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
-                ),
-              ],
+                  TextSpan(
+                    text: ' · ${translateText('Available branches')}'
+                        ' $availableCount/$totalCount',
+                    style: const TextStyle(
+                      color: _assignUserMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

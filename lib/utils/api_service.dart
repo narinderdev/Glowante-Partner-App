@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_print, prefer_interpolation_to_compose_strings, non_constant_identifier_names, unnecessary_string_interpolations, prefer_adjacent_string_concatenation, curly_braces_in_flow_control_structures, no_leading_underscores_for_local_identifiers
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 import 'dart:io'; // 👈 needed for File
 import 'package:flutter/foundation.dart';
@@ -146,16 +147,135 @@ class _AuthHttpClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     try {
+      // MultipartRequest's file streams are consumed on first send, so it
+      // needs its files buffered up front to be able to rebuild a fresh
+      // request for a retry — handled separately from the plain-body case
+      // below, which can just reuse the already-materialized bodyBytes.
+      if (request is http.MultipartRequest) {
+        return await _sendMultipart(request);
+      }
+
       final response = await _inner.send(request);
       NetworkManager.reportSuccessfulRequest();
-      if (_shouldTriggerLogout(response.statusCode, request.headers)) {
-        scheduleMicrotask(_handleUnauthorized);
+
+      if (!_carriesBearerToken(request.headers) || response.statusCode != 401) {
+        return response;
       }
-      return response;
+
+      // Centralized refresh-and-retry for every authenticated request, not
+      // just the handful of ApiService methods that happened to implement
+      // their own copy of this — most didn't, so a token the client's local
+      // clock still considered valid (server-side revocation, clock skew, a
+      // shorter real TTL than the JWT's exp claim) would previously just
+      // surface a raw 401 to the UI instead of silently recovering. This
+      // replaces the old fire-and-forget "maybe force logout" path with one
+      // that first tries to fix the problem, and only logs out if it can't.
+      if (request is! http.Request) {
+        // Some other BaseRequest subtype (e.g. StreamedRequest) — its body
+        // can't be safely resent either, so there's nothing to retry with.
+        return await _handlePossible401(
+          response,
+          hasBearerToken: true,
+          retry: null,
+        );
+      }
+
+      return await _handlePossible401(
+        response,
+        hasBearerToken: true,
+        retry: (newToken) {
+          final retryRequest = http.Request(request.method, request.url)
+            ..headers.addAll(request.headers)
+            ..headers['Authorization'] = 'Bearer $newToken'
+            ..bodyBytes = request.bodyBytes;
+          return _inner.send(retryRequest);
+        },
+      );
     } catch (error) {
       NetworkManager.reportNetworkIssue(error, uri: request.url);
       rethrow;
     }
+  }
+
+  Future<http.StreamedResponse> _sendMultipart(
+    http.MultipartRequest request,
+  ) async {
+    // Buffer every file's bytes exactly once — a MultipartFile's underlying
+    // stream can only be read once, so neither the original files nor a
+    // MultipartFile built from them can be reused for a second send. Fresh
+    // MultipartFile.fromBytes instances are built from these buffered bytes
+    // for both the initial attempt and the retry.
+    final bufferedFiles = <_BufferedMultipartFile>[];
+    for (final file in request.files) {
+      final bytes = await file.finalize().toBytes();
+      bufferedFiles.add(
+        _BufferedMultipartFile(
+          field: file.field,
+          bytes: bytes,
+          filename: file.filename,
+          contentType: file.contentType,
+        ),
+      );
+    }
+
+    http.MultipartRequest buildRequest(String? bearerOverride) {
+      final rebuilt = http.MultipartRequest(request.method, request.url)
+        ..headers.addAll(request.headers)
+        ..fields.addAll(request.fields);
+      if (bearerOverride != null) {
+        rebuilt.headers['Authorization'] = 'Bearer $bearerOverride';
+      }
+      rebuilt.files.addAll(bufferedFiles.map((f) => f.toMultipartFile()));
+      return rebuilt;
+    }
+
+    final response = await _inner.send(buildRequest(null));
+    NetworkManager.reportSuccessfulRequest();
+
+    return _handlePossible401(
+      response,
+      hasBearerToken: _carriesBearerToken(request.headers),
+      retry: (newToken) => _inner.send(buildRequest(newToken)),
+    );
+  }
+
+  // Shared by both the plain-request and multipart paths: decides whether a
+  // response needs a refresh-and-retry or a forced logout. `retry` is null
+  // when the request type can't be safely rebuilt for a second attempt.
+  Future<http.StreamedResponse> _handlePossible401(
+    http.StreamedResponse response, {
+    required bool hasBearerToken,
+    required Future<http.StreamedResponse> Function(String newToken)? retry,
+  }) async {
+    if (!hasBearerToken || response.statusCode != 401) {
+      return response;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final refreshToken = prefs.getString('refresh_token');
+    if (refreshToken == null || refreshToken.isEmpty) {
+      await AuthSessionManager.instance.forceLogout(reason: 'session_expired');
+      return response;
+    }
+
+    final result = await ApiService._refreshAccessToken(prefs);
+    final newToken = result.accessToken;
+
+    if (newToken != null && newToken.isNotEmpty && retry != null) {
+      final retryResponse = await retry(newToken);
+      NetworkManager.reportSuccessfulRequest();
+      return retryResponse;
+    }
+
+    if (result.shouldLogout) {
+      print('[TokenRefresh] refresh token rejected on 401 retry: '
+          '${result.reason}.');
+      await AuthSessionManager.instance.forceLogout(reason: 'session_expired');
+    } else {
+      print('[TokenRefresh] could not retry 401 ((${result.reason})); '
+          'returning original response.');
+    }
+    return response;
   }
 
   @override
@@ -164,8 +284,7 @@ class _AuthHttpClient extends http.BaseClient {
     super.close();
   }
 
-  bool _shouldTriggerLogout(int statusCode, Map<String, String> headers) {
-    if (statusCode != 401) return false;
+  bool _carriesBearerToken(Map<String, String> headers) {
     final authHeader = headers['Authorization'] ?? headers['authorization'];
     if (authHeader == null || authHeader.trim().isEmpty) return false;
 
@@ -174,33 +293,38 @@ class _AuthHttpClient extends http.BaseClient {
         .trim();
     return token.isNotEmpty;
   }
+}
 
-  void _handleUnauthorized() {
-    unawaited(_clearSessionIfTokenPresent());
-  }
+class _BufferedMultipartFile {
+  _BufferedMultipartFile({
+    required this.field,
+    required this.bytes,
+    required this.filename,
+    required this.contentType,
+  });
 
-  Future<void> _clearSessionIfTokenPresent() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('user_token');
-    if (token == null || token.isEmpty) {
-      return;
-    }
-    final refreshToken = prefs.getString('refresh_token');
-    if (refreshToken != null && refreshToken.isNotEmpty) {
-      print(
-        '[TokenRefresh] 401 received while refresh_token exists; '
-        'leaving session active for request-level refresh handling.',
+  final String field;
+  final List<int> bytes;
+  final String? filename;
+  final MediaType? contentType;
+
+  http.MultipartFile toMultipartFile() => http.MultipartFile.fromBytes(
+        field,
+        bytes,
+        filename: filename,
+        contentType: contentType,
       );
-      return;
-    }
-    await AuthSessionManager.instance.forceLogout(reason: 'session_expired');
-  }
 }
 
 final http.Client _authorizedHttpClient = _AuthHttpClient();
 
 class ApiService {
   static http.Client get _sharedClient => _authorizedHttpClient;
+
+  // Lets call sites outside this file (e.g. SalonRepository) that build
+  // their own request body still get the refresh-and-retry-on-401 behavior
+  // in _AuthHttpClient, instead of bypassing it via a raw http.get/post.
+  static http.Client get sharedClient => _sharedClient;
 
   static String get baseUrl => AppEnvironment.baseUrl;
 
@@ -273,6 +397,7 @@ class ApiService {
 
   static const String otpRequestEndpoint = "auth/otp/request";
   static const String otpResendEndpoint = "auth/otp/resend";
+  static const String otpVerifyEndpoint = "auth/otp/verify";
   static const String otpVerifyChallengeEndpoint = "auth/v2/otp/verify";
   // Salon team invitation endpoints (see invitation_plan.md).
   static const String teamInvitationResolveEndpoint =
@@ -321,11 +446,6 @@ class ApiService {
     int compensationId,
   ) =>
       "salons/$salonId/team/$userId/compensation/$compensationId";
-  // Legacy endpoint, still used by the walk-in client verification flow in
-  // AddBookings.dart. Not covered by the AUTH-04 OTP challenge cutover spec
-  // (see authentication_implmentation.md) — needs its own follow-up.
-  static const String verifyOtpEndpoint = "auth/verify-otp";
-  static const String registerUserEndpoint = "auth/register";
   static const String updateUserProfile = "users/update";
   static const String createSalonEndpoint = "salons/create";
   static const String getSalonList = "salons/my";
@@ -794,6 +914,10 @@ class ApiService {
     return "branches/$branchId/walkins/resolve-number";
   }
 
+  static String lookupBranchClientAPI(int branchId) {
+    return "branches/$branchId/lookup-branch-client";
+  }
+
   static String getBranchClientsAPI(int branchId) {
     return "branches/$branchId/branch-client";
   }
@@ -1200,7 +1324,9 @@ class ApiService {
   // their own refresh token / race to store the new session.
   static Future<_TokenRefreshResult>? _refreshInFlight;
 
-  Future<_TokenRefreshResult> _refreshAccessToken(SharedPreferences prefs) {
+  static Future<_TokenRefreshResult> _refreshAccessToken(
+    SharedPreferences prefs,
+  ) {
     if (_refreshInFlight != null) {
       print(
         '[TokenRefresh] a refresh is already in flight, waiting on it '
@@ -1266,7 +1392,9 @@ class ApiService {
     return response.body.toLowerCase().contains('access token expired');
   }
 
-  Future<_TokenRefreshResult> _performRefresh(SharedPreferences prefs) async {
+  static Future<_TokenRefreshResult> _performRefresh(
+    SharedPreferences prefs,
+  ) async {
     final refreshToken = prefs.getString('refresh_token');
     if (refreshToken == null || refreshToken.isEmpty) {
       print('[TokenRefresh] no refresh_token stored, cannot refresh.');
@@ -1323,7 +1451,7 @@ class ApiService {
     }
   }
 
-  bool _shouldLogoutAfterRefreshFailure(Map<String, dynamic> parsed) {
+  static bool _shouldLogoutAfterRefreshFailure(Map<String, dynamic> parsed) {
     final statusCode = parsed['statusCode'];
     if (statusCode == 401 || statusCode == 403) {
       return true;
@@ -1554,96 +1682,34 @@ class ApiService {
     return _parseEnvelopeResponse(response, fallback: 'Failed to send OTP');
   }
 
-  // Verify OTP
-  // Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
-  //   final response = await _sharedClient.post(
-  //     Uri.parse(baseUrl + verifyOtpEndpoint),
-  //     headers: {"Content-Type": "application/json"},
-  //     body: json.encode({"phoneNumber": phoneNumber, "otp": otp}),
-  //   );
+  Future<Map<String, dynamic>> verifyOtpChallengeForCustomer(
+    String challengeId,
+    String otp,
+  ) async {
+    final url = Uri.parse(baseUrl + otpVerifyEndpoint);
+    final headers = {"Content-Type": "application/json"};
+    final body = json.encode({"challengeId": challengeId, "otp": otp});
 
-  //   debugPrint("[VerifyOTP] status=${response.statusCode}");
-  //   _debugPrintChunked("VerifyOTP body", response.body);
-
-  //   if (response.statusCode == 200 || response.statusCode == 201) {
-  //     final decoded = json.decode(response.body);
-  //     _debugPrintChunked("VerifyOTP decoded", decoded);
-  //     return decoded;
-  //   } else {
-  //     throw Exception("Failed OTP: ${response.body}");
-  //   }
-  // }
-  Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
-    final response = await _sharedClient.post(
-      Uri.parse(baseUrl + verifyOtpEndpoint),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode({"phoneNumber": phoneNumber, "otp": otp}),
+    _logRequest(
+      tag: 'CustomerOtpVerify Request',
+      url: url,
+      headers: headers,
+      body: body,
     );
 
-    debugPrint("[VerifyOTP] status=${response.statusCode}");
-    _debugPrintChunked("VerifyOTP body", response.body);
+    final response =
+        await _sharedClient.post(url, headers: headers, body: body);
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      try {
-        final decoded = jsonDecode(response.body);
-        _debugPrintChunked("VerifyOTP decoded", decoded);
-        if (decoded is Map<String, dynamic>) {
-          return decoded;
-        }
-        return {'success': true, 'data': decoded};
-      } catch (error) {
-        return {
-          'success': false,
-          'message': extractErrorMessage(
-            error,
-            fallback: 'OTP verification failed',
-          ),
-          'statusCode': response.statusCode,
-        };
-      }
-    }
-
-    dynamic decoded;
-    if (response.body.isNotEmpty) {
-      try {
-        decoded = jsonDecode(response.body);
-      } catch (_) {
-        decoded = response.body;
-      }
-    } else {
-      decoded = {};
-    }
-
-    if (decoded is Map<String, dynamic>) {
-      return {
-        'success': false,
-        'message': decoded['message']?.toString().trim().isNotEmpty == true
-            ? decoded['message'].toString()
-            : 'Invalid OTP',
-        'statusCode': response.statusCode,
-      };
-    }
-
-    if (decoded is String) {
-      final cleaned = extractErrorMessage(decoded, fallback: 'Invalid OTP');
-      if (cleaned.isNotEmpty && cleaned != decoded.trim()) {
-        return {
-          'success': false,
-          'message': cleaned,
-          'statusCode': response.statusCode,
-        };
-      }
-    }
-
-    return {
-      'success': false,
-      'message': 'Invalid OTP',
-      'statusCode': response.statusCode,
-    };
+    debugPrint("[CustomerOtpVerify] status=${response.statusCode}");
+    final parsed = _parseOtpChallengeResponse(
+      response,
+      fallback: 'OTP verification failed',
+    );
+    _debugPrintChunked("CustomerOtpVerify response", parsed);
+    return parsed;
   }
 
-  // Verify an OTP challenge (auth/otp/verify) — replaces the old
-  // auth/verify-otp endpoint for staff/owner login. Keyed on the
+  // Verify an OTP challenge and open a staff/owner auth session. Keyed on the
   // `challengeId` returned by requestOtp/resendOtp, not the phone number.
   Future<Map<String, dynamic>> verifyOtpChallenge(
     String challengeId,
@@ -2446,109 +2512,82 @@ class ApiService {
     );
   }
 
-  // Future<Map<String, dynamic>> registerCustomer({
-  //   required String phoneNumber,
-  //   required String firstName,
-  //   required String lastName,
-  //   String source = 'salon_app',
-  //   String? deviceToken,
-  // }) async {
-  //   String? resolvedToken = deviceToken;
-  //   if (resolvedToken == null || resolvedToken.isEmpty) {
-  //     final prefs = await SharedPreferences.getInstance();
-  //     resolvedToken = prefs.getString('fcm_device_token');
-  //   }
-
-  //   final payload = <String, dynamic>{
-  //     "phoneNumber": phoneNumber,
-  //     "source": source,
-  //     "firstName": firstName,
-  //     "lastName": lastName,
-  //     if (resolvedToken != null && resolvedToken.isNotEmpty)
-  //       "deviceToken": resolvedToken,
-  //   };
-
-  //   final response = await _sharedClient.post(
-  //     Uri.parse(baseUrl + registerUserEndpoint),
-  //     headers: {"Content-Type": "application/json"},
-  //     body: json.encode(payload),
-  //   );
-
-  //   debugPrint("[RegisterCustomer] status=${response.statusCode}");
-  //   _debugPrintChunked("RegisterCustomer body", response.body);
-
-  //   if (response.statusCode == 200 || response.statusCode == 201) {
-  //     return json.decode(response.body) as Map<String, dynamic>;
-  //   }
-  //   throw Exception("Failed register customer: ${response.body}");
-  // }
   Future<Map<String, dynamic>> registerCustomer({
+    required int branchId,
     required String phoneNumber,
     required String firstName,
     required String lastName,
     String source = 'salon_app',
     String? deviceToken,
   }) async {
-    String resolvedToken = deviceToken?.trim() ?? '';
-
-    if (resolvedToken.isEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      resolvedToken = prefs.getString('fcm_device_token')?.trim() ?? '';
-    }
-
-    if (resolvedToken.isEmpty) {
-      resolvedToken = 'unknown';
-    }
-
     final payload = <String, dynamic>{
+      "countryCode": "+91",
       "phoneNumber": phoneNumber,
-      "source": source,
       "platform": AppEnvironment.platform,
-      "firstName": firstName,
-      "lastName": lastName,
-      "deviceToken": resolvedToken,
     };
 
-    debugPrint("[RegisterCustomer payload] $payload");
+    debugPrint(
+      "[RegisterCustomer payload] branchId=$branchId "
+      "name=$firstName $lastName source=$source "
+      "deviceTokenPresent=${deviceToken?.trim().isNotEmpty == true} "
+      "body=$payload",
+    );
 
-    final response = await _sharedClient.post(
-      Uri.parse(baseUrl + registerUserEndpoint),
-      headers: {"Content-Type": "application/json"},
+    final token = await getAuthToken();
+    final lookupResponse = await _sharedClient.post(
+      Uri.parse(baseUrl + lookupBranchClientAPI(branchId)),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
       body: json.encode(payload),
     );
 
-    debugPrint("[RegisterCustomer] status=${response.statusCode}");
-    _debugPrintChunked("RegisterCustomer body", response.body);
+    debugPrint("[RegisterCustomer lookup] status=${lookupResponse.statusCode}");
+    _debugPrintChunked("RegisterCustomer lookup body", lookupResponse.body);
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return json.decode(response.body) as Map<String, dynamic>;
-    }
-
-    dynamic decoded;
-    try {
-      decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
-    } catch (_) {
-      decoded = null;
-    }
-
-    if (decoded is Map<String, dynamic>) {
+    if (lookupResponse.statusCode == 200 || lookupResponse.statusCode == 201) {
+      final parsed = _parseEnvelopeResponse(
+        lookupResponse,
+        fallback: 'Failed register customer',
+      );
+      final data = parsed['data'];
       return {
-        'success': false,
-        'message': decoded['message'] is List
-            ? (decoded['message'] as List).join('\n')
-            : decoded['message']?.toString() ?? 'Failed register customer',
-        'statusCode': response.statusCode,
+        ...parsed,
+        'data': {
+          'status': 'IN_BRANCH',
+          if (data is Map) 'user': Map<String, dynamic>.from(data),
+        },
       };
     }
 
-    return {
-      'success': false,
-      'message': extractErrorMessage(
-        response.body,
+    if (lookupResponse.statusCode != 404) {
+      return _parseEnvelopeResponse(
+        lookupResponse,
         fallback: 'Failed register customer',
-      ),
-      'statusCode': response.statusCode,
-    };
+      );
+    }
+
+    final otpResponse = await requestOtp(
+      nationalNumber: phoneNumber,
+      countryIsoCode: 'IN',
+      countryCode: '+91',
+      purpose: 'LOGIN_OR_REGISTER',
+      deviceToken: deviceToken,
+    );
+
+    if (otpResponse['success'] == true) {
+      final data = otpResponse['data'];
+      return {
+        ...otpResponse,
+        'data': {
+          'status': 'OTP_SENT',
+          if (data is Map) ...Map<String, dynamic>.from(data),
+        },
+      };
+    }
+
+    return otpResponse;
   }
 
   Future<Map<String, dynamic>> linkBranchClient({

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
+import '../services/stylist_branch_selection.dart';
 import '../services/user_role_session.dart';
+import '../utils/app_share.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../widgets/app_loader.dart';
@@ -30,6 +32,8 @@ class OwnerMoreScreen extends StatefulWidget {
 class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
   bool _isRefreshing = false;
   int _workspaceCount = 1;
+  Set<String> _permissions = const <String>{};
+  bool _hasPermissionPayload = false;
 
   @override
   void initState() {
@@ -40,8 +44,20 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
   Future<void> _loadWorkspaceCount() async {
     await UserRoleSession.instance.refreshCachedRolesFromServer();
     final count = await RoleSelectionScreen.cachedWorkspaceCount();
+    final hasPermissionPayload =
+        await UserRoleSession.instance.hasPersistedPermissions();
+    final selection = await StylistBranchSelectionStore.load();
+    final permissions = hasPermissionPayload
+        ? await UserRoleSession.instance.loadPermissions(
+            branchId: selection.branchId,
+          )
+        : <String>{};
     if (mounted) {
-      setState(() => _workspaceCount = count);
+      setState(() {
+        _workspaceCount = count;
+        _hasPermissionPayload = hasPermissionPayload;
+        _permissions = permissions;
+      });
     }
   }
 
@@ -63,12 +79,17 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isAllowed(List<String> permissions) {
+      if (permissions.isEmpty || !_hasPermissionPayload) return true;
+      return permissions.any(_permissions.contains);
+    }
+
     final items = <_QuickLinkData>[
       if (_workspaceCount > 1)
         _QuickLinkData(
           icon: Icons.swap_horiz_rounded,
           title: context.t('Change Workspace'),
-          subtitle: context.t('Switch between Owner and Stylist'),
+          subtitle: context.t('Switch between available roles'),
           permissions: const [],
           onTap: () => RoleSelectionScreen.openWorkspaceSwitcher(context),
         ),
@@ -109,7 +130,14 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
         permissions: const [],
         onTap: () => _open(const MyTeamInvitationsScreen()),
       ),
-    ];
+      _QuickLinkData(
+        icon: Icons.share_rounded,
+        title: context.t('Share App'),
+        subtitle: context.t('Invite others to Glowante Partner'),
+        permissions: const [],
+        onTap: () => shareGlowanteApp(context),
+      ),
+    ].where((item) => isAllowed(item.permissions)).toList();
 
     return Scaffold(
       backgroundColor: _moreBg,

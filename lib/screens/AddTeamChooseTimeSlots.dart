@@ -2206,7 +2206,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "roles": List<String>.from(rawRoles.map((e) => e.toString())),
         "specialities": List<String>.from(rawSpecs.map((e) => e.toString())),
         "scheduleMode": _currentScheduleMode,
-        "schedules": scheduleData,
+        // Backend rejects the request outright if `schedules` is present
+        // at all when scheduleMode is BRANCH_HOURS ("schedules must be
+        // omitted when scheduleMode is BRANCH_HOURS") — same rule already
+        // handled this way in ApiService.assignUserToBranch.
+        if (_currentScheduleMode != 'BRANCH_HOURS') "schedules": scheduleData,
         "useSalonHours": _currentScheduleMode == 'BRANCH_HOURS',
         "experience": int.tryParse(
               widget.formData['experience']?.toString() ?? '',

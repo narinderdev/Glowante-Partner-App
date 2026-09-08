@@ -559,6 +559,15 @@ String _plainTextValue(dynamic value) {
   return '';
 }
 
+String _digitsOnly(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
+
+bool _isGeneratedCustomerLabel(String value) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty) return false;
+  return normalized == 'customer' ||
+      RegExp(r'^customer\s+\d+$').hasMatch(normalized);
+}
+
 String _serviceNameFromServiceObject(dynamic raw) {
   final direct = _plainTextValue(raw);
   if (direct.isNotEmpty) return direct;
@@ -695,31 +704,61 @@ int? _bookingBranchId(Map<String, dynamic> booking) {
 //   return translateText('Customer');
 // }
 String _customerName(BuildContext context, Map<String, dynamic> booking) {
-  final user = booking['user'];
-  final client = booking['client'];
-  final customer = booking['customer'];
-
-  final source = user is Map
-      ? user
-      : client is Map
-          ? client
-          : customer is Map
-              ? customer
-              : null;
-
-  if (source is Map) {
-    final map = Map<String, dynamic>.from(source);
-    final first = map['firstName']?.toString().trim() ?? '';
-    final last = map['lastName']?.toString().trim() ?? '';
+  String fromPersonMap(dynamic raw) {
+    if (raw is! Map) return '';
+    final map = Map<String, dynamic>.from(raw);
+    final first =
+        (map['firstName'] ?? map['first_name'] ?? '').toString().trim();
+    final last = (map['lastName'] ?? map['last_name'] ?? '').toString().trim();
     final full = '$first $last'.trim();
+    if (full.isNotEmpty && !_isGeneratedCustomerLabel(full)) return full;
 
-    if (full.isNotEmpty) return full;
+    for (final key in const [
+      'displayName',
+      'display_name',
+      'fullName',
+      'full_name',
+      'customerName',
+      'customer_name',
+      'clientName',
+      'client_name',
+      'userName',
+      'user_name',
+      'name',
+    ]) {
+      final value = map[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty && !_isGeneratedCustomerLabel(value)) {
+        return value;
+      }
+    }
 
-    final name = map['name']?.toString().trim() ?? '';
+    return '';
+  }
+
+  for (final key in const [
+    'customerName',
+    'customer_name',
+    'clientName',
+    'client_name',
+    'userName',
+    'user_name',
+  ]) {
+    final value = booking[key]?.toString().trim() ?? '';
+    if (value.isNotEmpty && !_isGeneratedCustomerLabel(value)) {
+      return value;
+    }
+  }
+
+  for (final source in [
+    booking['user'],
+    booking['client'],
+    booking['customer'],
+  ]) {
+    final name = fromPersonMap(source);
     if (name.isNotEmpty) return name;
   }
 
-  return translateText('Customer');
+  return context.t('Customer');
 }
 
 String _customerPhone(Map<String, dynamic> booking) {
@@ -2833,6 +2872,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
 
   List<_SalonBranchOption> _options = const [];
   List<Map<String, dynamic>> _bookings = const [];
+  final Map<int, _ManualBookingCustomer> _manualCustomersById =
+      <int, _ManualBookingCustomer>{};
+  final Map<String, _ManualBookingCustomer> _manualCustomersByPhone =
+      <String, _ManualBookingCustomer>{};
   List<String> _teamMemberNames = const [];
   Map<String, List<String>> _teamMemberServiceNames =
       const <String, List<String>>{};
@@ -3212,6 +3255,130 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     return _buildOptionsFromSalons(data);
   }
 
+  void _rememberManualBookingCustomer(dynamic rawResult) {
+    if (rawResult is! Map) return;
+    final result = Map<String, dynamic>.from(rawResult);
+    final rawCustomer = result['_manualBookingCustomer'];
+    if (rawCustomer is! Map) return;
+
+    final customer = _ManualBookingCustomer.fromMap(rawCustomer);
+    if (customer == null || customer.name.isEmpty) return;
+
+    final id = customer.id;
+    if (id != null) {
+      _manualCustomersById[id] = customer;
+    }
+    if (customer.phoneDigits.isNotEmpty) {
+      _manualCustomersByPhone[customer.phoneDigits] = customer;
+    }
+  }
+
+  _ManualBookingCustomer? _manualCustomerForBooking(
+    Map<String, dynamic> booking,
+  ) {
+    final client = booking['client'];
+    final customer = booking['customer'];
+    final user = booking['user'];
+    final source = client is Map
+        ? client
+        : customer is Map
+            ? customer
+            : user is Map
+                ? user
+                : const <String, dynamic>{};
+    final sourceMap = Map<String, dynamic>.from(source);
+    final id = _asInt(
+      sourceMap['id'] ??
+          sourceMap['userId'] ??
+          booking['userId'] ??
+          booking['clientId'] ??
+          booking['customerId'],
+    );
+    if (id != null && _manualCustomersById.containsKey(id)) {
+      return _manualCustomersById[id];
+    }
+
+    final phoneDigits = _digitsOnly(_customerPhone(booking));
+    if (phoneDigits.isEmpty) return null;
+    final exact = _manualCustomersByPhone[phoneDigits];
+    if (exact != null) return exact;
+
+    final lastTen = phoneDigits.length > 10
+        ? phoneDigits.substring(phoneDigits.length - 10)
+        : phoneDigits;
+    for (final entry in _manualCustomersByPhone.entries) {
+      final candidate = entry.key.length > 10
+          ? entry.key.substring(entry.key.length - 10)
+          : entry.key;
+      if (candidate == lastTen) return entry.value;
+    }
+    return null;
+  }
+
+  bool _hasRealClientName(Map<String, dynamic> client) {
+    final first =
+        (client['firstName'] ?? client['first_name'] ?? '').toString().trim();
+    final last =
+        (client['lastName'] ?? client['last_name'] ?? '').toString().trim();
+    final full = '$first $last'.trim();
+    if (full.isNotEmpty && !_isGeneratedCustomerLabel(full)) return true;
+
+    for (final key in const [
+      'name',
+      'fullName',
+      'full_name',
+      'displayName',
+      'display_name',
+      'customerName',
+      'clientName',
+    ]) {
+      final value = client[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty && !_isGeneratedCustomerLabel(value)) return true;
+    }
+    return false;
+  }
+
+  Map<String, dynamic> _bookingWithManualCustomer(
+    Map<String, dynamic> booking,
+    _ManualBookingCustomer customer,
+  ) {
+    final merged = Map<String, dynamic>.from(booking);
+    final rawClient = merged['client'];
+    final client = rawClient is Map
+        ? Map<String, dynamic>.from(rawClient)
+        : <String, dynamic>{};
+
+    client['id'] ??= customer.id;
+    if ((client['phoneNumber']?.toString().trim() ?? '').isEmpty &&
+        customer.phone.isNotEmpty) {
+      client['phoneNumber'] = customer.phone;
+    }
+
+    if (!_hasRealClientName(client)) {
+      client['firstName'] = customer.firstName;
+      client['lastName'] = customer.lastName;
+      client['name'] = customer.name;
+    }
+
+    merged['client'] = client;
+    return merged;
+  }
+
+  List<Map<String, dynamic>> _applyManualCustomerFallbacks(
+    List<Map<String, dynamic>> bookings,
+  ) {
+    if (_manualCustomersById.isEmpty && _manualCustomersByPhone.isEmpty) {
+      return bookings;
+    }
+
+    return bookings.map((booking) {
+      final customer = _manualCustomerForBooking(booking);
+      return customer == null
+          ? booking
+          : _bookingWithManualCustomer(booking, customer);
+    }).toList();
+  }
+
   Future<_BookingsFetchResult> _fetchBookingsForBranch({
     required int branchId,
     int? userId,
@@ -3235,7 +3402,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
               .toList()
           : const <Map<String, dynamic>>[];
       return _BookingsFetchResult(
-        bookings: bookings,
+        bookings: _applyManualCustomerFallbacks(bookings),
         errorMessage: response['success'] == true
             ? null
             : response['message']?.toString(),
@@ -4614,6 +4781,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     );
 
     if (!mounted || result == null) return;
+    _rememberManualBookingCustomer(result);
 
     setState(() => _selectedBookingView = 0);
     await _reloadBookingsForSelectedOption();
@@ -5046,6 +5214,57 @@ class _BookingsFetchResult {
 
   final List<Map<String, dynamic>> bookings;
   final String? errorMessage;
+}
+
+class _ManualBookingCustomer {
+  const _ManualBookingCustomer({
+    required this.id,
+    required this.firstName,
+    required this.lastName,
+    required this.name,
+    required this.phone,
+  });
+
+  final int? id;
+  final String firstName;
+  final String lastName;
+  final String name;
+  final String phone;
+
+  String get phoneDigits => _digitsOnly(phone);
+
+  static _ManualBookingCustomer? fromMap(Map<dynamic, dynamic> raw) {
+    final map = Map<String, dynamic>.from(raw);
+    final firstName =
+        (map['firstName'] ?? map['first_name'] ?? '').toString().trim();
+    final lastName =
+        (map['lastName'] ?? map['last_name'] ?? '').toString().trim();
+    final explicitName = (map['name'] ??
+            map['fullName'] ??
+            map['full_name'] ??
+            map['displayName'] ??
+            '')
+        .toString()
+        .trim();
+    final fullName = '$firstName $lastName'.trim();
+    final name = fullName.isNotEmpty ? fullName : explicitName;
+    final phone = (map['phoneNumber'] ??
+            map['phone'] ??
+            map['fullPhoneNumber'] ??
+            map['mobileNumber'] ??
+            '')
+        .toString()
+        .trim();
+
+    if (name.isEmpty && phone.isEmpty) return null;
+    return _ManualBookingCustomer(
+      id: _asInt(map['id'] ?? map['userId'] ?? map['clientId']),
+      firstName: firstName,
+      lastName: lastName,
+      name: name,
+      phone: phone,
+    );
+  }
 }
 
 class _BookingViewTabs extends StatelessWidget {

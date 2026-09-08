@@ -144,7 +144,7 @@ class SalonRepository {
 
     late http.Response response;
     try {
-      response = await http.post(
+      response = await ApiService.sharedClient.post(
         endpoint,
         headers: {
           'Content-Type': 'application/json',

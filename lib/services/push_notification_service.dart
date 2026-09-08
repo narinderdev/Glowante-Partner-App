@@ -95,6 +95,68 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       'Background push notification: title=${message.notification?.title}, body=${message.notification?.body}');
   print('Background push data: ${message.data}');
   await NotificationStore.saveRemoteMessage(message);
+
+  // A payload with a top-level `notification` block is auto-displayed by
+  // the OS even while backgrounded/terminated — no app code involved. This
+  // app's booking payloads are data-only (BookingNotificationPayload reads
+  // branchId/date/type, and even the display text, out of `data`, not
+  // `notification`), so the OS has nothing to auto-display; only the
+  // foreground path (onMessage) was building and showing one explicitly.
+  // This mirrors that here for the background/terminated case.
+  if (message.notification == null) {
+    await _showBackgroundNotification(message);
+  }
+}
+
+// Runs in a fresh background isolate (Android) with no access to the main
+// isolate's already-initialized PushNotificationService state, so this
+// creates and initializes its own short-lived plugin instance rather than
+// reusing PushNotificationService's.
+Future<void> _showBackgroundNotification(RemoteMessage message) async {
+  final title = message.data['title']?.toString() ?? 'Glowante';
+  final body = message.data['notification']?.toString() ??
+      message.data['body']?.toString() ??
+      '';
+  if (body.isEmpty) return;
+
+  final plugin = FlutterLocalNotificationsPlugin();
+  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const iosInit = DarwinInitializationSettings(
+    requestAlertPermission: false,
+    requestBadgePermission: false,
+    requestSoundPermission: false,
+  );
+  await plugin.initialize(
+    const InitializationSettings(android: androidInit, iOS: iosInit),
+  );
+  await plugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_androidChannel);
+
+  final details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      _androidChannel.id,
+      _androidChannel.name,
+      channelDescription: _androidChannel.description,
+      importance: Importance.high,
+      priority: Priority.high,
+    ),
+    iOS: const DarwinNotificationDetails(
+      presentSound: true,
+      presentAlert: true,
+      presentBadge: true,
+    ),
+  );
+
+  print('Showing background local notification: title=$title, body=$body');
+  await plugin.show(
+    message.hashCode,
+    title,
+    body,
+    details,
+    payload: message.data.isEmpty ? null : jsonEncode(message.data),
+  );
 }
 
 class PushNotificationService {
@@ -189,6 +251,8 @@ class PushNotificationService {
   // app start, so the ask has context. Safe to call again on every app
   // start for an already-logged-in user: once the OS has recorded a
   // decision, requestPermission() just returns it without prompting again.
+  bool _retryScheduled = false;
+
   Future<void> requestPermissionAndRegisterToken() async {
     print('[PushNotif] requestPermissionAndRegisterToken() called, '
         'platform=$defaultTargetPlatform supportsPush=$_supportsPush '
@@ -204,13 +268,36 @@ class PushNotificationService {
       return;
     }
 
+    final registered = await _attemptRegisterToken();
+
+    // The APNS token (iOS) or a getToken() call can occasionally take
+    // longer than this attempt's own wait/retry budget — especially right
+    // after a fresh install. Without this, a failed attempt here would
+    // otherwise go unregistered for the rest of the session, since the
+    // only other place this re-runs is a full app restart (splash's
+    // returning-user check). One deferred retry closes that gap; only ever
+    // scheduled once per session so repeated calls to this method (e.g.
+    // every app start) don't stack up multiple pending retries.
+    if (!registered && !_retryScheduled) {
+      _retryScheduled = true;
+      unawaited(_retryRegistrationLater());
+    }
+  }
+
+  Future<void> _retryRegistrationLater() async {
+    await Future.delayed(const Duration(seconds: 20));
+    print('[PushNotif] retrying token registration after initial delay...');
+    await _attemptRegisterToken();
+  }
+
+  Future<bool> _attemptRegisterToken() async {
     await _requestPermissions();
 
     final hasApnsToken = await _waitForApnsToken();
     if (!hasApnsToken) {
       print(
           '[PushNotif] APNS token not available; skipping FCM token registration for now.');
-      return;
+      return false;
     }
 
     try {
@@ -219,8 +306,10 @@ class PushNotificationService {
       print('[PushNotif] getToken() returned: $token');
       await _persistToken(token);
       print('[PushNotif] requestPermissionAndRegisterToken() done.');
+      return true;
     } catch (error) {
       print('[PushNotif] FCM token registration failed: $error');
+      return false;
     }
   }
 

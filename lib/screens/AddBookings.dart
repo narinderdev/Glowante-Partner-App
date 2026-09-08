@@ -764,6 +764,43 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return _extractBranchClients(response['data']);
   }
 
+  Future<Map<String, dynamic>> _fetchBranchCustomerByPhone(String phone) async {
+    if (widget.branchId == null) return const <String, dynamic>{};
+    final phoneDigits = _digitsOnly(phone);
+    final clients = await _fetchBranchCustomers();
+    return clients.firstWhere(
+      (item) =>
+          _digitsOnly(
+            (item['phoneNumber'] ?? item['fullPhoneNumber'] ?? '').toString(),
+          ) ==
+          phoneDigits,
+      orElse: () => <String, dynamic>{},
+    );
+  }
+
+  Future<void> _saveBranchCustomerName({
+    required int branchId,
+    required String phone,
+    required String firstName,
+    required String lastName,
+  }) async {
+    try {
+      await ApiService().importClientsByPhone(
+        branchId: branchId,
+        clients: [
+          {
+            'countryCode': '+91',
+            'phoneNumber': phone,
+            'firstName': firstName,
+            'lastName': lastName,
+          },
+        ],
+      );
+    } catch (e) {
+      debugPrint('[AddBooking] failed to save branch customer name: $e');
+    }
+  }
+
   String _customerDisplayName(Map<String, dynamic> customer) {
     final explicitName = (customer['displayName'] ??
             customer['name'] ??
@@ -800,6 +837,13 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         : '+91$digits';
   }
 
+  bool _isGeneratedCustomerName(String firstName, String lastName) {
+    final fullName = '$firstName $lastName'.trim().toLowerCase();
+    if (RegExp(r'^customer\s+\d+$').hasMatch(fullName)) return true;
+    return firstName.trim().toLowerCase() == 'customer' &&
+        int.tryParse(lastName.trim()) != null;
+  }
+
   void _fillCustomerFields(
     Map<String, dynamic> customer, {
     String? fallbackPhone,
@@ -811,12 +855,26 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         (customer['firstName'] ?? fallbackFirstName ?? '').toString().trim();
     var lastName =
         (customer['lastName'] ?? fallbackLastName ?? '').toString().trim();
+    final fallbackFirst = (fallbackFirstName ?? '').trim();
+    final fallbackLast = (fallbackLastName ?? '').trim();
+
+    if (_isGeneratedCustomerName(firstName, lastName) &&
+        (fallbackFirst.isNotEmpty || fallbackLast.isNotEmpty)) {
+      firstName = fallbackFirst;
+      lastName = fallbackLast;
+    }
+
     if (firstName.isEmpty && lastName.isEmpty) {
       final displayName = _customerDisplayName(customer);
       if (displayName.isNotEmpty) {
         final nameParts = displayName.split(RegExp(r'\s+'));
         firstName = nameParts.first;
         lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+        if (_isGeneratedCustomerName(firstName, lastName) &&
+            (fallbackFirst.isNotEmpty || fallbackLast.isNotEmpty)) {
+          firstName = fallbackFirst;
+          lastName = fallbackLast;
+        }
       }
     }
     final phoneDigits = _digitsOnly(
@@ -919,18 +977,21 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
         final name =
             "${member['firstName'] ?? ''} ${member['lastName'] ?? ''}".trim();
+        final memberUserId = member['id'] is int
+            ? member['id'] as int
+            : int.tryParse('${member['id'] ?? ''}');
 
         final userBranchId = _resolveUserBranchAssignmentId(
           branchEntry: branchEntry,
           member: member,
           branchId: branchId,
         );
-        final assignedBranchUserId =
+        final userBranchServiceId =
             _resolveAssignedBranchUserIdFromBranchServices(
                 branchEntry, serviceId);
-        final assignedUserBranchId = assignedBranchUserId ?? userBranchId;
+        final assignedUserBranchId = userBranchId ?? memberUserId;
         debugPrint(
-          "TEAM OPTION name=$name userId=${member['id']} assignedUserBranchId=$assignedUserBranchId userBranchId=$userBranchId",
+          "TEAM OPTION name=$name userId=$memberUserId assignedUserBranchId=$assignedUserBranchId userBranchId=$userBranchId userBranchServiceId=$userBranchServiceId",
         );
         debugPrint('TEAM BRANCH ENTRY keys=${branchEntry.keys.toList()}');
         debugPrint('TEAM BRANCH ENTRY raw=$branchEntry');
@@ -941,10 +1002,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           'label': name,
           'assignedUserBranchId': assignedUserBranchId,
           'userBranchId': userBranchId,
-          'assignedBranchUserId': assignedBranchUserId,
-          'userId': member['id'] is int
-              ? member['id'] as int
-              : int.tryParse('${member['id'] ?? ''}'),
+          'userBranchServiceId': userBranchServiceId,
+          'userId': memberUserId,
         });
         break;
       }
@@ -1487,6 +1546,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     String phone, {
     required String firstName,
     required String lastName,
+    required String challengeId,
   }) async {
     String otp = '';
     bool otpComplete = false;
@@ -1511,7 +1571,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               otpError = null;
             });
             try {
-              final response = await ApiService().verifyOTP(phone, otp);
+              final response = await ApiService().verifyOtpChallengeForCustomer(
+                challengeId,
+                otp,
+              );
               if (response['success'] != true) {
                 final apiMessage = _extractApiErrorMessage(response);
                 setDialogState(() {
@@ -1530,6 +1593,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               final verifiedUserId =
                   _extractUserId(data) ?? _extractUserId(response);
               if (verifiedUserId != null && widget.branchId != null) {
+                await _saveBranchCustomerName(
+                  branchId: widget.branchId!,
+                  phone: phone,
+                  firstName: firstName,
+                  lastName: lastName,
+                );
                 final linkResponse = await ApiService().linkBranchClient(
                   branchId: widget.branchId!,
                   userId: verifiedUserId,
@@ -1545,16 +1614,19 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 customer['userId'] = verifiedUserId;
               }
               if (customer.isEmpty && widget.branchId != null) {
-                final clients = await _fetchBranchCustomers();
-                customer = clients.firstWhere(
-                  (item) =>
-                      _digitsOnly(
-                        (item['phoneNumber'] ?? item['fullPhoneNumber'] ?? '')
-                            .toString(),
-                      ) ==
-                      phone,
-                  orElse: () => <String, dynamic>{},
-                );
+                customer = await _fetchBranchCustomerByPhone(phone);
+              }
+              if (widget.branchId != null) {
+                final refreshedCustomer =
+                    await _fetchBranchCustomerByPhone(phone);
+                if (refreshedCustomer.isNotEmpty) {
+                  customer = {
+                    ...customer,
+                    ...refreshedCustomer,
+                    if (verifiedUserId != null) 'id': verifiedUserId,
+                    if (verifiedUserId != null) 'userId': verifiedUserId,
+                  };
+                }
               }
               _fillCustomerFields(
                 customer,
@@ -1708,6 +1780,42 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         },
       ),
     );
+  }
+
+  String? _extractChallengeId(dynamic raw) {
+    if (raw is! Map) return null;
+    final map = Map<String, dynamic>.from(raw);
+    for (final key in const [
+      'challengeId',
+      'otpChallengeId',
+      'otp_challenge_id',
+    ]) {
+      final value = map[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    for (final key in const ['data', 'otp', 'challenge']) {
+      final parsed = _extractChallengeId(map[key]);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  String _walkinStatus(Map<String, dynamic> response) {
+    final data = response['data'];
+    final rawStatus = data is Map ? data['status'] : response['status'];
+    return (rawStatus ?? '').toString().trim().toUpperCase();
+  }
+
+  Map<String, dynamic> _walkinCustomer(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is Map) {
+      final user = data['user'];
+      if (user is Map) {
+        return _normalizeCustomer(user);
+      }
+      return _normalizeCustomer(data);
+    }
+    return const <String, dynamic>{};
   }
 
   Future<void> _showAddCustomerModal({String initialPhone = ''}) async {
@@ -1930,12 +2038,19 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                           phoneError != null) {
                                         return;
                                       }
+                                      final branchId = widget.branchId;
+                                      if (branchId == null) {
+                                        _showError(translateText(
+                                            'Please select a salon first.'));
+                                        return;
+                                      }
 
                                       setDialogState(() => isSubmitting = true);
 
                                       try {
                                         final response =
                                             await ApiService().registerCustomer(
+                                          branchId: branchId,
                                           phoneNumber: phone,
                                           firstName: firstName,
                                           lastName: lastName,
@@ -1948,21 +2063,38 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                           return;
                                         }
 
-                                        // if (!ctx.mounted) return;
+                                        final status = _walkinStatus(response);
+                                        if (status == 'IN_BRANCH') {
+                                          final customer =
+                                              _walkinCustomer(response);
+                                          await _saveBranchCustomerName(
+                                            branchId: branchId,
+                                            phone: phone,
+                                            firstName: firstName,
+                                            lastName: lastName,
+                                          );
+                                          _fillCustomerFields(
+                                            customer,
+                                            fallbackPhone: phone,
+                                            fallbackFirstName: firstName,
+                                            fallbackLastName: lastName,
+                                          );
+                                          if (!ctx.mounted) return;
+                                          FocusScope.of(ctx).unfocus();
+                                          Navigator.pop(ctx);
+                                          return;
+                                        }
 
-                                        // Navigator.pop(ctx);
+                                        final challengeId =
+                                            _extractChallengeId(response);
+                                        if (status != 'OTP_SENT' ||
+                                            challengeId == null) {
+                                          _showError(translateText(
+                                            'Unable to start OTP verification. Please try again.',
+                                          ));
+                                          return;
+                                        }
 
-                                        // Future.delayed(
-                                        //     const Duration(milliseconds: 300),
-                                        //     () {
-                                        //   if (!mounted) return;
-
-                                        //   _showOtpBox(
-                                        //     phone,
-                                        //     firstName: firstName,
-                                        //     lastName: lastName,
-                                        //   );
-                                        // });
                                         if (!ctx.mounted) return;
 
 // Remove focus before closing dialog.
@@ -1978,6 +2110,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                             phone,
                                             firstName: firstName,
                                             lastName: lastName,
+                                            challengeId: challengeId,
                                           );
                                         });
 
@@ -3485,7 +3618,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
     for (final option in _membersForService(serviceId)) {
       if (option['label'] == selectedProfessional) {
-        return _intValue(option['userId']);
+        return _intValue(
+          option['assignedUserBranchId'] ?? option['userBranchId'],
+        );
       }
     }
     return null;
@@ -3535,6 +3670,50 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   void _save() async {
     await _submitBooking(popOnSuccess: true);
+  }
+
+  Map<String, dynamic> _manualBookingCustomerFallback(int userId) {
+    final firstName = _clientfNameCtrl.text.trim();
+    final lastName = _clientlNameCtrl.text.trim();
+    final fullName = '$firstName $lastName'.trim();
+    final phone = _mobileCtrl.text.trim();
+
+    return {
+      'id': userId,
+      'userId': userId,
+      if (firstName.isNotEmpty) 'firstName': firstName,
+      if (lastName.isNotEmpty) 'lastName': lastName,
+      if (fullName.isNotEmpty) 'name': fullName,
+      if (phone.isNotEmpty) 'phoneNumber': phone,
+    };
+  }
+
+  Map<String, dynamic> _bookingResultWithCustomerFallback(
+    Map<String, dynamic> result,
+    int userId,
+  ) {
+    final fallback = _manualBookingCustomerFallback(userId);
+    if (fallback.length <= 2) return result;
+
+    final enriched = Map<String, dynamic>.from(result);
+    enriched['_manualBookingCustomer'] = fallback;
+
+    final data = enriched['data'];
+    if (data is Map) {
+      final dataMap = Map<String, dynamic>.from(data);
+      final client = dataMap['client'] is Map
+          ? Map<String, dynamic>.from(dataMap['client'] as Map)
+          : <String, dynamic>{};
+      client.addAll({
+        for (final entry in fallback.entries)
+          if ((client[entry.key]?.toString().trim() ?? '').isEmpty)
+            entry.key: entry.value,
+      });
+      dataMap['client'] = client;
+      enriched['data'] = dataMap;
+    }
+
+    return enriched;
   }
 
   Future<Map<String, dynamic>?> _submitBooking({
@@ -3630,9 +3809,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       StylistBranchSelectionStore.notifySalonCatalogChanged();
 
       if (!mounted) return null;
-      final resultMap = Map<String, dynamic>.from(result);
+      final resultMap = _bookingResultWithCustomerFallback(
+        Map<String, dynamic>.from(result),
+        userId,
+      );
       if (popOnSuccess) {
-        Navigator.pop(context, result); // send back API response
+        Navigator.pop(context, resultMap); // send back API response
       }
       return resultMap;
     } catch (e) {

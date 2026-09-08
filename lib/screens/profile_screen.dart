@@ -11,6 +11,7 @@ import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
 import '../services/user_role_session.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../utils/app_share.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
@@ -570,6 +571,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           );
+        },
+      ),
+      ProfileMenuItemData(
+        icon: Icons.share_outlined,
+        label: context.t('Share App'),
+        subtitle: context.t('Invite others to Glowante Partner'),
+        onTap: () {
+          _logProfile('share_app');
+          shareGlowanteApp(context);
         },
       ),
     ];
