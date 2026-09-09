@@ -152,6 +152,8 @@ class AppTranslations {
       'Done': 'Done',
       'This team member is already assigned to every branch in this salon.':
           'This team member is already assigned to every branch in this salon.',
+      "Update this member's working hours":
+          "Update this member's working hours",
       'Monday': 'Monday',
       'Tuesday': 'Tuesday',
       'Wednesday': 'Wednesday',
@@ -167,6 +169,7 @@ class AppTranslations {
           'Duration must be a positive number',
       'Edit': 'Edit',
       'Edit category': 'Edit category',
+      'Edit schedule': 'Edit schedule',
       'Edit service': 'Edit service',
       'Edit subcategory': 'Edit subcategory',
       'Email is required': 'Email is required',
@@ -175,6 +178,9 @@ class AppTranslations {
       'Enter 10-digit number': 'Enter 10-digit number',
       'Enter 6-digit OTP': 'Enter 6-digit OTP',
       'Enter OTP': 'Enter OTP',
+      'Appointment OTP': 'Appointment OTP',
+      'Ask the customer for the 6-digit appointment OTP.':
+          'Ask the customer for the 6-digit appointment OTP.',
       'Enter a valid amount off.': 'Enter a valid amount off.',
       'Enter a valid discount amount.': 'Enter a valid discount amount.',
       'Enter a valid email address.': 'Enter a valid email address.',
@@ -1106,6 +1112,8 @@ class AppTranslations {
       'Details': 'विवरण',
       'This team member is already assigned to every branch in this salon.':
           'यह टीम सदस्य इस सैलून की हर शाखा में पहले से असाइन है।',
+      "Update this member's working hours":
+          'इस सदस्य के काम के घंटे अपडेट करें',
       'Discount Type *': 'छूट प्रकार *',
       'Discounted price must be greater than 0.':
           'रियायती मूल्य 0 से अधिक होना चाहिए।',
@@ -1117,6 +1125,7 @@ class AppTranslations {
       'Duration must be a positive number': 'अवधि धनात्मक संख्या होनी चाहिए',
       'Edit': 'संपादित करें',
       'Edit category': 'श्रेणी संपादित करें',
+      'Edit schedule': 'शेड्यूल संपादित करें',
       'Edit service': 'सेवा संपादित करें',
       'Edit subcategory': 'उपश्रेणी संपादित करें',
       'Email is required': 'ईमेल आवश्यक है',
@@ -2251,6 +2260,9 @@ class AppTranslations {
           'डेटा उपलब्ध होते ही अंतर्दृष्टि यहां दिखाई देगी।',
       'Invalid OTP': 'अमान्य ओटीपी',
       'Invalid appointment': 'अमान्य नियुक्ति',
+      'Appointment OTP': 'अपॉइंटमेंट OTP',
+      'Ask the customer for the 6-digit appointment OTP.':
+          'ग्राहक से 6 अंकों का अपॉइंटमेंट OTP पूछें।',
       'Inventory item is active': 'इन्वेंटरी आइटम सक्रिय है',
       'Inventory item is inactive': 'इन्वेंटरी आइटम निष्क्रिय है',
       'Inventory store': 'इन्वेंटरी स्टोर',

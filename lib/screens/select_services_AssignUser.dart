@@ -27,6 +27,13 @@ class SelectServicesAssignUser extends StatefulWidget {
   final Map<int, bool>? initialSelected;
   final List<Map<String, dynamic>> initialSchedules;
   final List<String> initialMarkedOffDays;
+  final bool promptCompensationOnComplete;
+  // When true, this screen is used as a standalone "pick services" step —
+  // Next just pops with the selected ids instead of pushing further into
+  // the Assign User chain (AssignUserSlot etc). Used by
+  // TeamBranchSetupScreen, which orchestrates this screen and AssignUserSlot
+  // as sub-pickers rather than duplicating their catalog/schedule UI.
+  final bool standalone;
 
   const SelectServicesAssignUser({
     super.key,
@@ -39,6 +46,8 @@ class SelectServicesAssignUser extends StatefulWidget {
     this.initialSelected,
     this.initialSchedules = const [],
     this.initialMarkedOffDays = const [],
+    this.promptCompensationOnComplete = false,
+    this.standalone = false,
   });
 
   @override
@@ -148,6 +157,117 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
       'markedOffDays': _rememberedMarkedOffDays,
       if (_rememberedJoiningDate != null) 'joiningDate': _rememberedJoiningDate,
     };
+  }
+
+  Future<void> _submitSelectedServices() async {
+    final ids = selectedServiceIds;
+    if (ids.isEmpty) {
+      Fluttertoast.showToast(
+        msg: translateText('Choose at least one service.'),
+      );
+      return;
+    }
+
+    if (widget.standalone) {
+      Navigator.pop(context, {'selectedServiceIds': ids});
+      return;
+    }
+
+    final payload = {
+      "userId": widget.userId,
+      "joinedAt": widget.joinedAt,
+      "salonId": widget.salonId,
+      "branchId": widget.branchId,
+      "branchServiceIds": ids,
+    };
+
+    debugPrint("Assign user services payload: $payload");
+    final navigator = Navigator.of(context);
+
+    final result = await navigator.push<dynamic>(
+      MaterialPageRoute(
+        builder: (_) => AssignUserSlot(
+          salonId: widget.salonId,
+          branchId: widget.branchId,
+          userId: widget.userId,
+          selectedServiceIds: ids,
+          member: widget.member,
+          salons: widget.salons,
+          joinedAt: _rememberedJoiningDate ?? widget.joinedAt,
+          initialSchedules: _rememberedSchedules,
+          initialMarkedOffDays: _rememberedMarkedOffDays,
+          promptCompensationOnComplete: widget.promptCompensationOnComplete,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (result is Map) {
+      final schedules = result['schedules'];
+      if (schedules is List) {
+        _rememberedSchedules = schedules
+            .whereType<Map>()
+            .map((slot) => Map<String, dynamic>.from(slot))
+            .toList();
+      }
+
+      final markedOffDays = result['markedOffDays'];
+      if (markedOffDays is List) {
+        _rememberedMarkedOffDays = markedOffDays
+            .map((day) => day.toString())
+            .where((day) => day.trim().isNotEmpty)
+            .toList();
+      }
+
+      final joiningDate = result['joiningDate']?.toString();
+      if (joiningDate != null && joiningDate.trim().isNotEmpty) {
+        _rememberedJoiningDate = joiningDate;
+      }
+    }
+
+    if (result == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        navigator.pop(true);
+      });
+    }
+  }
+
+  Widget _buildStandaloneFooter() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _assignServicesText,
+                side: const BorderSide(color: _assignServicesBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Text(translateText("Cancel")),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: _submitSelectedServices,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Text(translateText("Done")),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   bool get allSelected {
@@ -470,7 +590,9 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
     return Scaffold(
       backgroundColor: _assignServicesBackground,
       appBar: buildProfileSubpageAppBar(
-        title: translateText("Assign User"),
+        title: widget.standalone
+            ? translateText("Assign Services")
+            : translateText("Assign User"),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(
@@ -488,53 +610,65 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      MultiStepFlowHeader(
-                        currentStep: 2,
-                        useIcons: true,
-                        steps: const [
-                          FlowStepItem(
-                            stepNumber: 1,
-                            label: 'Select Branches',
-                            icon: Icons.place_outlined,
-                          ),
-                          FlowStepItem(
-                            stepNumber: 2,
-                            label: 'Choose Services',
-                            icon: Icons.handyman_outlined,
-                          ),
-                          FlowStepItem(
-                            stepNumber: 3,
-                            label: 'Schedule',
-                            icon: Icons.calendar_today_outlined,
-                          ),
-                          FlowStepItem(
-                            stepNumber: 4,
-                            label: 'Complete',
-                            icon: Icons.check_circle_outline,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        translateText('Choose Services'),
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.starColor,
+                      if (!widget.standalone) ...[
+                        MultiStepFlowHeader(
+                          currentStep: 2,
+                          useIcons: true,
+                          steps: const [
+                            FlowStepItem(
+                              stepNumber: 1,
+                              label: 'Select Branches',
+                              icon: Icons.place_outlined,
+                            ),
+                            FlowStepItem(
+                              stepNumber: 2,
+                              label: 'Choose Services',
+                              icon: Icons.handyman_outlined,
+                            ),
+                            FlowStepItem(
+                              stepNumber: 3,
+                              label: 'Schedule',
+                              icon: Icons.calendar_today_outlined,
+                            ),
+                            FlowStepItem(
+                              stepNumber: 4,
+                              label: 'Complete',
+                              icon: Icons.check_circle_outline,
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        translateText(
-                          'Select services this team member can perform at the branch.',
+                        const SizedBox(height: 20),
+                        Text(
+                          translateText('Choose Services'),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.starColor,
+                          ),
                         ),
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          color: _assignServicesMuted,
+                        const SizedBox(height: 4),
+                        Text(
+                          translateText(
+                            'Select services this team member can perform at the branch.',
+                          ),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 13,
+                            color: _assignServicesMuted,
+                          ),
                         ),
-                      ),
+                      ] else
+                        Text(
+                          translateText(
+                            'Select services for this branch assignment.',
+                          ),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 13,
+                            color: _assignServicesMuted,
+                          ),
+                        ),
                       const SizedBox(height: 14),
                       _buildSearchAndSelectionAction(),
                     ],
@@ -584,142 +718,94 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
 
                 // Categories
                 Expanded(
-                  child: visibleCategories.isEmpty
-                      ? _EmptyServicesState(
-                          isSearchActive: _searchQuery.trim().isNotEmpty,
-                        )
-                      : ListView.builder(
+                  child: widget.standalone
+                      ? ListView(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          itemCount: visibleCategories.length,
-                          itemBuilder: (ctx, i) =>
-                              _buildCategory(visibleCategories[i]),
-                        ),
+                          children: [
+                            if (visibleCategories.isEmpty)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 48),
+                                child: _EmptyServicesState(
+                                  isSearchActive:
+                                      _searchQuery.trim().isNotEmpty,
+                                ),
+                              )
+                            else
+                              for (final category in visibleCategories)
+                                _buildCategory(category),
+                            _buildStandaloneFooter(),
+                          ],
+                        )
+                      : visibleCategories.isEmpty
+                          ? _EmptyServicesState(
+                              isSearchActive: _searchQuery.trim().isNotEmpty,
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              itemCount: visibleCategories.length,
+                              itemBuilder: (ctx, i) =>
+                                  _buildCategory(visibleCategories[i]),
+                            ),
                 ),
               ],
             ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(
-                    context,
-                    _currentStateResult(completed: false),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: AppColors.starColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: Text(
-                    translateText("Back"),
-                    style: const TextStyle(
-                      color: AppColors.starColor,
-                      fontFamily: 'Manrope',
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final ids = selectedServiceIds;
-                    if (ids.isEmpty) {
-                      Fluttertoast.showToast(
-                        msg: translateText('Choose at least one service.'),
-                      );
-                      return;
-                    }
-
-                    // ✅ Add salonId & branchId
-                    final payload = {
-                      "userId": widget.userId,
-                      "joinedAt": widget.joinedAt,
-                      "salonId": widget.salonId,
-                      "branchId": widget.branchId,
-                      "branchServiceIds": ids,
-                    };
-
-                    debugPrint("Assign user services payload: $payload");
-                    final navigator = Navigator.of(context);
-
-                    // 👉 Navigate to Step 3
-                    final result = await navigator.push<dynamic>(
-                      MaterialPageRoute(
-                        builder: (_) => AssignUserSlot(
-                          salonId: widget.salonId,
-                          branchId: widget.branchId,
-                          userId: widget.userId,
-                          selectedServiceIds: ids,
-                          member: widget.member, // ✅ pass to Step 2
-                          salons: widget.salons,
-                          joinedAt: _rememberedJoiningDate ?? widget.joinedAt,
-                          initialSchedules: _rememberedSchedules,
-                          initialMarkedOffDays: _rememberedMarkedOffDays,
+      bottomNavigationBar: widget.standalone
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(
+                          context,
+                          _currentStateResult(completed: false),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: AppColors.starColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          translateText("Back"),
+                          style: const TextStyle(
+                            color: AppColors.starColor,
+                            fontFamily: 'Manrope',
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    );
-                    if (!mounted) return;
-                    if (result is Map) {
-                      final schedules = result['schedules'];
-                      if (schedules is List) {
-                        _rememberedSchedules = schedules
-                            .whereType<Map>()
-                            .map((slot) => Map<String, dynamic>.from(slot))
-                            .toList();
-                      }
-
-                      final markedOffDays = result['markedOffDays'];
-                      if (markedOffDays is List) {
-                        _rememberedMarkedOffDays = markedOffDays
-                            .map((day) => day.toString())
-                            .where((day) => day.trim().isNotEmpty)
-                            .toList();
-                      }
-
-                      final joiningDate = result['joiningDate']?.toString();
-                      if (joiningDate != null &&
-                          joiningDate.trim().isNotEmpty) {
-                        _rememberedJoiningDate = joiningDate;
-                      }
-                    }
-
-                    if (result == true) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        navigator.pop(true);
-                      });
-                      return;
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: Text(
-                    translateText("Next"),
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontWeight: FontWeight.w800,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _submitSelectedServices,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.starColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          translateText("Next"),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 

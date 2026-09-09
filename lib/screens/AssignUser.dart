@@ -31,6 +31,16 @@ class AssignUserScreen extends StatefulWidget {
   final Map<String, dynamic> member;
   final List<Map<String, dynamic>> salons;
   final int salonId; // filter branches by this salonId
+  // When the caller already picked a branch (e.g. via a quick "select a
+  // branch" dialog before opening this screen), skip the Select Branch
+  // step and go straight to Select Services for it.
+  final int? initialBranchId;
+  // Threaded straight through to TeamOnlineAvailabilityScreen — when true,
+  // completing the whole assign flow (services + schedule) is followed by
+  // a compensation step before returning to Team Members. Only set for the
+  // Setup Required onboarding chain, not for an active member picking up
+  // an additional branch.
+  final bool promptCompensationOnComplete;
 
   late final List<Branch> branches;
 
@@ -39,6 +49,8 @@ class AssignUserScreen extends StatefulWidget {
     required this.member,
     required this.salons,
     required this.salonId,
+    this.initialBranchId,
+    this.promptCompensationOnComplete = false,
   }) {
     // Build Branch list from salons and filter by salonId
     branches = salons
@@ -187,6 +199,32 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
     for (final b in widget.branches) {
       debugPrint("   ${b.name} (ID: ${b.id}) - SalonId: ${b.salonId}");
     }
+
+    final initialBranchId = widget.initialBranchId;
+    if (initialBranchId != null) {
+      _selectedBranchId = initialBranchId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final availableBranches = _availableBranches;
+        final isAvailable =
+            availableBranches.any((branch) => branch.id == initialBranchId);
+        // Falls back to showing the Select Branch step normally (with the
+        // branch already highlighted) if it's somehow no longer available
+        // — e.g. the member got assigned to it from elsewhere in between.
+        if (!isAvailable) return;
+
+        final userSalons = (widget.member['userSalons'] ?? []) as List<dynamic>;
+        final joinedAt = userSalons.isNotEmpty
+            ? (userSalons[0]['joinedAt'] ?? '').toString()
+            : 'N/A';
+
+        _goNext(
+          selectedBranchId: initialBranchId,
+          joinedAt: joinedAt,
+          availableBranches: availableBranches,
+        );
+      });
+    }
   }
 
   String get _memberName {
@@ -226,6 +264,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
               _rememberedSchedulesByBranchId[selectedBranchId] ?? const [],
           initialMarkedOffDays:
               _rememberedMarkedOffDaysByBranchId[selectedBranchId] ?? const [],
+          promptCompensationOnComplete: widget.promptCompensationOnComplete,
         ),
       ),
     );

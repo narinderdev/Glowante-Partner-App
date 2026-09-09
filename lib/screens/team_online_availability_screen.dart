@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'assign_user_flow_constants.dart';
+import 'team_member_compensation_setup_step.dart';
 import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
 import '../utils/colors.dart';
@@ -24,7 +25,10 @@ class TeamOnlineAvailabilityScreen extends StatefulWidget {
         assignBranchServiceIds = null,
         assignSchedules = null,
         initialJoiningDate = null,
-        assignScheduleSameAsBranch = false;
+        assignScheduleSameAsBranch = false,
+        assignSalonId = null,
+        assignMemberName = null,
+        promptCompensationOnComplete = false;
 
   const TeamOnlineAvailabilityScreen.assignUser({
     super.key,
@@ -34,6 +38,9 @@ class TeamOnlineAvailabilityScreen extends StatefulWidget {
     required this.assignSchedules,
     required this.initialJoiningDate,
     this.assignScheduleSameAsBranch = false,
+    this.assignSalonId,
+    this.assignMemberName,
+    this.promptCompensationOnComplete = false,
   })  : mode = TeamAvailabilityMode.assignUser,
         userId = null,
         payload = null;
@@ -48,7 +55,10 @@ class TeamOnlineAvailabilityScreen extends StatefulWidget {
         assignBranchServiceIds = null,
         assignSchedules = null,
         initialJoiningDate = null,
-        assignScheduleSameAsBranch = false;
+        assignScheduleSameAsBranch = false,
+        assignSalonId = null,
+        assignMemberName = null,
+        promptCompensationOnComplete = false;
 
   final TeamAvailabilityMode mode;
   final int branchId;
@@ -62,6 +72,14 @@ class TeamOnlineAvailabilityScreen extends StatefulWidget {
   // POST /branches/{branchId}/assign-user — true skips sending
   // `assignSchedules` and lets the backend copy branch timings instead.
   final bool assignScheduleSameAsBranch;
+  // Only used in assignUser mode, and only when promptCompensationOnComplete
+  // is true — needed to open the compensation step after this flow finishes.
+  final int? assignSalonId;
+  final String? assignMemberName;
+  // Setup Required onboarding chain only: after this assign flow succeeds,
+  // show a compensation step before returning to Team Members. False for
+  // an active member just picking up an additional branch.
+  final bool promptCompensationOnComplete;
 
   @override
   State<TeamOnlineAvailabilityScreen> createState() =>
@@ -1458,6 +1476,25 @@ class _TeamOnlineAvailabilityScreenState
         await Future.delayed(const Duration(milliseconds: 700));
 
         if (!mounted) return;
+
+        if (widget.promptCompensationOnComplete &&
+            widget.assignSalonId != null &&
+            widget.assignUserId != null) {
+          // Save or Skip both just pop back here — compensation is a
+          // nice-to-have step, not a hard blocker to finishing onboarding.
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TeamMemberCompensationSetupStep(
+                salonId: widget.assignSalonId!,
+                userId: widget.assignUserId!,
+                memberName: widget.assignMemberName ?? '',
+              ),
+            ),
+          );
+          if (!mounted) return;
+        }
+
         final navigator = Navigator.of(context);
         var foundAssignRoot = false;
         navigator.popUntil((route) {

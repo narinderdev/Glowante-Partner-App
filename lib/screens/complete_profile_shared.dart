@@ -23,6 +23,7 @@ class CompleteProfileDraft {
     required this.userId,
     required this.profile,
     required this.specialityOptions,
+    this.allowFullEdit = false,
   });
 
   final int salonId;
@@ -32,6 +33,13 @@ class CompleteProfileDraft {
   /// fields are already populated (and therefore locked) on every step.
   final Map<String, dynamic> profile;
   final List<Map<String, dynamic>> specialityOptions;
+
+  /// True for the standalone "Edit" action on an already-active member —
+  /// every field becomes freely editable (hasX below always reads as
+  /// "not locked") and buildPatchFields sends whatever's currently typed,
+  /// not just fields that were previously empty. False (default) keeps
+  /// the original fill-missing-only onboarding behavior.
+  final bool allowFullEdit;
 
   String firstName = '';
   String lastName = '';
@@ -52,12 +60,14 @@ class CompleteProfileDraft {
   double? longitude;
   bool hasSavedChanges = false;
 
-  bool get hasFirstName => cpIsFilled(profile['firstName']);
-  bool get hasLastName => cpIsFilled(profile['lastName']);
-  bool get hasGender => cpIsFilled(profile['gender']);
-  bool get hasCareerStartDate => cpIsFilled(profile['careerStartDate']);
-  bool get hasBio => cpIsFilled(profile['bio']);
+  bool get hasFirstName => !allowFullEdit && cpIsFilled(profile['firstName']);
+  bool get hasLastName => !allowFullEdit && cpIsFilled(profile['lastName']);
+  bool get hasGender => !allowFullEdit && cpIsFilled(profile['gender']);
+  bool get hasCareerStartDate =>
+      !allowFullEdit && cpIsFilled(profile['careerStartDate']);
+  bool get hasBio => !allowFullEdit && cpIsFilled(profile['bio']);
   bool get hasSpecialities {
+    if (allowFullEdit) return false;
     final raw = profile['specialities'];
     return raw is List && raw.isNotEmpty;
   }
@@ -65,6 +75,14 @@ class CompleteProfileDraft {
   // address is always the complete object or null (updated_3 §5.2, part_2
   // §8) — never partial, never redacted — so key presence alone is the
   // correctness signal, not any individual sub-field.
+  //
+  // Deliberately NOT gated by allowFullEdit like every other field —
+  // PATCH .../profile rejects the whole request with
+  // 409 PROFILE_FIELD_ALREADY_POPULATED if address is resent once already
+  // set (confirmed from a live request), unlike the other fields, which
+  // the backend does accept overwrites for. Address always locks once
+  // populated, in every mode, or every other field in the same save
+  // would silently fail right along with it.
   bool get hasAddress => profile['address'] != null;
   bool get hasAvatar => cpIsFilled(profile['profilePictureUrl']);
 
@@ -98,7 +116,12 @@ class CompleteProfileDraft {
     firstName = (profile['firstName'] ?? '').toString();
     lastName = (profile['lastName'] ?? '').toString();
     bio = (profile['bio'] ?? '').toString();
-    gender = hasGender ? (profile['gender'] ?? '').toString() : null;
+    // Pre-fills the editable selector's initial value from the server —
+    // deliberately independent of hasGender (which also reflects
+    // allowFullEdit's lock state, not whether a value exists to show).
+    gender = cpIsFilled(profile['gender'])
+        ? (profile['gender'] ?? '').toString()
+        : null;
 
     final careerStartDateRaw = (profile['careerStartDate'] ?? '').toString();
     if (careerStartDateRaw.trim().isNotEmpty) {
@@ -115,13 +138,16 @@ class CompleteProfileDraft {
     country = (addr['country'] ?? '').toString();
     postalCode = (addr['postalCode'] ?? '').toString();
 
-    if (hasSpecialities) {
-      final raw = profile['specialities'];
-      if (raw is List) {
-        for (final entry in raw) {
-          final code = entry is Map ? entry['code'] : entry;
-          if (code != null) specialityCodes.add(code.toString());
-        }
+    // Independent of hasSpecialities (which also reflects allowFullEdit's
+    // lock state, not whether a value exists to show) — same trap gender
+    // avoids above. Gating this on hasSpecialities meant an already-set
+    // speciality never showed as pre-selected whenever allowFullEdit was
+    // true (Edit), even though the server had one.
+    final rawSpecialities = profile['specialities'];
+    if (rawSpecialities is List) {
+      for (final entry in rawSpecialities) {
+        final code = entry is Map ? entry['code'] : entry;
+        if (code != null) specialityCodes.add(code.toString());
       }
     }
   }

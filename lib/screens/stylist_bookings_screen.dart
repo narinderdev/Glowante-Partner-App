@@ -1471,13 +1471,6 @@ DateTime? _bookingActionEnd(Map<String, dynamic> booking) {
   return start.add(Duration(minutes: duration));
 }
 
-bool _hasStartJobWindowPassed(Map<String, dynamic> booking) {
-  // Staff can always start a job manually, even after the scheduled window
-  // has elapsed (running late, catching up on a missed status change,
-  // etc.) — Start Job is no longer time-gated, for every role.
-  return false;
-}
-
 bool _hasBookingActionWindowPassed(Map<String, dynamic> booking) {
   final end = _bookingActionEnd(booking);
   return end != null && DateTime.now().isAfter(end);
@@ -1599,7 +1592,7 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
               borderRadius: BorderRadius.circular(20),
             ),
             title: Text(
-              translateText('Enter OTP'),
+              translateText('Appointment OTP'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             content: SizedBox(
@@ -1607,6 +1600,16 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Text(
+                    translateText(
+                      'Ask the customer for the 6-digit appointment OTP.',
+                    ),
+                    style: const TextStyle(
+                      color: _bookingsSecondaryText,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   FixedSlotOtpField(
                     enabled: !isSubmitting,
                     hasError: hasError,
@@ -4812,7 +4815,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     if (!_canStartJob(booking)) {
       Fluttertoast.showToast(
         msg: translateText(
-          'You can start this job 15 minutes before appointment time',
+          'This booking cannot be started yet',
         ),
       );
       return;
@@ -8454,8 +8457,7 @@ class _BookingListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _normalizeStatus(booking['status']);
     final visuals = _statusVisuals(context, status);
-    final showStartAction =
-        _showsStartAction(status) && !_hasStartJobWindowPassed(booking);
+    final showStartAction = _showsStartAction(status);
     final showConfirmAction = _showsConfirmAction(
           status,
           isOwnerMode: isOwnerMode,
@@ -8897,7 +8899,7 @@ class _StylistBookingDetailScreenState
     if (!_canStartJob(_booking)) {
       Fluttertoast.showToast(
         msg: translateText(
-          'You can start this job 15 minutes before appointment time',
+          'This booking cannot be started yet',
         ),
       );
       return;
@@ -9729,8 +9731,7 @@ class _StylistBookingDetailScreenState
     //         : (_showsStartAction(_statusUpper)
     //             ? context.t('Start Job').toUpperCase()
     //             : null));
-    final showStartAction =
-        _showsStartAction(_statusUpper) && !_hasStartJobWindowPassed(_booking);
+    final showStartAction = _showsStartAction(_statusUpper);
     final canStartJob = showStartAction && _canStartJob(_booking);
     final isConfirmAction = _showsConfirmAction(
           _statusUpper,

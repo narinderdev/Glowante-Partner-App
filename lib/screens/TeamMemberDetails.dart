@@ -7,7 +7,6 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../widgets/app_loader.dart';
-import 'team_member_compensation_screen.dart';
 import 'team_member_schedule_screen.dart';
 import 'team_member_services_screen.dart';
 
@@ -598,58 +597,6 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                       _ProfileDetailRowData(
                         label: 'Address',
                         value: _addressLabel(),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _DetailSectionCard(
-                  icon: Icons.payments_outlined,
-                  title: 'Employment & Compensation',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        translateText(
-                          'Record employment type and monthly base pay for this member.',
-                        ),
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 12,
-                          color: _memberDetailMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            final salonId = widget.salonId;
-                            final userId = _toInt(member['userId']);
-                            if (salonId == null || userId == null) return;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TeamMemberCompensationScreen(
-                                  salonId: salonId,
-                                  userId: userId,
-                                  memberName: displayName,
-                                ),
-                              ),
-                            );
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.starColor),
-                            foregroundColor: AppColors.starColor,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          icon:
-                              const Icon(Icons.arrow_forward_rounded, size: 16),
-                          label: Text(
-                            translateText('Manage Employment & Compensation'),
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
                       ),
                     ],
                   ),

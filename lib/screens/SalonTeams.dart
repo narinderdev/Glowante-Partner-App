@@ -11,10 +11,10 @@ import '../utils/error_parser.dart';
 import '../widgets/app_loader.dart';
 import 'TeamMemberDetails.dart';
 import 'complete_profile_flow_constants.dart';
-import 'complete_team_member_profile_screen.dart';
+import 'team_branch_setup_screen.dart';
+import 'team_member_personal_info_screen.dart';
+import 'team_member_compensation_setup_step.dart';
 import 'AddTeam.dart';
-import 'AssignUser.dart';
-import 'assign_user_flow_constants.dart';
 import 'invite_team_member_screen.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/colors.dart';
@@ -1617,36 +1617,6 @@ class _TeamScreenState extends State<TeamScreen> {
     return value ?? false;
   }
 
-  Widget _buildAssignButtonChild(Map<String, dynamic> member) {
-    if (!_memberHasAssignments(member)) {
-      return Text(translateText("Assign"));
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          translateText("Assign to branch"),
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        // if (assignedSalonLabel.isNotEmpty) ...[
-        //   const SizedBox(height: 2),
-        //   Text(
-        //     assignedSalonLabel,
-        //     textAlign: TextAlign.center,
-        //     maxLines: 2,
-        //     overflow: TextOverflow.ellipsis,
-        //     style: const TextStyle(fontSize: 9.5, height: 1.15),
-        //   ),
-        // ],
-      ],
-    );
-  }
-
   Future<void> _openAddMember() async {
     if (selectedBranch != null) {
       final limitMessage = await _staffLimitBlockMessage();
@@ -1776,12 +1746,152 @@ class _TeamScreenState extends State<TeamScreen> {
     return labels;
   }
 
-  Future<void> _openEditMember(Map<String, dynamic> member) async {
-    await _openCompleteMemberProfile(member);
+  // Standalone "Edit" (Active members only, via the Actions menu) opens the
+  // member's branch setup directly. Personal Information remains part of the
+  // Setup Required assign flow, but branch-level edits should land on roles,
+  // services, and working hours immediately.
+  // All branches this member is currently assigned to, as {id, name} — for
+  // deciding whether Edit needs to ask which one, and for that dialog's
+  // options.
+  List<Map<String, dynamic>> _memberAssignedBranches(
+    Map<String, dynamic> member,
+  ) {
+    final rawAssignments = member['branches'] is List
+        ? member['branches']
+        : member['userBranches'];
+    if (rawAssignments is! List) return const [];
+
+    final branches = <Map<String, dynamic>>[];
+    final seen = <String>{};
+    for (final assignment in rawAssignments) {
+      if (assignment is! Map) continue;
+      final branch = assignment['branch'];
+      final branchId = _asInt(assignment['branchId']) ??
+          (branch is Map ? _asInt(branch['id']) : null);
+      final name = (branch is Map
+                  ? (branch['branchName'] ?? branch['name'])
+                  : assignment['branchName'])
+              ?.toString()
+              .trim() ??
+          '';
+      if (name.isEmpty) continue;
+      final key = '${branchId ?? name}';
+      if (seen.add(key)) {
+        branches.add({'id': branchId, 'name': name});
+      }
+    }
+    return branches;
   }
 
-  // salon_team_part_2.md: profile completion is a dedicated fill-missing-
-  // only flow against the profile PATCH endpoints.
+  Future<int?> _showSelectBranchToEditDialog(
+    Map<String, dynamic> member,
+    List<Map<String, dynamic>> branches,
+  ) {
+    return showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(translateText('Select a branch')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${translateText("Select the branch where you want to edit")} '
+                '${_memberDisplayName(member)}.',
+                style: const TextStyle(fontSize: 13, color: Color(0xFF6F665E)),
+              ),
+              const SizedBox(height: 14),
+              for (final branch in branches)
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () =>
+                      Navigator.pop(dialogContext, _asInt(branch['id'])),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE8DED6)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            branch['name']?.toString() ?? '',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: Color(0xFFB8B0A8),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(translateText('Cancel')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openEditMember(Map<String, dynamic> member) async {
+    final salonId = _currentSalonId ?? _asInt(member['salonId']);
+    final userId = _teamAsInt(member['userId']);
+    if (salonId == null || userId == null) return;
+
+    final assignedBranches = _memberAssignedBranches(member);
+
+    int? memberBranchId;
+    if (assignedBranches.length > 1) {
+      FocusScope.of(context).unfocus();
+      memberBranchId =
+          await _showSelectBranchToEditDialog(member, assignedBranches);
+      if (memberBranchId == null) return;
+    } else {
+      // The member's own current branch, not whatever's currently
+      // filtered on this screen — Branch Setup locks to this one.
+      memberBranchId =
+          _asInt(_teamFirstAssignmentBranchId(member['userBranches'])) ??
+              _asInt(_teamFirstAssignmentBranchId(member['branches'])) ??
+              selectedBranchId;
+    }
+
+    FocusScope.of(context).unfocus();
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TeamBranchSetupScreen(
+          salonId: salonId,
+          userId: userId,
+          member: Map<String, dynamic>.from(member),
+          salons: _salons,
+          lockedBranchId: memberBranchId,
+        ),
+      ),
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _refreshCurrentTeamTab();
+  }
+
+  // "Assign User" for a Setup Required member (via the Actions menu) —
+  // Edit Profile (fill-missing-only, locked otherwise) → Assign Branch →
+  // Compensation, as one continuous flow. salon_team_part_2.md: profile
+  // completion is fill-missing-only against the profile PATCH endpoints.
   Future<void> _openCompleteMemberProfile(Map<String, dynamic> member) async {
     final salonId = _currentSalonId ?? _asInt(member['salonId']);
     final userId = _teamAsInt(member['userId']);
@@ -1791,11 +1901,13 @@ class _TeamScreenState extends State<TeamScreen> {
       context,
       MaterialPageRoute(
         settings: const RouteSettings(name: kCompleteProfileRootRouteName),
-        builder: (_) => CompleteTeamMemberProfileScreen(
+        builder: (_) => TeamMemberPersonalInfoScreen(
           salonId: salonId,
           userId: userId,
           branchId: selectedBranchId,
           initialMember: Map<String, dynamic>.from(member),
+          salons: _salons,
+          chainIntoAssignFlow: true,
         ),
       ),
     );
@@ -1804,6 +1916,27 @@ class _TeamScreenState extends State<TeamScreen> {
     // its own. Unfocus again now that we're actually back.
     FocusManager.instance.primaryFocus?.unfocus();
     await _refreshCurrentTeamTab();
+  }
+
+  // "Edit Compensation" (Active members only, via the Actions menu) —
+  // opens the existing standalone compensation management screen.
+  Future<void> _openEditCompensation(Map<String, dynamic> member) async {
+    final salonId = _currentSalonId ?? _asInt(member['salonId']);
+    final userId = _teamAsInt(member['userId']);
+    if (salonId == null || userId == null) return;
+    FocusScope.of(context).unfocus();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TeamMemberCompensationSetupStep(
+          salonId: salonId,
+          userId: userId,
+          memberName: _memberDisplayName(member),
+          isStandalone: true,
+        ),
+      ),
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   Future<void> _openEditAssignedBranch(
@@ -1881,17 +2014,78 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
+  // Branches within the member's salon they aren't already assigned to —
+  // what "Assign" actually offers, since re-assigning an existing branch
+  // is what the per-branch edit pencil is for, not this button.
+  List<Map<String, dynamic>> _availableBranchesForAssign(
+    Map<String, dynamic> member,
+    int? salonId,
+  ) {
+    if (salonId == null) return const [];
+
+    final assignedBranchIds = <int>{};
+    final rawAssignments = member['branches'] ?? member['userBranches'];
+    if (rawAssignments is List) {
+      for (final assignment in rawAssignments) {
+        if (assignment is! Map) continue;
+        final branch = assignment['branch'];
+        final rawId = branch is Map ? branch['id'] : assignment['branchId'];
+        final id = _teamAsInt(rawId);
+        if (id != null) assignedBranchIds.add(id);
+      }
+    }
+
+    final salon = _salons.firstWhere(
+      (s) => _asInt(s['id']) == salonId,
+      orElse: () => const <String, dynamic>{},
+    );
+    final salonBranches = salon['branches'] as List? ?? const [];
+
+    return salonBranches
+        .whereType<Map>()
+        .map((b) => Map<String, dynamic>.from(b))
+        .where((b) {
+      final id = _teamAsInt(b['id']);
+      return id != null && !assignedBranchIds.contains(id);
+    }).toList();
+  }
+
   Future<void> _openAssignMember(Map<String, dynamic> member) async {
     if (selectedBranch == null || _salons.isEmpty) return;
+
+    final salonId = _asInt(selectedBranch!['salonId']);
+    final userId = _teamAsInt(member['userId']);
+    if (salonId == null || userId == null) return;
+
+    final availableBranches = _availableBranchesForAssign(member, salonId);
+    if (availableBranches.isEmpty) {
+      Fluttertoast.showToast(
+        msg: translateText(
+          'This member is already assigned to every branch in this salon.',
+        ),
+      );
+      return;
+    }
+
     FocusScope.of(context).unfocus();
+
+    // Same two-step wizard as Edit (Personal Information → Branch Setup) —
+    // Personal Information locks whatever the member already has filled in
+    // (allowFullEdit: false), same as Edit; the only difference from Edit is
+    // Branch Setup's dropdown staying open here instead of locking to a
+    // specific branch, since this is picking up a new one.
     final assigned = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        settings: const RouteSettings(name: kAssignUserRootRouteName),
-        builder: (_) => AssignUserScreen(
-          member: Map<String, dynamic>.from(member),
+        settings: const RouteSettings(name: kCompleteProfileRootRouteName),
+        builder: (_) => TeamMemberPersonalInfoScreen(
+          salonId: salonId,
+          userId: userId,
+          initialMember: Map<String, dynamic>.from(member),
           salons: _salons,
-          salonId: selectedBranch!['salonId'],
+          allowFullEdit: false,
+          chainIntoBranchSetup: true,
+          branchSetupLocked: false,
         ),
       ),
     );
@@ -2409,7 +2603,7 @@ class _TeamScreenState extends State<TeamScreen> {
                               onToggleMemberActive: _toggleMemberActive,
                               onViewMember: _openViewMember,
                               onAssignMember: _openAssignMember,
-                              assignButtonBuilder: _buildAssignButtonChild,
+                              onEditCompensation: _openEditCompensation,
                               memberNameBuilder: _memberDisplayName,
                               memberRoleBuilder: _memberRoleLabel,
                               needsSetup: (member) =>
@@ -2933,58 +3127,43 @@ class _TeamTableOnlineBooking extends StatelessWidget {
   }
 }
 
+// Plain branch chip — matches the web table's Branches column, which has
+// no edit affordance on the chip itself; branch-level editing now lives
+// entirely behind the card's Actions menu.
 class _AssignedBranchChip extends StatelessWidget {
-  const _AssignedBranchChip({
-    required this.name,
-    required this.onEdit,
-  });
+  const _AssignedBranchChip({required this.name});
 
   final String name;
-  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 30),
-      padding: const EdgeInsets.only(left: 9, right: 3),
-      decoration: BoxDecoration(
-        color: _teamGoldLight,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _teamBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 140),
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _teamGold,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-              ),
+    // IntrinsicWidth forces a tight width constraint sized to the content —
+    // without it, Container's `alignment` makes it expand to fill whatever
+    // width the parent Wrap offers, which is why a single chip used to
+    // stretch across the whole row instead of sitting as a compact pill.
+    return IntrinsicWidth(
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 30),
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _teamGoldLight,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _teamBorder),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _teamGold,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(width: 2),
-          IconButton(
-            tooltip: translateText('Edit branch assignment'),
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: 26,
-              minHeight: 26,
-            ),
-            onPressed: onEdit,
-            icon: Icon(
-              Icons.edit_outlined,
-              size: 14,
-              color: onEdit == null ? _teamMuted : _teamGold,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -3007,7 +3186,7 @@ class _TeamMembersGrid extends StatelessWidget {
     required this.onToggleMemberActive,
     required this.onViewMember,
     required this.onAssignMember,
-    required this.assignButtonBuilder,
+    required this.onEditCompensation,
     required this.memberNameBuilder,
     required this.memberRoleBuilder,
     required this.needsSetup,
@@ -3030,7 +3209,7 @@ class _TeamMembersGrid extends StatelessWidget {
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
   final Future<void> Function(Map<String, dynamic> member) onViewMember;
   final Future<void> Function(Map<String, dynamic> member) onAssignMember;
-  final Widget Function(Map<String, dynamic> member) assignButtonBuilder;
+  final Future<void> Function(Map<String, dynamic> member) onEditCompensation;
   final String Function(Map<String, dynamic> member) memberNameBuilder;
   final String Function(Map<String, dynamic> member) memberRoleBuilder;
   final bool Function(Map<String, dynamic> member) needsSetup;
@@ -3114,7 +3293,6 @@ class _TeamMembersGrid extends StatelessWidget {
                 isDeleteBlocked: hasNoBranch || !hasSelectedBranch,
                 isDeactivateBlocked: hasNoBranch || !hasSelectedBranch,
                 canAssign: selectedBranch != null && salons.isNotEmpty,
-                assignButtonChild: assignButtonBuilder(member),
                 onEdit: () => onEditMember(member),
                 onCompleteProfile: () => onCompleteProfileMember(member),
                 onEditAssignedBranch: (branchId) =>
@@ -3126,6 +3304,7 @@ class _TeamMembersGrid extends StatelessWidget {
                   unawaited(onViewMember(member));
                 },
                 onAssign: () => onAssignMember(member),
+                onEditCompensation: () => onEditCompensation(member),
               ),
             );
           }).toList(),
@@ -4064,7 +4243,6 @@ class _TeamMemberCard extends StatelessWidget {
     required this.isDeleteBlocked,
     required this.isDeactivateBlocked,
     required this.canAssign,
-    required this.assignButtonChild,
     required this.onEdit,
     required this.onCompleteProfile,
     required this.onEditAssignedBranch,
@@ -4072,6 +4250,7 @@ class _TeamMemberCard extends StatelessWidget {
     required this.onToggleActive,
     required this.onView,
     required this.onAssign,
+    required this.onEditCompensation,
   });
 
   final Map<String, dynamic> member;
@@ -4088,7 +4267,6 @@ class _TeamMemberCard extends StatelessWidget {
   final bool isDeleteBlocked;
   final bool isDeactivateBlocked;
   final bool canAssign;
-  final Widget assignButtonChild;
   final VoidCallback onEdit;
   final VoidCallback onCompleteProfile;
   final void Function(int branchId) onEditAssignedBranch;
@@ -4096,6 +4274,7 @@ class _TeamMemberCard extends StatelessWidget {
   final VoidCallback onToggleActive;
   final VoidCallback onView;
   final VoidCallback onAssign;
+  final VoidCallback onEditCompensation;
 
   bool get _isBusy => isDeleting || isStatusUpdating || isViewOpening;
 
@@ -4260,47 +4439,33 @@ class _TeamMemberCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 4),
                         ],
+                        _TeamCardActionsMenu(
+                          isBusy: _isBusy,
+                          isViewLoading: isViewLoadingThisCard,
+                          needsSetup: needsSetup,
+                          canAssign: canAssign,
+                          onView: onView,
+                          onAssign: needsSetup ? onCompleteProfile : onAssign,
+                          onEdit: onEdit,
+                          onEditCompensation: onEditCompensation,
+                        ),
                       ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
-                _TeamInfoChip(
-                  icon: Icons.star_rounded,
-                  label: ratingSummary.average.toStringAsFixed(1),
-                  value: translateText('Rating'),
-                ),
-                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
-                      child: _TeamCompactActionButton(
-                        icon: Icons.edit_outlined,
-                        label: translateText(
-                          needsSetup ? 'Complete setup' : 'Edit',
-                        ),
-                        onPressed: _isBusy
-                            ? null
-                            : (needsSetup ? onCompleteProfile : onEdit),
+                      child: _TeamInfoChip(
+                        icon: Icons.star_rounded,
+                        label: ratingSummary.average.toStringAsFixed(1),
+                        value: translateText('Rating'),
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    // Expanded(
-                    //   child: _TeamCompactActionButton(
-                    //     icon: isBranchActive
-                    //         ? Icons.pause_circle_outline
-                    //         : Icons.play_circle_outline,
-                    //     label: translateText(
-                    //       isBranchActive ? 'Deactivate' : 'Activate',
-                    //     ),
-                    //     isLoading: isStatusUpdating,
-                    //     onPressed: (_isBusy || isDeactivateBlocked)
-                    //         ? null
-                    //         : onToggleActive,
-                    //   ),
-                    // ),
-                    // const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _TeamCompactActionButton(
                         icon: Icons.delete_outline_rounded,
@@ -4346,77 +4511,128 @@ class _TeamMemberCard extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: branches.map((branch) {
-                          final branchId = _teamAsInt(branch['id']);
                           return _AssignedBranchChip(
                             name: branch['name']?.toString() ?? '',
-                            onEdit: branchId == null || _isBusy
-                                ? null
-                                : () => onEditAssignedBranch(branchId),
                           );
                         }).toList(),
                       ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isBusy ? null : onView,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.starColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          minimumSize: const Size.fromHeight(38),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        icon: isViewLoadingThisCard
-                            ? const SizedBox.shrink()
-                            : const Icon(Icons.visibility_outlined, size: 15),
-                        label: isViewLoadingThisCard
-                            ? AppLoader.inline(
-                                size: 18,
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              )
-                            : Text(translateText('View')),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _isBusy || !canAssign ? null : onAssign,
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppColors.starColor),
-                          foregroundColor: AppColors.starColor,
-                          minimumSize: const Size.fromHeight(38),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.person_add_alt_1_outlined,
-                          size: 14,
-                        ),
-                        label: assignButtonChild,
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Replaces the card's old separate View/Edit/Assign buttons with one
+// "Actions" trigger — a Setup Required member only ever gets View and
+// Assign User (which itself starts the full Edit Profile → Assign →
+// Compensation chain); an Active member additionally gets a standalone
+// Edit and Edit Compensation, since those two are unrelated to onboarding.
+class _TeamCardActionsMenu extends StatelessWidget {
+  const _TeamCardActionsMenu({
+    required this.isBusy,
+    required this.isViewLoading,
+    required this.needsSetup,
+    required this.canAssign,
+    required this.onView,
+    required this.onAssign,
+    required this.onEdit,
+    required this.onEditCompensation,
+  });
+
+  final bool isBusy;
+  final bool isViewLoading;
+  final bool needsSetup;
+  final bool canAssign;
+  final VoidCallback onView;
+  final VoidCallback onAssign;
+  final VoidCallback onEdit;
+  final VoidCallback onEditCompensation;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = isBusy || isViewLoading;
+    return Theme(
+      // Same gold tint as the table's row-actions menu, for a consistent
+      // popup look across the screen's two menu usages.
+      data: Theme.of(context).copyWith(
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: _teamGold,
+            ),
+        splashColor: _teamGoldLight,
+        highlightColor: _teamGoldLight,
+        hoverColor: _teamGoldLight,
+      ),
+      child: PopupMenuButton<String>(
+        enabled: !disabled,
+        elevation: 6,
+        padding: EdgeInsets.zero,
+        offset: const Offset(0, 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: _teamBorder),
+        ),
+        constraints: const BoxConstraints(minWidth: 200),
+        onSelected: (action) {
+          switch (action) {
+            case 'view':
+              onView();
+              break;
+            case 'assign':
+              onAssign();
+              break;
+            case 'edit':
+              onEdit();
+              break;
+            case 'editCompensation':
+              onEditCompensation();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          _teamMenuItem(
+            value: 'view',
+            icon: Icons.visibility_outlined,
+            label: translateText('View'),
+          ),
+          _teamMenuItem(
+            value: 'assign',
+            icon: Icons.person_add_alt_1_outlined,
+            label: translateText('Assign User'),
+            enabled: needsSetup || canAssign,
+          ),
+          if (!needsSetup) ...[
+            _teamMenuItem(
+              value: 'edit',
+              icon: Icons.edit_outlined,
+              label: translateText('Edit'),
+            ),
+            _teamMenuItem(
+              value: 'editCompensation',
+              icon: Icons.payments_outlined,
+              label: translateText('Edit Compensation'),
+            ),
+          ],
+        ],
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: Center(
+            child: isViewLoading
+                ? AppLoader.inline(
+                    size: 16,
+                    strokeWidth: 2,
+                    color: AppColors.starColor,
+                  )
+                : Icon(
+                    Icons.more_horiz_rounded,
+                    size: 20,
+                    color: disabled ? _teamMuted : AppColors.starColor,
+                  ),
+          ),
+        ),
       ),
     );
   }

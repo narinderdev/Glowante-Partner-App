@@ -3119,6 +3119,20 @@ class ApiService {
     }
   }
 
+  List<Map<String, dynamic>> _formatTeamScheduleTimes(
+    List<Map<String, dynamic>> schedules,
+  ) {
+    return schedules
+        .map((schedule) => {
+              ...schedule,
+              if (schedule['startTime'] != null)
+                'startTime': _formatTime(schedule['startTime'].toString()),
+              if (schedule['endTime'] != null)
+                'endTime': _formatTime(schedule['endTime'].toString()),
+            })
+        .toList();
+  }
+
   Future<Map<String, dynamic>> markTeamAttendance({
     required int branchId,
     required int userId,
@@ -6110,11 +6124,7 @@ class ApiService {
         "Authorization: Bearer ${token.substring(0, 8)}...}",
       );
       print(
-        "➡️ Body: ${jsonEncode({
-              'branchId': branchId,
-              'appointmentId': appointmentId,
-              'otp': otp
-            })}",
+        "➡️ Body: ${jsonEncode({'otp': otp})}",
       );
       print("=========================================");
 
@@ -6124,11 +6134,7 @@ class ApiService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'branchId': branchId,
-          'appointmentId': appointmentId,
-          'otp': otp,
-        }),
+        body: jsonEncode({'otp': otp}),
       );
 
       // 🔍 Log raw response
@@ -7005,11 +7011,12 @@ class ApiService {
     final token = await getAuthToken();
     final url = Uri.parse('$baseUrl${assignUserToBranchAPI(branchId)}');
 
+    final formattedSchedules = _formatTeamScheduleTimes(schedules);
     final payload = {
       "userId": userId,
       "joiningDate": joiningDate, // e.g. "2025-08-21"
       "scheduleMode": scheduleMode,
-      if (scheduleMode == 'CUSTOM') "schedules": schedules,
+      if (scheduleMode == 'CUSTOM') "schedules": formattedSchedules,
       "branchServiceIds": branchServiceIds,
       "branchRoleIds": branchRoleIds,
       "roles": roles,
@@ -7067,8 +7074,19 @@ class ApiService {
     final url = Uri.parse(
       '$baseUrl${updateTeamMemberEndpoint(branchId, userId)}',
     );
+    final requestPayload = Map<String, dynamic>.from(payload);
+    final schedules = requestPayload['schedules'];
+    if (schedules is List) {
+      requestPayload['schedules'] = _formatTeamScheduleTimes(
+        schedules
+            .whereType<Map>()
+            .map((schedule) => Map<String, dynamic>.from(schedule))
+            .toList(),
+      );
+    }
+
     debugPrint('[TeamMemberUpdate] PATCH $url');
-    debugPrint('[TeamMemberUpdate payload] ${jsonEncode(payload)}');
+    debugPrint('[TeamMemberUpdate payload] ${jsonEncode(requestPayload)}');
     Future<http.Response> sendWithToken(String authToken) {
       return _sharedClient.patch(
         url,
@@ -7076,7 +7094,7 @@ class ApiService {
           "Content-Type": "application/json",
           "Authorization": "Bearer $authToken",
         },
-        body: jsonEncode(payload),
+        body: jsonEncode(requestPayload),
       );
     }
 

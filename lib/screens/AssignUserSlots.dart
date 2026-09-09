@@ -42,6 +42,17 @@ class AssignUserSlot extends StatefulWidget {
   final List<Map<String, dynamic>> salons;
   final List<Map<String, dynamic>> initialSchedules;
   final List<String> initialMarkedOffDays;
+  final bool promptCompensationOnComplete;
+  // When true, used as a standalone "pick working hours" step — Continue
+  // just pops with the schedule instead of pushing into
+  // TeamOnlineAvailabilityScreen. See standalone on SelectServicesAssignUser.
+  final bool standalone;
+  // Starting state of the "Same as branch timings" checkbox — lets a
+  // caller open this pre-checked (e.g. TeamBranchSetupScreen's "View" on
+  // its "Keep branch timings" choice, where the per-day cards render
+  // read-only/greyed exactly like this checkbox already makes them).
+  final bool initialSameAsBranchTimings;
+  final bool showSameAsBranchToggle;
 
   const AssignUserSlot({
     super.key,
@@ -54,6 +65,10 @@ class AssignUserSlot extends StatefulWidget {
     required this.salons,
     this.initialSchedules = const [],
     this.initialMarkedOffDays = const [],
+    this.promptCompensationOnComplete = false,
+    this.standalone = false,
+    this.initialSameAsBranchTimings = false,
+    this.showSameAsBranchToggle = true,
   });
 
   @override
@@ -90,6 +105,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   @override
   void initState() {
     super.initState();
+    _sameAsBranchTimings = widget.initialSameAsBranchTimings;
     _selectedJoiningDate =
         widget.joinedAt.trim().isEmpty || widget.joinedAt == 'N/A'
             ? null
@@ -814,8 +830,11 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     return true;
   }
 
-  bool get _shouldUseBranchHoursScheduleMode =>
-      _sameAsBranchTimings || _scheduleMatchesBranchTimings;
+  bool get _shouldUseBranchHoursScheduleMode {
+    if (_sameAsBranchTimings) return true;
+    if (!widget.showSameAsBranchToggle) return false;
+    return _scheduleMatchesBranchTimings;
+  }
 
   void _applyDefaultBranchSlotsToEmptyDays() {
     if (!mounted) return;
@@ -890,6 +909,13 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     final hour12 = ((hour + 11) % 12) + 1;
 
     return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
+  }
+
+  String _formatPayloadMinutes(int minutes) {
+    final clamped = minutes.clamp(0, 24 * 60 - 1);
+    final hour = clamped ~/ 60;
+    final minute = clamped % 60;
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
   String _displayDay(String dayKey) {
@@ -1409,17 +1435,14 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       if (_isClosedDay(day) || _isMarkedOff(day)) return;
 
       for (final slot in list) {
-        final start = slot['start']?.trim();
-        final end = slot['end']?.trim();
+        final startMinutes = _parseTimeToMinutes(slot['start'] ?? '');
+        final endMinutes = _parseTimeToMinutes(slot['end'] ?? '');
 
-        if (start != null &&
-            end != null &&
-            start.isNotEmpty &&
-            end.isNotEmpty) {
+        if (startMinutes != null && endMinutes != null) {
           schedules.add({
             'day': day.toLowerCase(),
-            'startTime': start,
-            'endTime': end,
+            'startTime': _formatPayloadMinutes(startMinutes),
+            'endTime': _formatPayloadMinutes(endMinutes),
           });
         }
       }
@@ -1464,6 +1487,14 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     debugPrint('➡️ Assign user schedules: $schedules');
     debugPrint('➡️ Assign user services: ${widget.selectedServiceIds}');
 
+    if (widget.standalone) {
+      Navigator.pop(context, {
+        'schedules': schedules,
+        'scheduleMode': useBranchHoursScheduleMode ? 'BRANCH_HOURS' : 'CUSTOM',
+      });
+      return;
+    }
+
     setState(() => isSubmitting = true);
 
     try {
@@ -1477,6 +1508,11 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
             assignSchedules: schedules,
             initialJoiningDate: _selectedJoiningDate,
             assignScheduleSameAsBranch: useBranchHoursScheduleMode,
+            assignSalonId: widget.salonId,
+            assignMemberName:
+                '${widget.member['firstName'] ?? ''} ${widget.member['lastName'] ?? ''}'
+                    .trim(),
+            promptCompensationOnComplete: widget.promptCompensationOnComplete,
           ),
         ),
       );
@@ -1901,19 +1937,28 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (navigationDisabled) return;
-        Navigator.pop(context, _currentStateResult(completed: false));
+        Navigator.pop(
+          context,
+          widget.standalone ? null : _currentStateResult(completed: false),
+        );
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF7F4F1),
         appBar: buildProfileSubpageAppBar(
-          title: translateText('Assign User'),
+          title: widget.standalone
+              ? translateText('Custom Working Hours')
+              : translateText('Assign User'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: navigationDisabled
                 ? null
                 : () {
                     Navigator.pop(
-                        context, _currentStateResult(completed: false));
+                      context,
+                      widget.standalone
+                          ? null
+                          : _currentStateResult(completed: false),
+                    );
                   },
           ),
         ),
@@ -1931,42 +1976,44 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                 padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
                 child: Column(
                   children: [
-                    MultiStepFlowHeader(
-                      currentStep: 3,
-                      useIcons: true,
-                      steps: const [
-                        FlowStepItem(
-                          stepNumber: 1,
-                          label: 'Select Branches',
-                          icon: Icons.place_outlined,
-                        ),
-                        FlowStepItem(
-                          stepNumber: 2,
-                          label: 'Choose Services',
-                          icon: Icons.handyman_outlined,
-                        ),
-                        FlowStepItem(
-                          stepNumber: 3,
-                          label: 'Schedule',
-                          icon: Icons.calendar_today_outlined,
-                        ),
-                        FlowStepItem(
-                          stepNumber: 4,
-                          label: 'Complete',
-                          icon: Icons.check_circle_outline,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      translateText('Set Weekly Working Hours'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF111827),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                    if (!widget.standalone) ...[
+                      MultiStepFlowHeader(
+                        currentStep: 3,
+                        useIcons: true,
+                        steps: const [
+                          FlowStepItem(
+                            stepNumber: 1,
+                            label: 'Select Branches',
+                            icon: Icons.place_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 2,
+                            label: 'Choose Services',
+                            icon: Icons.handyman_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 3,
+                            label: 'Schedule',
+                            icon: Icons.calendar_today_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 4,
+                            label: 'Complete',
+                            icon: Icons.check_circle_outline,
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 10),
+                      Text(
+                        translateText('Set Weekly Working Hours'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF111827),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     Container(
                       width: double.infinity,
@@ -1974,49 +2021,43 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              // Text(
-                              //   translateText('Set Working Schedule'),
-                              //   style: const TextStyle(
-                              //     color: Color(0xFF111827),
-                              //     fontSize: 16,
-                              //     fontWeight: FontWeight.w800,
-                              //   ),
-                              // ),
-                              // const Spacer(),
-                              Flexible(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Checkbox(
-                                      value: _sameAsBranchTimings,
-                                      activeColor: AppColors.starColor,
-                                      onChanged: (value) {
-                                        _applySameAsBranchTimings(
-                                            value ?? false);
-                                      },
-                                      visualDensity: VisualDensity.compact,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    Flexible(
-                                      child: Text(
-                                        translateText('Same as branch timings'),
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Color(0xFF374151),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
+                          if (widget.showSameAsBranchToggle) ...[
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Checkbox(
+                                        value: _sameAsBranchTimings,
+                                        activeColor: AppColors.starColor,
+                                        onChanged: (value) {
+                                          _applySameAsBranchTimings(
+                                              value ?? false);
+                                        },
+                                        visualDensity: VisualDensity.compact,
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      Flexible(
+                                        child: Text(
+                                          translateText(
+                                              'Same as branch timings'),
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Color(0xFF374151),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                          ],
                           IgnorePointer(
                             ignoring: _sameAsBranchTimings,
                             child: AnimatedOpacity(
@@ -2068,6 +2109,50 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                         ],
                       ),
                     ),
+                    if (widget.standalone) ...[
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OutlinedButton(
+                              onPressed: navigationDisabled
+                                  ? null
+                                  : () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF2D2926),
+                                side: const BorderSide(
+                                  color: Color(0xFFE2D3BF),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                              child: Text(translateText('Cancel')),
+                            ),
+                            const SizedBox(width: 10),
+                            ElevatedButton(
+                              onPressed:
+                                  continueDisabled ? null : _goToCompleteStep,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.starColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                              child: Text(
+                                _sameAsBranchTimings
+                                    ? translateText('Close')
+                                    : translateText('Done'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -2078,69 +2163,74 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
             ],
           ),
         ),
-        bottomNavigationBar: SafeArea(
-          child: Container(
-            color: const Color(0xFFF7F4F1),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: navigationDisabled
-                            ? null
-                            : () => Navigator.pop(
-                                  context,
-                                  _currentStateResult(completed: false),
+        bottomNavigationBar: widget.standalone
+            ? null
+            : SafeArea(
+                child: Container(
+                  color: const Color(0xFFF7F4F1),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: navigationDisabled
+                                  ? null
+                                  : () => Navigator.pop(
+                                        context,
+                                        _currentStateResult(completed: false),
+                                      ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF2D2926),
+                                side: const BorderSide(
+                                  color: Color(0xFFE2D3BF),
                                 ),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 50),
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF2D2926),
-                          side: const BorderSide(color: Color(0xFFE2D3BF)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                translateText('Previous').toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          translateText('Previous').toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed:
+                                  continueDisabled ? null : _goToCompleteStep,
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                                backgroundColor: AppColors.starColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: Text(
+                                translateText('Next').toUpperCase(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: continueDisabled ? null : _goToCompleteStep,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 50),
-                          backgroundColor: AppColors.starColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: Text(
-                          translateText('Next').toUpperCase(),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }
