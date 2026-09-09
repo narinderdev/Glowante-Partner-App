@@ -25,32 +25,67 @@ class _WeeklyScheduleEntry {
 /// Narinder's guidance (2026-09-02 Slack): schedule lives under each
 /// branch on View Member — inline if it's the branch's own hours, or a
 /// "View Schedule" button (this screen) if the member has a custom
-/// schedule for that branch.
-class TeamMemberScheduleScreen extends StatelessWidget {
+/// schedule for that branch. A member on more than one branch can switch
+/// between them here rather than needing a separate "View Schedule" tap
+/// per branch.
+class TeamMemberScheduleScreen extends StatefulWidget {
   const TeamMemberScheduleScreen({
     super.key,
     required this.memberName,
-    required this.branchName,
-    required this.branchAssignment,
+    required this.branches,
+    required this.assignmentsByBranchId,
+    this.initialBranchId,
     this.salons,
   });
 
   final String memberName;
-  final String branchName;
 
-  /// One entry from member['branches'] — carries this branch's
+  /// Every branch this member is assigned to — {branchId, name} — for the
+  /// branch switcher. Only shown when there's more than one.
+  final List<Map<String, dynamic>> branches;
+
+  /// Each branch's own raw assignment entry from member['branches'],
+  /// keyed by branchId — carries that branch's
   /// schedules/schedule/workingHours key, whichever the backend sends.
-  final Map<String, dynamic> branchAssignment;
+  final Map<int, Map<String, dynamic>> assignmentsByBranchId;
+
+  /// Which branch to start on — the one "View Schedule" was tapped from.
+  final int? initialBranchId;
 
   /// The salon/branch hierarchy (for the branch's own posted hours, to
   /// tell "not working" apart from "salon closed that day").
   final List<Map<String, dynamic>>? salons;
+
+  @override
+  State<TeamMemberScheduleScreen> createState() =>
+      _TeamMemberScheduleScreenState();
+}
+
+class _TeamMemberScheduleScreenState extends State<TeamMemberScheduleScreen> {
+  late int? _selectedBranchId = widget.initialBranchId ??
+      (widget.branches.isNotEmpty
+          ? _toInt(widget.branches.first['branchId'])
+          : null);
 
   int? _toInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
   }
+
+  String get _selectedBranchName {
+    final id = _selectedBranchId;
+    for (final branch in widget.branches) {
+      if (_toInt(branch['branchId']) == id) {
+        return (branch['name'] ?? '').toString();
+      }
+    }
+    return '';
+  }
+
+  Map<String, dynamic> get _selectedBranchAssignment =>
+      widget.assignmentsByBranchId[_selectedBranchId] ??
+      const <String, dynamic>{};
 
   String _dayKey(String rawDay) {
     switch (rawDay.trim().toLowerCase()) {
@@ -203,7 +238,7 @@ class TeamMemberScheduleScreen extends StatelessWidget {
   }
 
   dynamic _scheduleSourceForBranch(int branchId) {
-    final salonList = salons ?? const <Map<String, dynamic>>[];
+    final salonList = widget.salons ?? const <Map<String, dynamic>>[];
     for (final rawSalon in salonList) {
       final salon = Map<String, dynamic>.from(rawSalon);
       final branches = salon['branches'];
@@ -226,13 +261,15 @@ class TeamMemberScheduleScreen extends StatelessWidget {
   }
 
   List<_WeeklyScheduleEntry> _entries() {
+    final branchAssignment = _selectedBranchAssignment;
     // Legacy per-branch shape nests branch identity under `branch: {id}`
     // instead of a flat `branchId` — check both.
     final nestedBranch = branchAssignment['branch'];
     final branchId = _toInt(branchAssignment['branchId']) ??
         (nestedBranch is Map
             ? _toInt(nestedBranch['id'] ?? nestedBranch['branchId'])
-            : null);
+            : null) ??
+        _selectedBranchId;
     final memberSchedule = _scheduleMapFromRaw(
       branchAssignment['schedules'] ??
           branchAssignment['schedule'] ??
@@ -317,7 +354,7 @@ class TeamMemberScheduleScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '$branchName · ${translateText('Weekly configured hours for this branch')}',
+                        '$_selectedBranchName · ${translateText('Weekly configured hours for this branch')}',
                         style: const TextStyle(
                           fontFamily: 'Manrope',
                           fontSize: 11.5,
@@ -352,6 +389,31 @@ class TeamMemberScheduleScreen extends StatelessWidget {
               ],
             ),
           ),
+          if (widget.branches.length > 1) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _schBorder),
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final branch in widget.branches)
+                    _BranchFilterChip(
+                      label: (branch['name'] ?? '').toString(),
+                      selected: _selectedBranchId == _toInt(branch['branchId']),
+                      onTap: () => setState(
+                        () => _selectedBranchId = _toInt(branch['branchId']),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           if (!hasAnySchedule)
             Text(
@@ -373,6 +435,45 @@ class TeamMemberScheduleScreen extends StatelessWidget {
               ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _BranchFilterChip extends StatelessWidget {
+  const _BranchFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF8B6500) : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? const Color(0xFF8B6500) : _schBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: selected ? Colors.white : _schText,
+          ),
+        ),
       ),
     );
   }

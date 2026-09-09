@@ -626,6 +626,13 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
     final String careerStart = (member['careerStartDate'] ?? '').toString();
 
     final assignedBranches = _assignedBranches(_rawAssignments());
+    final assignmentsByBranchId = <int, Map<String, dynamic>>{
+      for (final b in assignedBranches)
+        if (_toInt(b['branchId']) != null)
+          _toInt(b['branchId'])!:
+              _rawAssignmentForBranch(_toInt(b['branchId'])) ??
+                  const <String, dynamic>{},
+    };
     final rawServices = _rawServices();
     final displayName = name.isEmpty ? translateText('Team Member') : name;
     final initials = _initials(firstName, lastName).isEmpty
@@ -844,18 +851,15 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                             onViewSchedule: () {
                               final branchId =
                                   _toInt(assignedBranches[i]['branchId']);
-                              final assignment =
-                                  _rawAssignmentForBranch(branchId) ??
-                                      const <String, dynamic>{};
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => TeamMemberScheduleScreen(
                                     memberName: displayName,
-                                    branchName:
-                                        (assignedBranches[i]['name'] ?? '')
-                                            .toString(),
-                                    branchAssignment: assignment,
+                                    branches: assignedBranches,
+                                    assignmentsByBranchId:
+                                        assignmentsByBranchId,
+                                    initialBranchId: branchId,
                                     salons: salons,
                                   ),
                                 ),

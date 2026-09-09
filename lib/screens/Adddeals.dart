@@ -1709,6 +1709,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       children: [
         InkWell(
           onTap: () async {
+            FocusManager.instance.primaryFocus?.unfocus();
             final initQty = <int, int>{
               for (final s in _selectedServices)
                 (s['id'] as int): (s['qty'] as int),
