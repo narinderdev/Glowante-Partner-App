@@ -47,6 +47,8 @@ class SalonsScreenState extends State<SalonsScreen> {
   bool _isSearchActivityVisible = false;
   bool _isActionLoading = false;
   final Set<int> _collapsedSalonIds = <int>{};
+  final Map<int, int> _cardStaffCountByBranchId = <int, int>{};
+  final Set<int> _cardStaffCountLoadingBranchIds = <int>{};
   final GlobalKey _fabKey = GlobalKey();
   final GlobalKey _fabPanelKey = GlobalKey();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -239,7 +241,139 @@ class SalonsScreenState extends State<SalonsScreen> {
     return fallback;
   }
 
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  String _cleanValue(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null') return '';
+    return text;
+  }
+
+  int? _primaryBranchIdForSalon(Map<String, dynamic> salon) {
+    final branches =
+        (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    if (branches.isEmpty) {
+      return _asInt(salon['branchId'] ?? salon['mainBranchId']);
+    }
+
+    final salonName = _cleanValue(salon['name']).toLowerCase();
+    for (final branch in branches) {
+      final isMain = branch['isMain'];
+      if (isMain == true || _cleanValue(isMain).toLowerCase() == 'true') {
+        return _asInt(branch['id']);
+      }
+      final branchName = _cleanValue(branch['name']).toLowerCase();
+      if (salonName.isNotEmpty && branchName == salonName) {
+        return _asInt(branch['id']);
+      }
+    }
+    return _asInt(branches.first['id']);
+  }
+
+  void _scheduleCardStaffCountLoads(List<Map<String, dynamic>> salons) {
+    final missingBranchIds = <int>[];
+    for (final salon in salons) {
+      final branchId = _primaryBranchIdForSalon(salon);
+      if (branchId == null ||
+          _cardStaffCountByBranchId.containsKey(branchId) ||
+          _cardStaffCountLoadingBranchIds.contains(branchId)) {
+        continue;
+      }
+      _cardStaffCountLoadingBranchIds.add(branchId);
+      missingBranchIds.add(branchId);
+    }
+
+    if (missingBranchIds.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final branchId in missingBranchIds) {
+        _loadCardStaffCount(branchId);
+      }
+    });
+  }
+
+  Future<void> _loadCardStaffCount(int branchId) async {
+    try {
+      final response = await ApiService.getTeamMembers(branchId);
+      final count = response['success'] == true
+          ? _teamMemberCount(response['data'])
+          : null;
+      if (!mounted) return;
+      setState(() {
+        if (count != null) {
+          _cardStaffCountByBranchId[branchId] = count;
+        }
+        _cardStaffCountLoadingBranchIds.remove(branchId);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _cardStaffCountByBranchId[branchId] = 0;
+        _cardStaffCountLoadingBranchIds.remove(branchId);
+      });
+    }
+  }
+
+  int _teamMemberCount(dynamic data) {
+    final members = data is List
+        ? data
+        : data is Map && data['items'] is List
+            ? data['items'] as List
+            : const [];
+    final keys = <String>{};
+
+    void addMember(dynamic rawMember) {
+      if (rawMember is! Map) {
+        final name = _cleanValue(rawMember).toLowerCase();
+        if (name.isNotEmpty) keys.add('name:$name');
+        return;
+      }
+      final member = Map<String, dynamic>.from(rawMember);
+      final user = member['user'];
+      final userMap = user is Map ? Map<String, dynamic>.from(user) : null;
+
+      final id = _asInt(userMap?['id'] ??
+          member['userId'] ??
+          member['id'] ??
+          member['memberId']);
+      if (id != null) {
+        keys.add('user:$id');
+        return;
+      }
+
+      final phone = _cleanValue(member['phoneNumber'] ??
+              member['fullPhoneNumber'] ??
+              member['phone'] ??
+              userMap?['phoneNumber'])
+          .toLowerCase();
+      if (phone.isNotEmpty) {
+        keys.add('phone:$phone');
+        return;
+      }
+
+      final firstName =
+          _cleanValue(member['firstName'] ?? userMap?['firstName']);
+      final lastName = _cleanValue(member['lastName'] ?? userMap?['lastName']);
+      final name = [firstName, lastName]
+          .where((part) => part.isNotEmpty)
+          .join(' ')
+          .toLowerCase();
+      if (name.isNotEmpty) keys.add('name:$name');
+    }
+
+    for (final member in members) {
+      addMember(member);
+    }
+    return keys.length;
+  }
+
   Future<void> _refreshSalons() async {
+    _cardStaffCountByBranchId.clear();
+    _cardStaffCountLoadingBranchIds.clear();
     await context.read<SalonListCubit>().loadSalons();
   }
 
@@ -594,6 +728,7 @@ class SalonsScreenState extends State<SalonsScreen> {
           builder: (context, state) {
             final salons = _applySearch(state.salons);
             final isInitialLoading = state.isLoading && state.salons.isEmpty;
+            _scheduleCardStaffCountLoads(salons);
 
             return Stack(
               children: [
@@ -654,6 +789,8 @@ class SalonsScreenState extends State<SalonsScreen> {
                               final salon = salons[index];
                               final dynamic rawId = salon['id'];
                               final salonId = _resolveId(rawId, index);
+                              final primaryBranchId =
+                                  _primaryBranchIdForSalon(salon);
                               final isExpanded =
                                   !_collapsedSalonIds.contains(salonId);
                               return Padding(
@@ -663,6 +800,13 @@ class SalonsScreenState extends State<SalonsScreen> {
                                 child: _SalonCard(
                                   salon: salon,
                                   salonId: salonId,
+                                  primaryBranchStaffCount:
+                                      primaryBranchId == null
+                                          ? null
+                                          : _cardStaffCountByBranchId[
+                                              primaryBranchId],
+                                  useSalonStaffFallback:
+                                      primaryBranchId == null,
                                   isExpanded: isExpanded,
                                   onToggle: () => _toggleSalonBranches(salonId),
                                   onOpenSalon: () => _showSalonDetailsModal(
@@ -1935,6 +2079,8 @@ class _SalonCard extends StatelessWidget {
   const _SalonCard({
     required this.salon,
     required this.salonId,
+    this.primaryBranchStaffCount,
+    this.useSalonStaffFallback = true,
     required this.isExpanded,
     required this.onToggle,
     required this.onOpenSalon,
@@ -1950,6 +2096,8 @@ class _SalonCard extends StatelessWidget {
 
   final Map<String, dynamic> salon;
   final int salonId;
+  final int? primaryBranchStaffCount;
+  final bool useSalonStaffFallback;
   final bool isExpanded;
   final VoidCallback onToggle;
   final VoidCallback onOpenSalon;
@@ -2545,27 +2693,106 @@ class _SalonCard extends StatelessWidget {
   }
 
   int _staffCount(List<Map<String, dynamic>> branches) {
+    final memberKeys = <String>{};
+    var hasTeamList = false;
+
+    int? asInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value);
+      return null;
+    }
+
+    String clean(dynamic value) {
+      final text = value?.toString().trim() ?? '';
+      if (text.isEmpty || text.toLowerCase() == 'null') return '';
+      return text;
+    }
+
+    void addMember(dynamic rawMember) {
+      if (rawMember is! Map) {
+        final name = clean(rawMember).toLowerCase();
+        if (name.isNotEmpty) memberKeys.add('name:$name');
+        return;
+      }
+
+      final member = Map<String, dynamic>.from(rawMember);
+      final user = member['user'];
+      final userMap = user is Map ? Map<String, dynamic>.from(user) : null;
+      final profile = member['profile'];
+      final profileMap =
+          profile is Map ? Map<String, dynamic>.from(profile) : null;
+      final profileUser = profileMap?['user'];
+      final profileUserMap =
+          profileUser is Map ? Map<String, dynamic>.from(profileUser) : null;
+
+      for (final id in [
+        userMap?['id'],
+        member['userId'],
+        member['memberId'],
+        member['teamMemberId'],
+        profileMap?['userId'],
+        profileUserMap?['id'],
+      ]) {
+        final parsed = asInt(id);
+        if (parsed != null) {
+          memberKeys.add('user:$parsed');
+          return;
+        }
+      }
+
+      final phone = clean(member['phone'] ??
+              member['phoneNumber'] ??
+              userMap?['phone'] ??
+              userMap?['phoneNumber'])
+          .toLowerCase();
+      if (phone.isNotEmpty) {
+        memberKeys.add('phone:$phone');
+        return;
+      }
+
+      final email = clean(member['email'] ?? userMap?['email']).toLowerCase();
+      if (email.isNotEmpty) {
+        memberKeys.add('email:$email');
+        return;
+      }
+
+      final firstName = clean(member['firstName'] ?? userMap?['firstName']);
+      final lastName = clean(member['lastName'] ?? userMap?['lastName']);
+      final fullName = [firstName, lastName]
+          .where((part) => part.isNotEmpty)
+          .join(' ')
+          .toLowerCase();
+      final fallbackName =
+          fullName.isNotEmpty ? fullName : clean(member['name']).toLowerCase();
+      if (fallbackName.isNotEmpty) memberKeys.add('name:$fallbackName');
+    }
+
+    for (final branch in branches) {
+      final team = branch['team'] ?? branch['staff'] ?? branch['stylists'];
+      if (team is List) {
+        hasTeamList = true;
+        for (final member in team) {
+          addMember(member);
+        }
+      }
+    }
+    if (hasTeamList) return memberKeys.length;
+
     for (final key in const [
       'staffCount',
       'teamCount',
       'employeeCount',
       'stylistsCount',
     ]) {
-      final value = salon[key];
-      if (value is int) return value;
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) return parsed;
-      }
+      final parsed = asInt(salon[key]);
+      if (parsed != null) return parsed;
     }
 
     int total = 0;
     for (final branch in branches) {
-      final team = branch['team'] ?? branch['staff'] ?? branch['stylists'];
-      if (team is List) total += team.length;
       final value = branch['staffCount'] ?? branch['teamCount'];
-      if (value is int) total += value;
-      if (value is String) total += int.tryParse(value) ?? 0;
+      total += asInt(value) ?? 0;
     }
     return total;
   }
@@ -2633,7 +2860,8 @@ class _SalonCard extends StatelessWidget {
     final visibleBranches = branches.where((branch) => !isMainBranch(branch));
     final visibleBranchList = visibleBranches.toList();
     final branchCount = visibleBranchList.length;
-    final staffCount = _staffCount(branches);
+    final staffCount = primaryBranchStaffCount ??
+        (useSalonStaffFallback ? _staffCount(branches) : 0);
     final isActive = salon['active'] != false;
     var primaryBranchId = 0;
     if (primaryBranch != null) {

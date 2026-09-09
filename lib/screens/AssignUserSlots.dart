@@ -1490,6 +1490,12 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     if (widget.standalone) {
       Navigator.pop(context, {
         'schedules': schedules,
+        // _buildSchedulePayload() omits marked-off days entirely (that's
+        // how the backend already reads "day off" — absent from the list),
+        // but reopening this modal still needs to know which day was
+        // explicitly marked off vs. just not filled in yet, or it loses
+        // that distinction and shows it as a plain empty day instead.
+        'markedOffDays': _markedOffDays.toList(),
         'scheduleMode': useBranchHoursScheduleMode ? 'BRANCH_HOURS' : 'CUSTOM',
       });
       return;

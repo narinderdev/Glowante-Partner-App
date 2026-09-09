@@ -175,8 +175,68 @@ class _DealScreenState extends State<DealScreen> {
     });
   }
 
-  Future<void> _toggleOfferStatus(int offerId, bool makeLive) async {
+  Future<bool> _confirmOfferStatusChange({
+    required String offerName,
+    required bool makeLive,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          translateText(makeLive ? 'Make Deal Live?' : 'Deactivate Deal?'),
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: Text(
+          [
+            if (offerName.trim().isNotEmpty) '"${offerName.trim()}"',
+            translateText(
+              makeLive
+                  ? 'This deal will become visible and available for customers.'
+                  : 'This deal will no longer be available for customers.',
+            ),
+          ].join('\n\n'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(foregroundColor: _offerMuted),
+            child: Text(translateText('Cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _offerGold,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              translateText(makeLive ? 'Make Live' : 'Deactivate'),
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
+  }
+
+  Future<void> _toggleOfferStatus(
+    int offerId,
+    bool makeLive,
+    String offerName,
+  ) async {
     if (selectedSalonId == null) return;
+    final confirmed = await _confirmOfferStatusChange(
+      offerName: offerName,
+      makeLive: makeLive,
+    );
+    if (!confirmed || !mounted) return;
+
     setState(() => _statusUpdatingIds.add(offerId));
     try {
       await ApiService().setBranchOfferStatus(
@@ -434,7 +494,7 @@ class _DealScreenState extends State<DealScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  translateText('Salon Deals'),
+                  translateText('Branch Deals'),
                   style: const TextStyle(
                     color: _offerInk,
                     fontSize: 17,
@@ -657,6 +717,7 @@ class _DealScreenState extends State<DealScreen> {
                               (offer['status']?.toString().toUpperCase() ??
                                       '') !=
                                   'ACTIVE',
+                              offer['name']?.toString() ?? '',
                             ),
                             onDelete: () =>
                                 _confirmDeleteOffer(offerId, offer['name']),

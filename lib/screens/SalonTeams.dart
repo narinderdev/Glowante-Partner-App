@@ -2172,6 +2172,12 @@ class _TeamScreenState extends State<TeamScreen> {
         ),
       );
       FocusManager.instance.primaryFocus?.unfocus();
+      // View Member's own pencil-icon edit can make real changes in place
+      // (e.g. a photo upload, which saves immediately rather than waiting
+      // for that screen's own Save & Continue) — refresh here too, not
+      // just after the explicit Edit/Assign actions, or the list card
+      // stays stale until a manual pull-to-refresh.
+      await _refreshCurrentTeamTab();
     } finally {
       if (mounted) {
         setState(() => _openingViewMemberId = null);
@@ -4465,17 +4471,23 @@ class _TeamMemberCard extends StatelessWidget {
                         value: translateText('Rating'),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _TeamCompactActionButton(
-                        icon: Icons.delete_outline_rounded,
-                        label: translateText('Delete'),
-                        color: AppColors.red,
-                        isLoading: isDeleting,
-                        onPressed:
-                            (_isBusy || isDeleteBlocked) ? null : onDelete,
+                    // Setup Required members have no branch assigned yet, so
+                    // there's nothing meaningful to delete a team-member
+                    // record out of — showing the button just disabled was
+                    // confusing since it looked broken rather than N/A.
+                    if (!needsSetup) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _TeamCompactActionButton(
+                          icon: Icons.delete_outline_rounded,
+                          label: translateText('Delete'),
+                          color: AppColors.red,
+                          isLoading: isDeleting,
+                          onPressed:
+                              (_isBusy || isDeleteBlocked) ? null : onDelete,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 10),

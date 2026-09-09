@@ -11,7 +11,7 @@ class AppInputRules {
   static const int longTextMaxLength = 250;
 
   static final RegExp namePattern = RegExp(r"[A-Za-z0-9 &]");
-  static final RegExp serviceNamePattern = RegExp(r"[A-Za-z0-9 &-]");
+  static final RegExp serviceNamePattern = RegExp(r"[A-Za-z0-9 &,/-]");
   static final RegExp alphaNumericSlashDashPattern = RegExp(r'[A-Za-z0-9/-]');
   static final RegExp generalTextPattern = RegExp(r"[A-Za-z0-9 .,'&()/-]");
 

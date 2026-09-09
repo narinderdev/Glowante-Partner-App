@@ -19,6 +19,7 @@ class TeamMemberServicesScreen extends StatefulWidget {
     required this.memberName,
     required this.services,
     required this.branches,
+    this.initialBranchId,
   });
 
   final String memberName;
@@ -29,13 +30,18 @@ class TeamMemberServicesScreen extends StatefulWidget {
   final List<Map<String, dynamic>> services;
   final List<Map<String, dynamic>> branches;
 
+  /// Pre-selects the branch filter when opened from that branch's own row
+  /// on View Member, instead of always starting on "all branches" — the
+  /// filter itself stays, so switching to another branch still works.
+  final int? initialBranchId;
+
   @override
   State<TeamMemberServicesScreen> createState() =>
       _TeamMemberServicesScreenState();
 }
 
 class _TeamMemberServicesScreenState extends State<TeamMemberServicesScreen> {
-  int? _selectedBranchId;
+  late int? _selectedBranchId = widget.initialBranchId;
 
   int? _toInt(dynamic value) {
     if (value is int) return value;

@@ -1,12 +1,17 @@
 // ignore_for_file: file_names
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../utils/price_formatter.dart';
 import '../widgets/app_loader.dart';
+import 'team_member_compensation_setup_step.dart';
+import 'team_member_personal_info_screen.dart';
 import 'team_member_schedule_screen.dart';
 import 'team_member_services_screen.dart';
 
@@ -116,9 +121,123 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
   late Map<String, dynamic> member = widget.member;
   bool _isRefreshing = false;
 
+  bool _isLoadingCompensation = true;
+  Map<String, dynamic>? _currentCompensation;
+  Map<String, dynamic>? _upcomingCompensation;
+
   List<Map<String, dynamic>>? get salons => widget.salons;
   double get professionalRating => widget.professionalRating;
   int get professionalReviewCount => widget.professionalReviewCount;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadCompensation());
+  }
+
+  Future<void> _loadCompensation() async {
+    final userId = _toInt(member['userId']);
+    final salonId = widget.salonId;
+    if (userId == null || salonId == null) {
+      setState(() => _isLoadingCompensation = false);
+      return;
+    }
+    try {
+      final response =
+          await ApiService().getTeamMemberCompensation(salonId, userId);
+      if (!mounted) return;
+      if (response['success'] == true && response['data'] is Map) {
+        final data = Map<String, dynamic>.from(response['data'] as Map);
+        final current = data['current'];
+        final upcoming = data['upcoming'];
+        setState(() {
+          _currentCompensation =
+              current is Map ? Map<String, dynamic>.from(current) : null;
+          _upcomingCompensation =
+              upcoming is Map ? Map<String, dynamic>.from(upcoming) : null;
+        });
+      }
+    } catch (_) {
+      // Leave the section showing "No compensation set" if this fails.
+    } finally {
+      if (mounted) setState(() => _isLoadingCompensation = false);
+    }
+  }
+
+  String _payTypeLabel(String value) {
+    return value == 'SALARY_PLUS_COMMISSION'
+        ? translateText('Salary + Commission')
+        : translateText('Monthly Salary');
+  }
+
+  List<_ProfileDetailRowData> _compensationRows(Map<String, dynamic> record) {
+    return [
+      _ProfileDetailRowData(
+        label: 'Pay Type',
+        value: _payTypeLabel((record['compensationType'] ?? '').toString()),
+      ),
+      _ProfileDetailRowData(
+        label: 'Salary',
+        value: formatMinorAmount(record['salaryAmountMinor'],
+            trimZeroDecimals: true),
+      ),
+      _ProfileDetailRowData(
+        label: 'Effective From',
+        value: _displayValue(record['effectiveFrom']),
+      ),
+    ];
+  }
+
+  Future<void> _openEdit() async {
+    final salonId = widget.salonId;
+    final userId = _toInt(member['userId']);
+    final branchId =
+        widget.branchId ?? _toInt(_primaryAssignment()?['branchId']);
+    if (salonId == null || userId == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TeamMemberPersonalInfoScreen(
+          salonId: salonId,
+          userId: userId,
+          branchId: branchId,
+          initialMember: Map<String, dynamic>.from(member),
+          salons: salons ?? const [],
+          // Fill-missing-only, not full edit — this is a quick "fix
+          // something I missed" (e.g. a photo) entry point from View
+          // Member, not the full Edit action from the Actions menu.
+          // Already-filled fields lock instead of staying open to
+          // accidental overwrite. Single step here too (Personal
+          // Information only) — the Actions-menu Edit is the one that
+          // chains into Branch Setup.
+        ),
+      ),
+    );
+    if (!mounted) return;
+    unawaited(_refresh());
+  }
+
+  Future<void> _openEditCompensation() async {
+    final salonId = widget.salonId;
+    final userId = _toInt(member['userId']);
+    if (salonId == null || userId == null) return;
+    final firstName = (member['firstName'] ?? '').toString();
+    final lastName = (member['lastName'] ?? '').toString();
+    final memberName = '$firstName $lastName'.trim();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TeamMemberCompensationSetupStep(
+          salonId: salonId,
+          userId: userId,
+          memberName: memberName,
+          isStandalone: true,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    unawaited(_loadCompensation());
+  }
 
   Future<void> _refresh() async {
     final userId = _toInt(member['userId']);
@@ -513,6 +632,13 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
       backgroundColor: _memberDetailBackground,
       appBar: buildProfileSubpageAppBar(
         title: translateText('View Member'),
+        actions: [
+          IconButton(
+            onPressed: _openEdit,
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: translateText('Edit'),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         color: AppColors.starColor,
@@ -603,6 +729,81 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                 ),
                 const SizedBox(height: 14),
                 _DetailSectionCard(
+                  icon: Icons.payments_outlined,
+                  title: 'Compensation',
+                  trailing: TextButton.icon(
+                    onPressed: _openEditCompensation,
+                    icon: const Icon(Icons.edit_outlined, size: 15),
+                    label: Text(
+                      translateText('Edit'),
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.starColor,
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                  child: _isLoadingCompensation
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
+                      : (_currentCompensation == null &&
+                              _upcomingCompensation == null)
+                          ? const _EmptyDetailText(text: 'No compensation set')
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (_currentCompensation != null) ...[
+                                  Text(
+                                    translateText('Current'),
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11,
+                                      color: _memberDetailMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _ProfileDetailList(
+                                    rows: _compensationRows(
+                                        _currentCompensation!),
+                                  ),
+                                ],
+                                if (_upcomingCompensation != null) ...[
+                                  if (_currentCompensation != null)
+                                    const SizedBox(height: 12),
+                                  Text(
+                                    translateText('Upcoming'),
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11,
+                                      color: _memberDetailMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _ProfileDetailList(
+                                    rows: _compensationRows(
+                                        _upcomingCompensation!),
+                                  ),
+                                ],
+                              ],
+                            ),
+                ),
+                const SizedBox(height: 14),
+                _DetailSectionCard(
                   icon: Icons.emoji_objects_outlined,
                   title: 'Specialities',
                   child: specialities.isEmpty
@@ -623,60 +824,6 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              rawServices.isEmpty
-                                  ? translateText('No services assigned')
-                                  : translateText(
-                                      '{n} services assigned',
-                                      params: {'n': '${rawServices.length}'},
-                                    ),
-                              style: const TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 12,
-                                color: _memberDetailMuted,
-                              ),
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: rawServices.isEmpty
-                                ? null
-                                : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            TeamMemberServicesScreen(
-                                          memberName: displayName,
-                                          services: rawServices,
-                                          branches: assignedBranches,
-                                        ),
-                                      ),
-                                    ),
-                            icon: const Icon(
-                              Icons.design_services_outlined,
-                              size: 15,
-                            ),
-                            label: Text(
-                              translateText('View Services'),
-                              style: const TextStyle(
-                                fontFamily: 'Manrope',
-                                fontWeight: FontWeight.w800,
-                                fontSize: 12,
-                              ),
-                            ),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.starColor,
-                              padding: EdgeInsets.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      const Divider(height: 1, color: _memberDetailBorder),
-                      const SizedBox(height: 4),
                       if (assignedBranches.isEmpty)
                         const _EmptyDetailText(text: 'No branches assigned')
                       else
@@ -699,6 +846,26 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                                             .toString(),
                                     branchAssignment: assignment,
                                     salons: salons,
+                                  ),
+                                ),
+                              );
+                            },
+                            // Always shown, even with zero services, so the
+                            // entry point itself doesn't disappear — matches
+                            // the web reference, and TeamMemberServicesScreen
+                            // already has its own empty state to fall back
+                            // on.
+                            onViewServices: () {
+                              final branchId =
+                                  _toInt(assignedBranches[i]['branchId']);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TeamMemberServicesScreen(
+                                    memberName: displayName,
+                                    services: rawServices,
+                                    branches: assignedBranches,
+                                    initialBranchId: branchId,
                                   ),
                                 ),
                               );
@@ -960,11 +1127,13 @@ class _DetailSectionCard extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.child,
+    this.trailing,
   });
 
   final String title;
   final IconData icon;
   final Widget child;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -998,6 +1167,7 @@ class _DetailSectionCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (trailing != null) trailing!,
             ],
           ),
           const SizedBox(height: 14),
@@ -1147,10 +1317,39 @@ class _DetailChip extends StatelessWidget {
 }
 
 class _AssignedBranchRow extends StatelessWidget {
-  const _AssignedBranchRow({required this.branch, this.onViewSchedule});
+  const _AssignedBranchRow({
+    required this.branch,
+    this.onViewSchedule,
+    this.onViewServices,
+  });
 
   final Map<String, dynamic> branch;
   final VoidCallback? onViewSchedule;
+  final VoidCallback? onViewServices;
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return TextButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 14),
+      label: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.starColor,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1163,70 +1362,83 @@ class _AssignedBranchRow extends StatelessWidget {
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF3D5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.location_on_outlined,
-              size: 16,
-              color: AppColors.starColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  branch['name'].toString(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: _memberDetailText,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3D5),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                if (subtitleParts.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitleParts.join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 11,
-                      color: _memberDetailMuted,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (onViewSchedule != null) ...[
-            const SizedBox(width: 8),
-            TextButton.icon(
-              onPressed: onViewSchedule,
-              icon: const Icon(Icons.schedule_outlined, size: 14),
-              label: Text(
-                translateText('View Schedule'),
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 11,
+                child: const Icon(
+                  Icons.location_on_outlined,
+                  size: 16,
+                  color: AppColors.starColor,
                 ),
               ),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.starColor,
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      branch['name'].toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _memberDetailText,
+                      ),
+                    ),
+                    if (subtitleParts.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitleParts.join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 11,
+                          color: _memberDetailMuted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // Both actions live under this specific branch's row, not as a
+          // separate section above the branch list — previously "View
+          // Services" was one aggregate link above all branches while
+          // "View Schedule" was per-branch, which read as if services
+          // weren't tied to any particular branch.
+          if (onViewSchedule != null || onViewServices != null) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 40),
+              child: Wrap(
+                spacing: 12,
+                children: [
+                  if (onViewServices != null)
+                    _actionButton(
+                      icon: Icons.design_services_outlined,
+                      label: translateText('View Services'),
+                      onPressed: onViewServices,
+                    ),
+                  if (onViewSchedule != null)
+                    _actionButton(
+                      icon: Icons.schedule_outlined,
+                      label: translateText('View Schedule'),
+                      onPressed: onViewSchedule,
+                    ),
+                ],
               ),
             ),
           ],

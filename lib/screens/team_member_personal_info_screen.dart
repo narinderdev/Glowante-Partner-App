@@ -13,6 +13,7 @@ import 'complete_profile_shared.dart';
 import 'team_branch_setup_screen.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
+import '../utils/colors.dart';
 import '../utils/error_parser.dart';
 import '../widgets/app_loader.dart';
 
@@ -192,6 +193,61 @@ class _TeamMemberPersonalInfoScreenState
         draft != null &&
         !draft.hasBio &&
         _bioCtrl.text.trim().isEmpty;
+  }
+
+  bool get _genderHasError {
+    final draft = _draft;
+    return _showValidationErrors &&
+        draft != null &&
+        !draft.hasGender &&
+        draft.gender == null;
+  }
+
+  bool get _careerStartDateHasError {
+    final draft = _draft;
+    return _showValidationErrors &&
+        draft != null &&
+        !draft.hasCareerStartDate &&
+        draft.careerStartDate == null;
+  }
+
+  // Mirrors CompleteProfileDraft.addressCompletionError()'s logic but reads
+  // the live controllers directly rather than draft's own line1/city/etc.
+  // fields, which only get synced from them at submit time
+  // (_syncDraftFromControllers) — this needs to reflect what's on screen
+  // right now, before another submit attempt.
+  String? get _addressError {
+    final draft = _draft;
+    if (!_showValidationErrors || draft == null || draft.hasAddress) {
+      return null;
+    }
+    final missing = <String>[];
+    if (_line1Ctrl.text.trim().isEmpty) {
+      missing.add(translateText('Address line 1'));
+    }
+    if (_cityCtrl.text.trim().isEmpty && _villageCtrl.text.trim().isEmpty) {
+      missing.add(translateText('City or Village'));
+    }
+    if (_stateCtrl.text.trim().isEmpty) missing.add(translateText('State'));
+    if (_countryCtrl.text.trim().isEmpty) {
+      missing.add(translateText('Country'));
+    }
+    if (_postalCodeCtrl.text.trim().isEmpty) {
+      missing.add(translateText('Postal code'));
+    }
+    if (missing.isEmpty) return null;
+    return translateText(
+      'Address is missing: {fields}',
+      params: {'fields': missing.join(', ')},
+    );
+  }
+
+  bool get _specialitiesHasError {
+    final draft = _draft;
+    return _showValidationErrors &&
+        draft != null &&
+        draft.specialityCodes.isEmpty &&
+        draft.specialityOptions.isNotEmpty;
   }
 
   Future<void> _loadData() async {
@@ -555,8 +611,26 @@ class _TeamMemberPersonalInfoScreenState
       Fluttertoast.showToast(msg: translateText('First name is required'));
       return;
     }
+    if (_genderHasError) {
+      Fluttertoast.showToast(msg: translateText('Gender is required'));
+      return;
+    }
     if (_bioHasError) {
       Fluttertoast.showToast(msg: translateText('Bio is required'));
+      return;
+    }
+    if (_careerStartDateHasError) {
+      Fluttertoast.showToast(
+        msg: translateText('Career start date is required'),
+      );
+      return;
+    }
+    // Skipped only when there's genuinely nothing to pick from — otherwise
+    // the "No specialities available" state would be unsaveable.
+    if (draft.specialityCodes.isEmpty && draft.specialityOptions.isNotEmpty) {
+      Fluttertoast.showToast(
+        msg: translateText('Select at least one speciality'),
+      );
       return;
     }
 
@@ -635,7 +709,15 @@ class _TeamMemberPersonalInfoScreenState
     }
 
     if (!widget.chainIntoAssignFlow) {
-      _returnToTeamMembersWithRefresh();
+      // Neither chain flag set — this is the standalone quick-edit entry
+      // point (View Member's pencil icon), pushed directly rather than
+      // through SalonTeams.dart's chain, so there's no
+      // kCompleteProfileRootRouteName marker anywhere in this stack for
+      // _returnToTeamMembersWithRefresh()'s popUntil to find — without one
+      // it pops all the way to the very first route in the whole app
+      // instead of just back to whatever pushed this screen. A plain pop
+      // returns to that caller, which handles its own refresh.
+      Navigator.pop(context, true);
       return;
     }
 
@@ -693,7 +775,7 @@ class _TeamMemberPersonalInfoScreenState
           ? null
           : CpBottomButton(
               label: translateText('Save & Continue'),
-              isBusy: _isSaving,
+              isBusy: _isSaving || _isUploadingAvatar,
               onPressed: _submit,
             ),
     );
@@ -727,58 +809,76 @@ class _TeamMemberPersonalInfoScreenState
         CpSectionCard(
           title: translateText('Gender'),
           icon: Icons.wc_rounded,
+          required: true,
           children: [
             CpLockableField(
               label: translateText('Gender'),
               isLocked: draft.hasGender,
               lockedValue: draft.profile['gender']?.toString(),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icons.male_rounded,
-                  Icons.female_rounded,
-                  Icons.transgender_rounded,
-                ].asMap().entries.map((entry) {
-                  const options = ['male', 'female', 'other'];
-                  final option = options[entry.key];
-                  final selected = draft.gender == option;
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(right: entry.key < 2 ? 8 : 0),
-                      child: InkWell(
-                        onTap: () => setState(() => draft.gender = option),
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: selected ? cpAccentLight : Colors.white,
+                  Row(
+                    children: [
+                      Icons.male_rounded,
+                      Icons.female_rounded,
+                      Icons.transgender_rounded,
+                    ].asMap().entries.map((entry) {
+                      const options = ['male', 'female', 'other'];
+                      final option = options[entry.key];
+                      final selected = draft.gender == option;
+                      return Expanded(
+                        child: Padding(
+                          padding:
+                              EdgeInsets.only(right: entry.key < 2 ? 8 : 0),
+                          child: InkWell(
+                            onTap: () => setState(() => draft.gender = option),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: selected ? cpAccent : cpBorder,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(entry.value,
-                                  size: 18,
-                                  color: selected ? cpAccent : cpMuted),
-                              const SizedBox(height: 4),
-                              Text(
-                                translateText(
-                                  option[0].toUpperCase() + option.substring(1),
-                                ),
-                                style: TextStyle(
-                                  color: selected ? cpAccent : cpMuted,
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: selected ? cpAccentLight : Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: selected ? cpAccent : cpBorder,
                                 ),
                               ),
-                            ],
+                              child: Column(
+                                children: [
+                                  Icon(entry.value,
+                                      size: 18,
+                                      color: selected ? cpAccent : cpMuted),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    translateText(
+                                      option[0].toUpperCase() +
+                                          option.substring(1),
+                                    ),
+                                    style: TextStyle(
+                                      color: selected ? cpAccent : cpMuted,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
+                      );
+                    }).toList(),
+                  ),
+                  if (_genderHasError) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      translateText('Gender is required'),
+                      style: const TextStyle(
+                        color: AppColors.red,
+                        fontSize: 11.5,
                       ),
                     ),
-                  );
-                }).toList(),
+                  ],
+                ],
               ),
             ),
           ],
@@ -787,6 +887,7 @@ class _TeamMemberPersonalInfoScreenState
         CpSectionCard(
           title: translateText('Name'),
           icon: Icons.badge_outlined,
+          required: true,
           children: [
             CpLockableField(
               label: translateText('First name'),
@@ -825,6 +926,7 @@ class _TeamMemberPersonalInfoScreenState
         CpSectionCard(
           title: translateText('Address'),
           icon: Icons.place_outlined,
+          required: true,
           children: [
             if (draft.hasAddress)
               CpLockedValueChip(
@@ -877,74 +979,67 @@ class _TeamMemberPersonalInfoScreenState
                   ),
                 ),
               ),
+              // City/village/district/state/country/postal code are all
+              // captured by AddLocationScreen's geocoding when a location is
+              // picked above — re-showing them as separate editable fields
+              // here re-asks for data already collected. Once something's
+              // been picked, show what was captured as a compact summary
+              // instead; to correct it, re-tap "Search address" above and
+              // pick again, rather than hand-editing each sub-field. Line 2
+              // stays its own field since it's never part of a location
+              // pick (apartment/suite/floor, always manual).
+              if ([
+                _cityCtrl,
+                _villageCtrl,
+                _districtCtrl,
+                _stateCtrl,
+                _countryCtrl,
+                _postalCodeCtrl,
+              ].any((c) => c.text.trim().isNotEmpty)) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: cpSurface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: cpBorder),
+                  ),
+                  child: Text(
+                    [
+                      _cityCtrl.text.trim(),
+                      _villageCtrl.text.trim(),
+                      _districtCtrl.text.trim(),
+                      _stateCtrl.text.trim(),
+                      _countryCtrl.text.trim(),
+                      _postalCodeCtrl.text.trim(),
+                    ].where((part) => part.isNotEmpty).join(', '),
+                    style: const TextStyle(color: cpInk, fontSize: 12.5),
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               TextFormField(
                 controller: _line2Ctrl,
-                decoration: cpInputDecoration(translateText('Address line 2')),
+                decoration: cpInputDecoration(
+                    translateText('Address line 2 (optional)')),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _cityCtrl,
-                      decoration: cpInputDecoration(translateText('City')),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _villageCtrl,
-                      decoration: cpInputDecoration(translateText('Village')),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _districtCtrl,
-                      decoration: cpInputDecoration(translateText('District')),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _stateCtrl,
-                      decoration: cpInputDecoration(translateText('State')),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _countryCtrl,
-                      decoration: cpInputDecoration(translateText('Country')),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _postalCodeCtrl,
-                      decoration:
-                          cpInputDecoration(translateText('Postal code')),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
+              if (_addressError != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _addressError!,
+                  style: const TextStyle(color: AppColors.red, fontSize: 11.5),
+                ),
+              ],
             ],
           ],
         ),
         const CpSectionDivider(),
         CpSectionCard(
-          title: '${translateText('Bio')} *',
+          title: translateText('Bio'),
           icon: Icons.description_outlined,
+          required: true,
           children: [
             CpLockableField(
               label: translateText('Bio'),
@@ -968,6 +1063,7 @@ class _TeamMemberPersonalInfoScreenState
         CpSectionCard(
           title: translateText('Career start date'),
           icon: Icons.work_outline_rounded,
+          required: true,
           children: [
             CpLockableField(
               label: translateText('Career start date'),
@@ -983,6 +1079,9 @@ class _TeamMemberPersonalInfoScreenState
                         size: 16, color: cpMuted),
                     suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
                         color: cpMuted),
+                    errorText: _careerStartDateHasError
+                        ? translateText('Career start date is required')
+                        : null,
                   ),
                   child: Text(
                     draft.careerStartDate == null
@@ -1025,6 +1124,7 @@ class _TeamMemberPersonalInfoScreenState
           CpSectionCard(
             title: translateText('Specialities'),
             icon: Icons.star_border_rounded,
+            required: true,
             children: [
               CpLockedValueChip(
                 // Handles both shapes this field comes back in — {code,
@@ -1046,6 +1146,7 @@ class _TeamMemberPersonalInfoScreenState
           CpSectionCard(
             title: translateText('Specialities'),
             icon: Icons.star_border_rounded,
+            required: true,
             children: [
               Text(
                 translateText('No specialities available'),
@@ -1057,6 +1158,7 @@ class _TeamMemberPersonalInfoScreenState
           CpSectionCard(
             title: translateText('Specialities'),
             icon: Icons.star_border_rounded,
+            required: true,
             children: [
               InkWell(
                 onTap: () => _pickSpecialities(draft),
@@ -1067,6 +1169,9 @@ class _TeamMemberPersonalInfoScreenState
                           .copyWith(
                     suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
                         color: cpMuted),
+                    errorText: _specialitiesHasError
+                        ? translateText('Select at least one speciality')
+                        : null,
                   ),
                   child: Text(
                     draft.specialityCodes.isEmpty

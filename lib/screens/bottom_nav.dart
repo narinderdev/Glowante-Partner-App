@@ -41,6 +41,7 @@ class _BottomNavState extends State<BottomNav> {
 
   late int _currentIndex;
   late final List<Widget> _screens;
+  late final GlobalKey<BookingsScreenState> _bookingsScreenKey;
   late final GlobalKey<SalonsScreenState> _salonsScreenKey;
   late final GlobalKey<CategoryScreenState> _categoryScreenKey;
   late final VoidCallback _branchSelectionListener;
@@ -51,11 +52,12 @@ class _BottomNavState extends State<BottomNav> {
   @override
   void initState() {
     super.initState();
+    _bookingsScreenKey = GlobalKey<BookingsScreenState>();
     _salonsScreenKey = GlobalKey<SalonsScreenState>();
     _categoryScreenKey = GlobalKey<CategoryScreenState>();
     _screens = [
       OwnerDashboardScreen(onOpenMoreTab: _openProfileMenu),
-      const BookingsScreen(),
+      BookingsScreen(key: _bookingsScreenKey),
       SalonsScreen(key: _salonsScreenKey),
       CategoryScreen(key: _categoryScreenKey),
       const OwnerMoreScreen(),
@@ -152,7 +154,14 @@ class _BottomNavState extends State<BottomNav> {
 
   void _setCurrentIndex(int index, {bool animate = true}) {
     if (_currentIndex == index && animate) {
-      if (index == 2) {
+      if (index == 1) {
+        unawaited(
+          _bookingsScreenKey.currentState?.refreshFromCurrentSelection(
+                resetDateToToday: true,
+              ) ??
+              Future<void>.value(),
+        );
+      } else if (index == 2) {
         _salonsScreenKey.currentState?.collapseQuickActions();
       } else if (index == 3) {
         _categoryScreenKey.currentState
@@ -163,6 +172,8 @@ class _BottomNavState extends State<BottomNav> {
 
     if (_currentIndex == 2) {
       _salonsScreenKey.currentState?.collapseQuickActions();
+    } else if (_currentIndex == 3 && index != 3) {
+      _categoryScreenKey.currentState?.hidePredefinedServicesHint();
     }
 
     if (mounted) {
@@ -176,6 +187,15 @@ class _BottomNavState extends State<BottomNav> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _categoryScreenKey.currentState
             ?.refreshFromCurrentSelection(tabBecameActive: true);
+      });
+    } else if (index == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(
+          _bookingsScreenKey.currentState?.refreshFromCurrentSelection(
+                resetDateToToday: true,
+              ) ??
+              Future<void>.value(),
+        );
       });
     }
     debugPrint('[HomeReach] Owner home shell active tab=$_currentIndex');

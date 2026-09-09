@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
+import '../utils/colors.dart';
+
 const Color cpAccent = Color(0xFFC19A6B);
 const Color cpAccentLight = Color(0xFFF3E8D1);
 const Color cpInk = Color(0xFF1C1917);
@@ -157,9 +159,16 @@ class CompleteProfileDraft {
   // incomplete one is simply dropped by the server (rendered as `address:
   // null` on the next GET), so it's better to catch that client-side with
   // a clear message than to silently lose what the user typed.
+  // Address is mandatory (missingForActiveStatus), so this now also fires
+  // on a completely untouched address, not just an incomplete one — and
+  // checks all the sub-fields together instead of gating everything on
+  // line1 being filled, which previously let a line1-empty-but-line2-filled
+  // address (or any other partial combination) through as if nothing had
+  // been entered at all, silently dropping whatever was typed.
   String? addressCompletionError() {
-    if (hasAddress || line1.trim().isEmpty) return null;
+    if (hasAddress) return null;
     final missing = <String>[];
+    if (line1.trim().isEmpty) missing.add(translateText('Address line 1'));
     if (city.trim().isEmpty && village.trim().isEmpty) {
       missing.add(translateText('City or Village'));
     }
@@ -250,11 +259,18 @@ class CpSectionCard extends StatelessWidget {
     required this.title,
     required this.children,
     this.icon,
+    this.required = false,
   });
 
   final String title;
   final List<Widget> children;
   final IconData? icon;
+
+  /// Appends a red "*" after the title — matches the web reference's
+  /// mandatory-field markers, kept as one visual style instead of every
+  /// call site hand-concatenating '*' into the title string (which
+  /// inherited the title's own ink color instead of standing out in red).
+  final bool required;
 
   @override
   Widget build(BuildContext context) {
@@ -276,12 +292,21 @@ class CpSectionCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
             ],
-            Text(
-              title,
-              style: const TextStyle(
-                color: cpInk,
-                fontSize: 14.5,
-                fontWeight: FontWeight.w800,
+            Text.rich(
+              TextSpan(
+                text: title,
+                style: const TextStyle(
+                  color: cpInk,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                ),
+                children: [
+                  if (required)
+                    const TextSpan(
+                      text: ' *',
+                      style: TextStyle(color: AppColors.red),
+                    ),
+                ],
               ),
             ),
           ],

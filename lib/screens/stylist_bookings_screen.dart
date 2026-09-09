@@ -52,13 +52,35 @@ TextStyle _bookingTextStyle({
   );
 }
 
+class StylistBookingsController {
+  _StylistBookingsScreenState? _state;
+
+  Future<void> refreshFromCurrentSelection({
+    bool resetDateToToday = false,
+  }) async {
+    await _state?.refreshFromCurrentSelection(
+      resetDateToToday: resetDateToToday,
+    );
+  }
+
+  void _attach(_StylistBookingsScreenState state) {
+    _state = state;
+  }
+
+  void _detach(_StylistBookingsScreenState state) {
+    if (_state == state) _state = null;
+  }
+}
+
 class StylistBookingsScreen extends StatefulWidget {
   const StylistBookingsScreen({
     super.key,
     this.isOwnerMode = false,
+    this.controller,
   });
 
   final bool isOwnerMode;
+  final StylistBookingsController? controller;
 
   @override
   State<StylistBookingsScreen> createState() => _StylistBookingsScreenState();
@@ -2780,7 +2802,8 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                     Row(
                       children: [
                         if (showBackButton) ...[
-                          Expanded(
+                          Flexible(
+                            flex: 4,
                             child: SizedBox(
                               height: 52,
                               child: OutlinedButton(
@@ -2808,6 +2831,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                           const SizedBox(width: 10),
                         ],
                         Expanded(
+                          flex: 5,
                           child: SizedBox(
                             height: 52,
                             child: ElevatedButton(
@@ -2828,15 +2852,20 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                                     const Color(0xFF9CA3AF),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: Text(
-                                context.t('Submit Review'),
-                                style: _bookingTextStyle(
-                                  size: 15,
-                                  weight: FontWeight.w900,
-                                  color: Colors.white,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  context.t('Submit Review'),
+                                  maxLines: 1,
+                                  textAlign: TextAlign.center,
+                                  style: _bookingTextStyle(
+                                    size: 15,
+                                    weight: FontWeight.w900,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -2898,6 +2927,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   @override
   void initState() {
     super.initState();
+    widget.controller?._attach(this);
     WidgetsBinding.instance.addObserver(this);
     _branchSelectionListener = () {
       if (!mounted || _suppressBranchSelectionRefresh) return;
@@ -2937,7 +2967,17 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   }
 
   @override
+  void didUpdateWidget(covariant StylistBookingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.controller?._detach(this);
     WidgetsBinding.instance.removeObserver(this);
     _bookingPushSub?.cancel();
     StylistBranchSelectionStore.selectionNotifier
@@ -2953,6 +2993,25 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
       return;
     }
     unawaited(_reloadBookingsForSelectedOption());
+  }
+
+  Future<void> refreshFromCurrentSelection({
+    bool resetDateToToday = false,
+  }) async {
+    if (!mounted) return;
+    if (resetDateToToday) {
+      final today = _dateOnly(DateTime.now());
+      if (!_isSameDay(_selectedDate, today) ||
+          !_isSameDay(_visibleDateStart, today)) {
+        setState(() {
+          _selectedDate = today;
+          _visibleDateStart = today;
+          _loadingDate = true;
+          _errorMessage = null;
+        });
+      }
+    }
+    await _loadOptions(showPageLoader: false, showInlineLoader: true);
   }
 
   Map<String, List<_BranchDaySlot>> _weeklySlotsFromSchedule(
@@ -7488,7 +7547,7 @@ class _ScheduleBoard extends StatelessWidget {
 
   static const double _staffColumnWidth = 112;
   static const double _headerHeight = 62;
-  static const int _slotMinutes = 15;
+  static const int _slotMinutes = 10;
   static const double _slotWidth = 80;
   static const double _rowHeight = 146;
   static const double _cardWidth = 148;

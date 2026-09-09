@@ -1070,7 +1070,7 @@ class _AddServicesState extends State<AddServices> {
                                     MaxLengthEnforcement.enforced,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
-                                    RegExp(r'[a-zA-Z &]'),
+                                    RegExp(r'[a-zA-Z0-9 &,/-]'),
                                   ),
                                   const FirstLetterUpperFormatter(),
                                   LengthLimitingTextInputFormatter(50),

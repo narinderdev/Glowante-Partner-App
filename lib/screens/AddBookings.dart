@@ -25,6 +25,7 @@ const Color _bookingBorder = Color(0xFFE8DED6);
 const Color _bookingFieldFill = Color(0xFFF7F4F3);
 final RegExp _customerNamePattern = RegExp(r'^[A-Za-z ]+$');
 final RegExp _customerPhonePattern = RegExp(r'^[6-9][0-9]{9}$');
+const int _bookingSlotIntervalMinutes = 10;
 
 bool? _bookingReadBool(dynamic value) {
   if (value is bool) return value;
@@ -5078,8 +5079,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final duration = _totalSelectedDurationMinutes();
     final slots = <TimeOfDay>[];
     for (var minutes = _toMinutes(start);
-        minutes + duration <= endMinutes && slots.length < 12;
-        minutes += 90) {
+        minutes + duration <= endMinutes;
+        minutes += _bookingSlotIntervalMinutes) {
       slots.add(TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60));
     }
     if (slots.isEmpty) {
@@ -5973,7 +5974,18 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     }
 
     slots.sort((a, b) => _toMinutes(a).compareTo(_toMinutes(b)));
-    return slots;
+
+    final spacedSlots = <TimeOfDay>[];
+    int? previousMinutes;
+    for (final slot in slots) {
+      final minutes = _toMinutes(slot);
+      if (previousMinutes == null ||
+          minutes - previousMinutes >= _bookingSlotIntervalMinutes) {
+        spacedSlots.add(slot);
+        previousMinutes = minutes;
+      }
+    }
+    return spacedSlots;
   }
 
   Future<void> _loadAppointmentsForDate() async {

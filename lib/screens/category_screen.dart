@@ -258,6 +258,12 @@ int _serviceCountForCategory(Map<String, dynamic> category) {
   return count;
 }
 
+String _serviceAvailabilityLabel(int count) {
+  return count == 1
+      ? translateText('SERVICE AVAILABLE')
+      : translateText('SERVICES AVAILABLE');
+}
+
 /// Ensures the first alphabetic character the user types is uppercase
 class FirstLetterUpperFormatter extends TextInputFormatter {
   const FirstLetterUpperFormatter();
@@ -458,6 +464,10 @@ class CategoryScreenState extends State<CategoryScreen> {
     await _syncFromBookingsSelection(salons);
   }
 
+  void hidePredefinedServicesHint() {
+    _hintIconKey.currentState?.dismiss();
+  }
+
   void _scheduleSyncFromBookings(List<Map<String, dynamic>> salons) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncFromBookingsSelection(salons);
@@ -559,6 +569,7 @@ class CategoryScreenState extends State<CategoryScreen> {
 
   @override
   void dispose() {
+    _hintIconKey.currentState?.dismiss();
     StylistBranchSelectionStore.selectionNotifier
         .removeListener(_branchSelectionListener);
     _catalogScrollController.dispose();
@@ -2390,6 +2401,15 @@ class _PredefinedServicesHintIconState
   OverlayEntry? _overlayEntry;
   Timer? _autoDismissTimer;
   Timer? _measureRetryTimer;
+  bool _hintRequested = false;
+
+  @override
+  void didUpdateWidget(covariant _PredefinedServicesHintIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled || widget.isLoading) {
+      dismiss();
+    }
+  }
 
   // Called by the parent CategoryScreenState every time this tab becomes
   // the visible one — shows again on every visit (not just once-ever), for
@@ -2399,6 +2419,7 @@ class _PredefinedServicesHintIconState
   // off the moment it extends past the AppBar's height.
   void maybeShow() {
     if (!mounted || _overlayEntry != null) return;
+    _hintRequested = true;
     _measureUntilStable(attempt: 0, lastPosition: null);
   }
 
@@ -2410,7 +2431,7 @@ class _PredefinedServicesHintIconState
   // guessing a fixed delay.
   void _measureUntilStable({required int attempt, Offset? lastPosition}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _overlayEntry != null) return;
+      if (!mounted || !_hintRequested || _overlayEntry != null) return;
       final renderBox =
           _iconKey.currentContext?.findRenderObject() as RenderBox?;
       if (renderBox == null || !renderBox.attached) {
@@ -2431,12 +2452,13 @@ class _PredefinedServicesHintIconState
 
   void _retryMeasurement(int attempt, Offset? position) {
     _measureRetryTimer = Timer(const Duration(milliseconds: 60), () {
+      if (!_hintRequested) return;
       _measureUntilStable(attempt: attempt + 1, lastPosition: position);
     });
   }
 
   void _showHint(RenderBox renderBox) {
-    if (!mounted || _overlayEntry != null) return;
+    if (!mounted || !_hintRequested || _overlayEntry != null) return;
     final iconTopLeft = renderBox.localToGlobal(Offset.zero);
     final iconSize = renderBox.size;
     final screenSize = MediaQuery.of(context).size;
@@ -2483,16 +2505,17 @@ class _PredefinedServicesHintIconState
           Positioned(
             top: bubbleTop,
             left: bubbleLeft,
-            child: _PredefinedServicesCallout(onDismiss: _dismiss),
+            child: _PredefinedServicesCallout(onDismiss: dismiss),
           ),
         ],
       ),
     );
     overlay.insert(_overlayEntry!);
-    _autoDismissTimer = Timer(const Duration(seconds: 3), _dismiss);
+    _autoDismissTimer = Timer(const Duration(seconds: 3), dismiss);
   }
 
-  void _dismiss() {
+  void dismiss() {
+    _hintRequested = false;
     _measureRetryTimer?.cancel();
     _measureRetryTimer = null;
     _autoDismissTimer?.cancel();
@@ -2516,7 +2539,7 @@ class _PredefinedServicesHintIconState
       tooltip: translateText('Add predefined services'),
       onPressed: widget.enabled
           ? () {
-              _dismiss();
+              dismiss();
               unawaited(widget.onPressed());
             }
           : null,
@@ -3116,7 +3139,7 @@ class _CategoryList extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '$serviceCount ${translateText('SERVICES AVAILABLE')}',
+                                    '$serviceCount ${_serviceAvailabilityLabel(serviceCount)}',
                                     style: const TextStyle(
                                       color: _catalogMuted,
                                       fontSize: 9,

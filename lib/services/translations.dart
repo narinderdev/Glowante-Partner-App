@@ -89,6 +89,18 @@ class AppTranslations {
           'Manage salons, branches, team, services, reports, and business settings.',
       'Brief About Member': 'Brief About Member',
       'Cancel': 'Cancel',
+      'Make Deal Live?': 'Make Deal Live?',
+      'Deactivate Deal?': 'Deactivate Deal?',
+      'This deal will become visible and available for customers.':
+          'This deal will become visible and available for customers.',
+      'This deal will no longer be available for customers.':
+          'This deal will no longer be available for customers.',
+      'Make Package Live?': 'Make Package Live?',
+      'Deactivate Package?': 'Deactivate Package?',
+      'This package will become visible and available for customers.':
+          'This package will become visible and available for customers.',
+      'This package will no longer be available for customers.':
+          'This package will no longer be available for customers.',
       'Catalog': 'Catalog',
       'Categories': 'Categories',
       'Category Name': 'Category Name',
@@ -617,6 +629,7 @@ class AppTranslations {
       'Enter subcategory name': 'Enter subcategory name',
       'Create a service with pricing, duration, and commission details.':
           'Create a service with pricing, duration, and commission details.',
+      'SERVICE AVAILABLE': 'SERVICE AVAILABLE',
       'SERVICES AVAILABLE': 'SERVICES AVAILABLE',
       'SERVICE': 'SERVICE',
       'SERVICES': 'SERVICES',
@@ -1026,6 +1039,18 @@ class AppTranslations {
       'Changing language...': 'भाषा बदली जा रही है...',
       'Brief About Member': 'सदस्य के बारे में संक्षेप',
       'Cancel': 'रद्द करें',
+      'Make Deal Live?': 'डील लाइव करें?',
+      'Deactivate Deal?': 'डील निष्क्रिय करें?',
+      'This deal will become visible and available for customers.':
+          'यह डील ग्राहकों के लिए दिखाई और उपलब्ध होगी।',
+      'This deal will no longer be available for customers.':
+          'यह डील ग्राहकों के लिए उपलब्ध नहीं रहेगी।',
+      'Make Package Live?': 'पैकेज लाइव करें?',
+      'Deactivate Package?': 'पैकेज निष्क्रिय करें?',
+      'This package will become visible and available for customers.':
+          'यह पैकेज ग्राहकों के लिए दिखाई और उपलब्ध होगा।',
+      'This package will no longer be available for customers.':
+          'यह पैकेज ग्राहकों के लिए उपलब्ध नहीं रहेगा।',
       'Catalog': 'कैटलॉग',
       'Categories': 'श्रेणियाँ',
       'Category Name': 'श्रेणी नाम',
@@ -1134,6 +1159,8 @@ class AppTranslations {
       'Enter 10-digit number': '10 अंकों का नंबर दर्ज करें',
       'Enter 6-digit OTP': '6-अंकीय OTP दर्ज करें',
       'Enter OTP': 'OTP दर्ज करें',
+      'Amount off must be less than original price.':
+          'छूट राशि मूल कीमत से कम होनी चाहिए।',
       'Enter a valid amount off.': 'मान्य छूट राशि दर्ज करें।',
       'Enter a valid discount amount.': 'मान्य छूट राशि दर्ज करें।',
       'Enter a valid email address.': 'मान्य ईमेल पता दर्ज करें।',
@@ -1632,6 +1659,7 @@ class AppTranslations {
       'Enter subcategory name': 'उपश्रेणी का नाम दर्ज करें',
       'Create a service with pricing, duration, and commission details.':
           'कीमत, अवधि और कमीशन विवरण के साथ सेवा बनाएं।',
+      'SERVICE AVAILABLE': 'सेवा उपलब्ध',
       'SERVICES AVAILABLE': 'सेवाएं उपलब्ध',
       'SERVICE': 'सेवा',
       'SERVICES': 'सेवाएं',
@@ -2580,6 +2608,8 @@ class AppTranslations {
       'Salary is required': 'वेतन चाहिए',
       'Sales & Reports': 'बिक्री एवं रिपोर्ट',
       'Salon Address is required': 'सैलून का पता आवश्यक है',
+      'Branch Deals': 'शाखा सौदे',
+      'Branch Packages': 'शाखा पैकेज',
       'Salon Deals': 'सैलून सौदे',
       'Salon Details': 'सैलून विवरण',
       'Salon Hours': 'सैलून का समय',

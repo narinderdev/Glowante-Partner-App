@@ -104,6 +104,12 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
 
   List<int> _selectedServiceIds = const [];
   List<Map<String, dynamic>> _schedules = const [];
+  // _schedules alone can't tell a day that's explicitly marked off apart
+  // from one that just has no entry yet — both are simply absent from that
+  // list (that's also how the backend reads "day off"). This is only for
+  // correctly reopening the working-hours modal in the same state; it isn't
+  // sent to any save API itself.
+  List<String> _markedOffDays = const [];
   String _scheduleMode = 'CUSTOM';
   // Whether working hours have actually been set (either loaded from an
   // existing assignment, or confirmed once through the modal) — separate
@@ -282,6 +288,7 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
       _selectedBranchId = value;
       _selectedServiceIds = const [];
       _schedules = const [];
+      _markedOffDays = const [];
       _scheduleMode = value == null ? 'CUSTOM' : 'BRANCH_HOURS';
       _workingHoursSet = value != null;
     });
@@ -458,6 +465,28 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
               .toList();
           _scheduleMode = 'CUSTOM';
           _workingHoursSet = true;
+
+          // An existing CUSTOM assignment has a definite status for every
+          // day — working (present in schedules) or off (absent) — there's
+          // no "not yet decided" state like a fresh assignment has. Without
+          // this, a day explicitly marked off elsewhere (web, an earlier
+          // session) would show here as a plain unfilled day instead of
+          // "Team member is off".
+          const allDays = [
+            'monday',
+            'tuesday',
+            'wednesday',
+            'thursday',
+            'friday',
+            'saturday',
+            'sunday',
+          ];
+          final scheduledDays = _schedules
+              .map((s) => _dayKey(s['day'] ?? ''))
+              .where((d) => d.isNotEmpty)
+              .toSet();
+          _markedOffDays =
+              allDays.where((d) => !scheduledDays.contains(d)).toList();
         } else {
           _scheduleMode = 'BRANCH_HOURS';
         }
@@ -510,6 +539,14 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
                 .toList();
           }
 
+          final draftMarkedOffDays = initialDraft['markedOffDays'];
+          if (draftMarkedOffDays is List) {
+            _markedOffDays = draftMarkedOffDays
+                .map((d) => d.toString())
+                .where((d) => d.trim().isNotEmpty)
+                .toList();
+          }
+
           final draftScheduleMode = initialDraft['scheduleMode'];
           if (draftScheduleMode is String && draftScheduleMode.isNotEmpty) {
             _scheduleMode = draftScheduleMode;
@@ -528,6 +565,16 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
 
       if (!mounted) return;
       setState(() => _isLoading = false);
+
+      // Assign mode, nothing already picked (fresh open, no restored
+      // draft) — default to the first available branch instead of leaving
+      // the dropdown on its empty placeholder.
+      if (!_isEdit && _selectedBranchId == null && _branchOptions.isNotEmpty) {
+        final defaultBranchId = _asInt(_branchOptions.first['id']);
+        if (defaultBranchId != null) {
+          unawaited(_selectAssignBranch(defaultBranchId));
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -668,9 +715,11 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
 
   String _formatClock(int minutes) {
     final normalized = minutes % (24 * 60);
-    final hour = normalized ~/ 60;
+    final hour24 = normalized ~/ 60;
     final minute = normalized % 60;
-    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+    final period = hour24 < 12 ? 'AM' : 'PM';
+    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    return '$hour12:${minute.toString().padLeft(2, '0')} $period';
   }
 
   String _plainScheduleText(dynamic value) {
@@ -981,6 +1030,7 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
     return showDialog<T>(
       context: context,
       builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: SizedBox(
@@ -1062,6 +1112,7 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
         salons: widget.salons,
         joinedAt: joinedAt,
         initialSchedules: _schedules,
+        initialMarkedOffDays: _markedOffDays,
         standalone: true,
         initialSameAsBranchTimings: sameAsBranchTimings,
         showSameAsBranchToggle: showSameAsBranchToggle,
@@ -1069,12 +1120,19 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
     );
     if (result == null) return;
     final schedules = result['schedules'];
+    final markedOffDays = result['markedOffDays'];
     final scheduleMode = result['scheduleMode']?.toString();
     setState(() {
       if (schedules is List) {
         _schedules = schedules
             .whereType<Map>()
             .map((s) => Map<String, dynamic>.from(s))
+            .toList();
+      }
+      if (markedOffDays is List) {
+        _markedOffDays = markedOffDays
+            .map((d) => d.toString())
+            .where((d) => d.trim().isNotEmpty)
             .toList();
       }
       if (scheduleMode != null) _scheduleMode = scheduleMode;
@@ -1173,6 +1231,7 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
       _scheduleMode = 'BRANCH_HOURS';
       _workingHoursSet = true;
       _schedules = const [];
+      _markedOffDays = const [];
     });
   }
 
@@ -1203,6 +1262,10 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
     final branchId = _selectedBranchId;
     if (branchId == null) {
       Fluttertoast.showToast(msg: translateText('Select a branch'));
+      return;
+    }
+    if (_selectedRoleCodes.isEmpty) {
+      Fluttertoast.showToast(msg: translateText('Select at least one role'));
       return;
     }
     if (_selectedServiceIds.isEmpty) {
@@ -1293,6 +1356,7 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
       'selectedRoleCodes': _selectedRoleCodes.toList(),
       'selectedServiceIds': _selectedServiceIds,
       'schedules': _schedules,
+      'markedOffDays': _markedOffDays,
       'scheduleMode': _scheduleMode,
       'workingHoursSet': _workingHoursSet,
       'joiningDate': _joiningDate?.toIso8601String(),
@@ -1719,6 +1783,7 @@ class _BranchHoursDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SafeArea(
@@ -1738,7 +1803,7 @@ class _BranchHoursDialog extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            translateText('Custom Working Hours'),
+                            translateText('Branch Working Hours'),
                             style: const TextStyle(
                               color: cpInk,
                               fontSize: 18,
@@ -1748,7 +1813,7 @@ class _BranchHoursDialog extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             translateText(
-                              "Set this member's availability within the branch working hours.",
+                              "This branch's working hours, applied to all days.",
                             ),
                             style: const TextStyle(
                               color: cpMuted,
@@ -1860,6 +1925,7 @@ class _ScheduleConflictDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SafeArea(

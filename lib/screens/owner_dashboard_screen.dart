@@ -3787,7 +3787,7 @@ class _DrawerProfileQuoteCardState extends State<_DrawerProfileQuoteCard> {
 
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    final roleLabel = await UserRoleSession.instance.loadPrimaryRoleLabel();
+    final roleLabels = await UserRoleSession.instance.loadDistinctRoleLabels();
     if (!mounted) return;
 
     final firstName =
@@ -3804,10 +3804,24 @@ class _DrawerProfileQuoteCardState extends State<_DrawerProfileQuoteCard> {
     setState(() {
       _profile = _DrawerProfileData(
         name: '$firstName $lastName'.trim(),
-        roleLabel: roleLabel.trim(),
+        roleLabels: _visibleRoleLabels(roleLabels),
         imageUrl: profileImageUrl,
       );
     });
+  }
+
+  List<String> _visibleRoleLabels(List<String> roleLabels) {
+    final labels = roleLabels
+        .map((label) => label.trim())
+        .where((label) => label.isNotEmpty)
+        .toList();
+    if (labels.length <= 1) return labels;
+
+    final specificLabels = labels
+        .where(
+            (label) => label.toLowerCase().replaceAll('_', ' ') != 'app user')
+        .toList();
+    return specificLabels.isEmpty ? labels : specificLabels;
   }
 
   String _readStoredValue(SharedPreferences prefs, List<String> keys) {
@@ -3824,9 +3838,9 @@ class _DrawerProfileQuoteCardState extends State<_DrawerProfileQuoteCard> {
   Widget build(BuildContext context) {
     final displayName =
         _profile.name.isEmpty ? context.t('Profile') : _profile.name;
-    final roleLabel = _profile.roleLabel.isEmpty
+    final roleLabel = _profile.roleLabels.isEmpty
         ? context.t('Salon Owner')
-        : _profile.roleLabel;
+        : _profile.roleLabels.join(', ');
 
     return Column(
       children: [
@@ -3903,14 +3917,13 @@ class _DrawerProfileQuoteCardState extends State<_DrawerProfileQuoteCard> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      roleLabel.toUpperCase(),
-                      maxLines: 1,
+                      roleLabel,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 7.5,
-                        height: 1.1,
+                        fontSize: 7,
+                        height: 1.15,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
                         color: Colors.black.withValues(alpha: 0.38),
                       ),
                     ),
@@ -3928,11 +3941,11 @@ class _DrawerProfileQuoteCardState extends State<_DrawerProfileQuoteCard> {
 class _DrawerProfileData {
   const _DrawerProfileData({
     this.name = '',
-    this.roleLabel = '',
+    this.roleLabels = const <String>[],
     this.imageUrl = '',
   });
 
   final String name;
-  final String roleLabel;
+  final List<String> roleLabels;
   final String imageUrl;
 }

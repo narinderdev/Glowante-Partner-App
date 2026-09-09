@@ -22,7 +22,7 @@ const Color _dealFieldFill = Color(0xFFF7F4F3);
 const Color _dealSurface = Color(0xFFFBFAF8);
 const Color _dealSoftGold = Color(0xFFF5EAD2);
 const int _currencyInputMaxLength = 15;
-const int _percentageInputMaxLength = 3;
+const int _percentageInputMaxLength = 2;
 
 class AddDealsScreen extends StatefulWidget {
   final int branchId;
@@ -63,6 +63,46 @@ class _SentenceCaseTextFormatter extends TextInputFormatter {
   }
 }
 
+class _DiscountAmountInputFormatter extends TextInputFormatter {
+  const _DiscountAmountInputFormatter({
+    required this.originalAmount,
+    this.allowEqualToOriginal = false,
+    this.fallbackMaxLength = _currencyInputMaxLength,
+  });
+
+  final double Function() originalAmount;
+  final bool allowEqualToOriginal;
+  final int fallbackMaxLength;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text.trim();
+    if (text.isEmpty) return newValue;
+    if (!RegExp(r'^\d+$').hasMatch(text)) return oldValue;
+
+    final original = originalAmount();
+    final maxDigits = _digitLimitForAmount(original, fallbackMaxLength);
+    if (text.length > maxDigits) return oldValue;
+
+    final value = double.tryParse(text);
+    if (value == null) return oldValue;
+    if (original <= 0) return newValue;
+
+    final withinLimit =
+        allowEqualToOriginal ? value <= original : value < original;
+    return withinLimit ? newValue : oldValue;
+  }
+
+  static int _digitLimitForAmount(double amount, int fallbackMaxLength) {
+    if (amount <= 0) return fallbackMaxLength;
+    final wholeDigits = amount.floor().abs().toString().length;
+    return wholeDigits.clamp(1, fallbackMaxLength);
+  }
+}
+
 class _AddDealsScreenState extends State<AddDealsScreen> {
   final _formKey = GlobalKey<FormState>();
 
@@ -98,7 +138,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   List<Map<String, dynamic>> _selectedServices = [];
 
   bool _settingFields = false;
-  bool _autoSetMaxFromPercent = true;
+  bool _autoSetMaxFromPercent = false;
   bool _isSubmitting = false;
 
   final _border = _dealBorder;
@@ -132,7 +172,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     amountOffController.addListener(() {
       if (_settingFields) return;
-      _autoSetMaxFromPercent = true;
+      _autoSetMaxFromPercent = false;
       _recalcDiscounted();
 
       if (_showErrors && !_sAmountOff) {
@@ -430,6 +470,27 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
   double _parseNum(String s) => double.tryParse(s.trim()) ?? 0.0;
 
+  double _originalAmountRupees() {
+    return _parseCurrency(originalPriceController.text) ?? 0.0;
+  }
+
+  int _originalPriceDigitLimit() {
+    return _DiscountAmountInputFormatter._digitLimitForAmount(
+      _originalAmountRupees(),
+      _currencyInputMaxLength,
+    );
+  }
+
+  void _clearDiscountInputs() {
+    _setTextSafe(amountOffController, '');
+    _setTextSafe(maxDiscountController, '');
+    _setTextSafe(discountedPriceController, '');
+    _autoSetMaxFromPercent = false;
+    _sAmountOff = false;
+    _sMaxDiscount = false;
+    _sDiscounted = false;
+  }
+
   bool get _usesFlatAmountOff =>
       pricingMode == 'Fixed' ||
       (pricingMode == 'Discount' && discountType == 'Flat');
@@ -652,9 +713,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     if (_usesFlatAmountOff) {
       final off = _parseNum(amountOffController.text).clamp(0, original);
-      if (_parseNum(amountOffController.text) > original) {
-        _setTextSafe(amountOffController, formatInputAmount(original));
-      }
       discounted = original - off;
     } else {
       if (discountType == 'Flat') {
@@ -754,8 +812,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       }
 
       final original = _parseNum(originalPriceController.text);
-      if (original > 0 && a > original) {
-        return translateText('Amount off cannot exceed original price.');
+      if (original > 0 && a >= original) {
+        return translateText('Amount off must be less than original price.');
       }
     } else {
       if (discountType == 'Flat') {
@@ -766,8 +824,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         }
 
         final original = _parseNum(originalPriceController.text);
-        if (original > 0 && a > original) {
-          return translateText('Amount off cannot exceed original price.');
+        if (original > 0 && a >= original) {
+          return translateText('Amount off must be less than original price.');
         }
       } else {
         final p = double.tryParse(x);
@@ -1628,7 +1686,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           onChanged: (v) {
             setState(() {
               pricingMode = v ?? 'Fixed';
-              _autoSetMaxFromPercent = true;
+              _clearDiscountInputs();
 
               if (pricingMode == 'Fixed') {
                 discountType = 'Flat';
@@ -1800,8 +1858,11 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           .toList(),
       onChanged: (v) {
         setState(() {
-          discountType = v ?? 'Flat';
-          _autoSetMaxFromPercent = true;
+          final next = v ?? 'Flat';
+          if (discountType != next) {
+            discountType = next;
+            _clearDiscountInputs();
+          }
         });
 
         _recalcDiscounted();
@@ -1813,6 +1874,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   }
 
   Widget _buildDiscountInputFields() {
+    final amountMaxLength = _originalPriceDigitLimit();
     final showFlatField = pricingMode == 'Fixed' ||
         (pricingMode == 'Discount' && discountType == 'Flat');
 
@@ -1824,9 +1886,13 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         errorText: _showErrors ? _vAmountOff(amountOffController.text) : null,
         child: TextFormField(
           controller: amountOffController,
+          maxLength: amountMaxLength,
           keyboardType: TextInputType.number,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
+            _DiscountAmountInputFormatter(
+              originalAmount: _originalAmountRupees,
+            ),
           ],
           autovalidateMode: _showErrors
               ? AutovalidateMode.onUserInteraction
@@ -1887,17 +1953,20 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           Expanded(
             child: _fieldWithBottomCounter(
               controller: maxDiscountController,
-              maxLength: _currencyInputMaxLength,
+              maxLength: amountMaxLength,
               errorText: _showErrors
                   ? _vMaxDiscount(maxDiscountController.text)
                   : null,
               child: TextFormField(
-                maxLength: _currencyInputMaxLength,
+                maxLength: amountMaxLength,
                 controller: maxDiscountController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(_currencyInputMaxLength),
+                  _DiscountAmountInputFormatter(
+                    originalAmount: _originalAmountRupees,
+                    allowEqualToOriginal: true,
+                  ),
                 ],
                 autovalidateMode: _showErrors
                     ? AutovalidateMode.onUserInteraction

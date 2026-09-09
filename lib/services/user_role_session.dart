@@ -23,6 +23,7 @@ class UserRoleSession {
   static const String _roleLabelsKey = 'user_role_labels';
   static const String _primaryRoleIdKey = 'primary_role_id';
   static const String _primaryRoleCodeKey = 'primary_role_code';
+  static const String _primaryRoleLabelKey = 'primary_role_label';
   static const String _stylistSalonsJsonKey = 'stylist_user_salons_json';
   static const String _stylistUserBranchesJsonKey =
       'stylist_user_branches_json';
@@ -97,6 +98,7 @@ class UserRoleSession {
       await prefs.remove(_roleLabelsKey);
       await prefs.remove(_primaryRoleIdKey);
       await prefs.remove(_primaryRoleCodeKey);
+      await prefs.remove(_primaryRoleLabelKey);
       return;
     }
 
@@ -136,13 +138,34 @@ class UserRoleSession {
     // Deriving primaryRoleCode from primaryRoleId (as this used to) let
     // that collision misidentify a plain app_user as the owner.
     final primaryRoleCode = _resolvePrimaryRoleCode(roleCodes);
-    // Derived from the already-resolved code, not independently guessed
-    // from hardcoded ids (loadPrimaryRoleLabel below looks up a label by
-    // matching this id's position in roleIds/roleLabels — if this were
-    // resolved from ids alone it could point at a different role
-    // entirely, e.g. app_user's id 2 instead of salon_stylist's).
-    final primaryRoleId =
-        _resolvePrimaryRoleId(roleIds, roleCodes, primaryRoleCode);
+
+    // Resolved directly against the original `roles` entries — each role's
+    // id/code/label are correctly correlated there — instead of matching
+    // an index across roleIds/roleCodes/roleLabels. Those three lists are
+    // each only appended to when their own field is present, so a role
+    // missing just one field (e.g. no label) desyncs every later role's
+    // position across the three lists; that previously misidentified the
+    // primary role's id and (in loadPrimaryRoleLabel, which did its own
+    // index matching against roleLabels) its label too — e.g. showing
+    // "App User" for a salon owner whose role entry happened to sit past
+    // the desync point.
+    int? primaryRoleId;
+    String? primaryRoleLabel;
+    if (primaryRoleCode != null) {
+      for (final role in roles) {
+        if (role is! Map) continue;
+        final map = Map<String, dynamic>.from(role);
+        final code = map['code']?.toString().trim().toLowerCase();
+        if (code != primaryRoleCode) continue;
+        primaryRoleId ??= _asInt(map['id']);
+        final label = map['label']?.toString().trim();
+        if (label != null && label.isNotEmpty) {
+          primaryRoleLabel = label;
+          break;
+        }
+      }
+    }
+    primaryRoleId ??= roleIds.isEmpty ? null : int.tryParse(roleIds.first);
 
     await prefs.setStringList(_roleIdsKey, roleIds);
     await prefs.setStringList(_roleCodesKey, roleCodes);
@@ -158,6 +181,12 @@ class UserRoleSession {
       await prefs.setString(_primaryRoleCodeKey, primaryRoleCode);
     } else {
       await prefs.remove(_primaryRoleCodeKey);
+    }
+
+    if (primaryRoleLabel != null && primaryRoleLabel.isNotEmpty) {
+      await prefs.setString(_primaryRoleLabelKey, primaryRoleLabel);
+    } else {
+      await prefs.remove(_primaryRoleLabelKey);
     }
   }
 
@@ -257,6 +286,16 @@ class UserRoleSession {
 
   Future<String> loadPrimaryRoleLabel() async {
     final prefs = await SharedPreferences.getInstance();
+
+    // Persisted directly against the primary role's own entry at
+    // persistUserRoles() time — see the comment there. Falls through to the
+    // old index-matching below only for a session persisted before this
+    // key existed.
+    final directLabel = prefs.getString(_primaryRoleLabelKey)?.trim();
+    if (directLabel != null && directLabel.isNotEmpty) {
+      return directLabel;
+    }
+
     final roleLabels = prefs.getStringList(_roleLabelsKey) ?? const <String>[];
     final roleIds = prefs.getStringList(_roleIdsKey) ?? const <String>[];
     final roleCodes = prefs.getStringList(_roleCodesKey) ?? const <String>[];
@@ -616,28 +655,6 @@ class UserRoleSession {
         .map((item) => item?.toString().trim() ?? '')
         .where((code) => code.isNotEmpty)
         .toSet();
-  }
-
-  // Looks up the id paired (by array position) with whichever role entry's
-  // code matches primaryRoleCode — never independently matched against
-  // the hardcoded owner/stylist/staff/receptionist id constants, since
-  // those aren't stable/global (e.g. salon_stylist observed with id 10,
-  // not the hardcoded 5) and can collide with an unrelated role's real id
-  // (app_user observed with id 2, same as the hardcoded ownerRoleId).
-  static int? _resolvePrimaryRoleId(
-    List<String> roleIds,
-    List<String> roleCodes,
-    String? primaryRoleCode,
-  ) {
-    if (primaryRoleCode != null) {
-      for (var i = 0; i < roleCodes.length && i < roleIds.length; i++) {
-        if (roleCodes[i].trim().toLowerCase() == primaryRoleCode) {
-          return int.tryParse(roleIds[i]);
-        }
-      }
-      return null;
-    }
-    return roleIds.isEmpty ? null : int.tryParse(roleIds.first);
   }
 
   static String? _resolvePrimaryRoleCode(List<String> roleCodes) {
