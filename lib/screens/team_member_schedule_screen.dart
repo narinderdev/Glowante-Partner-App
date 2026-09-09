@@ -283,6 +283,7 @@ class TeamMemberScheduleScreen extends StatelessWidget {
     final entries = _entries();
     final hasAnySchedule =
         entries.any((e) => e.timeRanges.isNotEmpty || e.isSalonClosed);
+    final workingDays = entries.where((e) => e.timeRanges.isNotEmpty).length;
 
     return Scaffold(
       backgroundColor: _schBackground,
@@ -290,25 +291,68 @@ class TeamMemberScheduleScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          Text(
-            memberName,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: _schText,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _schBorder),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        translateText('Working Schedule'),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: _schText,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '$branchName · ${translateText('Weekly configured hours for this branch')}',
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 11.5,
+                          color: _schMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3D5),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    workingDays == 1
+                        ? translateText('{n} Working Day',
+                            params: {'n': '$workingDays'})
+                        : translateText('{n} Working Days',
+                            params: {'n': '$workingDays'}),
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF8B6500),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            branchName,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 12.5,
-              color: _schMuted,
-            ),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           if (!hasAnySchedule)
             Text(
               translateText('No weekly schedule found'),
@@ -320,22 +364,13 @@ class TeamMemberScheduleScreen extends StatelessWidget {
               ),
             )
           else
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _schBorder),
-              ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < entries.length; i++) ...[
-                    _WeeklyScheduleRow(entry: entries[i]),
-                    if (i != entries.length - 1)
-                      const Divider(height: 1, color: _schBorder),
-                  ],
+            Column(
+              children: [
+                for (final entry in entries) ...[
+                  _WeeklyScheduleRow(entry: entry),
+                  const SizedBox(height: 8),
                 ],
-              ),
+              ],
             ),
         ],
       ),
@@ -354,17 +389,32 @@ class _WeeklyScheduleRow extends StatelessWidget {
         ? 'Day'
         : entry.day[0].toUpperCase() + entry.day.substring(1).toLowerCase();
     final isWorking = entry.timeRanges.isNotEmpty;
-    final statusColor = entry.isSalonClosed
-        ? const Color(0xFFC44545)
-        : isWorking
-            ? const Color(0xFF2F8A4C)
-            : _schMuted;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _schBorder),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3D5),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: const Icon(
+              Icons.calendar_today_outlined,
+              size: 13,
+              color: Color(0xFF8B6500),
+            ),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               translateText(dayLabel),
@@ -376,64 +426,53 @@ class _WeeklyScheduleRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+          if (isWorking)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.end,
               children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(999),
-                    border:
-                        Border.all(color: statusColor.withValues(alpha: 0.35)),
-                  ),
-                  child: Text(
-                    translateText(entry.statusLabel),
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      color: statusColor,
+                for (final range in entry.timeRanges)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
                     ),
-                  ),
-                ),
-                if (isWorking) ...[
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    alignment: WrapAlignment.end,
-                    children: [
-                      for (final range in entry.timeRanges)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF7F2EA),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: _schBorder),
-                          ),
-                          child: Text(
-                            range,
-                            style: const TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: _schText,
-                            ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: _schBorder),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.access_time_rounded,
+                            size: 12, color: _schMuted),
+                        const SizedBox(width: 5),
+                        Text(
+                          range,
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _schText,
                           ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
-                ],
               ],
+            )
+          else
+            Text(
+              translateText(entry.statusLabel),
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color:
+                    entry.isSalonClosed ? const Color(0xFFC44545) : _schMuted,
+              ),
             ),
-          ),
         ],
       ),
     );

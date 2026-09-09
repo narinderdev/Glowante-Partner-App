@@ -358,6 +358,15 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
           ? (nestedSalon['name'] ?? '').toString().trim()
           : '';
 
+      final rawRoles = item['roles'];
+      String roleLabel = '';
+      if (rawRoles is List && rawRoles.isNotEmpty) {
+        final firstRole = rawRoles.first;
+        roleLabel = firstRole is Map
+            ? (firstRole['label'] ?? firstRole['code'] ?? '').toString()
+            : firstRole.toString();
+      }
+
       assigned.add({
         'branchId': branchId,
         'name': branchName,
@@ -366,6 +375,8 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
             : _salonNameForBranch(branchId),
         'allowOnlineBooking': item['allowOnlineBooking'] == true,
         'joiningDate': item['joiningDate'],
+        'roleLabel': roleLabel,
+        'isActive': _isActiveEntity(item),
       });
     }
 
@@ -1327,12 +1338,12 @@ class _AssignedBranchRow extends StatelessWidget {
   final VoidCallback? onViewSchedule;
   final VoidCallback? onViewServices;
 
-  Widget _actionButton({
+  Widget _filledButton({
     required IconData icon,
     required String label,
     required VoidCallback? onPressed,
   }) {
-    return TextButton.icon(
+    return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 14),
       label: Text(
@@ -1340,32 +1351,73 @@ class _AssignedBranchRow extends StatelessWidget {
         style: const TextStyle(
           fontFamily: 'Manrope',
           fontWeight: FontWeight.w800,
-          fontSize: 11,
+          fontSize: 11.5,
         ),
       ),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.starColor,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF8B6500),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+
+  Widget _outlinedButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 14),
+      label: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontWeight: FontWeight.w800,
+          fontSize: 11.5,
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _memberDetailText,
+        side: const BorderSide(color: _memberDetailBorder),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final roleLabel = (branch['roleLabel'] ?? '').toString().trim();
     final salonName = branch['salonName'].toString().trim();
     final joiningDate = branch['joiningDate']?.toString().trim() ?? '';
-    final subtitleParts = [
-      if (salonName.isNotEmpty) salonName,
-      if (joiningDate.isNotEmpty && joiningDate.toLowerCase() != 'null')
-        '${translateText('Joined')} $joiningDate',
-    ];
+    final subtitleParts = roleLabel.isNotEmpty
+        ? [roleLabel]
+        : [
+            if (salonName.isNotEmpty) salonName,
+            if (joiningDate.isNotEmpty && joiningDate.toLowerCase() != 'null')
+              '${translateText('Joined')} $joiningDate',
+          ];
+    final isActive = branch['isActive'] != false;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 28,
@@ -1412,6 +1464,29 @@ class _AssignedBranchRow extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? const Color(0xFFE7F8EA)
+                      : const Color(0xFFF3E8E8),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  isActive
+                      ? translateText('Active')
+                      : translateText('Inactive'),
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                    color: isActive
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFB3261E),
+                  ),
+                ),
+              ),
             ],
           ),
           // Both actions live under this specific branch's row, not as a
@@ -1420,20 +1495,21 @@ class _AssignedBranchRow extends StatelessWidget {
           // "View Schedule" was per-branch, which read as if services
           // weren't tied to any particular branch.
           if (onViewSchedule != null || onViewServices != null) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.only(left: 40),
               child: Wrap(
-                spacing: 12,
+                spacing: 10,
+                runSpacing: 8,
                 children: [
                   if (onViewServices != null)
-                    _actionButton(
+                    _filledButton(
                       icon: Icons.design_services_outlined,
                       label: translateText('View Services'),
                       onPressed: onViewServices,
                     ),
                   if (onViewSchedule != null)
-                    _actionButton(
+                    _outlinedButton(
                       icon: Icons.schedule_outlined,
                       label: translateText('View Schedule'),
                       onPressed: onViewSchedule,
