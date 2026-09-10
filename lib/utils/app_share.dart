@@ -23,7 +23,7 @@ Future<void> shareGlowanteApp(BuildContext context) async {
       ? _appStoreUrl
       : _playStoreUrl;
   final message =
-      '${translateText('Check out Glowante Partner!')}\n\n$storeUrl';
+      '${translateText('Check out Glowante!')}\n\n$storeUrl';
 
   final box = context.findRenderObject() as RenderBox?;
   final sharePositionOrigin =

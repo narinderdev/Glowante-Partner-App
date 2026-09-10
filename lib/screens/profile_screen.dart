@@ -10,7 +10,6 @@ import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
 import '../services/user_role_session.dart';
-import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/app_share.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/api_service.dart';
@@ -519,18 +518,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           },
         ),
       ProfileMenuItemData(
-        icon: Icons.shield_outlined,
-        label: context.t('Account Security'),
-        subtitle: context.t('Passwords & 2FA'),
-        onTap: () {
-          _logProfile('open_account_security');
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const _AccountSecurityScreen()),
-          );
-        },
-      ),
-      ProfileMenuItemData(
         icon: Icons.account_balance_outlined,
         label: context.t('Bank Details'),
         subtitle: context.t('Payout account for salon earnings'),
@@ -738,98 +725,6 @@ class _ProfileUploadOverlay extends StatelessWidget {
               fontSize: 12,
               color: Color(0xFF8A8179),
               decoration: TextDecoration.none,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountSecurityScreen extends StatelessWidget {
-  const _AccountSecurityScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFBF9F8),
-      appBar: buildProfileSubpageAppBar(
-        title: context.t('Account Security'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          _SecurityCard(
-            icon: Icons.lock_outline_rounded,
-            title: context.t('Password'),
-            subtitle: context.t('Password management will be available soon.'),
-          ),
-          const SizedBox(height: 12),
-          _SecurityCard(
-            icon: Icons.verified_user_outlined,
-            title: context.t('Two-factor authentication'),
-            subtitle: context.t('2FA settings will be available soon.'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SecurityCard extends StatelessWidget {
-  const _SecurityCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8DED6)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: const Color(0xFFF3E8D1),
-            child: Icon(
-              icon,
-              color: const Color(0xFF8B6500),
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF2D2926),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF756A61),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
