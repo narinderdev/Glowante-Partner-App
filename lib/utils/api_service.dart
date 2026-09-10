@@ -1418,7 +1418,9 @@ class ApiService {
       if (parsed['success'] != true) {
         print('[TokenRefresh] server rejected refresh: $parsed');
         if (_shouldLogoutAfterRefreshFailure(parsed)) {
-          return _TokenRefreshResult.rejected('server rejected refresh token');
+          return _TokenRefreshResult.rejected(
+            _refreshFailureReason(parsed),
+          );
         }
         return _TokenRefreshResult.unavailable('refresh request failed');
       }
@@ -1466,6 +1468,21 @@ class ApiService {
         (text.contains('invalid') ||
             text.contains('expired') ||
             text.contains('revoked'));
+  }
+
+  static String _refreshFailureReason(Map<String, dynamic> parsed) {
+    final code = parsed['code']?.toString();
+    final message = parsed['message']?.toString();
+    if (code != null && code.isNotEmpty) {
+      if (message != null && message.isNotEmpty) {
+        return '$code: $message';
+      }
+      return code;
+    }
+    if (message != null && message.isNotEmpty) {
+      return message;
+    }
+    return 'server rejected refresh token';
   }
 
   // Registers/refreshes this device's FCM token with the backend so push

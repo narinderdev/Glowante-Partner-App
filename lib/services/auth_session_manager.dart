@@ -19,6 +19,7 @@ class AuthSessionManager {
   /// Keys that should be removed from shared preferences when logging out.
   static const List<String> _authPreferenceKeys = <String>[
     'user_token',
+    'refresh_token',
     'token',
     'phone_number',
     'user_id',
