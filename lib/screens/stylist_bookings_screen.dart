@@ -3884,6 +3884,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   Future<void> _handleBookingPush(BookingNotificationPayload payload) async {
     if (!mounted) return;
     if (_handlingBookingPush || _isLoading || _options.isEmpty) {
+      debugPrint(
+          'BookingPush: deferred (handling=$_handlingBookingPush isLoading=$_isLoading optionsEmpty=${_options.isEmpty}) '
+          'branch=${payload.branchId} date=${payload.date.toIso8601String()}');
       _pendingBookingPush = payload;
       return;
     }
@@ -3903,9 +3906,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         }
       }
       final currentOption = _selectedOption;
+      debugPrint(
+          'BookingPush: received branch=${payload.branchId} date=${normalizedDate.toIso8601String()} '
+          'currentBranch=${currentOption?.branchId} currentDate=${_selectedDate.toIso8601String()} '
+          'matchingOptionFound=${matchingOption != null}');
 
       if (matchingOption == null &&
           currentOption?.branchId != payload.branchId) {
+        debugPrint(
+            'BookingPush: branch not in view, reloading current selection only');
         await _reloadBookingsForSelectedOption();
         return;
       }
@@ -3932,7 +3941,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         _errorMessage = null;
       });
 
+      debugPrint(
+          'BookingPush: reloading branch=${nextOption.branchId} date=${normalizedDate.toIso8601String()}');
       await _reloadBookingsForSelectedOption();
+      debugPrint('BookingPush: reload complete, bookings=${_bookings.length}');
     } finally {
       _handlingBookingPush = false;
       _flushPendingBookingPush();

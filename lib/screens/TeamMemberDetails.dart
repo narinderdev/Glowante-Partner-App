@@ -124,6 +124,7 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
   bool _isLoadingCompensation = true;
   Map<String, dynamic>? _currentCompensation;
   Map<String, dynamic>? _upcomingCompensation;
+  List<Map<String, dynamic>> _compensationHistory = const [];
 
   List<Map<String, dynamic>>? get salons => widget.salons;
   double get professionalRating => widget.professionalRating;
@@ -150,11 +151,18 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
         final data = Map<String, dynamic>.from(response['data'] as Map);
         final current = data['current'];
         final upcoming = data['upcoming'];
+        final history = data['history'];
         setState(() {
           _currentCompensation =
               current is Map ? Map<String, dynamic>.from(current) : null;
           _upcomingCompensation =
               upcoming is Map ? Map<String, dynamic>.from(upcoming) : null;
+          _compensationHistory = history is List
+              ? history
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
+              : const [];
         });
       }
     } catch (_) {
@@ -170,7 +178,10 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
         : translateText('Monthly Salary');
   }
 
-  List<_ProfileDetailRowData> _compensationRows(Map<String, dynamic> record) {
+  List<_ProfileDetailRowData> _compensationRows(
+    Map<String, dynamic> record, {
+    bool includeEffectiveTo = false,
+  }) {
     return [
       _ProfileDetailRowData(
         label: 'Pay Type',
@@ -185,6 +196,11 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
         label: 'Effective From',
         value: _displayValue(record['effectiveFrom']),
       ),
+      if (includeEffectiveTo)
+        _ProfileDetailRowData(
+          label: 'Effective To',
+          value: _displayValue(record['effectiveTo']),
+        ),
     ];
   }
 
@@ -778,7 +794,8 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                           ),
                         )
                       : (_currentCompensation == null &&
-                              _upcomingCompensation == null)
+                              _upcomingCompensation == null &&
+                              _compensationHistory.isEmpty)
                           ? const _EmptyDetailText(text: 'No compensation set')
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -816,6 +833,31 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                                     rows: _compensationRows(
                                         _upcomingCompensation!),
                                   ),
+                                ],
+                                if (_compensationHistory.isNotEmpty) ...[
+                                  if (_currentCompensation != null ||
+                                      _upcomingCompensation != null)
+                                    const SizedBox(height: 12),
+                                  Text(
+                                    translateText('History'),
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11,
+                                      color: _memberDetailMuted,
+                                    ),
+                                  ),
+                                  for (var i = 0;
+                                      i < _compensationHistory.length;
+                                      i++) ...[
+                                    const SizedBox(height: 6),
+                                    _ProfileDetailList(
+                                      rows: _compensationRows(
+                                        _compensationHistory[i],
+                                        includeEffectiveTo: true,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ],
                             ),

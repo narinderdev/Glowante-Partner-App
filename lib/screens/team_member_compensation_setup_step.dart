@@ -151,30 +151,11 @@ class _TeamMemberCompensationSetupStepState
           _upcomingCompensation = Map<String, dynamic>.from(upcoming);
         }
 
-        // Only prefills from an actual upcoming record being edited — never
-        // falls back to current, since current is the *existing* arrangement
-        // being displayed for reference above, not a starting point for the
-        // new one this form records.
-        final record = data['upcoming'] as Map?;
-        if (record != null) {
-          final compensationType =
-              (record['compensationType'] ?? '').toString();
-          if (_payTypes.contains(compensationType)) {
-            _payType = compensationType;
-          }
-          final amountMinor = record['salaryAmountMinor'];
-          if (amountMinor is num) {
-            _amountCtrl.text = (amountMinor / 100).round().toString();
-          }
-          final currency = (record['currency'] ?? '').toString().trim();
-          if (currency.isNotEmpty) _currencyCtrl.text = currency;
-          final effectiveFromRaw = (record['effectiveFrom'] ?? '').toString();
-          final parsedEffectiveFrom =
-              DateTime.tryParse(effectiveFromRaw.trim());
-          if (parsedEffectiveFrom != null) {
-            _effectiveFrom = parsedEffectiveFrom;
-          }
-        }
+        // The form below is left blank here (a new-record form), even when
+        // an upcoming record exists — that record already has its own card
+        // with an Edit action, and prefilling both would show the same data
+        // twice. _editUpcoming() prefills the form only when that Edit is
+        // actually tapped.
       }
       setState(() => _isLoading = false);
     } catch (e) {
@@ -362,16 +343,7 @@ class _TeamMemberCompensationSetupStepState
       if (!mounted) return;
       if (response['success'] == true) {
         Fluttertoast.showToast(msg: translateText('Employment details saved'));
-        if (widget.isStandalone) {
-          // Standalone "Edit Compensation" stays on this screen after a
-          // save (create or edit) and reloads so the summary cards reflect
-          // it — this is a deliberate direct action, not a step to move
-          // past. Only the onboarding-chain flow below pops through.
-          _editingCompensationId = null;
-          await _loadExisting();
-        } else {
-          Navigator.pop(context, true);
-        }
+        Navigator.pop(context, true);
       } else {
         Fluttertoast.showToast(
           msg:
@@ -392,7 +364,13 @@ class _TeamMemberCompensationSetupStepState
     final memberName = widget.memberName.trim();
     return Scaffold(
       backgroundColor: cpSurface,
-      appBar: buildProfileSubpageAppBar(title: 'Employment Details'),
+      appBar: buildProfileSubpageAppBar(
+        title: widget.isStandalone
+            ? (_editingCompensationId != null
+                ? translateText('Update Compensation')
+                : translateText('Add Compensation'))
+            : translateText('Employment Details'),
+      ),
       body: _isLoading
           ? AppLoader.page()
           : _loadError != null

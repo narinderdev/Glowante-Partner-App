@@ -5,7 +5,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/api_service.dart';
@@ -55,23 +54,7 @@ class BookingNotificationPayload {
       return null;
     }
 
-    DateTime? parsedDate;
-    final formats = <DateFormat>[
-      DateFormat('yyyy-MM-dd'),
-      DateFormat('d MMM yyyy'),
-      DateFormat('dd MMM yyyy'),
-    ];
-
-    for (final format in formats) {
-      try {
-        parsedDate = format.parse(rawDate);
-        break;
-      } catch (_) {
-        // Ignore and try next format.
-      }
-    }
-
-    parsedDate ??= DateTime.tryParse(rawDate);
+    final parsedDate = _parseAppointmentDate(rawDate);
     if (parsedDate == null) return null;
 
     final normalizedDate =
@@ -85,6 +68,49 @@ class BookingNotificationPayload {
       message: data['notification']?.toString() ?? message.notification?.body,
     );
   }
+}
+
+const _monthAbbreviations = [
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
+];
+
+// The backend sends appointmentDate as "10 Sept 2026" — a 4-letter month
+// abbreviation that intl's DateFormat('d MMM yyyy') (3-letter "Sep") and
+// DateTime.tryParse (ISO-only) both fail to read, which silently drops the
+// whole booking-push event. This matches on just the first 3 letters of
+// whatever month word is present, independent of exact abbreviation length.
+DateTime? _parseAppointmentDate(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
+
+  final isoMatch = DateTime.tryParse(trimmed);
+  if (isoMatch != null) return isoMatch;
+
+  final match =
+      RegExp(r'^(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})$').firstMatch(trimmed);
+  if (match != null) {
+    final day = int.tryParse(match.group(1)!);
+    final monthWord = match.group(2)!.toLowerCase();
+    final monthKey = monthWord.length >= 3 ? monthWord.substring(0, 3) : '';
+    final monthIndex = _monthAbbreviations.indexOf(monthKey);
+    final year = int.tryParse(match.group(3)!);
+    if (day != null && monthIndex != -1 && year != null) {
+      return DateTime(year, monthIndex + 1, day);
+    }
+  }
+
+  return null;
 }
 
 @pragma('vm:entry-point')

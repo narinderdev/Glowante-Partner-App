@@ -154,7 +154,6 @@ class _TeamMemberPersonalInfoScreenState
   final _lastNameCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
   final _line1Ctrl = TextEditingController();
-  final _line2Ctrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _villageCtrl = TextEditingController();
   final _districtCtrl = TextEditingController();
@@ -177,7 +176,6 @@ class _TeamMemberPersonalInfoScreenState
     _lastNameCtrl.dispose();
     _bioCtrl.dispose();
     _line1Ctrl.dispose();
-    _line2Ctrl.dispose();
     _cityCtrl.dispose();
     _villageCtrl.dispose();
     _districtCtrl.dispose();
@@ -324,7 +322,6 @@ class _TeamMemberPersonalInfoScreenState
       _lastNameCtrl.text = draft.lastName;
       _bioCtrl.text = draft.bio;
       _line1Ctrl.text = draft.line1;
-      _line2Ctrl.text = draft.line2;
       _cityCtrl.text = draft.city;
       _villageCtrl.text = draft.village;
       _districtCtrl.text = draft.district;
@@ -546,7 +543,6 @@ class _TeamMemberPersonalInfoScreenState
       _line1Ctrl.text = baseCompleteAddress.isNotEmpty
           ? baseCompleteAddress
           : completeAddress;
-      _line2Ctrl.clear();
       _cityCtrl.text = resultText('city');
       _villageCtrl.clear();
       _districtCtrl.text = resultText('district');
@@ -591,7 +587,6 @@ class _TeamMemberPersonalInfoScreenState
     draft.lastName = _lastNameCtrl.text.trim();
     draft.bio = _bioCtrl.text.trim();
     draft.line1 = _line1Ctrl.text.trim();
-    draft.line2 = _line2Ctrl.text.trim();
     draft.city = _cityCtrl.text.trim();
     draft.village = _villageCtrl.text.trim();
     draft.district = _districtCtrl.text.trim();
@@ -985,9 +980,10 @@ class _TeamMemberPersonalInfoScreenState
               // here re-asks for data already collected. Once something's
               // been picked, show what was captured as a compact summary
               // instead; to correct it, re-tap "Search address" above and
-              // pick again, rather than hand-editing each sub-field. Line 2
-              // stays its own field since it's never part of a location
-              // pick (apartment/suite/floor, always manual).
+              // pick again, rather than hand-editing each sub-field. No
+              // separate "Address line 2" field either — AddLocationScreen
+              // already covers house/flat no. and street/area, so line1
+              // (the assembled complete address) is enough on its own.
               if ([
                 _cityCtrl,
                 _villageCtrl,
@@ -1019,12 +1015,6 @@ class _TeamMemberPersonalInfoScreenState
                   ),
                 ),
               ],
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _line2Ctrl,
-                decoration: cpInputDecoration(
-                    translateText('Address line 2 (optional)')),
-              ),
               if (_addressError != null) ...[
                 const SizedBox(height: 6),
                 Text(

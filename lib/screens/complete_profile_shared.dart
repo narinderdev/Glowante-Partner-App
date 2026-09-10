@@ -51,7 +51,6 @@ class CompleteProfileDraft {
   final Set<String> specialityCodes = {};
 
   String line1 = '';
-  String line2 = '';
   String city = '';
   String village = '';
   String district = '';
@@ -132,7 +131,6 @@ class CompleteProfileDraft {
 
     final addr = address;
     line1 = (addr['line1'] ?? '').toString();
-    line2 = (addr['line2'] ?? '').toString();
     city = (addr['city'] ?? '').toString();
     village = (addr['village'] ?? '').toString();
     district = (addr['district'] ?? '').toString();
@@ -162,9 +160,9 @@ class CompleteProfileDraft {
   // Address is mandatory (missingForActiveStatus), so this now also fires
   // on a completely untouched address, not just an incomplete one — and
   // checks all the sub-fields together instead of gating everything on
-  // line1 being filled, which previously let a line1-empty-but-line2-filled
-  // address (or any other partial combination) through as if nothing had
-  // been entered at all, silently dropping whatever was typed.
+  // line1 being filled, which previously let a partially-filled address
+  // through as if nothing had been entered at all, silently dropping
+  // whatever was typed.
   String? addressCompletionError() {
     if (hasAddress) return null;
     final missing = <String>[];
@@ -207,11 +205,9 @@ class CompleteProfileDraft {
     }
     if (!hasAddress && line1.trim().isNotEmpty) {
       final trimmedLine1 = line1.trim();
-      final trimmedLine2 = line2.trim();
       final trimmedDistrict = district.trim();
       fields['address'] = {
         'line1': trimmedLine1,
-        if (trimmedLine2.isNotEmpty) 'line2': trimmedLine2,
         'city': city.trim(),
         'village': village.trim(),
         if (trimmedDistrict.isNotEmpty) 'district': trimmedDistrict,

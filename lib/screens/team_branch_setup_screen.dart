@@ -1413,7 +1413,8 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
         ),
         const SizedBox(height: 20),
         CpSectionCard(
-          title: '${translateText('Assign Branch')} *',
+          title: translateText('Assign Branch'),
+          required: true,
           icon: Icons.storefront_outlined,
           children: [
             if (_isEdit) ...[
@@ -1454,7 +1455,8 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
         ),
         const CpSectionDivider(),
         CpSectionCard(
-          title: '${translateText('Assign Role(s)')} *',
+          title: translateText('Assign Role(s)'),
+          required: true,
           icon: Icons.badge_outlined,
           children: [
             _buildRolesPicker(),
@@ -1462,7 +1464,8 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
         ),
         const CpSectionDivider(),
         CpSectionCard(
-          title: '${translateText('Services')} *',
+          title: translateText('Services'),
+          required: true,
           icon: Icons.content_cut_rounded,
           children: [
             Container(
@@ -1514,7 +1517,8 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
         ),
         const CpSectionDivider(),
         CpSectionCard(
-          title: '${translateText('Working Hours')} *',
+          title: translateText('Working Hours'),
+          required: true,
           icon: Icons.schedule_outlined,
           children: _isEdit
               ? [
@@ -1619,7 +1623,8 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
         ),
         const CpSectionDivider(),
         CpSectionCard(
-          title: '${translateText('Joining Date')} *',
+          title: translateText('Joining Date'),
+          required: true,
           icon: Icons.event_outlined,
           children: [
             InkWell(
@@ -1646,7 +1651,8 @@ class _TeamBranchSetupScreenState extends State<TeamBranchSetupScreen> {
         ),
         const CpSectionDivider(),
         CpSectionCard(
-          title: '${translateText('Online Booking')} *',
+          title: translateText('Online Booking'),
+          required: true,
           icon: Icons.event_available_outlined,
           children: [
             Container(
