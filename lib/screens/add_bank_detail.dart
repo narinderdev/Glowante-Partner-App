@@ -500,20 +500,15 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
                 children: [
-                  _SummaryCard(
-                    salonId: _salonId,
-                    isLoading: _isLoading,
-                  ),
                   if (_isLoadingSalons || _salonOptions.isNotEmpty) ...[
-                    const SizedBox(height: 14),
                     _SalonSelectorCard(
                       isLoading: _isLoadingSalons,
                       options: _salonOptions,
                       selectedSalon: _selectedSalon,
                       onSelected: _switchSalon,
                     ),
+                    const SizedBox(height: 14),
                   ],
-                  const SizedBox(height: 14),
                   if (_errorMessage != null) ...[
                     _ErrorCard(message: _errorMessage!),
                     const SizedBox(height: 14),
@@ -550,49 +545,6 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.salonId,
-    required this.isLoading,
-  });
-
-  final int? salonId;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE8DED6)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.account_balance_outlined,
-            color: AppColors.starColor,
-            size: 22,
-          ),
-          const SizedBox(width: 12),
-          const Expanded(child: SizedBox.shrink()),
-          if (isLoading) ...[
-            const SizedBox(width: 12),
-            AppLoader.inline(
-              size: 16,
-              strokeWidth: 2,
-              color: AppColors.starColor,
-            ),
-          ],
-        ],
       ),
     );
   }

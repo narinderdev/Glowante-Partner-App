@@ -237,6 +237,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: Theme.of(context).colorScheme.copyWith(

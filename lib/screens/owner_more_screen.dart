@@ -133,7 +133,7 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
       _QuickLinkData(
         icon: Icons.share_rounded,
         title: context.t('Share App'),
-        subtitle: context.t('Invite others to Glowante Partner'),
+        subtitle: context.t('Invite others to Glowante'),
         permissions: const [],
         onTap: () => shareGlowanteApp(context),
       ),

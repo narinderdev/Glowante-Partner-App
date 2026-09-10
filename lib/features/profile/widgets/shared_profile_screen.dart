@@ -2,6 +2,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../utils/colors.dart';
 import '../../../widgets/app_loader.dart';
@@ -154,13 +155,26 @@ class SharedProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 30),
               Center(
-                child: Text(
-                  'GLOWANTE - V1.0.4 - © 2024',
-                  style: _profileTextStyle(
-                      size: 11,
-                      weight: FontWeight.w600,
-                      color: const Color(0xFFAAA39D),
-                      letterSpacing: 2.4),
+                child: FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snapshot) {
+                    final info = snapshot.data;
+                    // info.version can carry a flavor suffix (e.g.
+                    // "2.0.8-dev") baked in by the Android build config —
+                    // only the numeric semantic version should show here.
+                    final plainVersion = info?.version.split('-').first ?? '';
+                    final versionText = info == null
+                        ? 'GLOWANTE'
+                        : 'GLOWANTE - V$plainVersion (${info.buildNumber}) - © ${DateTime.now().year}';
+                    return Text(
+                      versionText,
+                      style: _profileTextStyle(
+                          size: 11,
+                          weight: FontWeight.w600,
+                          color: const Color(0xFFAAA39D),
+                          letterSpacing: 2.4),
+                    );
+                  },
                 ),
               ),
             ],
@@ -285,17 +299,6 @@ class _ProfileHero extends StatelessWidget {
                 size: 13,
                 weight: FontWeight.w500,
                 color: const Color(0xFF78716C),
-              ),
-            ),
-          ],
-          if (roleLabel != null && roleLabel!.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              roleLabel!,
-              style: _profileTextStyle(
-                size: 16,
-                weight: FontWeight.w500,
-                color: const Color(0xFF6F665E),
               ),
             ),
           ],

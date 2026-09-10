@@ -9850,7 +9850,9 @@ class _StylistBookingDetailScreenState
         dateLabel: bookingDate == null ? '-' : _formatScheduleDate(bookingDate),
         timeRange: timeRange,
         customerName: _customerName(context, _booking),
-        customerPhone: _customerPhone(_booking),
+        // Stylists should not see the client's phone number on a booking —
+        // only the salon owner can.
+        customerPhone: widget.isOwnerMode ? _customerPhone(_booking) : '',
         serviceSummary: serviceSummary,
         assignedStaffLabel: assignedStaffLabel,
         serviceSegments: serviceSegments,

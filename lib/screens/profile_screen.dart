@@ -566,7 +566,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ProfileMenuItemData(
         icon: Icons.share_outlined,
         label: context.t('Share App'),
-        subtitle: context.t('Invite others to Glowante Partner'),
+        subtitle: context.t('Invite others to Glowante'),
         onTap: () {
           _logProfile('share_app');
           shareGlowanteApp(context);

@@ -654,7 +654,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
         ProfileMenuItemData(
           icon: Icons.share_outlined,
           label: context.t('Share App'),
-          subtitle: context.t('Invite others to Glowante Partner'),
+          subtitle: context.t('Invite others to Glowante'),
           onTap: () => shareGlowanteApp(context),
           showLeftAccent: true,
         ),
