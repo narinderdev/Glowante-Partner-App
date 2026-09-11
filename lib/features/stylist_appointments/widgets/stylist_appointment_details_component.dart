@@ -241,6 +241,13 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 12),
+              _DetailsStatusPill(
+                label: statusLabel,
+                backgroundColor: statusPillBackgroundColor,
+                borderColor: statusPillBorderColor,
+                textColor: statusPillTextColor,
+              ),
             ],
           ),
         ),
@@ -660,6 +667,43 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailsStatusPill extends StatelessWidget {
+  const _DetailsStatusPill({
+    required this.label,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _detailsTextStyle(
+          size: 10,
+          weight: FontWeight.w700,
+          color: textColor,
+          letterSpacing: 0.4,
         ),
       ),
     );

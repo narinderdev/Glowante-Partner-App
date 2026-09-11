@@ -20,6 +20,58 @@ FLAVORS = {
   },
 }
 
+# Figures out a build number that's guaranteed not to collide with anything
+# already uploaded, so pubspec.yaml's `+N` never has to be bumped by hand.
+# Takes the current local number and the highest version code already seen
+# on Play Console (across all three packages and their internal/production
+# tracks), then uses candidate_max + 1.
+def latest_known_play_store_version_codes
+  codes = []
+  FLAVORS.each_value do |info|
+    %w[internal production].each do |track|
+      begin
+        codes += google_play_track_version_codes(
+          package_name: info[:package_name],
+          track: track
+        )
+      rescue => e
+        UI.important(
+          "Skipping Play Store version code lookup for " \
+          "#{info[:package_name]} (#{track}): #{e.message}"
+        )
+      end
+    end
+  end
+  codes
+end
+
+def bump_pubspec_build_number!
+  project_root = File.expand_path("../..", __dir__)
+  pubspec_path = File.join(project_root, "pubspec.yaml")
+  content = File.read(pubspec_path)
+
+  match = content.match(/^version:\s*(\d+\.\d+\.\d+)\+(\d+)$/)
+  UI.user_error!("Could not find a `version: X.Y.Z+N` line in pubspec.yaml") unless match
+  version_name = match[1]
+  current_build = match[2].to_i
+
+  candidates = [current_build] + latest_known_play_store_version_codes
+  next_build = candidates.max + 1
+
+  File.write(
+    pubspec_path,
+    content.sub(
+      /^version:\s*\d+\.\d+\.\d+\+\d+$/,
+      "version: #{version_name}+#{next_build}"
+    )
+  )
+  UI.success("pubspec.yaml build number -> #{version_name}+#{next_build}")
+end
+
+before_all do
+  bump_pubspec_build_number!
+end
+
 def build_and_upload(flavor, track: "internal", release_status: nil)
   info = FLAVORS.fetch(flavor)
   project_root = File.expand_path("../..", __dir__)

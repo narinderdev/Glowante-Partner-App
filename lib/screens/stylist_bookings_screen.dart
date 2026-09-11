@@ -1484,16 +1484,42 @@ bool _isBookingOverdue(Map<String, dynamic> booking) {
   return end != null && DateTime.now().isAfter(end);
 }
 
-bool _showsConfirmAction(String status, {required bool isOwnerMode}) => false;
+// Rewrites a backend wait-time message like "Try again in 352 minutes" to
+// show the largest whole unit that isn't zero (hours, else minutes, else
+// seconds), since the API only ever reports the remaining wait in minutes.
+String _formatRetryWaitMessage(String message) {
+  final match =
+      RegExp(r'Try again in (\d+)\s*minutes?', caseSensitive: false)
+          .firstMatch(message);
+  if (match == null) return message;
 
-bool _showsStartAction(String status) {
-  return status == 'PENDING' ||
-      status == 'UPCOMING' ||
-      status == 'CONFIRMED' ||
-      status == 'SCHEDULED' ||
-      status == 'BOOKED' ||
-      status == 'ACCEPTED';
+  final totalMinutes = int.tryParse(match.group(1) ?? '');
+  if (totalMinutes == null) return message;
+
+  final totalSeconds = totalMinutes * 60;
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+
+  final String waitLabel;
+  if (hours > 0) {
+    final hourPart = '$hours ${hours == 1 ? 'hour' : 'hours'}';
+    waitLabel = minutes > 0
+        ? '$hourPart $minutes ${minutes == 1 ? 'minute' : 'minutes'}'
+        : hourPart;
+  } else if (minutes > 0) {
+    waitLabel = '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
+  } else {
+    waitLabel = '$seconds ${seconds == 1 ? 'second' : 'seconds'}';
+  }
+
+  return message.replaceRange(match.start, match.end, 'Try again in $waitLabel');
 }
+
+bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>
+    isOwnerMode && status == 'PENDING';
+
+bool _showsStartAction(String status) => status == 'CONFIRMED';
 
 DateTime? _bookingActionEnd(Map<String, dynamic> booking) {
   final explicitEnd = _bookingEnd(booking);
@@ -1719,7 +1745,7 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
 
                         if (!success) {
                           setDialogState(() {
-                            errorMessage = message;
+                            errorMessage = _formatRetryWaitMessage(message);
                             hasError = true;
                           });
                           return;
@@ -2643,6 +2669,17 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
   String commentText = defaultComment;
   bool hasManualComment = false;
 
+  String ratingLabel(int rating) {
+    return switch (rating) {
+      1 => 'Not happy',
+      2 => 'Could be better',
+      3 => 'Okay',
+      4 => 'Good',
+      5 => 'Excellent',
+      _ => '',
+    };
+  }
+
   String selectedTagsComment() =>
       _finishJobCustomerReviewTags.where(selectedTags.contains).join(', ');
 
@@ -2739,44 +2776,66 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                     ),
                     const SizedBox(height: 12),
                     Center(
-                      child: Wrap(
-                        spacing: 4,
-                        children: List.generate(5, (index) {
-                          final rating = index + 1;
-                          final isSelected = rating <= selectedRating;
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Wrap(
+                            spacing: 4,
+                            children: List.generate(5, (index) {
+                              final rating = index + 1;
+                              final isSelected = rating <= selectedRating;
 
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(999),
-                            onTap: () {
-                              setDialogState(() => selectedRating = rating);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFFFFF4D6)
-                                    : const Color(0xFFFAF7F3),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? _bookingsAccent
-                                      : _bookingsBorder,
+                              return InkWell(
+                                borderRadius: BorderRadius.circular(999),
+                                onTap: () {
+                                  setDialogState(() => selectedRating = rating);
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFFFFF4D6)
+                                        : const Color(0xFFFAF7F3),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? _bookingsAccent
+                                          : _bookingsBorder,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    isSelected
+                                        ? Icons.star_rounded
+                                        : Icons.star_border_rounded,
+                                    color: isSelected
+                                        ? _bookingsGold
+                                        : _bookingsSecondaryText,
+                                    size: 25,
+                                  ),
                                 ),
-                              ),
-                              child: Icon(
-                                isSelected
-                                    ? Icons.star_rounded
-                                    : Icons.star_border_rounded,
-                                color: isSelected
-                                    ? _bookingsGold
-                                    : _bookingsSecondaryText,
-                                size: 25,
-                              ),
-                            ),
-                          );
-                        }),
+                              );
+                            }),
+                          ),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 160),
+                            child: selectedRating == 0
+                                ? const SizedBox(height: 18)
+                                : Padding(
+                                    key: ValueKey<int>(selectedRating),
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      context.t(ratingLabel(selectedRating)),
+                                      style: _bookingTextStyle(
+                                        size: 11,
+                                        weight: FontWeight.w700,
+                                        color: _bookingsSecondaryText,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -2883,10 +2942,17 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                     const SizedBox(height: 8),
                     TextField(
                       controller: commentController,
-                      enabled: !isUsingTags,
+                      readOnly: isUsingTags,
+                      showCursor: !isUsingTags,
+                      enableInteractiveSelection: !isUsingTags,
                       maxLength: 300,
                       minLines: 3,
                       maxLines: 4,
+                      style: _bookingTextStyle(
+                        size: 13,
+                        weight: FontWeight.w700,
+                        color: _bookingsPrimaryText,
+                      ),
                       onChanged: (value) {
                         setDialogState(() {
                           commentText = value;
@@ -2895,6 +2961,11 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                       },
                       decoration: InputDecoration(
                         hintText: context.t('Write comment'),
+                        hintStyle: _bookingTextStyle(
+                          size: 13,
+                          weight: FontWeight.w600,
+                          color: _bookingsSecondaryText,
+                        ),
                         filled: true,
                         fillColor: isUsingTags
                             ? const Color(0xFFF3F4F6)

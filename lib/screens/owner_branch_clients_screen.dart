@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -6,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -167,6 +169,28 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       return '';
     }
     return text;
+  }
+
+  String _importClientsResultMessage(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is Map) {
+      final imported = _asInt(data['imported']);
+      final skipped = _asInt(data['skipped']);
+      if (imported != null || skipped != null) {
+        return translateText(
+          'Import completed: {imported} imported, {skipped} skipped.',
+          params: {
+            'imported': '${imported ?? 0}',
+            'skipped': '${skipped ?? 0}',
+          },
+        );
+      }
+    }
+
+    final message = _cleanText(response['message']);
+    return message.isEmpty
+        ? translateText('Clients imported successfully')
+        : message;
   }
 
   String _composeAddress(Map<String, dynamic>? data) {
@@ -387,6 +411,40 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
         : _cleanText(client['name']);
   }
 
+  String _clientEmail(Map<String, dynamic> client) {
+    final customer = client['customer'];
+    if (customer is Map) {
+      final email = _cleanText(customer['email']);
+      if (email.isNotEmpty) return email;
+    }
+    return _cleanText(client['email']);
+  }
+
+  String _clientPhone(Map<String, dynamic> client) {
+    final customer = client['customer'];
+    if (customer is Map) {
+      for (final key in const [
+        'fullPhoneNumber',
+        'phoneNumber',
+        'phone',
+        'mobile',
+      ]) {
+        final phone = _cleanText(customer[key]);
+        if (phone.isNotEmpty) return phone;
+      }
+    }
+    for (final key in const [
+      'fullPhoneNumber',
+      'phoneNumber',
+      'phone',
+      'mobile',
+    ]) {
+      final phone = _cleanText(client[key]);
+      if (phone.isNotEmpty) return phone;
+    }
+    return '';
+  }
+
   String _clientInitials(Map<String, dynamic> client) {
     final customer = client['customer'];
     if (customer is Map) {
@@ -441,6 +499,13 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   String _csvCell(String value) {
     final escaped = value.replaceAll('"', '""');
     return '"$escaped"';
+  }
+
+  String _csvFileSafeName(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
   }
 
   String _formatDateValue(dynamic value) {
@@ -1072,14 +1137,16 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   }
 
   Future<void> _exportClients() async {
-    if (_clients.isEmpty) {
+    final clientsToExport = _filteredClients;
+    if (clientsToExport.isEmpty) {
       _showSnack(translateText('No clients found'));
       return;
     }
     if (_isExporting) return;
     _logClients(
       'export_clients_started',
-      details: 'branchId=$_selectedBranchId, count=${_clients.length}',
+      details:
+          'branchId=$_selectedBranchId, count=${clientsToExport.length}, tab=$_activeCustomerTab',
     );
 
     setState(() => _isExporting = true);
@@ -1087,6 +1154,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       final rows = <String>[
         [
           'Customer',
+          'Phone',
+          'Email',
           'Total Visits',
           'Total Spend',
           'Last Visit',
@@ -1094,10 +1163,12 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
         ].map(_csvCell).join(','),
       ];
 
-      for (final client in _clients) {
+      for (final client in clientsToExport) {
         rows.add(
           [
             _clientName(client),
+            _clientPhone(client),
+            _clientEmail(client),
             _clientTotalVisits(client),
             _clientTotalSpend(client),
             _clientLastVisit(client),
@@ -1115,24 +1186,67 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
           )
           ?.branchName
           .trim();
-      final safeName = (branchName == null || branchName.isEmpty
-              ? 'branch_clients'
-              : branchName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_'))
-          .replaceAll(RegExp(r'^_+|_+$'), '');
-      final fileName = '${safeName.isEmpty ? 'branch_clients' : safeName}.csv';
-
-      var targetPath = await _downloadsFilePath(fileName);
-
-      final file = File(targetPath);
-      await file.parent.create(recursive: true);
-      await file.writeAsString(csv);
-      _logClients('export_clients_success', details: file.path);
-      _showSnack(
-        translateText('Exported to {path}', params: {'path': file.path}),
+      final branchPart = _csvFileSafeName(
+        branchName == null || branchName.isEmpty
+            ? 'branch_clients'
+            : branchName,
       );
+      final tabPart = _csvFileSafeName(_activeCustomerTab);
+      final datePart = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final fileName =
+          '${branchPart.isEmpty ? 'branch_clients' : branchPart}_${tabPart.isEmpty ? 'all_customers' : tabPart}_$datePart.csv';
+
+      final csvBytes = utf8.encode('\uFEFF$csv');
+      final directory = await getTemporaryDirectory();
+      final file = File('${directory.path}/$fileName');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(csvBytes, flush: true);
+
+      final downloadsPath = await _downloadsFilePath(fileName);
+      final downloadsFile = File(downloadsPath);
+      await downloadsFile.parent.create(recursive: true);
+      await downloadsFile.writeAsBytes(csvBytes, flush: true);
+      _logClients(
+        'export_clients_downloads_copy_created',
+        details: downloadsFile.path,
+      );
+
+      if (!mounted) return;
+      final renderBox = context.findRenderObject() as RenderBox?;
+      final shareOrigin = renderBox == null
+          ? null
+          : renderBox.localToGlobal(Offset.zero) & renderBox.size;
+      final result = await Share.shareXFiles(
+        [
+          XFile(
+            file.path,
+            mimeType: 'text/csv',
+            name: fileName,
+          ),
+        ],
+        subject: 'Clients Export',
+        text:
+            'Clients export: ${branchName?.isEmpty == false ? branchName : 'Branch clients'}',
+        sharePositionOrigin: shareOrigin,
+      );
+
+      _logClients(
+        'export_clients_success',
+        details: 'shareFile=${file.path}, downloadsFile=${downloadsFile.path}',
+      );
+      if (result.status == ShareResultStatus.dismissed) {
+        _showSnack(translateText('Export cancelled'));
+      } else {
+        _showSnack(translateText('Clients exported successfully'));
+      }
     } catch (error) {
       _logClients('export_clients_failed', details: error);
-      _showSnack(error.toString());
+      _showSnack(
+        translateText(
+          'Failed to export clients: {error}',
+          params: {'error': error.toString()},
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isExporting = false);
@@ -1140,7 +1254,6 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     }
   }
 
-  // ignore: unused_element
   Future<void> _showImportClientsModal() async {
     if (_selectedBranchId == null) {
       _showSnack(translateText('Please select a branch first.'));
@@ -1203,19 +1316,28 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                   'import_upload_started',
                   details: selectedFile!.path,
                 );
-                await _apiService.importClientsFile(
+                final response = await _apiService.importClientsFile(
                   branchId: _selectedBranchId!,
                   file: File(selectedFile!.path!),
                 );
+                final resultMessage = _importClientsResultMessage(response);
                 if (!mounted || !dialogContext.mounted) return;
                 _logClients(
                   'import_upload_success',
-                  details: 'branchId=$_selectedBranchId',
+                  details: 'branchId=$_selectedBranchId, response=$response',
                 );
                 Navigator.of(dialogContext).pop();
-                _showSnack(translateText('Clients imported successfully'));
-                await _loadClientsForBranch(_selectedBranchId!,
-                    saveSelection: false);
+                setState(() {
+                  _activeCustomerTab = 'all_customers';
+                  _currentPage = 1;
+                  _searchController.clear();
+                });
+                await _loadClientsForBranch(
+                  _selectedBranchId!,
+                  saveSelection: false,
+                );
+                if (!mounted) return;
+                _showSnack(resultMessage);
               } catch (error) {
                 _logClients('import_upload_failed', details: error);
                 _showSnack(error.toString());
@@ -1429,7 +1551,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     return SizedBox(
       height: 44,
       child: ElevatedButton(
-        onPressed: _isExporting ? null : _exportClients,
+        onPressed: _isExporting || _isLoadingClients ? null : _exportClients,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.starColor,
           disabledBackgroundColor: const Color(0xFFB8A06D),
@@ -1451,6 +1573,29 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                 context.t('Export'),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
+      ),
+    );
+  }
+
+  Widget _buildImportButton() {
+    return SizedBox(
+      height: 44,
+      child: OutlinedButton.icon(
+        onPressed: _isLoadingClients ? null : _showImportClientsModal,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.starColor,
+          disabledForegroundColor: const Color(0xFFB8A06D),
+          side: const BorderSide(color: AppColors.starColor),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        icon: const Icon(Icons.upload_file_rounded, size: 18),
+        label: Text(
+          context.t('Import'),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }
@@ -1772,6 +1917,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                                       const BoxConstraints(maxWidth: 220),
                                   child: _buildDateRangeDropdown(),
                                 ),
+                                _buildImportButton(),
                                 _buildExportButton(),
                               ],
                             ),
@@ -1787,6 +1933,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                           constraints: const BoxConstraints(maxWidth: 220),
                           child: _buildDateRangeDropdown(),
                         ),
+                        const SizedBox(width: 10),
+                        _buildImportButton(),
                         const SizedBox(width: 10),
                         _buildExportButton(),
                       ],

@@ -7324,15 +7324,19 @@ class ApiService {
     required File file,
   }) async {
     final token = await getAuthToken();
+    final url = Uri.parse('$baseUrl${importClientsFileAPI(branchId)}');
+    print('[ImportClientsFile] url=$url file=${file.path}');
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$baseUrl${importClientsFileAPI(branchId)}'),
+      url,
     )
       ..headers['Authorization'] = 'Bearer $token'
       ..files.add(await http.MultipartFile.fromPath('file', file.path));
 
     final response = await _sharedClient.send(request);
     final body = await response.stream.bytesToString();
+    print('[ImportClientsFile] status=${response.statusCode}');
+    print('[ImportClientsFile body] $body');
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body.isEmpty
