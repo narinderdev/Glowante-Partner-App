@@ -544,6 +544,18 @@ class AppTranslations {
       'Set Weekly Working Hours': 'Set Weekly Working Hours',
       'Share your experience with this customer...':
           'Share your experience with this customer...',
+      'How was your experience with this customer?':
+          'How was your experience with this customer?',
+      'Tags': 'Tags',
+      'Great Customer': 'Great Customer',
+      'Highly Recommended Client': 'Highly Recommended Client',
+      'Love to Serve Again': 'Love to Serve Again',
+      'Friendly Customer': 'Friendly Customer',
+      'Arrived On Time': 'Arrived On Time',
+      'Respectful & Polite': 'Respectful & Polite',
+      'Clear Preferences': 'Clear Preferences',
+      'Select tags that describe this customer.':
+          'Select tags that describe this customer.',
       'Specialists': 'Specialists',
       'Start Job': 'Start Job',
       'Start job': 'Start job',
@@ -1569,6 +1581,18 @@ class AppTranslations {
       'Set Weekly Working Hours': 'साप्ताहिक कार्य समय सेट करें',
       'Share your experience with this customer...':
           'इस ग्राहक के साथ अपना अनुभव साझा करें...',
+      'How was your experience with this customer?':
+          'इस ग्राहक के साथ आपका अनुभव कैसा रहा?',
+      'Tags': 'टैग',
+      'Great Customer': 'बहुत अच्छे ग्राहक',
+      'Highly Recommended Client': 'अत्यधिक अनुशंसित ग्राहक',
+      'Love to Serve Again': 'फिर से सेवा देना पसंद करेंगे',
+      'Friendly Customer': 'मित्रवत ग्राहक',
+      'Arrived On Time': 'समय पर आए',
+      'Respectful & Polite': 'सम्मानजनक और विनम्र',
+      'Clear Preferences': 'स्पष्ट पसंद',
+      'Select tags that describe this customer.':
+          'इस ग्राहक का वर्णन करने वाले टैग चुनें।',
       'Specialists': 'विशेषज्ञ',
       'Use salon open & close time':
           'सैलून खुलने और बंद होने के समय का उपयोग करें',

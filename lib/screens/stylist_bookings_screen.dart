@@ -34,6 +34,15 @@ const Color _bookingsPage = Color(0xFFFBF9F8);
 const Color _bookingsDark = Color(0xFF1C1917);
 const Color _bookingsBorder = Color(0xFFE7E5E4);
 
+const List<String> _finishJobCustomerReviewTags = <String>[
+  'Highly Recommended Client',
+  'Love to Serve Again',
+  'Friendly Customer',
+  'Arrived On Time',
+  'Respectful & Polite',
+  'Clear Preferences',
+];
+
 TextStyle _bookingTextStyle({
   required double size,
   FontWeight weight = FontWeight.w400,
@@ -1475,10 +1484,16 @@ bool _isBookingOverdue(Map<String, dynamic> booking) {
   return end != null && DateTime.now().isAfter(end);
 }
 
-bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>
-    isOwnerMode && status == 'PENDING';
+bool _showsConfirmAction(String status, {required bool isOwnerMode}) => false;
 
-bool _showsStartAction(String status) => status == 'CONFIRMED';
+bool _showsStartAction(String status) {
+  return status == 'PENDING' ||
+      status == 'UPCOMING' ||
+      status == 'CONFIRMED' ||
+      status == 'SCHEDULED' ||
+      status == 'BOOKED' ||
+      status == 'ACCEPTED';
+}
 
 DateTime? _bookingActionEnd(Map<String, dynamic> booking) {
   final explicitEnd = _bookingEnd(booking);
@@ -1502,7 +1517,8 @@ bool _canStartJob(Map<String, dynamic> booking) {
   return _showsStartAction(_normalizeStatus(booking['status']));
 }
 
-bool _showsFinishAction(String status) => status == 'IN_PROGRESS';
+bool _showsFinishAction(String status) =>
+    status == 'IN_PROGRESS' || status == 'STARTED';
 
 bool _showsNoShowAction(String status) =>
     status == 'CONFIRMED' || status == 'UPCOMING';
@@ -2621,15 +2637,25 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
   bool showBackButton = false,
 }) async {
   int selectedRating = 0;
-  String commentText = '';
+  final selectedTags = <String>{};
+  final defaultComment = context.t('Great Customer');
+  final commentController = TextEditingController(text: defaultComment);
+  String commentText = defaultComment;
+  bool hasManualComment = false;
 
-  return showDialog<Map<String, dynamic>>(
+  String selectedTagsComment() =>
+      _finishJobCustomerReviewTags.where(selectedTags.contains).join(', ');
+
+  final result = await showDialog<Map<String, dynamic>>(
     context: context,
     barrierDismissible: true,
     builder: (ctx) {
       return StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final canSubmit = selectedRating > 0 && commentText.trim().isNotEmpty;
+          final isTypingComment = selectedTags.isEmpty &&
+              hasManualComment &&
+              commentText.trim().isNotEmpty;
+          final isUsingTags = selectedTags.isNotEmpty;
 
           return Dialog(
             backgroundColor: Colors.transparent,
@@ -2704,7 +2730,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                     ),
                     const SizedBox(height: 22),
                     Text(
-                      context.t('How was the service?'),
+                      context.t('How was your experience with this customer?'),
                       style: _bookingTextStyle(
                         size: 14,
                         weight: FontWeight.w900,
@@ -2755,6 +2781,98 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                     ),
                     const SizedBox(height: 20),
                     Text(
+                      context.t('Tags'),
+                      style: _bookingTextStyle(
+                        size: 13,
+                        weight: FontWeight.w900,
+                        color: _bookingsSecondaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        const spacing = 8.0;
+                        final chipWidth = (constraints.maxWidth - spacing) / 2;
+
+                        return Wrap(
+                          spacing: spacing,
+                          runSpacing: 10,
+                          children: _finishJobCustomerReviewTags.map((tag) {
+                            final isSelected = selectedTags.contains(tag);
+                            final isDisabled = isTypingComment && !isSelected;
+
+                            return SizedBox(
+                              width: chipWidth,
+                              height: 48,
+                              child: FilterChip(
+                                label: SizedBox(
+                                  width: double.infinity,
+                                  child: Text(
+                                    context.t(tag),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: _bookingTextStyle(
+                                      size: 10,
+                                      weight: FontWeight.w800,
+                                      color: isDisabled
+                                          ? _bookingsSecondaryText
+                                          : isSelected
+                                              ? _bookingsPrimaryText
+                                              : _bookingsDark,
+                                    ),
+                                  ),
+                                ),
+                                selected: isSelected,
+                                showCheckmark: false,
+                                backgroundColor: isDisabled
+                                    ? const Color(0xFFF3F4F6)
+                                    : Colors.white,
+                                selectedColor: const Color(0xFFFFF4D6),
+                                side: BorderSide(
+                                  color: isDisabled
+                                      ? _bookingsBorder
+                                      : isSelected
+                                          ? _bookingsGold
+                                          : _bookingsAccent,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                                onSelected: isDisabled
+                                    ? null
+                                    : (_) {
+                                        setDialogState(() {
+                                          if (isSelected) {
+                                            selectedTags.remove(tag);
+                                          } else {
+                                            selectedTags.add(tag);
+                                          }
+                                          commentText = selectedTagsComment();
+                                          hasManualComment = false;
+                                          commentController.text = commentText;
+                                        });
+                                      },
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.t('Select tags that describe this customer.'),
+                      style: _bookingTextStyle(
+                        size: 11,
+                        weight: FontWeight.w700,
+                        color: _bookingsSecondaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
                       context.t('Comment'),
                       style: _bookingTextStyle(
                         size: 13,
@@ -2764,18 +2882,23 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                     ),
                     const SizedBox(height: 8),
                     TextField(
+                      controller: commentController,
+                      enabled: !isUsingTags,
                       maxLength: 300,
                       minLines: 3,
                       maxLines: 4,
                       onChanged: (value) {
                         setDialogState(() {
                           commentText = value;
+                          hasManualComment = value.trim().isNotEmpty;
                         });
                       },
                       decoration: InputDecoration(
                         hintText: context.t('Write comment'),
                         filled: true,
-                        fillColor: const Color(0xFFFAF7F3),
+                        fillColor: isUsingTags
+                            ? const Color(0xFFF3F4F6)
+                            : const Color(0xFFFAF7F3),
                         counterStyle: _bookingTextStyle(
                           size: 11,
                           weight: FontWeight.w600,
@@ -2789,6 +2912,10 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                           borderRadius: BorderRadius.circular(18),
                           borderSide: const BorderSide(color: _bookingsBorder),
                         ),
+                        disabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(color: _bookingsBorder),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(18),
                           borderSide: const BorderSide(
@@ -2797,6 +2924,17 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                           ),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: _bookingsBorder,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 14),
                     Row(
@@ -2835,14 +2973,14 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                           child: SizedBox(
                             height: 52,
                             child: ElevatedButton(
-                              onPressed: canSubmit
-                                  ? () {
-                                      Navigator.pop(ctx, {
-                                        'rating': selectedRating,
-                                        'comment': commentText.trim(),
-                                      });
-                                    }
-                                  : null,
+                              onPressed: () {
+                                final comment = commentText.trim();
+                                Navigator.pop(ctx, {
+                                  if (selectedRating > 0)
+                                    'rating': selectedRating,
+                                  if (comment.isNotEmpty) 'comment': comment,
+                                });
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _bookingsDark,
                                 foregroundColor: Colors.white,
@@ -2858,7 +2996,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
                                 child: Text(
-                                  context.t('Submit Review'),
+                                  context.t('Submit'),
                                   maxLines: 1,
                                   textAlign: TextAlign.center,
                                   style: _bookingTextStyle(
@@ -2882,6 +3020,10 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
       );
     },
   );
+  Future<void>.delayed(const Duration(milliseconds: 500), () {
+    commentController.dispose();
+  });
+  return result;
 }
 
 class _StylistBookingsScreenState extends State<StylistBookingsScreen>
@@ -4174,14 +4316,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     return status == 'COMPLETED' || status == 'COMPLETE';
   }
 
-  bool _isUpcomingScheduleStatus(String status) {
+  bool _isScheduleVisibleStatus(String status) {
     return !_isCompletedStatus(status) &&
-        status != 'IN_PROGRESS' &&
-        status != 'STARTED' &&
         status != 'CANCELLED' &&
         status != 'CANCELED' &&
-        status != 'NO_SHOW' &&
-        status != 'PENDING';
+        status != 'NO_SHOW';
   }
 
   List<Map<String, dynamic>> _sortedBookings() {
@@ -4217,7 +4356,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     if (!widget.isOwnerMode && _isScheduleBookingView) {
       return teamFilteredBookings.where((booking) {
         final status = _normalizeStatus(booking['status']);
-        return _isUpcomingScheduleStatus(status);
+        return _isScheduleVisibleStatus(status);
       }).toList();
     }
     return teamFilteredBookings;
@@ -4955,8 +5094,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     final resp = await ApiService().completeAppointment(
       branchId: selected.branchId,
       appointmentId: appointmentId,
-      rating: feedback['rating'] as int,
-      comment: feedback['comment'] as String,
+      rating: feedback['rating'] as int?,
+      comment: feedback['comment'] as String?,
       inventoryItems: inventoryItems,
     );
     if (!mounted) return;
@@ -9083,8 +9222,8 @@ class _StylistBookingDetailScreenState
     final resp = await ApiService().completeAppointment(
       branchId: widget.branchId,
       appointmentId: appointmentId,
-      rating: feedback['rating'] as int,
-      comment: feedback['comment'] as String,
+      rating: feedback['rating'] as int?,
+      comment: feedback['comment'] as String?,
       serviceIds: _completionServiceIds(),
       inventoryItems: inventoryItems,
     );

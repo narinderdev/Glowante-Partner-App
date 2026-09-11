@@ -6271,7 +6271,7 @@ class ApiService {
   Future<Map<String, dynamic>> completeAppointment({
     required int branchId,
     required int appointmentId,
-    required int rating,
+    int? rating,
     String? comment,
     List<int> serviceIds = const <int>[],
     List<Map<String, dynamic>> inventoryItems = const <Map<String, dynamic>>[],
@@ -6294,8 +6294,9 @@ class ApiService {
       );
       print(
         "  Body: ${jsonEncode({
-              "rating": rating,
-              if (comment != null) "comment": comment,
+              if (rating != null) "rating": rating,
+              if (comment != null && comment.trim().isNotEmpty)
+                "comment": comment.trim(),
               if (serviceIds.isNotEmpty) "serviceIds": serviceIds,
               if (inventoryItems.isNotEmpty) "inventoryItems": inventoryItems
             })}",
@@ -6308,8 +6309,9 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
-          "rating": rating,
-          if (comment != null) "comment": comment,
+          if (rating != null) "rating": rating,
+          if (comment != null && comment.trim().isNotEmpty)
+            "comment": comment.trim(),
           if (serviceIds.isNotEmpty) "serviceIds": serviceIds,
           if (inventoryItems.isNotEmpty) "inventoryItems": inventoryItems,
         }),
