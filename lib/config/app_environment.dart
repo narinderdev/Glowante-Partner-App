@@ -10,6 +10,10 @@ class AppEnvironment {
   static const String _flavorName =
       String.fromEnvironment('APP_FLAVOR', defaultValue: 'prod');
 
+  static String _withTrailingSlash(String url) {
+    return url.endsWith('/') ? url : '$url/';
+  }
+
   static AppFlavor get flavor {
     switch (_flavorName.toLowerCase()) {
       case 'dev':
@@ -26,11 +30,11 @@ class AppEnvironment {
   static String get baseUrl {
     switch (flavor) {
       case AppFlavor.dev:
-        return 'https://dev2-api.glowante.com/';
+        return _withTrailingSlash('https://dev2-api.glowante.com');
       case AppFlavor.test:
-        return 'https://test-api.glowante.com/';
+        return _withTrailingSlash('https://test-api.glowante.com');
       case AppFlavor.prod:
-        return 'https://api.glowante.com/';
+        return _withTrailingSlash('https://api.glowante.com');
     }
   }
 
