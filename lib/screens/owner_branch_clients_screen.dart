@@ -18,6 +18,7 @@ import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import '../widgets/app_loader.dart';
+import 'owner_branch_all_clients_screen.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class OwnerBranchClientsScreen extends StatefulWidget {
@@ -1467,6 +1468,14 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                           children: [
                             OutlinedButton(
                               onPressed: isUploading ? null : pickFile,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.starColor,
+                                side:
+                                    const BorderSide(color: AppColors.starColor),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
                               child: Text(context.t('Choose File')),
                             ),
                             Text(
@@ -1484,6 +1493,15 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                             onPressed: isUploading
                                 ? null
                                 : () => Navigator.of(dialogContext).pop(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF374151),
+                              side: const BorderSide(
+                                color: Color(0xFFD1D5DB),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
                             child: Text(translateText('Cancel')),
                           ),
                           const SizedBox(width: 10),
@@ -1577,11 +1595,21 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     );
   }
 
-  Widget _buildImportButton() {
+  Widget _buildAllClientsButton() {
+    final branchId = _selectedBranchId;
     return SizedBox(
       height: 44,
       child: OutlinedButton.icon(
-        onPressed: _isLoadingClients ? null : _showImportClientsModal,
+        onPressed: branchId == null
+            ? null
+            : () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        OwnerBranchAllClientsScreen(branchId: branchId),
+                  ),
+                );
+              },
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.starColor,
           disabledForegroundColor: const Color(0xFFB8A06D),
@@ -1591,9 +1619,9 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        icon: const Icon(Icons.upload_file_rounded, size: 18),
+        icon: const Icon(Icons.people_alt_outlined, size: 18),
         label: Text(
-          context.t('Import'),
+          context.t('All Clients'),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
@@ -1859,7 +1887,27 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
-      appBar: buildProfileSubpageAppBar(title: context.t('Clients')),
+      appBar: buildProfileSubpageAppBar(
+        title: context.t('Clients'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton.icon(
+              onPressed: _isLoadingClients ? null : _showImportClientsModal,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.starColor,
+                disabledForegroundColor: const Color(0xFFB8A06D),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              icon: const Icon(Icons.upload_file_rounded, size: 18),
+              label: Text(
+                context.t('Import'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           RefreshIndicator(
@@ -1917,7 +1965,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                                       const BoxConstraints(maxWidth: 220),
                                   child: _buildDateRangeDropdown(),
                                 ),
-                                _buildImportButton(),
+                                _buildAllClientsButton(),
                                 _buildExportButton(),
                               ],
                             ),
@@ -1934,7 +1982,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                           child: _buildDateRangeDropdown(),
                         ),
                         const SizedBox(width: 10),
-                        _buildImportButton(),
+                        _buildAllClientsButton(),
                         const SizedBox(width: 10),
                         _buildExportButton(),
                       ],
