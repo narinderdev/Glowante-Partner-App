@@ -817,7 +817,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                   0,
                 ]),
                 child: Image.asset(
-                  'assets/images/salonImage.png',
+                  'assets/images/salonImage.webp',
                   fit: BoxFit.cover,
                 ),
               ),

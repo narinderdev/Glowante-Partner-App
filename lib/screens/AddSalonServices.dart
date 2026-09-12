@@ -747,13 +747,13 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           fit: StackFit.expand,
           children: [
             Image.asset(
-              'assets/images/salonImage.png',
+              'assets/images/salonImage.webp',
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),
             Container(color: const Color(0xCC3A240B)),
             Image.asset(
-              'assets/images/salonImage.png',
+              'assets/images/salonImage.webp',
               fit: BoxFit.contain,
               alignment: Alignment.center,
             ),

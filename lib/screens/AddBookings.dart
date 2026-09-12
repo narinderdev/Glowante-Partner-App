@@ -4290,7 +4290,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           fit: StackFit.expand,
           children: [
             Image.asset(
-              'assets/images/salonImage.png',
+              'assets/images/salonImage.webp',
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),

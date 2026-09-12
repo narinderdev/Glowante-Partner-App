@@ -1504,13 +1504,13 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           fit: StackFit.expand,
           children: [
             Image.asset(
-              'assets/images/salonImage.png',
+              'assets/images/salonImage.webp',
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),
             Container(color: Colors.black.withValues(alpha: 0.52)),
             Image.asset(
-              'assets/images/salonImage.png',
+              'assets/images/salonImage.webp',
               fit: BoxFit.contain,
               alignment: Alignment.center,
             ),

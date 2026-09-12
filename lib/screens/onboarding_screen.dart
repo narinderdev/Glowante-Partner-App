@@ -36,25 +36,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     OnboardingPage(
       title: '',
       description: '',
-      imageAsset: 'assets/images/iii1.png',
+      imageAsset: 'assets/images/iii1.webp',
     ),
     OnboardingPage(
       title: 'Precision in Every Appointment',
       description:
           'Minimize gaps and maximize bookings with our smart scheduling engine designed for high-end establishments.',
-      imageAsset: 'assets/images/iii2.png',
+      imageAsset: 'assets/images/iii2.webp',
     ),
     OnboardingPage(
       title: "Master Your Salon's Rhythm",
       description:
           "Effortlessly coordinate your team, manage bookings, and elevate your salon's artistry from a single, intuitive workspace.",
-      imageAsset: 'assets/images/iii3.png',
+      imageAsset: 'assets/images/iii3.webp',
     ),
     OnboardingPage(
       title: 'Data-Driven Growth',
       description:
           'Gain deep insights into staff performance and customer loyalty to scale your beauty empire with confidence.',
-      imageAsset: 'assets/images/gettingstarted.png',
+      imageAsset: 'assets/images/gettingstarted.webp',
     ),
   ];
 
