@@ -1342,12 +1342,40 @@ class _TeamScreenState extends State<TeamScreen> {
   //     }
   //   }
   // }
-  Future<void> _deleteMember(int userId) async {
-    final branchId = selectedBranchId;
+  Future<void> _deleteMember(Map<String, dynamic> member) async {
+    final userId = _teamMemberUserId(member);
+    final assignedBranches = _memberAssignedBranches(member);
+    int? branchId;
+
+    if (assignedBranches.length > 1) {
+      FocusScope.of(context).unfocus();
+      branchId = await _showSelectBranchForMemberActionDialog(
+        member: member,
+        branches: assignedBranches,
+        actionLabel: translateText('delete').toLowerCase(),
+      );
+      if (branchId == null) return;
+    } else {
+      branchId = selectedBranchId ??
+          (assignedBranches.isEmpty
+              ? null
+              : _asInt(assignedBranches.first['id']));
+    }
+
     debugPrint(
-      '[TeamDelete] tapped userId=$userId selectedBranchId=$branchId '
+      '[TeamDelete] tapped userId=$userId selectedBranchId=$selectedBranchId '
+      'resolvedBranchId=$branchId '
       'selectedBranch=${selectedBranch?['branchName'] ?? selectedBranch?['name']}',
     );
+
+    if (userId == null || userId == 0) {
+      debugPrint('[TeamDelete] blocked: invalid user id');
+      Fluttertoast.showToast(
+        msg: translateText('Invalid team member'),
+        toastLength: Toast.LENGTH_LONG,
+      );
+      return;
+    }
 
     if (branchId == null) {
       debugPrint('[TeamDelete] blocked: no branch selected');
@@ -1868,10 +1896,11 @@ class _TeamScreenState extends State<TeamScreen> {
     return branches;
   }
 
-  Future<int?> _showSelectBranchToEditDialog(
-    Map<String, dynamic> member,
-    List<Map<String, dynamic>> branches,
-  ) {
+  Future<int?> _showSelectBranchForMemberActionDialog({
+    required Map<String, dynamic> member,
+    required List<Map<String, dynamic>> branches,
+    required String actionLabel,
+  }) {
     return showDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1884,8 +1913,8 @@ class _TeamScreenState extends State<TeamScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${translateText("Select the branch where you want to edit")} '
-                '${_memberDisplayName(member)}.',
+                '${translateText("Select the branch where you want to")} '
+                '$actionLabel ${_memberDisplayName(member)}.',
                 style: const TextStyle(fontSize: 13, color: Color(0xFF6F665E)),
               ),
               const SizedBox(height: 14),
@@ -1944,8 +1973,11 @@ class _TeamScreenState extends State<TeamScreen> {
     int? memberBranchId;
     if (assignedBranches.length > 1) {
       FocusScope.of(context).unfocus();
-      memberBranchId =
-          await _showSelectBranchToEditDialog(member, assignedBranches);
+      memberBranchId = await _showSelectBranchForMemberActionDialog(
+        member: member,
+        branches: assignedBranches,
+        actionLabel: translateText('edit').toLowerCase(),
+      );
       if (memberBranchId == null) return;
     } else {
       // The member's own current branch, not whatever's currently
@@ -2799,7 +2831,7 @@ class _TeamMembersTable extends StatelessWidget {
       onCompleteProfileMember;
   final Future<void> Function(Map<String, dynamic> member, int branchId)
       onEditAssignedBranch;
-  final Future<void> Function(int userId) onDeleteMember;
+  final Future<void> Function(Map<String, dynamic> member) onDeleteMember;
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
   final Future<void> Function(Map<String, dynamic> member) onViewMember;
   final Future<void> Function(Map<String, dynamic> member) onAssignMember;
@@ -2972,7 +3004,7 @@ class _TeamMembersTable extends StatelessWidget {
                                       break;
                                     case 'delete':
                                       if (!blockDeleteOrDeactivate) {
-                                        unawaited(onDeleteMember(userId));
+                                        unawaited(onDeleteMember(member));
                                       }
                                       break;
                                   }
@@ -3296,7 +3328,7 @@ class _TeamMembersGrid extends StatelessWidget {
       onCompleteProfileMember;
   final Future<void> Function(Map<String, dynamic> member, int branchId)
       onEditAssignedBranch;
-  final Future<void> Function(int userId) onDeleteMember;
+  final Future<void> Function(Map<String, dynamic> member) onDeleteMember;
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
   final Future<void> Function(Map<String, dynamic> member) onViewMember;
   final Future<void> Function(Map<String, dynamic> member) onAssignMember;
@@ -3386,14 +3418,14 @@ class _TeamMembersGrid extends StatelessWidget {
                 isStatusUpdating: isStatusUpdating,
                 isViewOpening: openingViewMemberId != null,
                 isViewLoadingThisCard: openingViewMemberId == userId,
-                isDeleteBlocked: hasNoBranch || !hasSelectedBranch,
+                isDeleteBlocked: hasNoBranch,
                 isDeactivateBlocked: hasNoBranch || !hasSelectedBranch,
                 canAssign: selectedBranch != null && salons.isNotEmpty,
                 onEdit: () => onEditMember(member),
                 onCompleteProfile: () => onCompleteProfileMember(member),
                 onEditAssignedBranch: (branchId) =>
                     onEditAssignedBranch(member, branchId),
-                onDelete: () => onDeleteMember(userId),
+                onDelete: () => onDeleteMember(member),
                 onToggleActive: () =>
                     onToggleMemberActive(userId, !isBranchActive),
                 onView: () {
