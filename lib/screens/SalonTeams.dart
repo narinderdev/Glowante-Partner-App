@@ -10,6 +10,7 @@ import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
 import '../widgets/app_loader.dart';
 import 'TeamMemberDetails.dart';
+import 'add_location_screen.dart';
 import 'complete_profile_flow_constants.dart';
 import 'team_branch_setup_screen.dart';
 import 'team_member_personal_info_screen.dart';
@@ -43,6 +44,50 @@ int? _teamMemberUserId(Map<dynamic, dynamic> member) {
       _teamAsInt(member['id']) ??
       _teamAsInt(member['professionalId']) ??
       _teamAsInt(member['professionalUserId']);
+}
+
+dynamic _teamMemberAddressSource(Map<dynamic, dynamic> member) {
+  final direct = member['address'];
+  if (direct != null) return direct;
+
+  for (final key in const ['profile', 'user', 'member', 'professional']) {
+    final nested = member[key];
+    if (nested is Map && nested['address'] != null) {
+      return nested['address'];
+    }
+  }
+
+  return null;
+}
+
+bool _teamMemberHasAddress(Map<dynamic, dynamic> member) {
+  final raw = _teamMemberAddressSource(member);
+  if (raw is Map) {
+    if (raw.isEmpty) return false;
+    final formatted = formatAddressSummary(raw);
+    return formatted.trim().isNotEmpty ||
+        raw.values.any((value) {
+          final text = value?.toString().trim() ?? '';
+          return text.isNotEmpty && text.toLowerCase() != 'null';
+        });
+  }
+  final text = raw?.toString().trim() ?? '';
+  return text.isNotEmpty && text.toLowerCase() != 'null';
+}
+
+String _teamMemberAddressLabel(Map<dynamic, dynamic> member) {
+  final raw = _teamMemberAddressSource(member);
+  if (raw is Map) {
+    final address = Map<String, dynamic>.from(raw);
+    final formatted = formatAddressSummary(address);
+    if (formatted.trim().isNotEmpty) return formatted.trim();
+    return address.values
+        .map((value) => value?.toString().trim() ?? '')
+        .where((value) => value.isNotEmpty && value.toLowerCase() != 'null')
+        .join(', ');
+  }
+  final text = raw?.toString().trim() ?? '';
+  return text.toLowerCase() == 'null' ? '' : text;
 }
 
 bool? _teamReadBool(dynamic value) {
@@ -340,6 +385,8 @@ class _TeamScreenState extends State<TeamScreen> {
   int _tabMembersTotal = 0;
   int _tabMembersTotalPages = 1;
   bool _isLoadingTabMembers = false;
+  final Map<int, Map<String, dynamic>> _knownMemberAddresses = {};
+  final Set<int> _addressCheckedMemberIds = {};
 
   List<Map<String, dynamic>> _invitationsV2 = const [];
   int _invitationsV2Total = 0;
@@ -695,6 +742,87 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
+  void _rememberKnownMemberAddress(int userId, dynamic address) {
+    if (address is! Map || !_teamMemberHasAddress({'address': address})) {
+      return;
+    }
+    _knownMemberAddresses[userId] = Map<String, dynamic>.from(address);
+  }
+
+  Map<String, dynamic> _withKnownMemberAddress(Map<String, dynamic> member) {
+    final userId = _teamMemberUserId(member);
+    if (userId == null) return member;
+
+    final source = _teamMemberAddressSource(member);
+    if (source is Map && _teamMemberHasAddress(member)) {
+      _rememberKnownMemberAddress(userId, source);
+      return member;
+    }
+
+    final knownAddress = _knownMemberAddresses[userId];
+    if (knownAddress == null) return member;
+
+    return {
+      ...member,
+      'address': Map<String, dynamic>.from(knownAddress),
+    };
+  }
+
+  void _markMemberAddressKnown(int userId, Map<String, dynamic> address) {
+    _rememberKnownMemberAddress(userId, address);
+    _addressCheckedMemberIds.add(userId);
+    _tabMembers = _tabMembers.map((member) {
+      if (_teamMemberUserId(member) != userId) return member;
+      return {
+        ...member,
+        'address': Map<String, dynamic>.from(address),
+      };
+    }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadAddressStateForMembers({
+    required int salonId,
+    required List<Map<String, dynamic>> members,
+  }) async {
+    final membersToCheck = members.where((member) {
+      if (_teamMemberHasAddress(member)) return false;
+      final userId = _teamMemberUserId(member);
+      if (userId == null) return false;
+      return !_knownMemberAddresses.containsKey(userId) &&
+          !_addressCheckedMemberIds.contains(userId);
+    }).toList();
+
+    if (membersToCheck.isEmpty) {
+      return members.map(_withKnownMemberAddress).toList();
+    }
+
+    await Future.wait<void>(
+      membersToCheck.map((member) async {
+        final userId = _teamMemberUserId(member);
+        if (userId == null) return;
+        try {
+          final response = await ApiService().getTeamMemberDetailV2(
+            salonId,
+            userId,
+          );
+          final detailMember = _teamMemberPayloadFromDetail(response);
+          final address = _teamMemberAddressSource(detailMember);
+          if (address is Map) {
+            _rememberKnownMemberAddress(userId, address);
+          }
+        } catch (error) {
+          debugPrint(
+            'Failed to load team member address state for $userId: $error',
+          );
+        } finally {
+          _addressCheckedMemberIds.add(userId);
+        }
+      }),
+    );
+
+    return members.map(_withKnownMemberAddress).toList();
+  }
+
   Future<void> _fetchTabMembers() async {
     final salonId = _currentSalonId;
     if (salonId == null || !mounted) return;
@@ -722,12 +850,20 @@ class _TeamScreenState extends State<TeamScreen> {
         final pagination = data['pagination'] is Map
             ? Map<String, dynamic>.from(data['pagination'] as Map)
             : const <String, dynamic>{};
+        final members = (rawItems is List ? rawItems : const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .map(_teamNormalizeMemberAvatar)
+            .map(_withKnownMemberAddress)
+            .toList();
+        final membersWithAddressState = await _loadAddressStateForMembers(
+          salonId: salonId,
+          members: members,
+        );
+        if (!mounted) return;
+        if (_currentSalonId != salonId || selectedBranchId != branchId) return;
         setState(() {
-          _tabMembers = (rawItems is List ? rawItems : const [])
-              .whereType<Map>()
-              .map((item) => Map<String, dynamic>.from(item))
-              .map(_teamNormalizeMemberAvatar)
-              .toList();
+          _tabMembers = membersWithAddressState;
           _professionalRatings = ratings;
           _tabMembersTotal = _asInt(pagination['total']) ?? _tabMembers.length;
           _tabMembersTotalPages = _asInt(pagination['totalPages']) ?? 1;
@@ -2056,6 +2192,229 @@ class _TeamScreenState extends State<TeamScreen> {
     FocusManager.instance.primaryFocus?.unfocus();
   }
 
+  Map<String, dynamic>? _addressPayloadFromLocationResult(
+    Map<String, dynamic> result,
+  ) {
+    String text(String key) => (result[key] as String?)?.trim() ?? '';
+
+    final completeAddress = text('completeAddress');
+    final baseCompleteAddress = text('baseCompleteAddress');
+    final scoFlatHouse = text('scoFlatHouse');
+    final streetSectorArea = text('streetSectorArea');
+    final formattedAddress = completeAddress.isNotEmpty
+        ? completeAddress
+        : [
+            scoFlatHouse,
+            streetSectorArea,
+            baseCompleteAddress,
+          ].where((part) => part.isNotEmpty).join(', ');
+
+    if (formattedAddress.trim().isEmpty) return null;
+
+    final latitude = (result['latitude'] as num?)?.toDouble();
+    final longitude = (result['longitude'] as num?)?.toDouble();
+    final addressParts = formattedAddress
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final postalFromAddress = addressParts
+        .where((part) => RegExp(r'^\d{5,6}$').hasMatch(part))
+        .lastOrNull;
+    final countryFromAddress = addressParts
+        .where((part) => !RegExp(r'^\d{5,6}$').hasMatch(part))
+        .lastOrNull;
+    final stateFromAddress = addressParts.length >= 3
+        ? addressParts[
+            addressParts.length - (postalFromAddress == null ? 2 : 3)]
+        : '';
+    final cityFromAddress = addressParts.length >= 4
+        ? addressParts[
+            addressParts.length - (postalFromAddress == null ? 3 : 4)]
+        : '';
+    final country = text('country');
+    final district = text('district');
+    final state = text('state').isNotEmpty ? text('state') : stateFromAddress;
+    final postalCode = text('postalCode').isNotEmpty
+        ? text('postalCode')
+        : postalFromAddress ?? '';
+
+    return {
+      'line1': scoFlatHouse.isNotEmpty
+          ? scoFlatHouse
+          : baseCompleteAddress.isNotEmpty
+              ? baseCompleteAddress
+              : formattedAddress,
+      'line2': streetSectorArea,
+      'village': '',
+      if (district.isNotEmpty) 'district': district,
+      'city': text('city').isNotEmpty ? text('city') : cityFromAddress,
+      'state': state,
+      'country': country.isNotEmpty
+          ? country
+          : countryFromAddress?.isNotEmpty == true
+              ? countryFromAddress!
+              : 'India',
+      'postalCode': postalCode,
+      'formattedAddress': formattedAddress,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+    };
+  }
+
+  Future<void> _showLockedMemberAddressDialog(
+    Map<String, dynamic> member,
+  ) {
+    final address = _teamMemberAddressLabel(member);
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(translateText('View Address')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _teamGoldLight,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline_rounded,
+                      size: 14, color: _teamGold),
+                  const SizedBox(width: 5),
+                  Text(
+                    translateText('Locked'),
+                    style: const TextStyle(
+                      color: _teamGold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _teamSurface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _teamBorder),
+              ),
+              child: Text(
+                address.isEmpty
+                    ? translateText('No address available')
+                    : address,
+                style: const TextStyle(
+                  color: _teamInk,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: TextButton.styleFrom(
+              foregroundColor: _teamGold,
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            child: Text(translateText('Close')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openAddMemberAddress(Map<String, dynamic> member) async {
+    final salonId = _currentSalonId ?? _asInt(member['salonId']);
+    final userId = _teamMemberUserId(member);
+    if (salonId == null || userId == null) return;
+
+    Map<String, dynamic> detailMember = Map<String, dynamic>.from(member);
+
+    if (mounted) {
+      setState(() => _statusUpdatingIds.add(userId));
+    }
+    try {
+      final response = await ApiService().getTeamMemberDetailV2(
+        salonId,
+        userId,
+      );
+      if (response['success'] == true && response['data'] is Map) {
+        detailMember = _teamMergeMemberMaps(
+          detailMember,
+          _teamMemberPayloadFromDetail(response),
+        );
+      }
+    } catch (error) {
+      debugPrint('Failed to load team member detail for address: $error');
+    } finally {
+      if (mounted) setState(() => _statusUpdatingIds.remove(userId));
+    }
+
+    if (_teamMemberHasAddress(detailMember)) {
+      final address = _teamMemberAddressSource(detailMember);
+      if (address is Map && mounted) {
+        setState(() {
+          _markMemberAddressKnown(userId, Map<String, dynamic>.from(address));
+        });
+      }
+      await _showLockedMemberAddressDialog(detailMember);
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    final result = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddLocationScreen()),
+    );
+    if (!mounted || result == null) return;
+
+    final address = _addressPayloadFromLocationResult(result);
+    if (address == null) {
+      Fluttertoast.showToast(
+        msg: translateText('Please select address from suggestions'),
+      );
+      return;
+    }
+
+    setState(() => _statusUpdatingIds.add(userId));
+    try {
+      final response = await ApiService().patchTeamMemberProfile(
+        salonId,
+        userId,
+        {'address': address},
+      );
+      if (!mounted) return;
+      if (response['success'] == true) {
+        setState(() => _markMemberAddressKnown(userId, address));
+        Fluttertoast.showToast(msg: translateText('Address added'));
+        await _refreshCurrentTeamTab();
+      } else {
+        Fluttertoast.showToast(
+          msg: extractMessage(response, fallback: 'Unable to update address'),
+        );
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: extractErrorMessage(e, fallback: 'Unable to update address'),
+      );
+    } finally {
+      if (mounted) setState(() => _statusUpdatingIds.remove(userId));
+    }
+  }
+
   Future<void> _openEditAssignedBranch(
     Map<String, dynamic> member, {
     int? branchIdOverride,
@@ -2727,6 +3086,7 @@ class _TeamScreenState extends State<TeamScreen> {
                               onViewMember: _openViewMember,
                               onAssignMember: _openAssignMember,
                               onEditCompensation: _openEditCompensation,
+                              onAddAddress: _openAddMemberAddress,
                               memberNameBuilder: _memberDisplayName,
                               memberRoleBuilder: _memberRoleLabel,
                               needsSetup: (member) =>
@@ -3310,6 +3670,7 @@ class _TeamMembersGrid extends StatelessWidget {
     required this.onViewMember,
     required this.onAssignMember,
     required this.onEditCompensation,
+    required this.onAddAddress,
     required this.memberNameBuilder,
     required this.memberRoleBuilder,
     required this.needsSetup,
@@ -3333,6 +3694,7 @@ class _TeamMembersGrid extends StatelessWidget {
   final Future<void> Function(Map<String, dynamic> member) onViewMember;
   final Future<void> Function(Map<String, dynamic> member) onAssignMember;
   final Future<void> Function(Map<String, dynamic> member) onEditCompensation;
+  final Future<void> Function(Map<String, dynamic> member) onAddAddress;
   final String Function(Map<String, dynamic> member) memberNameBuilder;
   final String Function(Map<String, dynamic> member) memberRoleBuilder;
   final bool Function(Map<String, dynamic> member) needsSetup;
@@ -3368,6 +3730,7 @@ class _TeamMembersGrid extends StatelessWidget {
             final isDeleting = deletingMemberIds.contains(userId);
             final ratingSummary =
                 professionalRatings[userId] ?? _TeamRatingSummary.empty;
+            final hasAddress = _teamMemberHasAddress(member);
             // Delete/Deactivate act on selectedBranchId (see
             // _deleteMember/_toggleMemberActive) — meaningless, and
             // liable to hit the wrong branch's record, for a member with
@@ -3433,6 +3796,8 @@ class _TeamMembersGrid extends StatelessWidget {
                 },
                 onAssign: () => onAssignMember(member),
                 onEditCompensation: () => onEditCompensation(member),
+                hasAddress: hasAddress,
+                onAddAddress: () => onAddAddress(member),
               ),
             );
           }).toList(),
@@ -4379,6 +4744,8 @@ class _TeamMemberCard extends StatelessWidget {
     required this.onView,
     required this.onAssign,
     required this.onEditCompensation,
+    required this.hasAddress,
+    required this.onAddAddress,
   });
 
   final Map<String, dynamic> member;
@@ -4403,6 +4770,8 @@ class _TeamMemberCard extends StatelessWidget {
   final VoidCallback onView;
   final VoidCallback onAssign;
   final VoidCallback onEditCompensation;
+  final bool hasAddress;
+  final VoidCallback onAddAddress;
 
   bool get _isBusy => isDeleting || isStatusUpdating || isViewOpening;
 
@@ -4578,6 +4947,8 @@ class _TeamMemberCard extends StatelessWidget {
                           onAssign: needsSetup ? onCompleteProfile : onAssign,
                           onEdit: onEdit,
                           onEditCompensation: onEditCompensation,
+                          hasAddress: hasAddress,
+                          onAddAddress: onAddAddress,
                         ),
                       ],
                     ),
@@ -4674,6 +5045,8 @@ class _TeamCardActionsMenu extends StatelessWidget {
     required this.onAssign,
     required this.onEdit,
     required this.onEditCompensation,
+    required this.hasAddress,
+    required this.onAddAddress,
   });
 
   final bool isBusy;
@@ -4684,6 +5057,8 @@ class _TeamCardActionsMenu extends StatelessWidget {
   final VoidCallback onAssign;
   final VoidCallback onEdit;
   final VoidCallback onEditCompensation;
+  final bool hasAddress;
+  final VoidCallback onAddAddress;
 
   @override
   Widget build(BuildContext context) {
@@ -4723,6 +5098,9 @@ class _TeamCardActionsMenu extends StatelessWidget {
             case 'editCompensation':
               onEditCompensation();
               break;
+            case 'address':
+              onAddAddress();
+              break;
           }
         },
         itemBuilder: (context) => [
@@ -4737,6 +5115,14 @@ class _TeamCardActionsMenu extends StatelessWidget {
             label: translateText('Assign User'),
             enabled: needsSetup || canAssign,
           ),
+          if (needsSetup)
+            _teamMenuItem(
+              value: 'address',
+              icon: hasAddress
+                  ? Icons.visibility_outlined
+                  : Icons.add_location_alt_outlined,
+              label: translateText(hasAddress ? 'View Address' : 'Add Address'),
+            ),
           if (!needsSetup) ...[
             _teamMenuItem(
               value: 'edit',
@@ -4747,6 +5133,13 @@ class _TeamCardActionsMenu extends StatelessWidget {
               value: 'editCompensation',
               icon: Icons.payments_outlined,
               label: translateText('Edit Compensation'),
+            ),
+            _teamMenuItem(
+              value: 'address',
+              icon: hasAddress
+                  ? Icons.visibility_outlined
+                  : Icons.add_location_alt_outlined,
+              label: translateText(hasAddress ? 'View Address' : 'Add Address'),
             ),
           ],
         ],

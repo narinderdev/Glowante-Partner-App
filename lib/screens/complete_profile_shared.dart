@@ -73,17 +73,9 @@ class CompleteProfileDraft {
     return raw is List && raw.isNotEmpty;
   }
 
-  // address is always the complete object or null (updated_3 §5.2, part_2
-  // §8) — never partial, never redacted — so key presence alone is the
-  // correctness signal, not any individual sub-field.
-  //
-  // Deliberately NOT gated by allowFullEdit like every other field —
-  // PATCH .../profile rejects the whole request with
-  // 409 PROFILE_FIELD_ALREADY_POPULATED if address is resent once already
-  // set (confirmed from a live request), unlike the other fields, which
-  // the backend does accept overwrites for. Address always locks once
-  // populated, in every mode, or every other field in the same save
-  // would silently fail right along with it.
+  // Address is added through Team Members' separate Address action. It is
+  // still locked once present because the profile PATCH rejects resending an
+  // already populated address.
   bool get hasAddress => profile['address'] != null;
   bool get hasAvatar => cpIsFilled(profile['profilePictureUrl']);
 
@@ -103,8 +95,6 @@ class CompleteProfileDraft {
       missing.add(translateText('Email verification (member must verify)'));
     }
     if (!hasGender) missing.add(translateText('Gender'));
-    if (!hasAddress) missing.add(translateText('Address'));
-    if (!hasBio) missing.add(translateText('Bio'));
     return missing;
   }
 
@@ -152,34 +142,6 @@ class CompleteProfileDraft {
     }
   }
 
-  // updated_3 §5.2: line1, (city OR village), state, country, postalCode
-  // are all required for a stored address to count as complete — an
-  // incomplete one is simply dropped by the server (rendered as `address:
-  // null` on the next GET), so it's better to catch that client-side with
-  // a clear message than to silently lose what the user typed.
-  // Address is mandatory (missingForActiveStatus), so this now also fires
-  // on a completely untouched address, not just an incomplete one — and
-  // checks all the sub-fields together instead of gating everything on
-  // line1 being filled, which previously let a partially-filled address
-  // through as if nothing had been entered at all, silently dropping
-  // whatever was typed.
-  String? addressCompletionError() {
-    if (hasAddress) return null;
-    final missing = <String>[];
-    if (line1.trim().isEmpty) missing.add(translateText('Address line 1'));
-    if (city.trim().isEmpty && village.trim().isEmpty) {
-      missing.add(translateText('City or Village'));
-    }
-    if (state.trim().isEmpty) missing.add(translateText('State'));
-    if (country.trim().isEmpty) missing.add(translateText('Country'));
-    if (postalCode.trim().isEmpty) missing.add(translateText('Postal code'));
-    if (missing.isEmpty) return null;
-    return translateText(
-      'Address is missing: {fields}',
-      params: {'fields': missing.join(', ')},
-    );
-  }
-
   Map<String, dynamic> buildPatchFields() {
     final fields = <String, dynamic>{};
 
@@ -203,23 +165,6 @@ class CompleteProfileDraft {
     if (!hasSpecialities && specialityCodes.isNotEmpty) {
       fields['specialities'] = specialityCodes.toList();
     }
-    if (!hasAddress && line1.trim().isNotEmpty) {
-      final trimmedLine1 = line1.trim();
-      final trimmedDistrict = district.trim();
-      fields['address'] = {
-        'line1': trimmedLine1,
-        'city': city.trim(),
-        'village': village.trim(),
-        if (trimmedDistrict.isNotEmpty) 'district': trimmedDistrict,
-        'state': state.trim(),
-        'country': country.trim(),
-        'postalCode': postalCode.trim(),
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-        'formattedAddress': trimmedLine1,
-      };
-    }
-
     return fields;
   }
 }

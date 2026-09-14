@@ -16,6 +16,7 @@ import '../utils/aws_s3_uploader.dart';
 import '../utils/error_parser.dart';
 import '../utils/colors.dart';
 import '../utils/refresh_feedback.dart';
+import '../utils/support_email_launcher.dart';
 import '../widgets/app_loader.dart';
 import '../widgets/logout_options_dialog.dart';
 import '../services/user_role_session.dart';
@@ -200,6 +201,22 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
         builder: (_) => const StylistReviewsScreen(),
       ),
     );
+  }
+
+  Future<void> _openHelpSupport() async {
+    try {
+      final opened = await openGlowanteSupportEmail();
+      if (!opened && mounted) {
+        Fluttertoast.showToast(
+          msg: translateText('Unable to open email app'),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      Fluttertoast.showToast(
+        msg: translateText('Unable to open email app'),
+      );
+    }
   }
 
   void _openMarkAttendance() {
@@ -649,6 +666,13 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
             translateText('Terms & Conditions'),
             'https://glowante.com/terms-of-services',
           ),
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.support_agent_outlined,
+          label: context.t('Help & Support'),
+          subtitle: context.t('Email us for help'),
+          onTap: _openHelpSupport,
           showLeftAccent: true,
         ),
         ProfileMenuItemData(

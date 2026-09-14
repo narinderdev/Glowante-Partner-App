@@ -3,11 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
-import 'add_location_screen.dart';
 import 'complete_profile_flow_constants.dart';
 import 'complete_profile_shared.dart';
 import 'team_branch_setup_screen.dart';
@@ -87,7 +85,7 @@ Map<String, dynamic> _mergeProfileMaps(
 }
 
 /// One consolidated "Personal Information" screen (avatar, name, gender,
-/// address, bio, career start date, specialities), replacing what used to
+/// optional bio, career start date, specialities), replacing what used to
 /// be four separate pushed screens — matches the web admin's single-step
 /// layout. Two independent modes control what happens around it:
 ///
@@ -153,13 +151,6 @@ class _TeamMemberPersonalInfoScreenState
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
-  final _line1Ctrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
-  final _villageCtrl = TextEditingController();
-  final _districtCtrl = TextEditingController();
-  final _stateCtrl = TextEditingController();
-  final _countryCtrl = TextEditingController();
-  final _postalCodeCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -175,22 +166,7 @@ class _TeamMemberPersonalInfoScreenState
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _bioCtrl.dispose();
-    _line1Ctrl.dispose();
-    _cityCtrl.dispose();
-    _villageCtrl.dispose();
-    _districtCtrl.dispose();
-    _stateCtrl.dispose();
-    _countryCtrl.dispose();
-    _postalCodeCtrl.dispose();
     super.dispose();
-  }
-
-  bool get _bioHasError {
-    final draft = _draft;
-    return _showValidationErrors &&
-        draft != null &&
-        !draft.hasBio &&
-        _bioCtrl.text.trim().isEmpty;
   }
 
   bool get _genderHasError {
@@ -207,37 +183,6 @@ class _TeamMemberPersonalInfoScreenState
         draft != null &&
         !draft.hasCareerStartDate &&
         draft.careerStartDate == null;
-  }
-
-  // Mirrors CompleteProfileDraft.addressCompletionError()'s logic but reads
-  // the live controllers directly rather than draft's own line1/city/etc.
-  // fields, which only get synced from them at submit time
-  // (_syncDraftFromControllers) — this needs to reflect what's on screen
-  // right now, before another submit attempt.
-  String? get _addressError {
-    final draft = _draft;
-    if (!_showValidationErrors || draft == null || draft.hasAddress) {
-      return null;
-    }
-    final missing = <String>[];
-    if (_line1Ctrl.text.trim().isEmpty) {
-      missing.add(translateText('Address line 1'));
-    }
-    if (_cityCtrl.text.trim().isEmpty && _villageCtrl.text.trim().isEmpty) {
-      missing.add(translateText('City or Village'));
-    }
-    if (_stateCtrl.text.trim().isEmpty) missing.add(translateText('State'));
-    if (_countryCtrl.text.trim().isEmpty) {
-      missing.add(translateText('Country'));
-    }
-    if (_postalCodeCtrl.text.trim().isEmpty) {
-      missing.add(translateText('Postal code'));
-    }
-    if (missing.isEmpty) return null;
-    return translateText(
-      'Address is missing: {fields}',
-      params: {'fields': missing.join(', ')},
-    );
   }
 
   bool get _specialitiesHasError {
@@ -321,13 +266,6 @@ class _TeamMemberPersonalInfoScreenState
       _firstNameCtrl.text = draft.firstName;
       _lastNameCtrl.text = draft.lastName;
       _bioCtrl.text = draft.bio;
-      _line1Ctrl.text = draft.line1;
-      _cityCtrl.text = draft.city;
-      _villageCtrl.text = draft.village;
-      _districtCtrl.text = draft.district;
-      _stateCtrl.text = draft.state;
-      _countryCtrl.text = draft.country;
-      _postalCodeCtrl.text = draft.postalCode;
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -516,83 +454,10 @@ class _TeamMemberPersonalInfoScreenState
     }
   }
 
-  Future<void> _chooseAddressLocation() async {
-    final draft = _draft;
-    if (draft == null || draft.hasAddress) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-    final result = await Navigator.push<Map<String, dynamic>?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddLocationScreen(
-          initialCompleteAddress:
-              _line1Ctrl.text.trim().isEmpty ? null : _line1Ctrl.text.trim(),
-        ),
-      ),
-    );
-    if (!mounted || result == null) return;
-
-    final completeAddress =
-        (result['completeAddress'] as String?)?.trim() ?? '';
-    final baseCompleteAddress =
-        (result['baseCompleteAddress'] as String?)?.trim() ?? '';
-    final latitude = (result['latitude'] as num?)?.toDouble();
-    final longitude = (result['longitude'] as num?)?.toDouble();
-    String resultText(String key) => (result[key] as String?)?.trim() ?? '';
-
-    setState(() {
-      _line1Ctrl.text = baseCompleteAddress.isNotEmpty
-          ? baseCompleteAddress
-          : completeAddress;
-      _cityCtrl.text = resultText('city');
-      _villageCtrl.clear();
-      _districtCtrl.text = resultText('district');
-      _stateCtrl.text = resultText('state');
-      _countryCtrl.text = resultText('country');
-      _postalCodeCtrl.text = resultText('postalCode');
-      draft.latitude = latitude;
-      draft.longitude = longitude;
-    });
-
-    if (latitude != null && longitude != null) {
-      try {
-        final placemarks = await placemarkFromCoordinates(latitude, longitude);
-        if (!mounted || placemarks.isEmpty) return;
-        final place = placemarks.first;
-        setState(() {
-          _cityCtrl.text = (place.locality ?? '').trim().isNotEmpty
-              ? (place.locality ?? '').trim()
-              : _cityCtrl.text;
-          _districtCtrl.text =
-              (place.subAdministrativeArea ?? '').trim().isNotEmpty
-                  ? (place.subAdministrativeArea ?? '').trim()
-                  : _districtCtrl.text;
-          _stateCtrl.text = (place.administrativeArea ?? '').trim().isNotEmpty
-              ? (place.administrativeArea ?? '').trim()
-              : _stateCtrl.text;
-          _countryCtrl.text = (place.country ?? '').trim().isNotEmpty
-              ? (place.country ?? '').trim()
-              : _countryCtrl.text;
-          _postalCodeCtrl.text = (place.postalCode ?? '').trim().isNotEmpty
-              ? (place.postalCode ?? '').trim()
-              : _postalCodeCtrl.text;
-        });
-      } catch (e) {
-        debugPrint('Reverse geocoding failed: $e');
-      }
-    }
-  }
-
   void _syncDraftFromControllers(CompleteProfileDraft draft) {
     draft.firstName = _firstNameCtrl.text.trim();
     draft.lastName = _lastNameCtrl.text.trim();
     draft.bio = _bioCtrl.text.trim();
-    draft.line1 = _line1Ctrl.text.trim();
-    draft.city = _cityCtrl.text.trim();
-    draft.village = _villageCtrl.text.trim();
-    draft.district = _districtCtrl.text.trim();
-    draft.state = _stateCtrl.text.trim();
-    draft.country = _countryCtrl.text.trim();
-    draft.postalCode = _postalCodeCtrl.text.trim();
   }
 
   Future<void> _submit() async {
@@ -608,10 +473,6 @@ class _TeamMemberPersonalInfoScreenState
     }
     if (_genderHasError) {
       Fluttertoast.showToast(msg: translateText('Gender is required'));
-      return;
-    }
-    if (_bioHasError) {
-      Fluttertoast.showToast(msg: translateText('Bio is required'));
       return;
     }
     if (_careerStartDateHasError) {
@@ -630,12 +491,6 @@ class _TeamMemberPersonalInfoScreenState
     }
 
     _syncDraftFromControllers(draft);
-
-    final addressError = draft.addressCompletionError();
-    if (addressError != null) {
-      Fluttertoast.showToast(msg: addressError);
-      return;
-    }
 
     final fields = draft.buildPatchFields();
     if (fields.isEmpty) {
@@ -917,119 +772,11 @@ class _TeamMemberPersonalInfoScreenState
             ),
           ],
         ),
-        const CpSectionDivider(),
-        CpSectionCard(
-          title: translateText('Address'),
-          icon: Icons.place_outlined,
-          required: true,
-          children: [
-            if (draft.hasAddress)
-              CpLockedValueChip(
-                value: [
-                  draft.address['line1'],
-                  draft.address['city'],
-                  draft.address['state'],
-                  draft.address['postalCode'],
-                ]
-                    .where((part) => cpIsFilled(part))
-                    .map((part) => part.toString())
-                    .join(', '),
-              )
-            else ...[
-              InkWell(
-                onTap: _chooseAddressLocation,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: 48),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: cpBorder),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.add_location_alt_rounded,
-                          color: cpAccent, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _line1Ctrl.text.trim().isEmpty
-                              ? translateText('Search address')
-                              : _line1Ctrl.text.trim(),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: _line1Ctrl.text.trim().isEmpty
-                                ? cpMuted
-                                : cpInk,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // City/village/district/state/country/postal code are all
-              // captured by AddLocationScreen's geocoding when a location is
-              // picked above — re-showing them as separate editable fields
-              // here re-asks for data already collected. Once something's
-              // been picked, show what was captured as a compact summary
-              // instead; to correct it, re-tap "Search address" above and
-              // pick again, rather than hand-editing each sub-field. No
-              // separate "Address line 2" field either — AddLocationScreen
-              // already covers house/flat no. and street/area, so line1
-              // (the assembled complete address) is enough on its own.
-              if ([
-                _cityCtrl,
-                _villageCtrl,
-                _districtCtrl,
-                _stateCtrl,
-                _countryCtrl,
-                _postalCodeCtrl,
-              ].any((c) => c.text.trim().isNotEmpty)) ...[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: cpSurface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: cpBorder),
-                  ),
-                  child: Text(
-                    [
-                      _cityCtrl.text.trim(),
-                      _villageCtrl.text.trim(),
-                      _districtCtrl.text.trim(),
-                      _stateCtrl.text.trim(),
-                      _countryCtrl.text.trim(),
-                      _postalCodeCtrl.text.trim(),
-                    ].where((part) => part.isNotEmpty).join(', '),
-                    style: const TextStyle(color: cpInk, fontSize: 12.5),
-                  ),
-                ),
-              ],
-              if (_addressError != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  _addressError!,
-                  style: const TextStyle(color: AppColors.red, fontSize: 11.5),
-                ),
-              ],
-            ],
-          ],
-        ),
-        const CpSectionDivider(),
+        const SizedBox(height: 22),
         CpSectionCard(
           title: translateText('Bio'),
           icon: Icons.description_outlined,
-          required: true,
+          required: false,
           children: [
             CpLockableField(
               label: translateText('Bio'),
@@ -1041,9 +788,6 @@ class _TeamMemberPersonalInfoScreenState
                 maxLength: 250,
                 decoration: cpInputDecoration(
                   translateText('Tell clients a bit about this member'),
-                ).copyWith(
-                  errorText:
-                      _bioHasError ? translateText('Bio is required') : null,
                 ),
               ),
             ),

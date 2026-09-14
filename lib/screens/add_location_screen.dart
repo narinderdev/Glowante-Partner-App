@@ -405,7 +405,17 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
         _lastSyncedManualAddressParts = _manualAddressParts();
-        _selectedAddressComponents = null;
+        _selectedAddressComponents = AddressComponentsModel(
+          name: (place.name ?? '').trim(),
+          buildingOrFlat: (place.street ?? '').trim(),
+          city: (place.locality ?? '').trim(),
+          district: (place.subAdministrativeArea ?? '').trim(),
+          state: (place.administrativeArea ?? '').trim(),
+          country: (place.country ?? '').trim(),
+          postalCode: (place.postalCode ?? '').trim(),
+          latitude: lat,
+          longitude: lng,
+        );
 
         // Keep search location empty when using current location
         searchLocationController.clear();

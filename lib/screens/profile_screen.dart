@@ -16,6 +16,7 @@ import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
 import '../utils/colors.dart';
 import '../utils/refresh_feedback.dart';
+import '../utils/support_email_launcher.dart';
 import '../widgets/logout_options_dialog.dart';
 import 'add_bank_detail.dart';
 import 'login_screen.dart';
@@ -127,6 +128,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'email_address',
     ]).toLowerCase();
     return value == 'null' ? '' : value;
+  }
+
+  Future<void> _openHelpSupport() async {
+    try {
+      final opened = await openGlowanteSupportEmail();
+      if (!opened && mounted) {
+        Fluttertoast.showToast(
+          msg: translateText('Unable to open email app'),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      Fluttertoast.showToast(
+        msg: translateText('Unable to open email app'),
+      );
+    }
   }
 
   Future<void> _showProfilePhotoSourceModal() async {
@@ -562,6 +579,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           );
         },
+      ),
+      ProfileMenuItemData(
+        icon: Icons.support_agent_outlined,
+        label: context.t('Help & Support'),
+        subtitle: context.t('Email us for help'),
+        onTap: _openHelpSupport,
       ),
       ProfileMenuItemData(
         icon: Icons.share_outlined,

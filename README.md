@@ -27,6 +27,24 @@ Three separate installable apps, one per environment — they install side by si
 
 Android's Gradle flavor and iOS's Xcode scheme are both named `staging` (not `test`) because Android's build tool reserves flavor names starting with `test`. The `APP_FLAVOR` dart-define stays `test` regardless — that's just what `app_environment.dart`'s enum is called.
 
+## Firebase / Crashlytics per environment
+
+The app has separate Firebase app registrations per environment inside the same Firebase project (`glowante` / `glowante-8eb45`). In Crashlytics, pick the matching app from the app dropdown:
+
+- `com.glowante.salon.dev`
+- `com.glowante.salon.test`
+- `com.glowante.salon`
+
+That keeps Crashlytics separated by app/environment while still using one Firebase project.
+
+| Environment | Android package | iOS bundle ID | Firebase config location |
+|---|---|---|---|
+| `dev` | `com.glowante.salon.dev` | `com.glowante.salon.dev` | `android/app/src/dev/google-services.json`, `ios/Runner/Firebase/dev/GoogleService-Info.plist` |
+| `staging` | `com.glowante.salon.test` | `com.glowante.salon.test` | `android/app/src/staging/google-services.json`, `ios/Runner/Firebase/staging/GoogleService-Info.plist` |
+| `prod` | `com.glowante.salon` | `com.glowante.salon` | `android/app/src/prod/google-services.json`, `ios/Runner/Firebase/prod/GoogleService-Info.plist` |
+
+Android can use either one `android/app/google-services.json` containing all three app registrations, or flavor-specific `google-services.json` files in the source-set paths above. iOS already copies the correct plist folder based on the Xcode configuration.
+
 **Always pass `--flavor` and the matching `--dart-define=APP_FLAVOR=...` together** — they're independent flags and nothing keeps them in sync automatically. Easiest way: use the wrapper script instead of typing both by hand:
 
 ```bash
