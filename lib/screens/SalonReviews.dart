@@ -492,55 +492,182 @@ class _SalonReviewsState extends State<SalonReviews>
     );
   }
 
+  int _ratingBucketCount(List<Map<String, dynamic>> reviews, int stars) {
+    return reviews.where((review) => _asInt(review['rating']) == stars).length;
+  }
+
+  Widget _ratingSummaryBars({
+    required List<Map<String, dynamic>> reviews,
+    required int total,
+  }) {
+    final rows = [
+      (label: 'Excellent', stars: 5, color: const Color(0xFF22C55E)),
+      (label: 'Good', stars: 4, color: const Color(0xFF22C55E)),
+      (label: 'Average', stars: 3, color: const Color(0xFFE5E7EB)),
+      (label: 'Bad', stars: 2, color: const Color(0xFFEF4444)),
+      (label: 'Very Bad', stars: 1, color: const Color(0xFFEF4444)),
+    ];
+
+    return Column(
+      children: rows.map((row) {
+        final count = _ratingBucketCount(reviews, row.stars);
+        final percent = total <= 0 ? 0.0 : count / total;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 72,
+                child: Text(
+                  translateText(row.label),
+                  style: const TextStyle(
+                    color: _reviewInk,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                width: 28,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: _reviewMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    minHeight: 4,
+                    value: percent,
+                    color: row.color,
+                    backgroundColor: const Color(0xFFE5E7EB),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 36,
+                child: Text(
+                  '${(percent * 100).round()}%',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: _reviewMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _summaryCard({
+    required String title,
+    required String subtitle,
     required double rating,
     required int total,
+    required List<Map<String, dynamic>> reviews,
+    required String reviewType,
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: _reviewBorder),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 62,
-            height: 62,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: _reviewSoftGold,
-              shape: BoxShape.circle,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 480;
+          final ratingPanel = SizedBox(
+            width: compact ? double.infinity : 106,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  rating.toStringAsFixed(rating % 1 == 0 ? 0 : 1),
+                  style: const TextStyle(
+                    color: _reviewInk,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                buildStars(rating),
+                const SizedBox(height: 4),
+                Text(
+                  '$total ${translateText(reviewType)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: _reviewMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
-            child: Text(
-              rating.toStringAsFixed(1),
-              style: const TextStyle(
-                color: _reviewGold,
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
+          );
+
+          final bars = _ratingSummaryBars(reviews: reviews, total: total);
+
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              buildStars(rating),
-              const SizedBox(height: 4),
               Text(
-                '($total ${translateText('Reviews')})',
+                translateText(title),
                 style: const TextStyle(
-                  color: _reviewMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  color: _reviewGold,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                translateText(subtitle),
+                style: const TextStyle(
+                  color: _reviewMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (compact) ...[
+                ratingPanel,
+                const SizedBox(height: 14),
+                bars,
+              ] else
+                Row(
+                  children: [
+                    ratingPanel,
+                    Container(
+                      height: 104,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      width: 1,
+                      color: _reviewBorder,
+                    ),
+                    Expanded(child: bars),
+                  ],
+                ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -694,7 +821,14 @@ class _SalonReviewsState extends State<SalonReviews>
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _summaryCard(rating: rating, total: reviews.length),
+            _summaryCard(
+              title: 'Customer Reviews',
+              subtitle: 'See what our customers are saying about us',
+              rating: rating,
+              total: reviews.length,
+              reviews: reviews,
+              reviewType: 'Salon Reviews',
+            ),
             ...reviews.map(
               (review) => _reviewCard(
                 review: review,
@@ -827,6 +961,10 @@ class _SalonReviewsState extends State<SalonReviews>
     required String idKey,
     required String nameKey,
     required String fallbackTitle,
+    double? summaryRating,
+    String? summaryTitle,
+    String? summarySubtitle,
+    String? summaryReviewType,
     String? extraLabel,
     String? extraKey,
     bool showReviewer = true,
@@ -854,19 +992,31 @@ class _SalonReviewsState extends State<SalonReviews>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
-          children: groups
-              .map(
-                (group) => _reviewGroupSection(
-                  group: group,
-                  sectionLabel: sectionLabel,
-                  cardTitle: cardTitle,
-                  extraLabel: extraLabel,
-                  extraKey: extraKey,
-                  showReviewer: showReviewer,
-                  showTarget: showTarget,
-                ),
-              )
-              .toList(),
+          children: [
+            if (summaryRating != null &&
+                summaryTitle != null &&
+                summarySubtitle != null &&
+                summaryReviewType != null)
+              _summaryCard(
+                title: summaryTitle,
+                subtitle: summarySubtitle,
+                rating: summaryRating,
+                total: reviews.length,
+                reviews: reviews,
+                reviewType: summaryReviewType,
+              ),
+            ...groups.map(
+              (group) => _reviewGroupSection(
+                group: group,
+                sectionLabel: sectionLabel,
+                cardTitle: cardTitle,
+                extraLabel: extraLabel,
+                extraKey: extraKey,
+                showReviewer: showReviewer,
+                showTarget: showTarget,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -918,6 +1068,10 @@ class _SalonReviewsState extends State<SalonReviews>
           idKey: 'professionalId',
           nameKey: 'professional',
           fallbackTitle: 'Unknown Professional',
+          summaryRating: professionalRating,
+          summaryTitle: 'Customer Reviews',
+          summarySubtitle: 'See what our customers are saying about us',
+          summaryReviewType: 'Professional Reviews',
           extraLabel: 'Reviewer',
           extraKey: 'reviewer',
           showReviewer: false,

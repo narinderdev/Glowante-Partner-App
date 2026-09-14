@@ -560,7 +560,6 @@ class AppTranslations {
       'How was your experience with this customer?':
           'How was your experience with this customer?',
       'Tags': 'Tags',
-      'Great Customer': 'Great Customer',
       'Highly Recommended Client': 'Highly Recommended Client',
       'Love to Serve Again': 'Love to Serve Again',
       'Friendly Customer': 'Friendly Customer',
@@ -1611,7 +1610,6 @@ class AppTranslations {
       'How was your experience with this customer?':
           'इस ग्राहक के साथ आपका अनुभव कैसा रहा?',
       'Tags': 'टैग',
-      'Great Customer': 'बहुत अच्छे ग्राहक',
       'Highly Recommended Client': 'अत्यधिक अनुशंसित ग्राहक',
       'Love to Serve Again': 'फिर से सेवा देना पसंद करेंगे',
       'Friendly Customer': 'मित्रवत ग्राहक',

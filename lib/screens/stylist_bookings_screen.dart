@@ -2665,9 +2665,8 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
 }) async {
   int selectedRating = 0;
   final selectedTags = <String>{};
-  final defaultComment = context.t('Great Customer');
-  final commentController = TextEditingController(text: defaultComment);
-  String commentText = defaultComment;
+  final commentController = TextEditingController();
+  String commentText = '';
   bool hasManualComment = false;
 
   String ratingLabel(int rating) {
@@ -3047,10 +3046,18 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                             child: ElevatedButton(
                               onPressed: () {
                                 final comment = commentText.trim();
+                                final fallbackComment =
+                                    selectedTags.isEmpty && selectedRating > 0
+                                        ? context.t(ratingLabel(selectedRating))
+                                        : '';
+                                final payloadComment = comment.isNotEmpty
+                                    ? comment
+                                    : fallbackComment;
                                 Navigator.pop(ctx, {
                                   if (selectedRating > 0)
                                     'rating': selectedRating,
-                                  if (comment.isNotEmpty) 'comment': comment,
+                                  if (payloadComment.isNotEmpty)
+                                    'comment': payloadComment,
                                 });
                               },
                               style: ElevatedButton.styleFrom(

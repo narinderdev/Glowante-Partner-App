@@ -127,11 +127,12 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
                   _EmptyState(message: _error!)
                 else ...[
                   _ReviewSummaryCard(
-                    branchName: _selection.label.isEmpty
-                        ? context.t('Reviews')
-                        : _selection.label,
+                    subtitle: context.t(
+                      'See what our customers are saying about us',
+                    ),
                     rating: _overallRating,
                     totalReviews: _totalReviews,
+                    reviews: _reviews,
                   ),
                   const SizedBox(height: 16),
                   if (_reviews.isEmpty)
@@ -188,74 +189,203 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
 
 class _ReviewSummaryCard extends StatelessWidget {
   const _ReviewSummaryCard({
-    required this.branchName,
+    required this.subtitle,
     required this.rating,
     required this.totalReviews,
+    required this.reviews,
   });
 
-  final String branchName;
+  final String subtitle;
   final double rating;
   final int totalReviews;
+  final List<Map<String, dynamic>> reviews;
+
+  int _bucketCount(int stars) {
+    return reviews.where((review) {
+      final value = review['rating'];
+      final parsed =
+          value is num ? value.toDouble() : double.tryParse('$value');
+      return parsed?.round() == stars;
+    }).length;
+  }
+
+  Widget _stars() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        return Icon(
+          index < rating.round()
+              ? Icons.star_rounded
+              : Icons.star_border_rounded,
+          color: AppColors.starColor,
+          size: 15,
+        );
+      }),
+    );
+  }
+
+  Widget _bars(BuildContext context) {
+    final rows = [
+      (label: 'Excellent', stars: 5, color: const Color(0xFF22C55E)),
+      (label: 'Good', stars: 4, color: const Color(0xFF22C55E)),
+      (label: 'Average', stars: 3, color: const Color(0xFFE5E7EB)),
+      (label: 'Bad', stars: 2, color: const Color(0xFFEF4444)),
+      (label: 'Very Bad', stars: 1, color: const Color(0xFFEF4444)),
+    ];
+
+    return Column(
+      children: rows.map((row) {
+        final count = _bucketCount(row.stars);
+        final percent = totalReviews <= 0 ? 0.0 : count / totalReviews;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 72,
+                child: Text(
+                  context.t(row.label),
+                  style: const TextStyle(
+                    color: Color(0xFF1C1917),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                width: 28,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Color(0xFF78716C),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    minHeight: 4,
+                    value: percent,
+                    color: row.color,
+                    backgroundColor: const Color(0xFFE5E7EB),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 36,
+                child: Text(
+                  '${(percent * 100).round()}%',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: Color(0xFF78716C),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE8DED6)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: Text(
-                rating.toStringAsFixed(1),
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.starColor,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 480;
+          final ratingPanel = SizedBox(
+            width: compact ? double.infinity : 106,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  branchName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  rating.toStringAsFixed(rating % 1 == 0 ? 0 : 1),
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w500,
                     color: Color(0xFF1C1917),
                   ),
                 ),
-                const SizedBox(height: 8),
-                _ReviewStars(rating: rating),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                _stars(),
+                const SizedBox(height: 4),
                 Text(
-                  '$totalReviews ${context.t(totalReviews == 1 ? 'Review' : 'Reviews')}',
+                  '$totalReviews ${context.t(totalReviews == 1 ? 'Professional Review' : 'Professional Reviews')}',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 11,
                     color: Color(0xFF78716C),
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+          );
+
+          final bars = _bars(context);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.t('Customer Reviews'),
+                style: const TextStyle(
+                  color: AppColors.starColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF78716C),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (compact) ...[
+                ratingPanel,
+                const SizedBox(height: 14),
+                bars,
+              ] else
+                Row(
+                  children: [
+                    ratingPanel,
+                    Container(
+                      height: 104,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      width: 1,
+                      color: const Color(0xFFE8DED6),
+                    ),
+                    Expanded(child: bars),
+                  ],
+                ),
+            ],
+          );
+        },
       ),
     );
   }
