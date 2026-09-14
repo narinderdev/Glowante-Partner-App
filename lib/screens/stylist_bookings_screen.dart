@@ -1488,9 +1488,8 @@ bool _isBookingOverdue(Map<String, dynamic> booking) {
 // show the largest whole unit that isn't zero (hours, else minutes, else
 // seconds), since the API only ever reports the remaining wait in minutes.
 String _formatRetryWaitMessage(String message) {
-  final match =
-      RegExp(r'Try again in (\d+)\s*minutes?', caseSensitive: false)
-          .firstMatch(message);
+  final match = RegExp(r'Try again in (\d+)\s*minutes?', caseSensitive: false)
+      .firstMatch(message);
   if (match == null) return message;
 
   final totalMinutes = int.tryParse(match.group(1) ?? '');
@@ -1513,7 +1512,8 @@ String _formatRetryWaitMessage(String message) {
     waitLabel = '$seconds ${seconds == 1 ? 'second' : 'seconds'}';
   }
 
-  return message.replaceRange(match.start, match.end, 'Try again in $waitLabel');
+  return message.replaceRange(
+      match.start, match.end, 'Try again in $waitLabel');
 }
 
 bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>
@@ -1636,7 +1636,6 @@ String? _professionalBusyReason(
 
 Future<Map<String, dynamic>?> _showStartJobOtpDialog(
   BuildContext context, {
-  required int branchId,
   required int appointmentId,
 }) async {
   return showDialog<Map<String, dynamic>>(
@@ -1732,7 +1731,6 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
                         });
 
                         final resp = await ApiService.startAppointment(
-                          branchId: branchId,
                           appointmentId: appointmentId,
                           otp: otp,
                         );
@@ -1802,6 +1800,9 @@ Future<bool> _showNoShowConfirmationDialog(BuildContext context) async {
             style: ElevatedButton.styleFrom(
               backgroundColor: _bookingsDark,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: Text(translateText('Mark No Show')),
           ),
@@ -5072,7 +5073,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   //   setState(() => _startingAppointmentId = appointmentId);
   //   final resp = await _showStartJobOtpDialog(
   //     context,
-  //     branchId: selected.branchId,
   //     appointmentId: appointmentId,
   //   );
   //   if (!mounted) return;
@@ -5112,7 +5112,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
 
     final resp = await _showStartJobOtpDialog(
       context,
-      branchId: selected.branchId,
       appointmentId: appointmentId,
     );
 
@@ -5163,7 +5162,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
 
     setState(() => _completingAppointmentId = appointmentId);
     final resp = await ApiService().completeAppointment(
-      branchId: selected.branchId,
       appointmentId: appointmentId,
       rating: feedback['rating'] as int?,
       comment: feedback['comment'] as String?,
@@ -9154,7 +9152,6 @@ class _StylistBookingDetailScreenState
   //   setState(() => _loadingStart = true);
   //   final resp = await _showStartJobOtpDialog(
   //     context,
-  //     branchId: widget.branchId,
   //     appointmentId: _booking['id'] as int,
   //   );
   //   if (!mounted) return;
@@ -9198,7 +9195,6 @@ class _StylistBookingDetailScreenState
 
     final resp = await _showStartJobOtpDialog(
       context,
-      branchId: widget.branchId,
       appointmentId: appointmentId,
     );
 
@@ -9291,7 +9287,6 @@ class _StylistBookingDetailScreenState
 
     setState(() => _loadingComplete = true);
     final resp = await ApiService().completeAppointment(
-      branchId: widget.branchId,
       appointmentId: appointmentId,
       rating: feedback['rating'] as int?,
       comment: feedback['comment'] as String?,

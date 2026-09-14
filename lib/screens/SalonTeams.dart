@@ -768,12 +768,10 @@ class _TeamScreenState extends State<TeamScreen> {
   // the branch filter always reflects the latest server state).
   Future<void> _refreshCurrentTeamTab({bool resetPage = false}) async {
     if (resetPage) _teamMembersPage = 0;
-    unawaited(_fetchTeamSummary());
-    if (_selectedTeamTab == 2) {
-      unawaited(_fetchInvitationsV2());
-    } else {
-      unawaited(_fetchTabMembers());
-    }
+    await Future.wait<void>([
+      _fetchTeamSummary(),
+      if (_selectedTeamTab == 2) _fetchInvitationsV2() else _fetchTabMembers(),
+    ]);
   }
 
   // Assigns the future that drives the team-members list and, unless
@@ -800,7 +798,7 @@ class _TeamScreenState extends State<TeamScreen> {
     // selectedBranch, not selectedBranchId — the latter is also null in
     // deliberate "All Branches" mode, where this must still refresh.
     if (selectedBranch == null || !mounted) return;
-    await _fetchTabMembers();
+    await _refreshCurrentTeamTab();
   }
 
   // Kept as a no-op wrapper for the same reason as above — "unassigned
@@ -1276,8 +1274,13 @@ class _TeamScreenState extends State<TeamScreen> {
   // }
   Future<void> _deleteMember(int userId) async {
     final branchId = selectedBranchId;
+    debugPrint(
+      '[TeamDelete] tapped userId=$userId selectedBranchId=$branchId '
+      'selectedBranch=${selectedBranch?['branchName'] ?? selectedBranch?['name']}',
+    );
 
     if (branchId == null) {
+      debugPrint('[TeamDelete] blocked: no branch selected');
       Fluttertoast.showToast(
           msg: translateText('Please select a branch first'));
       return;
@@ -1315,14 +1318,17 @@ class _TeamScreenState extends State<TeamScreen> {
     );
 
     if (confirmed != true) return;
+    debugPrint('[TeamDelete] confirmed userId=$userId branchId=$branchId');
 
     setState(() => _deletingMemberIds.add(userId));
 
     try {
+      debugPrint('[TeamDelete] sending delete request');
       final response = await ApiService().deleteTeamMember(
         branchId: branchId,
         userId: userId,
       );
+      debugPrint('[TeamDelete] response=$response');
 
       if (!mounted) return;
 
@@ -1338,6 +1344,7 @@ class _TeamScreenState extends State<TeamScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      debugPrint('[TeamDelete] exception=$e');
 
       Fluttertoast.showToast(
           msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''));
@@ -3256,7 +3263,9 @@ class _TeamMembersGrid extends StatelessWidget {
             // liable to hit the wrong branch's record, for a member with
             // no branch assignment at all. Block just those two actions
             // for them; Edit/View/Assign don't depend on a branch.
-            final rawAssignments = member['branches'];
+            final rawAssignments = member['branches'] is List
+                ? member['branches']
+                : member['userBranches'];
             final hasNoBranch =
                 rawAssignments is! List || rawAssignments.isEmpty;
             // teamDisplayStatus (ACTIVE/SETUP_REQUIRED, driving `isActive`
@@ -3272,8 +3281,11 @@ class _TeamMembersGrid extends StatelessWidget {
               for (final entry in rawAssignments) {
                 if (entry is! Map) continue;
                 final branchMap = Map<String, dynamic>.from(entry);
+                final branch = branchMap['branch'];
+                final assignmentBranchId = _teamAsInt(branchMap['branchId']) ??
+                    (branch is Map ? _teamAsInt(branch['id']) : null);
                 if (selectedBranchId != null &&
-                    _teamAsInt(branchMap['branchId']) == selectedBranchId) {
+                    assignmentBranchId == selectedBranchId) {
                   matchingBranch = branchMap;
                   break;
                 }

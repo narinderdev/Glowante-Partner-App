@@ -163,6 +163,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
       required bool isLoading,
       required VoidCallback? onPressed,
       bool showFinishIcon = false,
+      double borderRadius = 12,
     }) {
       return ElevatedButton(
         onPressed: isLoading ? null : onPressed,
@@ -174,7 +175,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
           minimumSize: const Size.fromHeight(52),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(borderRadius),
           ),
         ),
         child: isLoading
@@ -507,6 +508,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                               color: secondaryActionColor,
                               isLoading: isSecondaryLoading,
                               onPressed: onSecondaryAction,
+                              borderRadius: 10,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -535,6 +537,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                           onPressed: primaryAction != null
                               ? onPrimaryAction
                               : onSecondaryAction,
+                          borderRadius: primaryAction != null ? 12 : 10,
                           showFinishIcon: primaryAction ==
                               context.t('Finish Job').toUpperCase(),
                         ),

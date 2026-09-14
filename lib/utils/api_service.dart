@@ -869,16 +869,16 @@ class ApiService {
     return "branches/$branchId/offers";
   }
 
-  static String startAppointmentAPI(int branchId, int appointmentId) {
-    return "branches/$branchId/appointments/$appointmentId/start";
+  static String startAppointmentAPI(int appointmentId) {
+    return "appointments/$appointmentId/start";
   }
 
   static String noShowAppointmentAPI(int branchId, int appointmentId) {
     return "branches/$branchId/appointments/$appointmentId/no-show";
   }
 
-  static String completeAppointmentAPI(int branchId, int appointmentId) {
-    return "branches/$branchId/appointments/$appointmentId/complete";
+  static String completeAppointmentAPI(int appointmentId) {
+    return "appointments/$appointmentId/complete";
   }
 
   // get appointments
@@ -6106,7 +6106,6 @@ class ApiService {
 
   // ---------------------- START APPOINTMENT ----------------------
   static Future<Map<String, dynamic>> startAppointment({
-    required int branchId,
     required int appointmentId,
     required String otp,
   }) async {
@@ -6115,9 +6114,7 @@ class ApiService {
       throw Exception('Token is missing');
     }
 
-    final url = Uri.parse(
-      "$baseUrl${startAppointmentAPI(branchId, appointmentId)}",
-    );
+    final url = Uri.parse("$baseUrl${startAppointmentAPI(appointmentId)}");
 
     bool _asBool(dynamic value) {
       if (value is bool) return value;
@@ -6269,7 +6266,6 @@ class ApiService {
 
   // ---------------------- COMPLETE APPOINTMENT ----------------------
   Future<Map<String, dynamic>> completeAppointment({
-    required int branchId,
     required int appointmentId,
     int? rating,
     String? comment,
@@ -6282,9 +6278,7 @@ class ApiService {
         throw Exception('No token found');
       }
 
-      final url = Uri.parse(
-        "$baseUrl${completeAppointmentAPI(branchId, appointmentId)}",
-      );
+      final url = Uri.parse("$baseUrl${completeAppointmentAPI(appointmentId)}");
 
       print("➡️ [COMPLETE_APPOINTMENT] Request:");
       print("  URL: $url");
@@ -7254,6 +7248,9 @@ class ApiService {
     final url = Uri.parse(
       '$baseUrl${updateTeamMemberEndpoint(branchId, userId)}',
     );
+    debugPrint('[DeleteTeamMember] URL: $url');
+    debugPrint('[DeleteTeamMember] branchId=$branchId userId=$userId');
+    debugPrint('[DeleteTeamMember] tokenPresent=${token.isNotEmpty}');
 
     try {
       final response = await _sharedClient.delete(
@@ -7264,6 +7261,8 @@ class ApiService {
         },
         body: '{}',
       );
+      debugPrint('[DeleteTeamMember] status=${response.statusCode}');
+      debugPrint('[DeleteTeamMember] body=${response.body}');
 
       Map<String, dynamic> body = {};
       if (response.body.isNotEmpty) {
