@@ -710,14 +710,12 @@ class _TeamScreenState extends State<TeamScreen> {
         page: _teamMembersPage + 1, // API is 1-based; UI state is 0-based
         pageSize: _teamMembersPageSize,
       );
-      final ratingsFuture = branchId == null
-          ? Future<Map<int, _TeamRatingSummary>>.value(const {})
-          : _loadProfessionalRatings(branchId);
+      final ratingsFuture = _loadProfessionalRatingsForSelection(branchId);
 
       final response = await responseFuture;
       final ratings = await ratingsFuture;
       if (!mounted) return;
-      if (selectedBranchId != branchId) return;
+      if (_currentSalonId != salonId || selectedBranchId != branchId) return;
       if (response['success'] == true && response['data'] is Map) {
         final data = Map<String, dynamic>.from(response['data'] as Map);
         final rawItems = data['items'];
@@ -1098,6 +1096,60 @@ class _TeamScreenState extends State<TeamScreen> {
       debugPrint('Failed to load professional ratings: $e');
       return const {};
     }
+  }
+
+  Future<Map<int, _TeamRatingSummary>> _loadProfessionalRatingsForSelection(
+    int? branchId,
+  ) async {
+    final branchIds =
+        branchId == null ? _ratingBranchIdsForCurrentSalon() : <int>[branchId];
+    if (branchIds.isEmpty) return const {};
+
+    final ratingsByBranch = await Future.wait(
+      branchIds.map(_loadProfessionalRatings),
+    );
+    final totals = <int, num>{};
+    final counts = <int, int>{};
+    for (final branchRatings in ratingsByBranch) {
+      for (final entry in branchRatings.entries) {
+        if (entry.value.count <= 0) continue;
+        totals[entry.key] =
+            (totals[entry.key] ?? 0) + entry.value.average * entry.value.count;
+        counts[entry.key] = (counts[entry.key] ?? 0) + entry.value.count;
+      }
+    }
+
+    debugPrint(
+      '[TeamRatings] selectionBranchId=$branchId '
+      'loadedBranches=$branchIds ratingIds=${counts.keys}',
+    );
+    return counts.map((professionalId, count) {
+      final total = totals[professionalId] ?? 0;
+      return MapEntry(
+        professionalId,
+        _TeamRatingSummary(
+          average: count == 0 ? 0 : total / count,
+          count: count,
+        ),
+      );
+    });
+  }
+
+  List<int> _ratingBranchIdsForCurrentSalon() {
+    final salonId = _currentSalonId;
+    if (salonId == null) return const [];
+    final ids = <int>{};
+    for (final salon in _salons) {
+      if (_asInt(salon['id']) != salonId) continue;
+      final branches = salon['branches'];
+      if (branches is! List) continue;
+      for (final branch in branches) {
+        if (branch is! Map) continue;
+        final branchId = _asInt(branch['id']) ?? _asInt(branch['branchId']);
+        if (branchId != null) ids.add(branchId);
+      }
+    }
+    return ids.toList(growable: false);
   }
 
   // Future<void> _toggleMemberActive(int userId, bool makeActive) async {
@@ -2794,7 +2846,7 @@ class _TeamMembersTable extends StatelessWidget {
               DataColumn(label: Text(translateText('ACTIONS'))),
             ],
             rows: members.map((member) {
-              final userId = _teamAsInt(member['id']) ?? 0;
+              final userId = _teamMemberUserId(member) ?? 0;
               final isActive = _teamIsActiveEntity(member);
               final isDeleting = deletingMemberIds.contains(userId);
               final isStatusUpdating = statusUpdatingIds.contains(userId);
