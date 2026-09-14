@@ -3046,10 +3046,11 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                             child: ElevatedButton(
                               onPressed: () {
                                 final comment = commentText.trim();
-                                final fallbackComment =
-                                    selectedTags.isEmpty && selectedRating > 0
+                                final fallbackComment = selectedTags.isEmpty
+                                    ? selectedRating > 0
                                         ? context.t(ratingLabel(selectedRating))
-                                        : '';
+                                        : 'Great Customer'
+                                    : '';
                                 final payloadComment = comment.isNotEmpty
                                     ? comment
                                     : fallbackComment;
