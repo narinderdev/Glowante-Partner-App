@@ -37,6 +37,14 @@ int? _teamAsInt(dynamic value) {
   return int.tryParse(value.toString());
 }
 
+int? _teamMemberUserId(Map<dynamic, dynamic> member) {
+  return _teamAsInt(member['userId']) ??
+      _teamAsInt(member['user_id']) ??
+      _teamAsInt(member['id']) ??
+      _teamAsInt(member['professionalId']) ??
+      _teamAsInt(member['professionalUserId']);
+}
+
 bool? _teamReadBool(dynamic value) {
   if (value is bool) return value;
   final text = value?.toString().trim().toLowerCase() ?? '';
@@ -692,16 +700,24 @@ class _TeamScreenState extends State<TeamScreen> {
     if (salonId == null || !mounted) return;
     setState(() => _isLoadingTabMembers = true);
     try {
-      final response = await ApiService().getTeamMembersV2(
+      final branchId = selectedBranchId;
+      final responseFuture = ApiService().getTeamMembersV2(
         salonId,
         status: _currentTabStatus,
-        branchId: selectedBranchId,
+        branchId: branchId,
         search: _teamSearchController.text.trim(),
         sort: _teamSortOrder,
         page: _teamMembersPage + 1, // API is 1-based; UI state is 0-based
         pageSize: _teamMembersPageSize,
       );
+      final ratingsFuture = branchId == null
+          ? Future<Map<int, _TeamRatingSummary>>.value(const {})
+          : _loadProfessionalRatings(branchId);
+
+      final response = await responseFuture;
+      final ratings = await ratingsFuture;
       if (!mounted) return;
+      if (selectedBranchId != branchId) return;
       if (response['success'] == true && response['data'] is Map) {
         final data = Map<String, dynamic>.from(response['data'] as Map);
         final rawItems = data['items'];
@@ -714,6 +730,7 @@ class _TeamScreenState extends State<TeamScreen> {
               .map((item) => Map<String, dynamic>.from(item))
               .map(_teamNormalizeMemberAvatar)
               .toList();
+          _professionalRatings = ratings;
           _tabMembersTotal = _asInt(pagination['total']) ?? _tabMembers.length;
           _tabMembersTotalPages = _asInt(pagination['totalPages']) ?? 1;
         });
@@ -1066,6 +1083,7 @@ class _TeamScreenState extends State<TeamScreen> {
         }
       }
 
+      debugPrint('[TeamRatings] branchId=$branchId ratingIds=${buckets.keys}');
       return buckets.map((professionalId, ratings) {
         final total = ratings.fold<num>(0, (sum, rating) => sum + rating);
         return MapEntry(
@@ -1338,16 +1356,24 @@ class _TeamScreenState extends State<TeamScreen> {
 
         await _refreshTeamMembers();
       } else {
+        final message = response['message']?.toString().trim();
+        final toastMessage = message == null || message.isEmpty
+            ? translateText('Failed to delete team member')
+            : message;
+        debugPrint('[TeamDelete] failure toast="$toastMessage"');
         Fluttertoast.showToast(
-            msg: response['message']?.toString() ??
-                translateText('Failed to delete team member'));
+          msg: toastMessage,
+          toastLength: Toast.LENGTH_LONG,
+        );
       }
     } catch (e) {
       if (!mounted) return;
       debugPrint('[TeamDelete] exception=$e');
 
       Fluttertoast.showToast(
-          msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''));
+        msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+        toastLength: Toast.LENGTH_LONG,
+      );
     } finally {
       if (mounted) {
         setState(() => _deletingMemberIds.remove(userId));
@@ -2112,7 +2138,7 @@ class _TeamScreenState extends State<TeamScreen> {
   Future<void> _openViewMember(Map<String, dynamic> member) async {
     if (_openingViewMemberId != null) return;
 
-    final userId = _teamAsInt(member['userId']) ?? 0;
+    final userId = _teamMemberUserId(member) ?? 0;
     if (userId == 0) return;
 
     final salonId = _currentSalonId ?? _asInt(member['salonId']);
@@ -3251,7 +3277,7 @@ class _TeamMembersGrid extends StatelessWidget {
           spacing: gap,
           runSpacing: gap,
           children: members.map((member) {
-            final userId = _teamAsInt(member['userId']) ?? 0;
+            final userId = _teamMemberUserId(member) ?? 0;
             final isActive =
                 (member['teamDisplayStatus'] ?? '').toString() == 'ACTIVE';
             final isStatusUpdating = statusUpdatingIds.contains(userId);
