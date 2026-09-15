@@ -3895,11 +3895,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
   }) async {
     try {
       final ratingsByUserId = await _loadProfessionalRatings(branchId);
-      final response = await ApiService.getTeamMembers(
-        branchId,
-        date: date,
-        includeAssignedForDate: true,
-      );
+      final response = await ApiService.getTeamMembers(branchId);
       final data = (response['data'] as List?) ?? const [];
       final serviceNamesByMember = <String, List<String>>{};
       final workingHoursByMember = <String, List<_WorkingDayHours>>{};
@@ -4057,12 +4053,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         const <String, List<String>>{};
     _TeamMemberDirectory teamMemberDirectory = _emptyTeamMemberDirectory();
     if (selected != null && (widget.isOwnerMode || userId != null)) {
-      final result = await _fetchBookingsForBranch(
-        branchId: selected.branchId,
-        userId: userId,
-      );
-      bookings = result.bookings;
-      errorMessage ??= result.errorMessage;
       if (widget.isOwnerMode) {
         teamMemberDirectory = await _fetchTeamMemberDirectory(
           selected.branchId,
@@ -4071,6 +4061,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
         teamMemberServiceNames = teamMemberDirectory.serviceNames;
         teamMemberNames = teamMemberDirectory.names;
       }
+      final result = await _fetchBookingsForBranch(
+        branchId: selected.branchId,
+        userId: userId,
+      );
+      bookings = result.bookings;
+      errorMessage ??= result.errorMessage;
     } else if (selected != null && !widget.isOwnerMode && userId == null) {
       errorMessage ??= 'Unable to load stylist bookings';
     }
@@ -4179,10 +4175,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     if (!widget.isOwnerMode && _userId == null) return;
     selected = await _loadLatestBranchOption(selected);
 
-    final result = await _fetchBookingsForBranch(
-      branchId: selected.branchId,
-      userId: _userId,
-    );
     final teamMemberDirectory = widget.isOwnerMode
         ? await _fetchTeamMemberDirectory(selected.branchId,
             date: _selectedDate)
@@ -4194,6 +4186,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
             namesByUserBranchId: _teamMemberNamesByUserBranchId,
             noMembersReason: _noTeamMembersForDateReason,
           );
+    final result = await _fetchBookingsForBranch(
+      branchId: selected.branchId,
+      userId: _userId,
+    );
     final teamMemberServiceNames = widget.isOwnerMode
         ? teamMemberDirectory.serviceNames
         : _teamMemberServiceNames;
@@ -4256,12 +4252,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
       if (!widget.isOwnerMode && _userId == null) {
         errorMessage = 'Unable to load stylist bookings';
       } else {
-        final result = await _fetchBookingsForBranch(
-          branchId: latestOption.branchId,
-          userId: _userId,
-        );
-        bookings = result.bookings;
-        errorMessage = result.errorMessage;
         if (widget.isOwnerMode) {
           teamMemberDirectory = await _fetchTeamMemberDirectory(
             latestOption.branchId,
@@ -4270,6 +4260,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
           teamMemberServiceNames = teamMemberDirectory.serviceNames;
           teamMemberNames = teamMemberDirectory.names;
         }
+        final result = await _fetchBookingsForBranch(
+          branchId: latestOption.branchId,
+          userId: _userId,
+        );
+        bookings = result.bookings;
+        errorMessage = result.errorMessage;
       }
 
       if (!mounted) return;
@@ -4315,18 +4311,18 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen>
     );
 
     if (selected != null && (widget.isOwnerMode || userId != null)) {
-      final result = await _fetchBookingsForBranch(
-        branchId: selected.branchId,
-        userId: userId,
-      );
-      bookings = result.bookings;
-      errorMessage = result.errorMessage;
       if (widget.isOwnerMode) {
         teamMemberDirectory = await _fetchTeamMemberDirectory(
           selected.branchId,
           date: normalizedDate,
         );
       }
+      final result = await _fetchBookingsForBranch(
+        branchId: selected.branchId,
+        userId: userId,
+      );
+      bookings = result.bookings;
+      errorMessage = result.errorMessage;
     }
 
     if (!mounted) return;

@@ -16,6 +16,7 @@ import '../utils/api_service.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/colors.dart';
 import '../utils/input_validation.dart';
+import '../utils/team_member_avatar_fallback.dart';
 import '../widgets/multi_step_flow_header.dart';
 import '../widgets/app_loader.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -2222,8 +2223,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                   image: (_existingImageUrl != null &&
                           _existingImageUrl!.isNotEmpty)
                       ? NetworkImage(_existingImageUrl!)
-                      : const AssetImage('assets/images/person1.jpg')
-                          as ImageProvider,
+                      : AssetImage(
+                          teamMemberAvatarAssetForGender(_gender) ??
+                              'assets/images/person1.jpg',
+                        ) as ImageProvider,
                   fit: BoxFit.cover,
                 ),
               ),

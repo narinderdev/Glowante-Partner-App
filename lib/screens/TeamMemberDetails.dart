@@ -9,6 +9,7 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/price_formatter.dart';
+import '../utils/team_member_avatar_fallback.dart';
 import '../widgets/app_loader.dart';
 import 'team_member_compensation_setup_step.dart';
 import 'team_member_personal_info_screen.dart';
@@ -63,6 +64,8 @@ Map<String, dynamic> _memberPayloadFromDetail(dynamic response) {
     'experience',
     'careerStartDate',
     'careerExperienceYears',
+    'gender',
+    'sex',
     'profilePictureUrl',
     'avatarUrl',
     'photoUrl',
@@ -654,6 +657,8 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
     final initials = _initials(firstName, lastName).isEmpty
         ? 'TM'
         : _initials(firstName, lastName);
+    final fallbackAssetPath =
+        teamMemberAvatarAssetForGender(teamMemberGenderFromMap(member));
     // isProfileComplete (part_1 §5.4) is the authoritative "Active" vs
     // "Setup Required" signal — the same boolean the list screen's
     // teamDisplayStatus is derived from. There is no separate account-
@@ -706,6 +711,7 @@ class _TeamMemberDetailsState extends State<TeamMemberDetails> {
                 _MemberSummaryCard(
                   initials: initials,
                   imageUrl: imageUrl,
+                  fallbackAssetPath: fallbackAssetPath,
                   name: displayName,
                   role: role,
                   rating: rating,
@@ -959,6 +965,7 @@ class _MemberSummaryCard extends StatelessWidget {
   const _MemberSummaryCard({
     required this.initials,
     required this.imageUrl,
+    required this.fallbackAssetPath,
     required this.name,
     required this.role,
     required this.rating,
@@ -968,6 +975,7 @@ class _MemberSummaryCard extends StatelessWidget {
 
   final String initials;
   final String imageUrl;
+  final String? fallbackAssetPath;
   final String name;
   final String role;
   final String rating;
@@ -984,6 +992,7 @@ class _MemberSummaryCard extends StatelessWidget {
           _MemberAvatar(
             imageUrl: imageUrl,
             initials: initials,
+            fallbackAssetPath: fallbackAssetPath,
             size: 46,
           ),
           const SizedBox(width: 12),
@@ -1045,11 +1054,13 @@ class _MemberAvatar extends StatelessWidget {
   const _MemberAvatar({
     required this.imageUrl,
     required this.initials,
+    this.fallbackAssetPath,
     this.size = 46,
   });
 
   final String imageUrl;
   final String initials;
+  final String? fallbackAssetPath;
   final double size;
 
   @override
@@ -1061,26 +1072,49 @@ class _MemberAvatar extends StatelessWidget {
           height: size,
           width: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _MemberInitialsAvatar(initials: initials, size: size),
+          errorBuilder: (_, __, ___) => _MemberInitialsAvatar(
+            initials: initials,
+            fallbackAssetPath: fallbackAssetPath,
+            size: size,
+          ),
         ),
       );
     }
-    return _MemberInitialsAvatar(initials: initials, size: size);
+    return _MemberInitialsAvatar(
+      initials: initials,
+      fallbackAssetPath: fallbackAssetPath,
+      size: size,
+    );
   }
 }
 
 class _MemberInitialsAvatar extends StatelessWidget {
   const _MemberInitialsAvatar({
     required this.initials,
+    this.fallbackAssetPath,
     this.size = 46,
   });
 
   final String initials;
+  final String? fallbackAssetPath;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final assetPath = fallbackAssetPath;
+    if (assetPath != null) {
+      return ClipOval(
+        child: Image.asset(
+          assetPath,
+          height: size,
+          width: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              _MemberInitialsAvatar(initials: initials, size: size),
+        ),
+      );
+    }
+
     return Container(
       height: size,
       width: size,

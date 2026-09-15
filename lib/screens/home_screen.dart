@@ -343,10 +343,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------ branch data (same behavior as Bookings.dart but inline) ------------------
   Future<void> _loadBranchData(int branchId, DateTime date) async {
-    await Future.wait([
-      _getTeamMembers(branchId),
-      _getBookingsByDate(branchId, date),
-    ]);
+    await _getTeamMembers(branchId);
+    await _getBookingsByDate(branchId, date);
   }
 
   Future<void> _getTeamMembers(int branchId) async {

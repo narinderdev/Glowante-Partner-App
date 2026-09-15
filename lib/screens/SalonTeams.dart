@@ -8,6 +8,7 @@ import 'package:bloc_onboarding/utils/refresh_feedback.dart';
 import '../utils/address_formatter.dart';
 import '../utils/api_service.dart';
 import '../utils/error_parser.dart';
+import '../utils/team_member_avatar_fallback.dart';
 import '../widgets/app_loader.dart';
 import 'TeamMemberDetails.dart';
 import 'add_location_screen.dart';
@@ -128,6 +129,10 @@ String _teamProfileImageUrlFrom(Map<dynamic, dynamic> map) {
   }
 
   return '';
+}
+
+String? _teamFallbackAvatarAssetFrom(Map<dynamic, dynamic> member) {
+  return teamMemberAvatarAssetForGender(teamMemberGenderFromMap(member));
 }
 
 Map<String, dynamic> _teamNormalizeMemberAvatar(Map<String, dynamic> member) {
@@ -291,6 +296,8 @@ Map<String, dynamic> _teamMemberPayloadFromDetail(dynamic response) {
     'experience',
     'careerStartDate',
     'careerExperienceYears',
+    'gender',
+    'sex',
     'profilePictureUrl',
     'avatarUrl',
     'photoUrl',
@@ -3444,6 +3451,7 @@ class _TeamTableMemberCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = _teamProfileImageUrlFrom(member);
+    final fallbackAssetPath = _teamFallbackAvatarAssetFrom(member);
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 180),
       child: Row(
@@ -3452,7 +3460,11 @@ class _TeamTableMemberCell extends StatelessWidget {
           SizedBox(
             width: 38,
             height: 38,
-            child: _TeamAvatar(imageUrl: imageUrl, initials: _initials),
+            child: _TeamAvatar(
+              imageUrl: imageUrl,
+              initials: _initials,
+              fallbackAssetPath: fallbackAssetPath,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -4830,6 +4842,7 @@ class _TeamMemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = _teamProfileImageUrlFrom(member);
+    final fallbackAssetPath = _teamFallbackAvatarAssetFrom(member);
     final branches = _assignedBranches;
     final accent = _accentColor;
 
@@ -4870,6 +4883,7 @@ class _TeamMemberCard extends StatelessWidget {
                       child: _TeamAvatar(
                         imageUrl: imageUrl,
                         initials: _initials,
+                        fallbackAssetPath: fallbackAssetPath,
                         size: 42,
                       ),
                     ),
@@ -5169,11 +5183,13 @@ class _TeamAvatar extends StatelessWidget {
   const _TeamAvatar({
     required this.imageUrl,
     required this.initials,
+    this.fallbackAssetPath,
     this.size = 56,
   });
 
   final String imageUrl;
   final String initials;
+  final String? fallbackAssetPath;
   final double size;
 
   @override
@@ -5187,13 +5203,20 @@ class _TeamAvatar extends StatelessWidget {
             height: size,
             width: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) =>
-                _InitialsAvatar(initials: initials, size: size),
+            errorBuilder: (_, __, ___) => _InitialsAvatar(
+              initials: initials,
+              fallbackAssetPath: fallbackAssetPath,
+              size: size,
+            ),
           ),
         ),
       );
     }
-    return _InitialsAvatar(initials: initials, size: size);
+    return _InitialsAvatar(
+      initials: initials,
+      fallbackAssetPath: fallbackAssetPath,
+      size: size,
+    );
   }
 }
 
@@ -5285,13 +5308,32 @@ class _TeamMemberPhotoPreview extends StatelessWidget {
 }
 
 class _InitialsAvatar extends StatelessWidget {
-  const _InitialsAvatar({required this.initials, this.size = 56});
+  const _InitialsAvatar({
+    required this.initials,
+    this.fallbackAssetPath,
+    this.size = 56,
+  });
 
   final String initials;
+  final String? fallbackAssetPath;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final assetPath = fallbackAssetPath;
+    if (assetPath != null) {
+      return ClipOval(
+        child: Image.asset(
+          assetPath,
+          height: size,
+          width: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              _InitialsAvatar(initials: initials, size: size),
+        ),
+      );
+    }
+
     return Container(
       height: size,
       width: size,

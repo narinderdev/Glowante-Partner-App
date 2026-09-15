@@ -13,6 +13,7 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/error_parser.dart';
+import '../utils/team_member_avatar_fallback.dart';
 import '../widgets/app_loader.dart';
 
 Map<String, dynamic> _profileDetailPayload(dynamic response) {
@@ -58,6 +59,8 @@ Map<String, dynamic> _profileMemberFromDetail(dynamic response) {
     'experience',
     'careerStartDate',
     'careerExperienceYears',
+    'gender',
+    'sex',
     'profilePictureUrl',
     'avatarUrl',
     'photoUrl',
@@ -1090,6 +1093,8 @@ class _TeamMemberPersonalInfoScreenState
   Widget _buildAvatar(CompleteProfileDraft draft) {
     final imageUrl =
         (draft.profile['profilePictureUrl'] ?? '').toString().trim();
+    final fallbackAssetPath =
+        teamMemberAvatarAssetForGender(draft.gender ?? draft.profile['gender']);
     final canEditAvatar = widget.allowFullEdit || !draft.hasAvatar;
     return GestureDetector(
       onTap: canEditAvatar ? _pickAndUploadAvatar : null,
@@ -1123,13 +1128,11 @@ class _TeamMemberPersonalInfoScreenState
                     ? Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.person,
-                          color: cpAccent,
-                          size: 40,
+                        errorBuilder: (_, __, ___) => _GenderAvatarFallback(
+                          assetPath: fallbackAssetPath,
                         ),
                       )
-                    : const Icon(Icons.person, color: cpAccent, size: 40),
+                    : _GenderAvatarFallback(assetPath: fallbackAssetPath),
           ),
           if (canEditAvatar)
             Positioned(
@@ -1152,6 +1155,31 @@ class _TeamMemberPersonalInfoScreenState
         ],
       ),
     );
+  }
+}
+
+class _GenderAvatarFallback extends StatelessWidget {
+  const _GenderAvatarFallback({required this.assetPath});
+
+  final String? assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = assetPath;
+    if (path != null) {
+      return Image.asset(
+        path,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.person,
+          color: cpAccent,
+          size: 40,
+        ),
+      );
+    }
+    return const Icon(Icons.person, color: cpAccent, size: 40);
   }
 }
 
