@@ -591,6 +591,7 @@ class ApiService {
       "branches/$branchId/services";
   static String linkBranchClientAPI(int branchId) =>
       "branches/$branchId/clients/link";
+  static String salonCustomersAPI(int salonId) => "salons/$salonId/customers";
   static const String membershipPlansAPI = "admin/membership-plans";
   static String salonSubscriptionAPI(int salonId) =>
       "admin/salons/$salonId/subscription";
@@ -920,10 +921,6 @@ class ApiService {
 
   static String getBranchClientsAPI(int branchId) {
     return "branches/$branchId/branch-client";
-  }
-
-  static String getBranchCustomersListAPI(int branchId) {
-    return "branches/$branchId/customers-list";
   }
 
   static String getBranchCartAPI(int branchId, int userId) {
@@ -2529,82 +2526,51 @@ class ApiService {
     );
   }
 
-  Future<Map<String, dynamic>> registerCustomer({
-    required int branchId,
+  /// POST /salons/{salonId}/customers
+  ///
+  /// Adds a customer straight to the salon roster. No OTP challenge is
+  /// involved: the salon staff (owner / manager / receptionist / super admin)
+  /// is trusted to enter the walk-in's details.
+  Future<Map<String, dynamic>> addSalonCustomer({
+    required int salonId,
+    required String name,
     required String phoneNumber,
-    required String firstName,
-    required String lastName,
-    String source = 'salon_app',
-    String? deviceToken,
+    String countryIsoCode = 'IN',
+    String countryCode = '+91',
   }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + salonCustomersAPI(salonId));
     final payload = <String, dynamic>{
-      "countryCode": "+91",
+      "name": name,
       "phoneNumber": phoneNumber,
-      "platform": AppEnvironment.platform,
+      "countryIsoCode": countryIsoCode,
+      "countryCode": countryCode,
     };
+    final body = json.encode(payload);
 
-    debugPrint(
-      "[RegisterCustomer payload] branchId=$branchId "
-      "name=$firstName $lastName source=$source "
-      "deviceTokenPresent=${deviceToken?.trim().isNotEmpty == true} "
-      "body=$payload",
+    _logRequest(
+      tag: 'AddSalonCustomer Request',
+      url: url,
+      headers: const {"Content-Type": "application/json"},
+      body: body,
     );
 
-    final token = await getAuthToken();
-    final lookupResponse = await _sharedClient.post(
-      Uri.parse(baseUrl + lookupBranchClientAPI(branchId)),
+    final response = await _sharedClient.post(
+      url,
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token",
       },
-      body: json.encode(payload),
+      body: body,
     );
 
-    debugPrint("[RegisterCustomer lookup] status=${lookupResponse.statusCode}");
-    _debugPrintChunked("RegisterCustomer lookup body", lookupResponse.body);
+    debugPrint("[AddSalonCustomer] status=${response.statusCode}");
+    _debugPrintChunked("AddSalonCustomer body", response.body);
 
-    if (lookupResponse.statusCode == 200 || lookupResponse.statusCode == 201) {
-      final parsed = _parseEnvelopeResponse(
-        lookupResponse,
-        fallback: 'Failed register customer',
-      );
-      final data = parsed['data'];
-      return {
-        ...parsed,
-        'data': {
-          'status': 'IN_BRANCH',
-          if (data is Map) 'user': Map<String, dynamic>.from(data),
-        },
-      };
-    }
-
-    if (lookupResponse.statusCode != 404) {
-      return _parseEnvelopeResponse(
-        lookupResponse,
-        fallback: 'Failed register customer',
-      );
-    }
-
-    final otpResponse = await requestOtp(
-      nationalNumber: phoneNumber,
-      countryIsoCode: 'IN',
-      countryCode: '+91',
-      purpose: 'LOGIN_OR_REGISTER',
-      deviceToken: deviceToken,
+    return _parseEnvelopeResponse(
+      response,
+      fallback: 'Failed to add customer',
     );
-
-    if (otpResponse['success'] == true) {
-      final data = otpResponse['data'];
-      return {
-        ...otpResponse,
-        'data': {
-          'status': 'OTP_SENT',
-          if (data is Map) ...Map<String, dynamic>.from(data),
-        },
-      };
-    }
-
-    return otpResponse;
   }
 
   Future<Map<String, dynamic>> linkBranchClient({
@@ -2674,9 +2640,13 @@ class ApiService {
     );
   }
 
-  Future<Map<String, dynamic>> getBranchCustomersList(int branchId) async {
+  /// GET /salons/{salonId}/customers
+  ///
+  /// The salon-wide customer directory. Customers are salon-scoped, not
+  /// branch-scoped, so every branch of a salon reads the same list.
+  Future<Map<String, dynamic>> getSalonCustomers(int salonId) async {
     final token = await getAuthToken();
-    final uri = Uri.parse(baseUrl + getBranchCustomersListAPI(branchId));
+    final uri = Uri.parse(baseUrl + salonCustomersAPI(salonId));
     final response = await _sharedClient.get(
       uri,
       headers: {
@@ -2685,9 +2655,9 @@ class ApiService {
       },
     );
 
-    debugPrint("[GetBranchCustomersList] url=$uri");
-    debugPrint("[GetBranchCustomersList] status=${response.statusCode}");
-    _debugPrintChunked("GetBranchCustomersList body", response.body);
+    debugPrint("[GetSalonCustomers] url=$uri");
+    debugPrint("[GetSalonCustomers] status=${response.statusCode}");
+    _debugPrintChunked("GetSalonCustomers body", response.body);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final body = response.body.isEmpty ? '{}' : response.body;
@@ -2696,7 +2666,7 @@ class ApiService {
     throw Exception(
       _apiErrorMessage(
         response.body,
-        fallback: 'Failed to fetch branch customers',
+        fallback: 'Failed to fetch salon customers',
       ),
     );
   }

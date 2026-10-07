@@ -12,11 +12,11 @@ const Color _clientBorder = Color(0xFFE8DED6);
 class ViewAllClientOwnerScreen extends StatefulWidget {
   const ViewAllClientOwnerScreen({
     super.key,
-    required this.branchId,
+    required this.salonId,
     this.initialCustomers = const [],
   });
 
-  final int branchId;
+  final int salonId;
   final List<Map<String, dynamic>> initialCustomers;
 
   @override
@@ -53,8 +53,7 @@ class _ViewAllClientOwnerScreenState extends State<ViewAllClientOwnerScreen> {
     });
 
     try {
-      final response =
-          await _apiService.getBranchCustomersList(widget.branchId);
+      final response = await _apiService.getSalonCustomers(widget.salonId);
       final customers = _extractCustomers(response['data']);
       if (!mounted) return;
       setState(() {

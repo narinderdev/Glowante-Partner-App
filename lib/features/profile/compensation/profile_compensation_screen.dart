@@ -14,6 +14,7 @@ import '../../salon/widgets/owner_branch_header_selector.dart';
 import '../widgets/profile_subpage_app_bar.dart';
 import '../../../utils/colors.dart';
 import '../../../widgets/app_loader.dart';
+import '../../../widgets/dialog_scoped_resources.dart';
 import 'profile_compensation_models.dart';
 import 'profile_compensation_repository.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -2636,12 +2637,13 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 var isSavingPayment = false;
                 var hasSubmittedPayment = false;
 
-                try {
-                  await showDialog<void>(
-                    context: sheetContext,
-                    barrierDismissible: false,
-                    builder: (dialogContext) {
-                      return StatefulBuilder(
+                await showDialog<void>(
+                  context: sheetContext,
+                  barrierDismissible: false,
+                  builder: (dialogContext) {
+                    return DialogScopedResources(
+                      resources: [referenceController, notesController],
+                      child: StatefulBuilder(
                         builder: (dialogContext, setDialogState) {
                           Future<void> submitPayment() async {
                             if (isSavingPayment) {
@@ -2981,13 +2983,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                             ),
                           );
                         },
-                      );
-                    },
-                  );
-                } finally {
-                  referenceController.dispose();
-                  notesController.dispose();
-                }
+                      ),
+                    );
+                  },
+                );
               }
 
               final status = currentEmployee.statusLabel;

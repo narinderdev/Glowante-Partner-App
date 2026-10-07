@@ -8754,7 +8754,7 @@ class _BookingListCard extends StatelessWidget {
     final actionLabel = showConfirmAction
         ? context.t('Accept').toUpperCase()
         : (showStartAction
-            ? context.t('Start Job').toUpperCase()
+            ? context.t('Verify Booking').toUpperCase()
             : (_showsFinishAction(status)
                 ? context.t('Finish Job').toUpperCase()
                 : null));
@@ -10023,7 +10023,9 @@ class _StylistBookingDetailScreenState
         ? context.t('Accept').toUpperCase()
         : (_showsFinishAction(_statusUpper)
             ? context.t('Finish Job').toUpperCase()
-            : (showStartAction ? context.t('Start Job').toUpperCase() : null));
+            : (showStartAction
+                ? context.t('Verify Booking').toUpperCase()
+                : null));
 
     final primaryColor =
         (isConfirmAction || _showsFinishAction(_statusUpper) || showStartAction)

@@ -12,8 +12,8 @@ import '../services/stylist_branch_selection.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/input_validation.dart';
 import '../utils/price_formatter.dart';
-import '../widgets/fixed_slot_otp_field.dart';
 import '../widgets/app_loader.dart';
+import '../widgets/dialog_scoped_resources.dart';
 import 'view_all_client_owner.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -724,7 +724,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return null;
   }
 
-  List<Map<String, dynamic>> _extractBranchClients(dynamic raw) {
+  List<Map<String, dynamic>> _extractSalonCustomers(dynamic raw) {
     if (raw is List) {
       return raw
           .whereType<Map>()
@@ -735,7 +735,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     if (raw is Map) {
       final customerRows = raw['customerManagement']?['table']?['rows'];
       if (customerRows != null) {
-        final extracted = _extractBranchClients(customerRows);
+        final extracted = _extractSalonCustomers(customerRows);
         if (extracted.isNotEmpty) {
           return extracted;
         }
@@ -744,7 +744,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       for (final key in const ['clients', 'items', 'results', 'data']) {
         final nested = raw[key];
         if (nested != null) {
-          final extracted = _extractBranchClients(nested);
+          final extracted = _extractSalonCustomers(nested);
           if (extracted.isNotEmpty) {
             return extracted;
           }
@@ -758,17 +758,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return const [];
   }
 
-  Future<List<Map<String, dynamic>>> _fetchBranchCustomers() async {
-    if (widget.branchId == null) return const [];
-    final response =
-        await ApiService().getBranchCustomersList(widget.branchId!);
-    return _extractBranchClients(response['data']);
+  Future<List<Map<String, dynamic>>> _fetchSalonCustomers() async {
+    if (widget.salonId == null) return const [];
+    final response = await ApiService().getSalonCustomers(widget.salonId!);
+    return _extractSalonCustomers(response['data']);
   }
 
-  Future<Map<String, dynamic>> _fetchBranchCustomerByPhone(String phone) async {
-    if (widget.branchId == null) return const <String, dynamic>{};
+  Future<Map<String, dynamic>> _fetchSalonCustomerByPhone(String phone) async {
+    if (widget.salonId == null) return const <String, dynamic>{};
     final phoneDigits = _digitsOnly(phone);
-    final clients = await _fetchBranchCustomers();
+    final clients = await _fetchSalonCustomers();
     return clients.firstWhere(
       (item) =>
           _digitsOnly(
@@ -777,29 +776,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           phoneDigits,
       orElse: () => <String, dynamic>{},
     );
-  }
-
-  Future<void> _saveBranchCustomerName({
-    required int branchId,
-    required String phone,
-    required String firstName,
-    required String lastName,
-  }) async {
-    try {
-      await ApiService().importClientsByPhone(
-        branchId: branchId,
-        clients: [
-          {
-            'countryCode': '+91',
-            'phoneNumber': phone,
-            'firstName': firstName,
-            'lastName': lastName,
-          },
-        ],
-      );
-    } catch (e) {
-      debugPrint('[AddBooking] failed to save branch customer name: $e');
-    }
   }
 
   String _customerDisplayName(Map<String, dynamic> customer) {
@@ -1543,653 +1519,307 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     );
   }
 
-  Future<void> _showOtpBox(
-    String phone, {
-    required String firstName,
-    required String lastName,
-    required String challengeId,
+  /// Adds the customer to the salon (POST /salons/{salonId}/customers) and
+  /// Returns `null` when the API rejected the add.
+  Future<Map<String, dynamic>?> _addSalonCustomer({
+    required int salonId,
+    required String phone,
+    required String name,
   }) async {
-    String otp = '';
-    bool otpComplete = false;
-    bool isVerifying = false;
-    String? otpError;
-
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          Future<void> verifyOtp() async {
-            if (!otpComplete || otp.length != 6) {
-              setDialogState(() {
-                otpError = translateText("Enter 6-digit OTP");
-              });
-              return;
-            }
-
-            setDialogState(() {
-              isVerifying = true;
-              otpError = null;
-            });
-            try {
-              final response = await ApiService().verifyOtpChallengeForCustomer(
-                challengeId,
-                otp,
-              );
-              if (response['success'] != true) {
-                final apiMessage = _extractApiErrorMessage(response);
-                setDialogState(() {
-                  otpError = apiMessage.trim().isEmpty
-                      ? translateText('Invalid OTP')
-                      : apiMessage;
-                });
-                return;
-              }
-
-              Map<String, dynamic> customer = {};
-              final data = response['data'];
-              if (data is Map) {
-                customer = _normalizeCustomer(data);
-              }
-              final verifiedUserId =
-                  _extractUserId(data) ?? _extractUserId(response);
-              if (verifiedUserId != null && widget.branchId != null) {
-                await _saveBranchCustomerName(
-                  branchId: widget.branchId!,
-                  phone: phone,
-                  firstName: firstName,
-                  lastName: lastName,
-                );
-                final linkResponse = await ApiService().linkBranchClient(
-                  branchId: widget.branchId!,
-                  userId: verifiedUserId,
-                );
-                final linkedData = linkResponse['data'];
-                if (linkedData is Map && linkedData.isNotEmpty) {
-                  customer = {
-                    ...customer,
-                    ..._normalizeCustomer(linkedData),
-                  };
-                }
-                customer['id'] = verifiedUserId;
-                customer['userId'] = verifiedUserId;
-              }
-              if (customer.isEmpty && widget.branchId != null) {
-                customer = await _fetchBranchCustomerByPhone(phone);
-              }
-              if (widget.branchId != null) {
-                final refreshedCustomer =
-                    await _fetchBranchCustomerByPhone(phone);
-                if (refreshedCustomer.isNotEmpty) {
-                  customer = {
-                    ...customer,
-                    ...refreshedCustomer,
-                    if (verifiedUserId != null) 'id': verifiedUserId,
-                    if (verifiedUserId != null) 'userId': verifiedUserId,
-                  };
-                }
-              }
-              _fillCustomerFields(
-                customer,
-                fallbackPhone: phone,
-                fallbackFirstName: firstName,
-                fallbackLastName: lastName,
-              );
-              if (!ctx.mounted) return;
-              Navigator.pop(ctx);
-            } catch (e) {
-              setDialogState(() {
-                otpError = _extractApiErrorMessage(e);
-                if (otpError == null || otpError!.trim().isEmpty) {
-                  otpError = translateText('Invalid OTP');
-                }
-              });
-            } finally {
-              if (ctx.mounted) {
-                setDialogState(() => isVerifying = false);
-              }
-            }
-          }
-
-          return Dialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            backgroundColor: Colors.white,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF5EAD2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.verified_user_rounded,
-                        color: _bookingGold,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      translateText('Verify OTP'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: _bookingInk,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${translateText('Enter the 6-digit code sent to')} +91 $phone',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: _bookingMuted,
-                        fontSize: 12,
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    FixedSlotOtpField(
-                      enabled: !isVerifying,
-                      hasError: otpError != null,
-                      fieldWidth: 42,
-                      fieldHeight: 54,
-                      activeColor: _bookingGold,
-                      inactiveColor: const Color(0xFFD6C8BA),
-                      fillColor: Colors.white,
-                      filledColor: _bookingGold,
-                      textColor: _bookingInk,
-                      filledTextColor: Colors.white,
-                      onChanged: (value, complete) {
-                        setDialogState(() {
-                          otp = value;
-                          otpComplete = complete;
-                          otpError = null;
-                        });
-                      },
-                      onSubmitted: () {
-                        if (!isVerifying) {
-                          verifyOtp();
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed:
-                            isVerifying || !otpComplete ? null : verifyOtp,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _bookingGold,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: const Color(0xFFD8CEC5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          elevation: 8,
-                          shadowColor: const Color(0x338B6500),
-                        ),
-                        child: isVerifying
-                            ? AppLoader.inline(
-                                size: 18,
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              )
-                            : Text(
-                                translateText('Verify & Continue')
-                                    .toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                      ),
-                    ),
-                    if (otpError != null) ...[
-                      const SizedBox(height: 8),
-                      Center(child: _errorText(otpError!)),
-                    ],
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: isVerifying ? null : () => Navigator.pop(ctx),
-                      child: Text(
-                        translateText('Cancel'),
-                        style: const TextStyle(
-                          color: _bookingMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    final response = await ApiService().addSalonCustomer(
+      salonId: salonId,
+      name: name,
+      phoneNumber: phone,
     );
-  }
 
-  String? _extractChallengeId(dynamic raw) {
-    if (raw is! Map) return null;
-    final map = Map<String, dynamic>.from(raw);
-    for (final key in const [
-      'challengeId',
-      'otpChallengeId',
-      'otp_challenge_id',
-    ]) {
-      final value = map[key]?.toString().trim();
-      if (value != null && value.isNotEmpty) return value;
+    if (response['success'] == false) {
+      _showError(_extractApiErrorMessage(response));
+      return null;
     }
-    for (final key in const ['data', 'otp', 'challenge']) {
-      final parsed = _extractChallengeId(map[key]);
-      if (parsed != null) return parsed;
+
+    final data = response['data'];
+    var customer = _normalizeCustomer(data);
+    final userId = _extractUserId(data) ?? _extractUserId(response);
+    if (userId != null) {
+      customer['id'] = userId;
+      customer['userId'] = userId;
     }
-    return null;
-  }
 
-  String _walkinStatus(Map<String, dynamic> response) {
-    final data = response['data'];
-    final rawStatus = data is Map ? data['status'] : response['status'];
-    return (rawStatus ?? '').toString().trim().toUpperCase();
-  }
-
-  Map<String, dynamic> _walkinCustomer(Map<String, dynamic> response) {
-    final data = response['data'];
-    if (data is Map) {
-      final user = data['user'];
-      if (user is Map) {
-        return _normalizeCustomer(user);
+    // The POST response may be trimmed down; re-read the salon directory so
+    // the booking form gets the same shape the customer picker hands over.
+    try {
+      final refreshed = await _fetchSalonCustomerByPhone(phone);
+      if (refreshed.isNotEmpty) {
+        customer = {
+          ...customer,
+          ...refreshed,
+          if (userId != null) 'id': userId,
+          if (userId != null) 'userId': userId,
+        };
       }
-      return _normalizeCustomer(data);
+    } catch (e) {
+      debugPrint('[AddBooking] failed to refresh salon customer: $e');
     }
-    return const <String, dynamic>{};
+
+    return customer;
   }
 
   Future<void> _showAddCustomerModal({String initialPhone = ''}) async {
     final phoneCtrl = TextEditingController(text: _digitsOnly(initialPhone));
-    final firstCtrl = TextEditingController();
-    final lastCtrl = TextEditingController();
-    // final firstFocus = FocusNode();
-    // final lastFocus = FocusNode();
-    // final phoneFocus = FocusNode();
+    final nameCtrl = TextEditingController();
     bool isSubmitting = false;
-    String? firstNameError;
-    String? lastNameError;
+    String? nameError;
     String? phoneError;
 
     try {
       await showDialog(
         context: context,
-        builder: (ctx) => StatefulBuilder(
-          builder: (context, setDialogState) {
-            final maxDialogHeight = MediaQuery.of(context).size.height -
-                MediaQuery.of(context).viewInsets.bottom -
-                48;
+        builder: (ctx) => DialogScopedResources(
+          resources: [phoneCtrl, nameCtrl],
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              final maxDialogHeight = MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).viewInsets.bottom -
+                  48;
 
-            return Dialog(
-              insetPadding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9)),
-              backgroundColor: Colors.white,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxDialogHeight),
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        translateText('Add New Customer'),
-                        style: const TextStyle(
-                          color: _bookingInk,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
+              return Dialog(
+                insetPadding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9)),
+                backgroundColor: Colors.white,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxDialogHeight),
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          translateText('Add New Customer'),
+                          style: const TextStyle(
+                            color: _bookingInk,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        translateText(
-                          'Register a new guest to continue with this booking process.',
+                        const SizedBox(height: 6),
+                        Text(
+                          translateText(
+                            'Register a new guest to continue with this booking process.',
+                          ),
+                          style: const TextStyle(
+                            color: _bookingMuted,
+                            fontSize: 12,
+                            height: 1.35,
+                          ),
                         ),
-                        style: const TextStyle(
-                          color: _bookingMuted,
-                          fontSize: 12,
-                          height: 1.35,
+                        const SizedBox(height: 22),
+                        _dialogRequiredLabel('Name'),
+                        _dialogTextField(
+                          controller: nameCtrl,
+                          hint: "Enter guest's name",
+                          textInputAction: TextInputAction.next,
+                          textCapitalization: TextCapitalization.words,
+                          maxLength: 60,
+                          height: 56,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                AppInputRules.namePattern),
+                            LengthLimitingTextInputFormatter(60),
+                          ],
+                          onChanged: (_) {
+                            if (nameError != null) {
+                              setDialogState(() => nameError = null);
+                            }
+                          },
+                          onSubmitted: (_) =>
+                              FocusScope.of(context).nextFocus(),
                         ),
-                      ),
-                      const SizedBox(height: 22),
-                      _dialogRequiredLabel('First Name'),
-                      // _dialogTextField(
-                      //   controller: firstCtrl,
-                      //   focusNode: firstFocus,
-                      //   hint: "Enter guest's first name",
-                      //   textInputAction: TextInputAction.next,
-                      //   textCapitalization: TextCapitalization.words,
-                      //   maxLength: 30,
-                      //   height: 56,
-                      //   inputFormatters: [
-                      //     FilteringTextInputFormatter.allow(
-                      //         RegExp(r'[A-Za-z ]')),
-                      //     LengthLimitingTextInputFormatter(30),
-                      //   ],
-                      //   onChanged: (_) {
-                      //     if (firstNameError != null) {
-                      //       setDialogState(() => firstNameError = null);
-                      //     }
-                      //   },
-                      //   onSubmitted: (_) => lastFocus.requestFocus(),
-                      // ),
-                      _dialogTextField(
-                        controller: firstCtrl,
-                        hint: "Enter guest's first name",
-                        textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.words,
-                        maxLength: 30,
-                        height: 56,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              AppInputRules.namePattern),
-                          LengthLimitingTextInputFormatter(30),
-                        ],
-                        onChanged: (_) {
-                          if (firstNameError != null) {
-                            setDialogState(() => firstNameError = null);
-                          }
-                        },
-                        onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                      ),
-                      if (firstNameError != null) _errorText(firstNameError!),
-                      const SizedBox(height: 14),
-                      _dialogRequiredLabel('Last Name'),
-                      // _dialogTextField(
-                      //   controller: lastCtrl,
-                      //   focusNode: lastFocus,
-                      //   hint: "Enter guest's last name",
-                      //   textInputAction: TextInputAction.next,
-                      //   textCapitalization: TextCapitalization.words,
-                      //   maxLength: 30,
-                      //   height: 56,
-                      //   inputFormatters: [
-                      //     FilteringTextInputFormatter.allow(
-                      //         RegExp(r'[A-Za-z ]')),
-                      //     LengthLimitingTextInputFormatter(30),
-                      //   ],
-                      //   onChanged: (_) {
-                      //     if (lastNameError != null) {
-                      //       setDialogState(() => lastNameError = null);
-                      //     }
-                      //   },
-                      //   onSubmitted: (_) => phoneFocus.requestFocus(),
-                      // ),
-                      _dialogTextField(
-                        controller: lastCtrl,
-                        hint: "Enter guest's last name",
-                        textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.words,
-                        maxLength: 30,
-                        height: 56,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              AppInputRules.namePattern),
-                          LengthLimitingTextInputFormatter(30),
-                        ],
-                        onChanged: (_) {
-                          if (lastNameError != null) {
-                            setDialogState(() => lastNameError = null);
-                          }
-                        },
-                        onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                      ),
-                      if (lastNameError != null) _errorText(lastNameError!),
-                      const SizedBox(height: 14),
-                      _dialogRequiredLabel('Phone Number'),
-                      // _dialogTextField(
-                      //   controller: phoneCtrl,
-                      //   focusNode: phoneFocus,
-                      //   hint: 'Enter phone no',
-                      //   keyboardType: TextInputType.phone,
-                      //   textInputAction: TextInputAction.done,
-                      //   maxLength: 10,
-                      //   height: 56,
-                      //   inputFormatters: [
-                      //     FilteringTextInputFormatter.digitsOnly,
-                      //     LengthLimitingTextInputFormatter(10),
-                      //   ],
-                      //   prefixText: '+91  ',
-                      //   onChanged: (_) {
-                      //     if (phoneError != null) {
-                      //       setDialogState(() => phoneError = null);
-                      //     }
-                      //   },
-                      //   onSubmitted: (_) =>
-                      //       FocusManager.instance.primaryFocus?.unfocus(),
-                      // ),
-                      _dialogTextField(
-                        controller: phoneCtrl,
-                        hint: 'Enter phone no',
-                        keyboardType: TextInputType.phone,
-                        textInputAction: TextInputAction.done,
-                        maxLength: 10,
-                        height: 56,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                        prefixText: '+91  ',
-                        onChanged: (_) {
-                          if (phoneError != null) {
-                            setDialogState(() => phoneError = null);
-                          }
-                        },
-                        onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                      ),
-                      if (phoneError != null) _errorText(phoneError!),
-                      const SizedBox(height: 22),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: isSubmitting
-                                  ? null
-                                  : () async {
-                                      final firstName = firstCtrl.text.trim();
-                                      final lastName = lastCtrl.text.trim();
-                                      final phone =
-                                          _digitsOnly(phoneCtrl.text.trim());
+                        if (nameError != null) _errorText(nameError!),
+                        const SizedBox(height: 14),
+                        _dialogRequiredLabel('Phone Number'),
+                        // _dialogTextField(
+                        //   controller: phoneCtrl,
+                        //   focusNode: phoneFocus,
+                        //   hint: 'Enter phone no',
+                        //   keyboardType: TextInputType.phone,
+                        //   textInputAction: TextInputAction.done,
+                        //   maxLength: 10,
+                        //   height: 56,
+                        //   inputFormatters: [
+                        //     FilteringTextInputFormatter.digitsOnly,
+                        //     LengthLimitingTextInputFormatter(10),
+                        //   ],
+                        //   prefixText: '+91  ',
+                        //   onChanged: (_) {
+                        //     if (phoneError != null) {
+                        //       setDialogState(() => phoneError = null);
+                        //     }
+                        //   },
+                        //   onSubmitted: (_) =>
+                        //       FocusManager.instance.primaryFocus?.unfocus(),
+                        // ),
+                        _dialogTextField(
+                          controller: phoneCtrl,
+                          hint: 'Enter phone no',
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.done,
+                          maxLength: 10,
+                          height: 56,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
+                          ],
+                          prefixText: '+91  ',
+                          onChanged: (_) {
+                            if (phoneError != null) {
+                              setDialogState(() => phoneError = null);
+                            }
+                          },
+                          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                        ),
+                        if (phoneError != null) _errorText(phoneError!),
+                        const SizedBox(height: 22),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: isSubmitting
+                                    ? null
+                                    : () async {
+                                        final name = nameCtrl.text
+                                            .trim()
+                                            .replaceAll(RegExp(r'\s+'), ' ');
+                                        final phone =
+                                            _digitsOnly(phoneCtrl.text.trim());
 
-                                      setDialogState(() {
-                                        firstNameError = _validateCustomerName(
-                                          firstName,
-                                          translateText('First name'),
-                                        );
-                                        lastNameError = _validateCustomerName(
-                                          lastName,
-                                          translateText('Last name'),
-                                        );
-                                        phoneError = phone.isEmpty
-                                            ? translateText(
-                                                'Phone number is required')
-                                            : !_customerPhonePattern
-                                                    .hasMatch(phone)
-                                                ? translateText(
-                                                    'Enter a valid 10-digit phone number starting with 6, 7, 8, or 9')
-                                                : null;
-                                      });
+                                        setDialogState(() {
+                                          nameError = _validateCustomerName(
+                                            name,
+                                            translateText('Name'),
+                                          );
+                                          phoneError = phone.isEmpty
+                                              ? translateText(
+                                                  'Phone number is required')
+                                              : !_customerPhonePattern
+                                                      .hasMatch(phone)
+                                                  ? translateText(
+                                                      'Enter a valid 10-digit phone number starting with 6, 7, 8, or 9')
+                                                  : null;
+                                        });
 
-                                      if (firstNameError != null ||
-                                          lastNameError != null ||
-                                          phoneError != null) {
-                                        return;
-                                      }
-                                      final branchId = widget.branchId;
-                                      if (branchId == null) {
-                                        _showError(translateText(
-                                            'Please select a salon first.'));
-                                        return;
-                                      }
-
-                                      setDialogState(() => isSubmitting = true);
-
-                                      try {
-                                        final response =
-                                            await ApiService().registerCustomer(
-                                          branchId: branchId,
-                                          phoneNumber: phone,
-                                          firstName: firstName,
-                                          lastName: lastName,
-                                        );
-
-                                        if (response['success'] == false) {
-                                          _showError(
-                                              response['message']?.toString() ??
-                                                  'Failed register customer');
+                                        if (nameError != null ||
+                                            phoneError != null) {
+                                          return;
+                                        }
+                                        final salonId = widget.salonId;
+                                        if (salonId == null) {
+                                          _showError(translateText(
+                                              'Please select a salon first.'));
                                           return;
                                         }
 
-                                        final status = _walkinStatus(response);
-                                        if (status == 'IN_BRANCH') {
+                                        setDialogState(
+                                            () => isSubmitting = true);
+
+                                        try {
                                           final customer =
-                                              _walkinCustomer(response);
-                                          await _saveBranchCustomerName(
-                                            branchId: branchId,
+                                              await _addSalonCustomer(
+                                            salonId: salonId,
                                             phone: phone,
-                                            firstName: firstName,
-                                            lastName: lastName,
+                                            name: name,
                                           );
+                                          if (customer == null) return;
+
+                                          final nameParts = name.split(' ');
                                           _fillCustomerFields(
                                             customer,
                                             fallbackPhone: phone,
-                                            fallbackFirstName: firstName,
-                                            fallbackLastName: lastName,
+                                            fallbackFirstName: nameParts.first,
+                                            fallbackLastName: nameParts.length >
+                                                    1
+                                                ? nameParts.sublist(1).join(' ')
+                                                : '',
                                           );
+
                                           if (!ctx.mounted) return;
                                           FocusScope.of(ctx).unfocus();
                                           Navigator.pop(ctx);
                                           return;
+                                        } catch (e) {
+                                          _showError(
+                                              _extractApiErrorMessage(e));
+                                        } finally {
+                                          if (ctx.mounted) {
+                                            setDialogState(
+                                                () => isSubmitting = false);
+                                          }
                                         }
-
-                                        final challengeId =
-                                            _extractChallengeId(response);
-                                        if (status != 'OTP_SENT' ||
-                                            challengeId == null) {
-                                          _showError(translateText(
-                                            'Unable to start OTP verification. Please try again.',
-                                          ));
-                                          return;
-                                        }
-
-                                        if (!ctx.mounted) return;
-
-// Remove focus before closing dialog.
-                                        FocusScope.of(ctx).unfocus();
-                                        Navigator.pop(ctx);
-
-                                        Future.delayed(
-                                            const Duration(milliseconds: 350),
-                                            () {
-                                          if (!mounted) return;
-
-                                          _showOtpBox(
-                                            phone,
-                                            firstName: firstName,
-                                            lastName: lastName,
-                                            challengeId: challengeId,
-                                          );
-                                        });
-
-                                        return;
-                                      } catch (e) {
-                                        _showError(e.toString());
-                                      } finally {
-                                        if (ctx.mounted) {
-                                          setDialogState(
-                                              () => isSubmitting = false);
-                                        }
-                                      }
-                                    },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _bookingGold,
-                                foregroundColor: Colors.white,
-                                elevation: 8,
-                                shadowColor: const Color(0x338B6500),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6),
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _bookingGold,
+                                  foregroundColor: Colors.white,
+                                  elevation: 8,
+                                  shadowColor: const Color(0x338B6500),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 13),
                                 ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 13),
-                              ),
-                              child: isSubmitting
-                                  ? AppLoader.inline(
-                                      size: 18,
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    )
-                                  : Text(
-                                      translateText('Add Customer')
-                                          .toUpperCase(),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
+                                child: isSubmitting
+                                    ? AppLoader.inline(
+                                        size: 18,
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      )
+                                    : Text(
+                                        translateText('Add Customer')
+                                            .toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
-                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
+                        Center(
+                          child: Text(
+                            translateText(
+                              '"Excellence begins with understanding our guests."',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFFB9A999),
+                              fontSize: 12,
+                              height: 1.4,
+                              fontStyle: FontStyle.italic,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-                      Center(
-                        child: Text(
-                          translateText(
-                            '"Excellence begins with understanding our guests."',
-                          ),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFFB9A999),
-                            fontSize: 12,
-                            height: 1.4,
-                            fontStyle: FontStyle.italic,
-                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       );
     } finally {
       FocusManager.instance.primaryFocus?.unfocus();
-
-      Future.delayed(const Duration(milliseconds: 600), () {
-        phoneCtrl.dispose();
-        firstCtrl.dispose();
-        lastCtrl.dispose();
-      });
     }
   }
 
   Future<void> _showCustomerSearch() async {
-    if (widget.branchId == null) return;
+    if (widget.salonId == null) return;
 
     List<Map<String, dynamic>> clients = [];
     bool isLoadingClients = true;
@@ -2205,7 +1835,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             loadStarted = true;
             Future.microtask(() async {
               try {
-                final loadedClients = await _fetchBranchCustomers();
+                final loadedClients = await _fetchSalonCustomers();
                 clients = loadedClients;
                 if (ctx.mounted) {
                   setDialogState(() {
@@ -2345,7 +1975,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           ),
                           const Spacer(),
                           TextButton(
-                            onPressed: widget.branchId == null
+                            onPressed: widget.salonId == null
                                 ? null
                                 : () async {
                                     Navigator.pop(ctx);
@@ -2355,7 +1985,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                       MaterialPageRoute(
                                         builder: (_) =>
                                             ViewAllClientOwnerScreen(
-                                          branchId: widget.branchId!,
+                                          salonId: widget.salonId!,
                                           initialCustomers: clients,
                                         ),
                                       ),

@@ -369,6 +369,17 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     }
   }
 
+  // Customers are salon-scoped, so the client directory needs the salon that
+  // owns the branch currently selected in the dashboard.
+  int? get _selectedSalonId {
+    final branchId = _selectedBranchId;
+    if (branchId == null) return null;
+    for (final option in _branchOptions) {
+      if (option.branchId == branchId) return option.salonId;
+    }
+    return null;
+  }
+
   Future<void> _reloadSelectedBranch({bool resetPage = true}) async {
     final branchId = _selectedBranchId;
     if (branchId == null) return;
@@ -1596,17 +1607,17 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   }
 
   Widget _buildAllClientsButton() {
-    final branchId = _selectedBranchId;
+    final salonId = _selectedSalonId;
     return SizedBox(
       height: 44,
       child: OutlinedButton.icon(
-        onPressed: branchId == null
+        onPressed: salonId == null
             ? null
             : () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) =>
-                        OwnerBranchAllClientsScreen(branchId: branchId),
+                        OwnerBranchAllClientsScreen(salonId: salonId),
                   ),
                 );
               },

@@ -574,6 +574,7 @@ class AppTranslations {
       'Specialists': 'Specialists',
       'Start Job': 'Start Job',
       'Start job': 'Start job',
+      'Verify Booking': 'Verify Booking',
       'Stay on top of every branch and booking':
           'Stay on top of every branch and booking',
       'Subcategories': 'Subcategories',
@@ -1638,6 +1639,7 @@ class AppTranslations {
           'कस्टम समय स्लॉट निर्धारित करने के बजाय सैलून के संचालन घंटे लागू करें।',
       'Start Job': 'कार्य शुरू करें',
       'Start job': 'कार्य शुरू करें',
+      'Verify Booking': 'बुकिंग सत्यापित करें',
       'Stay on top of every branch and booking':
           'हर शाखा और बुकिंग पर नज़र रखें',
       'Subcategories': 'उपश्रेणियाँ',
@@ -3300,6 +3302,7 @@ class AppTranslations {
       'Enter UPI / transaction reference': 'यूपीआई / लेनदेन संदर्भ दर्ज करें',
       "Enter guest's first name": 'अतिथि का पहला नाम दर्ज करें',
       "Enter guest's last name": 'अतिथि का अंतिम नाम दर्ज करें',
+      "Enter guest's name": 'अतिथि का नाम दर्ज करें',
       'Enter phone no': 'फ़ोन नंबर दर्ज करें',
       'Enter your business name': 'अपने व्यवसाय का नाम दर्ज करें',
       'Enter your email': 'अपना ईमेल दर्ज करें',
