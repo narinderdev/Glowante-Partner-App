@@ -20,10 +20,21 @@ that happen. Please read them before "fixing" anything that looks odd.
 ## Android: one app-owned channel plus the manifest default fallback
 
 - Channel id `glowante_partner_alerts` ("Glowante alerts", importance high,
-  sound `res/raw/glowante_booking_request.wav`) is created at startup in
-  `lib/services/push_notification_service.dart` and used for every local
-  notification the app posts (foreground `onMessage` and the background
-  handler for data-only messages).
+  sound `res/raw/glowante_booking_request.wav`) is created natively in
+  `android/app/src/main/kotlin/com/glowante/salon/NotificationChannels.kt`,
+  called from `GlowantePartnerApplication.onCreate`. It must be native, not
+  Dart: the FCM SDK displays background messages itself without starting the
+  Flutter engine, right after the process starts. The first push after a
+  Play Store upgrade, before the partner opens the app, has to find the
+  channel already there, otherwise the SDK posts it on its own
+  "Miscellaneous" fallback channel with the default sound, and that fallback
+  channel then stays in the app's settings. The id and name are read from
+  `strings.xml`, so they cannot diverge from the manifest default.
+- `lib/services/push_notification_service.dart` only posts to that id (for
+  the foreground `onMessage` path and the background handler for data-only
+  messages). Its constants must match `strings.xml`. If the channel somehow
+  does not exist yet, flutter_local_notifications creates it from the posting
+  details with the same sound, which is a harmless fallback.
 - `android/app/src/main/res/values/strings.xml` sets
   `default_notification_channel_id` to the same id. The FCM SDK uses that
   manifest default for auto-displayed background messages whenever the
@@ -34,8 +45,18 @@ that happen. Please read them before "fixing" anything that looks odd.
   behaviour again.
 - Android fixes a channel's sound the moment it is created on a device. The
   earlier channel id `glowante_default_channel` already shipped with the
-  system default sound, so it could not be reused; the app now deletes it at
-  startup. If the sound ever has to change again, pick a new channel id.
+  system default sound, so it could not be reused. If the sound ever has to
+  change again, pick a new channel id.
+- Upgrade migration: a partner who muted, lowered, or blocked the old channel
+  must not start hearing notifications again just because they arrive on a
+  new channel. The first time the new channel is created, `NotificationChannels`
+  reads the old one and caps the new channel's importance at the user's value
+  and carries over a user-chosen sound, including silence. On Android 10+ the
+  `hasUserSetImportance` / `hasUserSetSound` flags decide what counts as
+  user-set; on Android 8 and 9 anything below the shipped high importance,
+  or a null sound, does. The old channel is deleted afterwards. The decision
+  is a pure function covered by `NotificationChannelsTest` (run with
+  `./gradlew :app:testProdDebugUnitTest` in `android/`).
 - `android.notification.sound` in the payload is irrelevant on Android 8+;
   the channel decides. `AndroidNotificationDetails(sound:, playSound:)` in the
   Dart code only matters for pre-Oreo devices.
@@ -72,3 +93,11 @@ gone and the new channel is created fresh.
    Notifications for the app should list only "Glowante alerts".
 4. Upgrade check: install the previous build, open it once, upgrade in place,
    and confirm "General Notifications" disappears and the coin sound plays.
+5. Muted upgrade check: install the previous build, open it, silence or
+   block "General Notifications" in system settings, upgrade in place, open
+   the app. "Glowante alerts" must appear with the same silenced or blocked
+   state, and a push must stay silent.
+6. Upgrade-before-open check: install the previous build and open it, then
+   upgrade in place and do NOT open the app. Send a push. It must play the
+   coin sound and the app's notification settings must show "Glowante
+   alerts" only, with no "Miscellaneous" channel.
