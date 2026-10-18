@@ -65,11 +65,15 @@ object NotificationChannels {
         val overrides = legacy
             ?.takeIf { manager.getNotificationChannel(channelId) == null }
             ?.let { old ->
-                val canReadUserFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                // hasUserSetImportance() exists since API 29 but
+                // hasUserSetSound() only since API 30; calling the latter on
+                // Android 10 throws NoSuchMethodError inside Application.onCreate.
+                val canReadUserImportance = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                val canReadUserSound = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
                 legacyOverrides(
-                    userSetImportance = if (canReadUserFlags) old.hasUserSetImportance() else null,
+                    userSetImportance = if (canReadUserImportance) old.hasUserSetImportance() else null,
                     importance = old.importance,
-                    userSetSound = if (canReadUserFlags) old.hasUserSetSound() else null,
+                    userSetSound = if (canReadUserSound) old.hasUserSetSound() else null,
                     sound = old.sound
                 )
             }
