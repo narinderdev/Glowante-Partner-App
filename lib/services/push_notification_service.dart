@@ -10,20 +10,75 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/api_service.dart';
 import 'notification_store.dart';
 
-const _androidChannelId = 'glowante_default_channel';
-const _androidChannelName = 'General Notifications';
+// Every notification this partner app shows plays the urgent 10 s
+// "coin/money" sound (glowante_booking_request), whatever type the backend
+// sent. See docs/PUSH_SOUND.md before changing anything here.
+//
+// Android never changes a channel's sound after the channel has been
+// created on a device, and the previous channel id
+// (glowante_default_channel) has already shipped with the default sound,
+// so a NEW channel id is required for the custom sound to take effect.
+const _androidChannelId = 'glowante_partner_alerts';
+const _androidChannelName = 'Glowante alerts';
 const _androidChannelDescription =
-    'Updates about bookings, branches, and offers.';
+    'Booking requests and updates about bookings, branches, and offers.';
+// Pre-sound channel id from earlier builds; deleted at startup so old
+// installs do not keep a dead "General Notifications" toggle in settings.
+const _legacyAndroidChannelId = 'glowante_default_channel';
+// android/app/src/main/res/raw/glowante_booking_request.wav (no extension).
+const _androidSoundResource = 'glowante_booking_request';
+// ios/Runner/Sounds/glowante_booking_request.caf, bundled with the Runner.
+const _iosSoundFile = 'glowante_booking_request.caf';
 const _tokenStorageKey = 'fcm_device_token';
 
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
+
+const AndroidNotificationSound _androidSound =
+    RawResourceAndroidNotificationSound(_androidSoundResource);
 
 final AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
   _androidChannelId,
   _androidChannelName,
   description: _androidChannelDescription,
   importance: Importance.high,
+  sound: _androidSound,
+  playSound: true,
+  enableVibration: true,
+);
+
+// Creates the partner channel (idempotent) and removes the legacy one.
+// Called from both the main isolate and the background isolate, because
+// the background isolate has its own plugin instance.
+Future<void> _ensureAndroidChannels(
+    FlutterLocalNotificationsPlugin plugin) async {
+  final android = plugin.resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>();
+  if (android == null) return;
+  await android.createNotificationChannel(_androidChannel);
+  await android.deleteNotificationChannel(_legacyAndroidChannelId);
+}
+
+AndroidNotificationDetails _androidDetails({String? icon}) {
+  return AndroidNotificationDetails(
+    _androidChannel.id,
+    _androidChannel.name,
+    channelDescription: _androidChannel.description,
+    icon: icon,
+    importance: Importance.high,
+    priority: Priority.high,
+    // Channel settings win on Android 8+; these cover pre-Oreo devices.
+    sound: _androidSound,
+    playSound: true,
+    enableVibration: true,
+  );
+}
+
+const DarwinNotificationDetails _iosDetails = DarwinNotificationDetails(
+  presentSound: true,
+  presentAlert: true,
+  presentBadge: true,
+  sound: _iosSoundFile,
 );
 
 class BookingNotificationPayload {
@@ -155,24 +210,11 @@ Future<void> _showBackgroundNotification(RemoteMessage message) async {
   await plugin.initialize(
     const InitializationSettings(android: androidInit, iOS: iosInit),
   );
-  await plugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(_androidChannel);
+  await _ensureAndroidChannels(plugin);
 
   final details = NotificationDetails(
-    android: AndroidNotificationDetails(
-      _androidChannel.id,
-      _androidChannel.name,
-      channelDescription: _androidChannel.description,
-      importance: Importance.high,
-      priority: Priority.high,
-    ),
-    iOS: const DarwinNotificationDetails(
-      presentSound: true,
-      presentAlert: true,
-      presentBadge: true,
-    ),
+    android: _androidDetails(),
+    iOS: _iosDetails,
   );
 
   print('Showing background local notification: title=$title, body=$body');
@@ -431,10 +473,7 @@ class PushNotificationService {
       },
     );
 
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_androidChannel);
+    await _ensureAndroidChannels(_localNotifications);
   }
 
   Future<void> _requestPermissions() async {
@@ -482,16 +521,9 @@ class PushNotificationService {
     final body = notification?.body ?? message.data['body']?.toString() ?? '';
 
     final details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        _androidChannel.id,
-        _androidChannel.name,
-        channelDescription: _androidChannel.description,
-        icon: android?.smallIcon ?? '@mipmap/ic_launcher',
-        importance: Importance.high,
-        priority: Priority.high,
-      ),
-      iOS: const DarwinNotificationDetails(
-          presentSound: true, presentAlert: true, presentBadge: true),
+      android:
+          _androidDetails(icon: android?.smallIcon ?? '@mipmap/ic_launcher'),
+      iOS: _iosDetails,
     );
 
     print(

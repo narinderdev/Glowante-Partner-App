@@ -1,4 +1,8 @@
 <resources>
-    <string name="default_notification_channel_id">glowante_default_channel</string>
-    <string name="default_notification_channel_name">General Notifications</string>
+    <!-- Must match _androidChannelId in lib/services/push_notification_service.dart.
+         The FCM SDK posts background-displayed messages here whenever the
+         payload names a channel this app never created (the backend sends
+         glowante_default / glowante_booking_requests). See docs/PUSH_SOUND.md. -->
+    <string name="default_notification_channel_id">glowante_partner_alerts</string>
+    <string name="default_notification_channel_name">Glowante alerts</string>
 </resources>

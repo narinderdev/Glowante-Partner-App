@@ -16,6 +16,8 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		9D789965EF2E9A706948A8B8 /* glowante_booking_request.caf in Resources */ = {isa = PBXBuildFile; fileRef = B2C47FEC404BD9381EB44D78 /* glowante_booking_request.caf */; };
+		FF99C22F977F2B33D5413DCB /* glowante_glow.caf in Resources */ = {isa = PBXBuildFile; fileRef = C93419A633BD3BE41B7922CA /* glowante_glow.caf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,6 +85,8 @@
 		BE618488FCC50BAD1CE7199F /* Pods-Runner.profile-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-dev.xcconfig"; sourceTree = "<group>"; };
 		CA8713518679C5B02DBE8435 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		D1B4E2632E86C1A900AA8F6E /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		B2C47FEC404BD9381EB44D78 /* glowante_booking_request.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = glowante_booking_request.caf; sourceTree = "<group>"; };
+		C93419A633BD3BE41B7922CA /* glowante_glow.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = glowante_glow.caf; sourceTree = "<group>"; };
 		DD092E8935063439D7AAADBA /* Pods-RunnerTests.release-prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release-prod.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release-prod.xcconfig"; sourceTree = "<group>"; };
 		E3F1733812803760FAF74C37 /* Pods-RunnerTests.debug-staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug-staging.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug-staging.xcconfig"; sourceTree = "<group>"; };
 		E9754026DC560BBC7AA97855 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -222,6 +226,7 @@
 				D1B4E2632E86C1A900AA8F6E /* Runner.entitlements */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				C30CD3A4F31C02F40BA3B8FF /* Firebase */,
+				97C11A9C33FD52E003700697 /* Sounds */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -244,6 +249,15 @@
 			);
 			name = Firebase;
 			path = Firebase;
+			sourceTree = "<group>";
+		};
+		97C11A9C33FD52E003700697 /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				B2C47FEC404BD9381EB44D78 /* glowante_booking_request.caf */,
+				C93419A633BD3BE41B7922CA /* glowante_glow.caf */,
+			);
+			path = Sounds;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -347,6 +361,8 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+				9D789965EF2E9A706948A8B8 /* glowante_booking_request.caf in Resources */,
+				FF99C22F977F2B33D5413DCB /* glowante_glow.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
