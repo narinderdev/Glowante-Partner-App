@@ -95,6 +95,15 @@ def build_and_upload(flavor, track: "internal", release_status: nil)
   ).max_by { |f| File.mtime(f) }
   UI.user_error!("No .aab found under build/app/outputs/bundle after build") unless aab_path
 
+  # Catch incompatible prebuilt SDK libraries before uploading to Play Console.
+  # Python 3 is required on the deployment machine; no pip packages are needed.
+  sh(
+    ENV["PYTHON"] || (Gem.win_platform? ? "python" : "python3"),
+    File.join(project_root, "scripts/check_android_16kb.py"),
+    aab_path,
+    "--require-native"
+  )
+
   upload_to_play_store(
     package_name: info[:package_name],
     aab: aab_path,

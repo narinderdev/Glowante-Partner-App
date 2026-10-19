@@ -80,6 +80,28 @@ cd android && bundle exec fastlane android prod
 
 Each lane runs `flutter build ipa`/`flutter build appbundle` for that flavor, then uploads it — no manual Xcode scheme-switching or drag-and-drop uploads needed.
 
+## Android 16 KB native library checks
+
+Android Fastlane lanes check the built AAB's arm64 and x86_64 native libraries
+before uploading. The check reports incompatible `.so` filenames and stops the
+lane if their ELF LOAD alignment or RELRO layout is incompatible with 16 KB pages.
+The deployment machine needs Python 3, with no additional pip packages. Fastlane
+uses `python3` on macOS/Linux and `python` on Windows; set `PYTHON` to an executable
+path if needed.
+
+To check an existing production bundle from the project root:
+
+```bash
+python3 scripts/check_android_16kb.py build/app/outputs/bundle/prodRelease/app-prod-release.aab --require-native
+```
+
+On Windows, use `python` instead of `python3`. This checks native ELF binaries;
+APK ZIP alignment and testing on a 16 KB Android device/emulator remain separate
+checks. See [Android's 16 KB guidance](https://developer.android.com/guide/practices/page-sizes).
+Keep `tflite_flutter` at 0.12.1 or newer: the earlier TensorFlow Lite native
+libraries are not 16 KB compatible. After upgrading it, also test the stylist
+attendance face-recognition flow on a device.
+
 ## Force Update (Firebase Remote Config)
 
 Lets you lock users out of the app until they update, without shipping a new release — just change a value in Firebase Console.
